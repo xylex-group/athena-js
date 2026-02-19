@@ -18,6 +18,11 @@
       "types": "./dist/testing/harness.d.ts",
       "import": "./dist/testing/harness.mjs",
       "require": "./dist/testing/harness.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
     }
   },
   "files": [
@@ -81,9 +86,18 @@
     "cron-parser": "^4.9.0",
     "uuid": "^9.0.1"
   },
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/blessed": "^0.1.25",
     "@types/node": "^20.10.5",
+    "@types/react": "^18.3.12",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
