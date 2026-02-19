@@ -82,3 +82,21 @@ export type {
 
 // error class exports
 export { FatalError, RetryableError } from './types/index.js'
+
+// athena gateway type exports (hook available via the /react entry point)
+export type {
+  AthenaGatewayCondition,
+  AthenaFetchPayload,
+  AthenaInsertPayload,
+  AthenaDeletePayload,
+  AthenaUpdatePayload,
+  AthenaGatewayBaseOptions,
+  AthenaGatewayHookConfig,
+  AthenaGatewayCallOptions,
+  AthenaGatewayResponse,
+  AthenaGatewayResponseLog,
+  AthenaGatewayCallLog,
+  AthenaGatewayHookResult,
+  AthenaGatewayMethod,
+  AthenaGatewayEndpointPath,
+} from './gateway/types.js'
