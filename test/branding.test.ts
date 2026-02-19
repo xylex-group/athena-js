@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { readFile } from 'node:fs/promises'
 
 test('package metadata uses athena-js branding', async () => {
-  const pkg = JSON.parse(await readFile('/home/runner/work/athena-js/athena-js/package.json', 'utf8')) as {
+  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
     name: string
     bin: Record<string, string>
   }
