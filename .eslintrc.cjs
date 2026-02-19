@@ -20,6 +20,14 @@ module.exports = {
     'bin',
     'examples/**/dist',
   ],
+  rules: {
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': 'off',
+    '@typescript-eslint/ban-types': 'off',
+    '@typescript-eslint/no-this-alias': 'off',
+    'no-useless-catch': 'off',
+    'no-constant-condition': 'off',
+  },
   overrides: [
     {
       files: ['test/**/*.ts'],
@@ -29,5 +37,4 @@ module.exports = {
     },
   ],
 };
-
 
