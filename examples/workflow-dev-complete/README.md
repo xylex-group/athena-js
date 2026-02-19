@@ -1,6 +1,6 @@
 # Complete Workflow Dev Example
 
-comprehensive demonstration of all workflow dev kit api features in worlds-engine
+comprehensive demonstration of all workflow dev kit api features in athena-js
 
 ## features demonstrated
 
@@ -69,5 +69,5 @@ this example matches the workflow dev kit api
 - similar world abstraction
 - equivalent error handling
 
-worlds-engine provides temporal style durability and distributed execution on top of the workflow dev kit api
+athena-js provides temporal style durability and distributed execution on top of the workflow dev kit api
 

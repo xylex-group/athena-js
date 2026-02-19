@@ -6,7 +6,7 @@
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "worlds-engine": "file:../.."
+    "athena-js": "file:../.."
   },
   "devDependencies": {
     "tsx": "^4.7.0"

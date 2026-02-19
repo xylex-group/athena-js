@@ -43,7 +43,7 @@ npm start
 ### basic retry
 
 ```typescript
-import { withRetry } from 'worlds-engine'
+import { withRetry } from 'athena-js'
 
 const result = await withRetry(
   () => fetch('https://api.example.com/data'),
@@ -54,7 +54,7 @@ const result = await withRetry(
 ### retryable function
 
 ```typescript
-import { retryable } from 'worlds-engine'
+import { retryable } from 'athena-js'
 
 const fetchWithRetry = retryable(
   async (url: string) => {
@@ -70,7 +70,7 @@ const data = await fetchWithRetry('https://api.example.com')
 ### predefined patterns
 
 ```typescript
-import { withRetry, retryPatterns } from 'worlds-engine'
+import { withRetry, retryPatterns } from 'athena-js'
 
 // api pattern: 5 attempts, exponential backoff
 await withRetry(apiCall, retryPatterns.api)
@@ -85,7 +85,7 @@ await withRetry(networkOp, retryPatterns.network)
 ### conditional retry
 
 ```typescript
-import { withRetry, shouldRetryError } from 'worlds-engine'
+import { withRetry, shouldRetryError } from 'athena-js'
 
 await withRetry(riskyOperation, {
   maxAttempts: 3,

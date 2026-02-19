@@ -1,12 +1,12 @@
 ﻿{
-  "name": "worlds-engine-example-workflow-dev-style",
+  "name": "athena-js-example-workflow-dev-style",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "worlds-engine": "file:../..",
+    "athena-js": "file:../..",
     "tsx": "^4.7.0"
   }
 }

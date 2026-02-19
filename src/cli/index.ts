@@ -14,7 +14,7 @@ export async function runCLI(args: string[]): Promise<void> {
 
   if (!command) {
     console.error(`unknown command: ${commandName}`)
-    console.log('run "worlds-engine help" for usage')
+    console.log('run "athena-js help" for usage')
     process.exit(1)
   }
 

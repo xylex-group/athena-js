@@ -1,5 +1,5 @@
 /**
- * all the types for worlds-engine
+ * all the types for athena-js
  * 
  * type definitions for world workers workflows activities and backends
  */

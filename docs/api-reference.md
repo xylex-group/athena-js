@@ -1,6 +1,6 @@
 # api reference
 
-complete api documentation for worlds-engine workflow orchestration system
+complete api documentation for athena-js workflow orchestration system
 
 ## core primitives
 
@@ -156,7 +156,7 @@ const world = new World({
   maxWorkers: 10
   scaleThreshold: 0.7
   persistence: 'hybrid'
-  persistencePath: '.worlds-engine'
+  persistencePath: '.athena-js'
   failureStrategy: 'retry'
 })
 
@@ -380,7 +380,7 @@ functions available inside workflow functions
 get current workflow context
 
 ```typescript
-import { getWorkflowMetadata } from 'worlds-engine'
+import { getWorkflowMetadata } from 'athena-js'
 
 getWorkflowMetadata(): WorkflowMetadata
 ```
@@ -412,7 +412,7 @@ const myWorkflow = workflow('example' async (ctx input) => {
 get current step context
 
 ```typescript
-import { getStepMetadata } from 'worlds-engine'
+import { getStepMetadata } from 'athena-js'
 
 getStepMetadata(): StepMetadata
 ```
@@ -444,7 +444,7 @@ const myActivity = activity('step' async (ctx input) => {
 deterministic sleep
 
 ```typescript
-import { sleep } from 'worlds-engine'
+import { sleep } from 'athena-js'
 
 sleep(ms: number): Promise<void>
 ```
@@ -461,7 +461,7 @@ console.log('resumed after 5 seconds')
 http request with retry
 
 ```typescript
-import { fetch } from 'worlds-engine'
+import { fetch } from 'athena-js'
 
 fetch(url: string init?: RequestInit): Promise<Response>
 ```
@@ -481,7 +481,7 @@ const response = await fetch('https://api.example.com/data' {
 create low level hook
 
 ```typescript
-import { createHook } from 'worlds-engine'
+import { createHook } from 'athena-js'
 
 createHook<T>(): Promise<Hook<T>>
 ```
@@ -516,7 +516,7 @@ console.log(`approval: ${result.approved}`)
 create type safe hook factory
 
 ```typescript
-import { defineHook } from 'worlds-engine'
+import { defineHook } from 'athena-js'
 
 defineHook<T>(): { create: () => Promise<Hook<T>> }
 ```
@@ -533,7 +533,7 @@ const hook = await approvalHook.create()
 create webhook endpoint
 
 ```typescript
-import { createWebhook } from 'worlds-engine'
+import { createWebhook } from 'athena-js'
 
 createWebhook(): Promise<Webhook>
 ```
@@ -564,7 +564,7 @@ console.log(`received ${request.method} request`)
 get workflow stream
 
 ```typescript
-import { getWritable } from 'worlds-engine'
+import { getWritable } from 'athena-js'
 
 getWritable(): WritableStream<any>
 ```
@@ -592,7 +592,7 @@ functions used outside workflow and step functions
 start new workflow run
 
 ```typescript
-import { start } from 'worlds-engine'
+import { start } from 'athena-js'
 
 start<T R>(
   name: string
@@ -616,7 +616,7 @@ const result = await handle.result()
 resume workflow via hook
 
 ```typescript
-import { resumeHook } from 'worlds-engine'
+import { resumeHook } from 'athena-js'
 
 resumeHook<T>(token: string payload: T): Promise<void>
 ```
@@ -635,7 +635,7 @@ await resumeHook('hook_abc123_456789' {
 resume workflow via webhook
 
 ```typescript
-import { resumeWebhook } from 'worlds-engine'
+import { resumeWebhook } from 'athena-js'
 
 resumeWebhook(token: string request: Request): Promise<void>
 ```
@@ -654,7 +654,7 @@ await resumeWebhook('webhook_abc123_456789' new Request('https://example.com' {
 get workflow state
 
 ```typescript
-import { getRun } from 'worlds-engine'
+import { getRun } from 'athena-js'
 
 getRun(workflowId: string): Promise<WorkflowState>
 ```
@@ -695,7 +695,7 @@ console.log(`activities: ${state.activities.length}`)
 filter multiple workflow runs
 
 ```typescript
-import { queryRuns } from 'worlds-engine'
+import { queryRuns } from 'athena-js'
 
 queryRuns(filters: {
   status?: string | string[]
@@ -723,7 +723,7 @@ const failed = await queryRuns({
 connect runtime to world
 
 ```typescript
-import { initializeRuntime } from 'worlds-engine'
+import { initializeRuntime } from 'athena-js'
 
 initializeRuntime(world: World): void
 ```
@@ -745,7 +745,7 @@ const handle = await start('workflow' input)
 unrecoverable error without retry
 
 ```typescript
-import { FatalError } from 'worlds-engine'
+import { FatalError } from 'athena-js'
 
 class FatalError extends Error {
   constructor(message: string)
@@ -765,7 +765,7 @@ if (invalidInput) {
 transient error with retry
 
 ```typescript
-import { RetryableError } from 'worlds-engine'
+import { RetryableError } from 'athena-js'
 
 class RetryableError extends Error {
   constructor(message: string retryAfter?: number)
@@ -806,7 +806,7 @@ interface World {
 default implementation
 
 ```typescript
-import { LocalWorld } from 'worlds-engine'
+import { LocalWorld } from 'athena-js'
 
 class LocalWorld extends World {
   constructor(config?: Partial<WorldConfig>)
@@ -828,7 +828,7 @@ const world = new World(config world)
 extend for custom infrastructure
 
 ```typescript
-import { World type WorldConfig } from 'worlds-engine'
+import { World type WorldConfig } from 'athena-js'
 
 class CustomWorld extends World {
   constructor(config: WorldConfig) {
@@ -854,7 +854,7 @@ standalone retry functions
 wrap function with retry logic
 
 ```typescript
-import { withRetry } from 'worlds-engine'
+import { withRetry } from 'athena-js'
 
 withRetry<T>(
   fn: () => Promise<T>
@@ -880,7 +880,7 @@ const result = await withRetry(
 create retryable function
 
 ```typescript
-import { retryable } from 'worlds-engine'
+import { retryable } from 'athena-js'
 
 retryable<T extends any[] R>(
   fn: (...args: T) => Promise<R>
@@ -906,7 +906,7 @@ const response = await reliableApiCall('/api/data')
 predefined retry configurations
 
 ```typescript
-import { retryPatterns } from 'worlds-engine'
+import { retryPatterns } from 'athena-js'
 
 retryPatterns: {
   aggressive: RetryConfig

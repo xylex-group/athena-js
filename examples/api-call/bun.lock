@@ -3,10 +3,10 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "worlds-engine-example-api-call",
+      "name": "athena-js-example-api-call",
       "dependencies": {
         "tsx": "^4.7.0",
-        "worlds-engine": "file:../..",
+        "athena-js": "file:../..",
       },
     },
   },
@@ -235,6 +235,6 @@
 
     "uuid": ["uuid@9.0.1", "", { "bin": { "uuid": "dist/bin/uuid" } }, "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="],
 
-    "worlds-engine": ["worlds-engine@file:../..", { "dependencies": { "blessed": "^0.1.81", "chalk": "^4.1.2", "cron-parser": "^4.9.0", "uuid": "^9.0.1" }, "devDependencies": { "@types/blessed": "^0.1.25", "@types/node": "^20.10.5", "@types/uuid": "^9.0.7", "tsup": "^8.5.1", "tsx": "^4.7.0", "typescript": "^5.3.3" }, "bin": { "worlds-engine": "./bin/worlds-engine.js" } }],
+    "athena-js": ["athena-js@file:../..", { "dependencies": { "blessed": "^0.1.81", "chalk": "^4.1.2", "cron-parser": "^4.9.0", "uuid": "^9.0.1" }, "devDependencies": { "@types/blessed": "^0.1.25", "@types/node": "^20.10.5", "@types/uuid": "^9.0.7", "tsup": "^8.5.1", "tsx": "^4.7.0", "typescript": "^5.3.3" }, "bin": { "athena-js": "./bin/athena-js.js" } }],
   }
 }

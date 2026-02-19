@@ -24,7 +24,7 @@ export function createCommands(): Command[] {
       name: 'help',
       description: 'show help',
       handler: async () => {
-        console.log('worlds-engine - workflow orchestration')
+        console.log('athena-js - workflow orchestration')
         console.log('')
         console.log('commands:')
         console.log('  dashboard    open the real-time dashboard')
@@ -38,7 +38,7 @@ export function createCommands(): Command[] {
       name: 'version',
       description: 'show version',
       handler: async () => {
-        console.log('worlds-engine v0.1.0')
+        console.log('athena-js v0.1.0')
       },
     },
   ]

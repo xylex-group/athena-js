@@ -1,5 +1,5 @@
 /**
- * worlds-engine
+ * athena-js
  * 
  * workflow orchestration for nextjs and express apps
  * supports workflow dev kit style directives worlds and workers

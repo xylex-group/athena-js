@@ -1,4 +1,4 @@
-# worlds-engine
+# athena-js
 
 for people who dont want to go to temporal with a trash fucking ui and sdk that i dont understand or feelss arcane
 
@@ -8,7 +8,7 @@ built by floris from XYLEX Group
 
 ## overview
 
-worlds-engine provides workflow orchestration capabilities through a world based architecture where workers execute tasks from queues with automatic retry mechanisms saga pattern compensation logic and event sourcing for deterministic replay
+athena-js provides workflow orchestration capabilities through a world based architecture where workers execute tasks from queues with automatic retry mechanisms saga pattern compensation logic and event sourcing for deterministic replay
 
 the system handles distributed workflow execution across multiple worker processes with automatic scaling based on workload persistence through file or memory storage and comprehensive failure handling strategies
 
@@ -25,7 +25,7 @@ configuration parameters
 - scaleThreshold: workload percentage triggering scale up default 0.7
 - scaleDownThreshold: workload percentage triggering scale down default 0.3
 - persistence: storage mode memory file or hybrid default hybrid
-- persistencePath: filesystem location for persistent storage default .worlds-engine
+- persistencePath: filesystem location for persistent storage default .athena-js
 - failureStrategy: default failure handling mode default retry
 - heartbeatInterval: milliseconds between heartbeat signals default 5000
 - heartbeatTimeout: milliseconds before considering process dead default 30000
@@ -76,7 +76,7 @@ ctx.parentId?: string
 
 ### workflow dev kit api
 
-worlds-engine implements workflow dev kit compatible api for modern workflow orchestration
+athena-js implements workflow dev kit compatible api for modern workflow orchestration
 
 #### workflow functions
 
@@ -92,7 +92,7 @@ import {
   defineHook
   createWebhook
   getWritable
-} from 'worlds-engine'
+} from 'athena-js'
 ```
 
 getWorkflowMetadata returns context about current workflow execution
@@ -167,7 +167,7 @@ import {
   getRun
   queryRuns
   initializeRuntime
-} from 'worlds-engine'
+} from 'athena-js'
 ```
 
 start enqueues new workflow run
@@ -220,7 +220,7 @@ await world.start()
 FatalError marks step as failed without retry
 
 ```typescript
-import { FatalError } from 'worlds-engine'
+import { FatalError } from 'athena-js'
 
 throw new FatalError('unrecoverable error')
 ```
@@ -228,7 +228,7 @@ throw new FatalError('unrecoverable error')
 RetryableError marks step as retryable with optional delay
 
 ```typescript
-import { RetryableError } from 'worlds-engine'
+import { RetryableError } from 'athena-js'
 
 throw new RetryableError('transient error' 5000)
 ```
@@ -258,7 +258,7 @@ interface World {
 default world implementation for development
 
 ```typescript
-import { LocalWorld } from 'worlds-engine'
+import { LocalWorld } from 'athena-js'
 
 const world = new LocalWorld({
   webhookBaseUrl: 'http://localhost:3000/webhooks'
@@ -272,7 +272,7 @@ const world = new World(config world)
 extend world class for custom infrastructure
 
 ```typescript
-import { World type WorldConfig } from 'worlds-engine'
+import { World type WorldConfig } from 'athena-js'
 
 class MyCustomWorld extends World {
   constructor(config: WorldConfig) {
@@ -375,12 +375,12 @@ operations
 
 ### file store
 
-filesystem based storage using json files in .worlds-engine directory provides durability across process restarts
+filesystem based storage using json files in .athena-js directory provides durability across process restarts
 
 directory structure
 
 ```
-.worlds-engine/
+.athena-js/
   workflows/
     {workflowId}.json
   schedules/
@@ -625,7 +625,7 @@ replay mechanism
 
 ### logging
 
-logs written to console and .worlds-engine/logs directory with daily rotation
+logs written to console and .athena-js/logs directory with daily rotation
 
 log entry structure
 
@@ -989,7 +989,7 @@ query types
 basic workflow execution
 
 ```typescript
-import { World workflow activity } from 'worlds-engine'
+import { World workflow activity } from 'athena-js'
 
 const myActivity = activity('name' async (ctx input) => {
   return { result: input.value * 2 }
@@ -1011,7 +1011,7 @@ const result = await handle.result()
 retry pattern usage
 
 ```typescript
-import { withRetry retryPatterns } from 'worlds-engine'
+import { withRetry retryPatterns } from 'athena-js'
 
 const result = await withRetry(
   () => fetch('https://api.example.com')
@@ -1123,14 +1123,14 @@ single process deployment
 
 multi process deployment
 
-- share .worlds-engine directory via network filesystem
+- share .athena-js directory via network filesystem
 - each process runs independent world
 - coordination through file based queue
 - suitable for horizontal scaling
 
 container deployment
 
-- mount .worlds-engine as persistent volume
+- mount .athena-js as persistent volume
 - single container or multiple with shared volume
 - restart resilience through file persistence
 
@@ -1158,7 +1158,7 @@ migration pattern
 
 1. drain in flight workflows
 2. shutdown world
-3. run migration script on .worlds-engine
+3. run migration script on .athena-js
 4. update code
 5. restart world
 

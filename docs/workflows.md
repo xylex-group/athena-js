@@ -809,7 +809,7 @@ workflow('recursive-batch' async (ctx { items remaining }) => {
 ### test harness usage
 
 ```typescript
-import { createTestHarness } from 'worlds-engine/testing'
+import { createTestHarness } from 'athena-js/testing'
 
 const harness = createTestHarness()
 await harness.world.start()

@@ -3,7 +3,7 @@
 import('../dist/cli/index.js').then(({ runCLI }) => {
   runCLI(process.argv.slice(2))
 }).catch(err => {
-  console.error('Failed to start worlds-engine CLI:', err)
+  console.error('Failed to start athena-js CLI:', err)
   process.exit(1)
 })
 

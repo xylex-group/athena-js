@@ -233,7 +233,7 @@ const parentChildWorkflow = workflow('parent-child', async (ctx, input: { tasks:
  */
 
 async function main() {
-  console.log('worlds-engine workflow dev complete example')
+  console.log('athena-js workflow dev complete example')
   console.log('demonstrating all workflow dev kit features')
   console.log()
   

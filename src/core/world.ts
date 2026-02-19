@@ -48,7 +48,7 @@ export class World {
       scaleThreshold: config.scaleThreshold || 0.7,
       scaleDownThreshold: config.scaleDownThreshold || 0.3,
       persistence: config.persistence || 'hybrid',
-      persistencePath: config.persistencePath || '.worlds-engine',
+      persistencePath: config.persistencePath || '.athena-js',
       failureStrategy: config.failureStrategy || 'retry',
       heartbeatInterval: config.heartbeatInterval || 5000,
       heartbeatTimeout: config.heartbeatTimeout || 30000,

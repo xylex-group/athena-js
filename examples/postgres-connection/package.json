@@ -1,12 +1,12 @@
 {
-  "name": "worlds-engine-example-postgres-connection",
+  "name": "athena-js-example-postgres-connection",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "worlds-engine": "file:../..",
+    "athena-js": "file:../..",
     "pg": "^8.11.3",
     "tsx": "^4.7.0"
   },
