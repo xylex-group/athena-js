@@ -1,7 +1,5 @@
 # changelog
 
-fucking wrote this in less timea meeting with temportal wouldd of been
-
 all notable changes to athena-js will be documented here.
 
 ## [0.1.0] - 2025-12-01
@@ -11,25 +9,25 @@ all notable changes to athena-js will be documented here.
 first public release of athena-js. includes:
 
 #### core features
--[x] workflow orchestration with deterministic execution
+-[x] deterministic runtime coordination for connector tasks
 -[x] activity execution with automatic retries
 -[x] saga pattern for compensations
 -[x] event sourcing for durability
--[x] parent/child workflow hierarchies
+-[x] parent/child connector hierarchies
 -[x] cancellation propagation
 
 #### persistence
 -[x] memory storage (fast, ephemeral)
 -[x] file storage (durable)
--[x] hybrid storage (best of bothm, glitchy as FUCK do not use this boss)
+-[x] hybrid storage (best of both, suitable for local demos)
 
 #### scheduling
--[x] cron-based recurring workflows
+-[x] cron-powered recurring executions
 -[x] one-time scheduled execution
 -[x] pause/resume schedules
 
 #### auto-scaling
--[x] worker (worker) pool management
+-[x] worker pool management
 -[x] automatic scale up/down based on load
 -[x] configurable min/max workers
 
@@ -42,7 +40,7 @@ first public release of athena-js. includes:
 #### monitoring
 -[x] real-time metrics collection
 -[x] throughput tracking
--[x] workflow state queries
+-[x] task state queries
 -[x] activity progress tracking
 
 #### cli
@@ -59,13 +57,13 @@ first public release of athena-js. includes:
 #### documentation
 -[x] comprehensive readme
 -[x] getting started guide
--[x] workflow deep dive
+-[x] runtime architecture deep dive
 -[x] activity best practices
--[x] failure strategies guide
+-[x] resilience guide
 -[x] multiple working examples
 
 #### examples
--[x] basic workflow
+-[x] database connection starter
 -[x] express api integration
 -[x] order saga with compensations
 
@@ -83,5 +81,4 @@ first public release of athena-js. includes:
 -[] graphql api for monitoring
 -[] web-based dashboard
 -[] more scheduling features
--[] workflow versioning
-
+-[] connector versioning

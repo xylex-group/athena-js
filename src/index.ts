@@ -1,10 +1,8 @@
 /**
  * athena-js
  * 
- * workflow orchestration for nextjs and express apps
- * supports workflow dev kit style directives worlds and workers
- * 
- * built by floris from XYLEX Group
+ * database driver API gateway SDK for React and Node runtimes
+ * runtime, connectors, and gateway helpers built by XYLEX Group
  */
 
 // core exports

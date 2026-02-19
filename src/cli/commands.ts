@@ -24,7 +24,7 @@ export function createCommands(): Command[] {
       name: 'help',
       description: 'show help',
       handler: async () => {
-        console.log('athena-js - workflow orchestration')
+        console.log('athena-js - database driver API gateway')
         console.log('')
         console.log('commands:')
         console.log('  dashboard    open the real-time dashboard')

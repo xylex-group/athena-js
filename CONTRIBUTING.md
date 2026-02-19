@@ -16,7 +16,7 @@ npm install
 npm run build
 
 # run an example
-cd examples/basic-workflow
+cd examples/postgres-connection
 npm install
 npm start
 ```
@@ -26,7 +26,7 @@ npm start
 ```
 athena-js/
 ├── src/
-│   ├── core/           # main workflow orchestration logic
+│   ├── core/           # runtime and connector logic
 │   ├── persistence/    # storage implementations
 │   ├── strategies/     # retry, saga, failure handling
 │   ├── telemetry/      # logging, metrics, heartbeat
@@ -43,7 +43,7 @@ we keep it casual but professional. some guidelines:
 
 - **no emojis** in code or documentation
 - **casual documentation** - write like youre explaining to a colleague, not writing a manual
-- **clear naming** - prefer `processWorkflow` over `pw` or `processWf`
+- **clear naming** - prefer `runConnector` over `rc`
 - **comments when needed** - explain why, not what
 - **typescript strict mode** - all code must pass strict type checking
 
@@ -54,9 +54,9 @@ documentation style should match the existing docs:
 ```markdown
 ## good example
 
-workflows are just async functions that get special powers. they can sleep, run
-activities, spawn children, whatever you need. the cool part is theyre durable
-so they survive crashes.
+connectors are async functions that can pause, call activities, and emit traces.
+the runtime keeps them alive, retries them, and lets you attach telemetry so
+databases stay predictable.
 ```
 
 not this:
@@ -64,10 +64,8 @@ not this:
 ```markdown
 ## bad example
 
-Workflows are asynchronous functions that are provided with enhanced capabilities.
-They have the ability to execute sleep operations, invoke activities, and spawn
-child workflows. The most notable feature is their durability characteristic which
-enables them to maintain state across process terminations.
+Connectors are complex helpers that wrap database calls. They provide logging,
+retry, and heartbeat capabilities so that operations stay reliable.
 ```
 
 keep it simple and conversational.
