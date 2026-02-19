@@ -1,47 +1,38 @@
 # athena-js
 
-Athena is a database driver and API gateway SDK that tames relational backends through a managed worker runtime and a React-friendly gateway client. The runtime keeps connections warm, dispatches connector tasks, and feeds a lightweight HTTP gateway with typed fetch/insert/update/delete helpers so frontend teams never write raw SQL in the browser.
+Athena is a database driver + API gateway SDK that lets you interact with SQL backends using the familiar `supabase-js` syntax.
 
-## Highlights
-
-- **Driver runtime:** `World` keeps a pool of workers, retries connector tasks, and exposes hooks for scheduling, telemetry, and graceful shutdown.
-- **Gateway client:** `useAthenaGateway` wraps the Athena HTTP gateway with typed payloads, consistent headers, and logging of every call.
-- **Observability:** Built-in logger, metrics collector, and heartbeat coverage keep every database route visible and debuggable.
-
-## Quick start
-
-### 1. Install
-
-```bash
-npm install athena-js
-```
-
-### 2. Bootstrap the runtime
+## Gateway query builder
 
 ```ts
-import { World, activity } from 'athena-js'
+import { createClient } from 'athena-js'
 
-const world = new World({ minWorkers: 1 })
+const athena = createClient('https://athena-db.com', process.env.ATHENA_API_KEY)
 
-const fetchUsers = activity('fetch-users', async (ctx, { table }) => {
-  ctx.heartbeat('starting query')
-  // open your favorite driver here (pg, mysql2, drizzle, etc.)
-  const rows = await connection.query('SELECT * FROM ??', [table])
-  ctx.heartbeat('query complete')
-  return rows
-})
+const { data, error } = await athena
+  .from('characters')
+  .select(`
+    id,
+    name,
+    from:sender_id(name),
+    to:receiver_id(name)
+  `)
 
-world.register(fetchUsers)
-await world.start()
-await world.execute('fetch-users', { table: 'users' })
+if (error) {
+  console.error('gateway error', error)
+} else {
+  console.table(data)
+}
 ```
 
-### 3. Call the gateway from React
+Use `select`, `insert`, `update`, and `delete` just like Supabase. The builder supports `.eq()`, `.match()`, `.limit()`, `.offset()`, and `.single()` / `.maybeSingle()`.
+
+## React hook
 
 ```tsx
 'use client'
 
-import { useAthenaGateway } from 'athena-js'
+import { useAthenaGateway } from 'athena-js/react'
 import { useEffect } from 'react'
 
 export function UsersPanel() {
@@ -58,14 +49,14 @@ export function UsersPanel() {
     })
   }, [fetchGateway])
 
-  // render loading / error / data from lastResponse
+  if (error) return <div>Error: {error}</div>
+  if (isLoading) return <div>Loading…</div>
+
+  return <pre>{JSON.stringify(lastResponse?.data, null, 2)}</pre>
 }
 ```
 
 ## Learn more
 
-- [Getting started](docs/getting-started.md)
 - [API reference](docs/api-reference.md)
-- [Connectors](docs/connectors.md)
-- [Resilience](docs/resilience.md)
-- [Runtime](docs/runtime.md)
+- [Getting started](docs/getting-started.md)

@@ -14,11 +14,6 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
-    "./testing": {
-      "types": "./dist/testing/harness.d.ts",
-      "import": "./dist/testing/harness.mjs",
-      "require": "./dist/testing/harness.js"
-    },
     "./react": {
       "types": "./dist/react.d.ts",
       "import": "./dist/react.mjs",
@@ -56,14 +51,10 @@
     "sdk",
     "react",
     "hooks",
-    "retry",
-    "observability",
-    "metrics",
-    "workers",
-    "backend",
     "http",
     "postgres",
-    "supabase"
+    "supabase",
+    "query-builder"
   ],
   "author": "floris@xylex.group",
   "publisher": "XYLEX Group",

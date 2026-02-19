@@ -3,8 +3,7 @@ import { defineConfig } from 'tsup'
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    'testing/harness': 'src/testing/harness.ts',
-    'react': 'src/gateway/index.ts',
+    react: 'src/gateway/index.ts',
   },
   format: ['cjs', 'esm'],
   dts: true,

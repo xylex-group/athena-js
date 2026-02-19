@@ -1,71 +1,60 @@
 # API reference
 
-This document catalogs the runtime and client APIs that make Athena a database driver API gateway SDK.
+Athena exposes a Supabase-style client and a React hook for the Athena HTTP gateway.
 
-## Runtime building blocks
+## createClient
 
-### `World`
+```ts
+import { createClient } from 'athena-js'
 
-- **Purpose:** Manages a worker pool, task queue, scheduler, and telemetry so your connector definitions stay reliable.
-- **Key methods:**
-  - `world.register(...)` accepts connector definitions created with `activity()` and keeps them ready for execution.
-  - `world.start()` boots the backend, logger, scheduler, and workers.
-  - `world.shutdown()` drains the queue and closes every worker gracefully.
-  - `world.execute(name, payload)` runs a connector task by the registered name and returns a handle for awaiting the result.
-  - `world.schedule(id, name, payload, cron)` creates a recurring job.
-  - `world.scheduleOnce(name, payload, executeAt)` schedules a one-off execution.
-  - `world.query(id)` to read the stored state for a connector task.
-  - `world.getMetrics()` and `world.getWorkers()` expose telemetry for dashboards.
+const athena = createClient(url: string, apiKey: string, options?)
+```
 
-### `WorldConfig`
+Creates a client that talks to the Athena gateway. Returns an object with `.from(tableName)`.
 
-Customize the runtime with:
+### client.from(table)
 
-- `minWorkers` / `maxWorkers`: control scaling.
-- `scaleThreshold` / `scaleDownThreshold`: when to add or remove workers.
-- `persistence`: `hybrid`, `memory`, or `file` storage for task state.
-- `failureStrategy`: determines how retries or compensations behave (`retry`, `cascade`, `compensate`, `ignore`, `quarantine`).
-- `taskQueues`: route connectors to specific queues.
+Returns a query builder with:
 
-### Backends and telemetry
+- `.select(columns?, options?)` — fetch rows
+- `.insert(values, options?)` — insert row(s)
+- `.update(values, options?)` — update matching rows
+- `.delete(options?)` — delete by `resource_id` or `.eq('resource_id', id)`
+- `.eq(column, value)` — add equality filter
+- `.match(filters)` — add multiple equality filters
+- `.limit(n)` — limit result size
+- `.offset(n)` — offset results
+- `.single(columns?, options?)` — return first row or null
+- `.maybeSingle(columns?, options?)` — alias for `.single()`
+- `.reset()` — clear filters and start fresh
 
-- `LocalBackend` provides a default persistence layer with disk+memory storage and a dashboard-ready webhook URL.
-- `Backend` is the interface you can implement for custom persistence, queue, auth, and streaming providers.
-- `Logger`, `MetricsCollector`, and `HeartbeatMonitor` live under `telemetry/` and are wired into the runtime automatically.
+### SupabaseResult
 
-## Connector definitions
+Every builder method resolves to:
 
-- `activity(name, handler, options?)` encapsulates a driver operation.
-- Options include `retry`, `timeout`, `heartbeatTimeout`, and `taskQueue`.
-- Activities execute inside the `ActivityExecutor`, which tracks attempts, heartbeats, and cancellation.
-- The context passed to each activity (`ActivityContext`) exposes `heartbeat(message?)`, `isCancelled()`, and identifiers for tracing.
+```ts
+{
+  data: T | null;
+  error: string | null;
+  status: number;
+  raw: unknown;
+}
+```
 
-## Gateway client
+## useAthenaGateway
 
-Athena ships with a React hook that wraps a light HTTP gateway so browsers stay away from credentials and raw SQL.
+```ts
+import { useAthenaGateway } from "athena-js/react";
+```
 
-### `useAthenaGateway(config?)`
+React hook that wraps the gateway with loading state and request/response logs.
 
-Returns the hook result described in `gateway/types.ts`:
+**Config:** `baseUrl`, `apiKey`, `stripNulls`, `headers`, `userId`, `companyId`, `organizationId`, `supabaseUrl`, `supabaseKey`, etc.
 
-- `fetchGateway(payload, options?)`
-- `insertGateway(payload, options?)`
-- `updateGateway(payload, options?)`
-- `deleteGateway(payload, options?)`
-- `isLoading`, `error`, `lastRequest`, `lastResponse`, `baseUrl`
+**Returns:** `fetchGateway`, `insertGateway`, `updateGateway`, `deleteGateway`, `isLoading`, `error`, `lastRequest`, `lastResponse`, `baseUrl`.
 
-Each call streams structured payloads (`AthenaFetchPayload`, `AthenaInsertPayload`, etc.) and honors the headers, API key, and Supabase settings configured on the hook.
+## Gateway types
 
-## Retry utilities
-
-- `withRetry(fn, options)` wraps any async function with Athena's retry strategy.
-- `retryable(fn)` automatically retries the decorated function inside the runtime.
-- `retryPatterns` is a helper for common exponential-backoff timelines.
-- `shouldRetryError(err)` centralizes the decision logic for when retries make sense.
-
-## Types overview
-
-- `Activity`, `ActivityOptions`, `ActivityContext`, `ActivityState`
-- `WorldConfig`, `WorldMetrics`, `WorkerInfo`, `WorkerStatus`
-- `AthenaGateway*` types live under `gateway/types.ts` (see the dedicated documentation for field descriptions).
-- `RetryConfig` and `FailureStrategy` govern how connector tasks recover from errors.
+- `AthenaFetchPayload`, `AthenaInsertPayload`, `AthenaUpdatePayload`, `AthenaDeletePayload`
+- `AthenaGatewayCondition`, `AthenaGatewayBaseOptions`, `AthenaGatewayCallOptions`
+- `AthenaGatewayResponse`, `AthenaGatewayHookConfig`, `AthenaGatewayHookResult`

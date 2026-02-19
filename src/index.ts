@@ -1,87 +1,19 @@
 /**
  * athena-js
- * 
- * database driver API gateway SDK for React and Node runtimes
- * runtime, connectors, and gateway helpers built by XYLEX Group
+ *
+ * database driver API gateway SDK — Supabase-style client for the Athena HTTP API
+ * built by XYLEX Group
  */
 
-// core exports
-export { World, workflow, activity } from './core/world.js'
-export { Worker } from './core/worker.js'
-
-// backend exports
-export { LocalBackend } from './world/local-world.js'
-export type { Backend, BackendConfig, QueueProvider, AuthProvider, StreamProvider } from './world/world-interface.js'
-
-// directive exports
-export {
-  DirectiveRegistry,
-  WorkflowSandbox,
-  createDirectiveWorkflow,
-  createDirectiveStep,
-  validateWorkflowCode,
-  globalRegistry
-} from './directives/workflow-directive.js'
-
-// runtime api exports
-export {
-  start,
-  resumeHook,
-  resumeWebhook,
-  getRun,
-  queryRuns,
-  initializeRuntime
-} from './api/runtime.js'
-
-// workflow function exports
-export {
-  getWorkflowMetadata,
-  getStepMetadata,
-  sleep,
-  fetch,
-  createHook,
-  defineHook,
-  createWebhook,
-  getWritable
-} from './api/workflow-functions.js'
-
-// retry utilities
-export { withRetry, retryable, retryPatterns, shouldRetryError } from './utils/retry.js'
-
-// type exports
+// Supabase-style client
+export { createClient } from './supabase.js'
 export type {
-  WorldConfig,
-  WorldMetrics,
-  Workflow,
-  WorkflowOptions,
-  WorkflowContext,
-  WorkflowState,
-  WorkflowHandle,
-  WorkflowStatus,
-  WorkflowMetadata,
-  Activity,
-  ActivityOptions,
-  ActivityContext,
-  ActivityState,
-  ActivityStatus,
-  StepMetadata,
-  RetryConfig,
-  FailureStrategy,
-  ScheduleConfig,
-  WorkerInfo,
-  WorkerStatus,
-  WorkflowQueryFilter,
-  LogEntry,
-  TestHarness,
-  TestHarnessConfig,
-  Hook,
-  Webhook
-} from './types/index.js'
+  SupabaseClient,
+  TableQueryBuilder,
+  SupabaseResult,
+} from './supabase.js'
 
-// error class exports
-export { FatalError, RetryableError } from './types/index.js'
-
-// athena gateway type exports (hook available via the /react entry point)
+// Gateway types
 export type {
   AthenaGatewayCondition,
   AthenaFetchPayload,
