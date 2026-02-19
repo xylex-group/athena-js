@@ -1,12 +1,12 @@
 {
-  "name": "worlds-engine-example-api-call",
+  "name": "athena-js-example-api-call",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "worlds-engine": "file:../..",
+    "athena-js": "file:../..",
     "tsx": "^4.7.0"
   }
 }

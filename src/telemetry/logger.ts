@@ -1,7 +1,7 @@
 /**
  * logging system
  * 
- * writes logs to console and to .worlds-engine/logs directory. supports different
+ * writes logs to console and to .athena-js/logs directory. supports different
  * log levels and categories so you can filter whats important.
  */
 
@@ -16,7 +16,7 @@ export class Logger {
   private flushInterval: NodeJS.Timeout | undefined
   private minLevel: LogEntry['level'] = 'info'
 
-  constructor(basePath = '.worlds-engine') {
+  constructor(basePath = '.athena-js') {
     this.basePath = join(basePath, 'logs')
     const date = new Date().toISOString().split('T')[0]
     this.logFile = join(this.basePath, `${date}.log`)

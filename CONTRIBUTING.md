@@ -1,13 +1,13 @@
 # contributing
 
-thanks for considering contributing to the worlds-engine. heres how to get started.
+thanks for considering contributing to the athena-js. heres how to get started.
 
 ## development setup
 
 ```bash
 # clone the repo
-git clone https://github.com/xylex-group/worlds-engine
-cd worlds-engine
+git clone https://github.com/xylex-group/athena-js
+cd athena-js
 
 # install dependencies
 npm install
@@ -24,7 +24,7 @@ npm start
 ## project structure
 
 ```
-worlds-engine/
+athena-js/
 ├── src/
 │   ├── core/           # main workflow orchestration logic
 │   ├── persistence/    # storage implementations
@@ -128,5 +128,5 @@ by contributing, you agree your contributions will be licensed under the MIT lic
 
 ## credits
 
-worlds-engine is built by floris from XYLEX Group. contributors will be added to this list.
+athena-js is built by floris from XYLEX Group. contributors will be added to this list.
 

@@ -1,7 +1,7 @@
 /**
  * workflow engine
  * 
- * the heart of worlds-engine. workflows are deterministic, support event sourcing,
+ * the heart of athena-js. workflows are deterministic, support event sourcing,
  * handle parent/child relationships, and integrate with the saga pattern for
  * compensation logic.
  */

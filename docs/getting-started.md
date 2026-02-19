@@ -1,11 +1,11 @@
 # getting started
 
-comprehensive technical guide to the worlds-engine
+comprehensive technical guide to the athena-js
 
 ## installation
 
 ```bash
-npm install worlds-engine
+npm install athena-js
 ```
 
 package requires nodejs 18 or higher
@@ -177,7 +177,7 @@ stores queue as single json file
 directory structure
 
 ```bash
-.worlds-engine/
+.athena-js/
   workflows/
     workflow-id-1.json
     workflow-id-2.json

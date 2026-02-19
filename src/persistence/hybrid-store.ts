@@ -23,7 +23,7 @@ export class HybridStore extends BaseStore {
   private syncInterval: NodeJS.Timeout | undefined
   private syncFrequency = 5000 // sync every 5 seconds
 
-  constructor(basePath = '.worlds-engine') {
+  constructor(basePath = '.athena-js') {
     super()
     this.memoryStore = new MemoryStore()
     this.fileStore = new FileStore(basePath)

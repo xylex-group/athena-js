@@ -1,7 +1,7 @@
 ﻿/**
  * express api example
  * 
- * shows how to integrate worlds-engine with an express api for job queue functionality.
+ * shows how to integrate athena-js with an express api for job queue functionality.
  */
 
 import express from 'express'

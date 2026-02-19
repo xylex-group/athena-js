@@ -2,13 +2,13 @@
 
 fucking wrote this in less timea meeting with temportal wouldd of been
 
-all notable changes to worlds-engine will be documented here.
+all notable changes to athena-js will be documented here.
 
 ## [0.1.0] - 2025-12-01
 
 ### initial release
 
-first public release of worlds-engine. includes:
+first public release of athena-js. includes:
 
 #### core features
 -[x] workflow orchestration with deterministic execution

@@ -3,7 +3,7 @@ examples/
 docs/
 tsconfig.json
 tsup.config.ts
-.worlds-engine/
+.athena-js/
 *.log
 .DS_Store
 .env

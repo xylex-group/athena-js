@@ -2,12 +2,12 @@
 
 activities are where the actual work happens. they call apis, write to databases, send emails, process files, whatever your application needs to do.
 
-the key thing about activities is theyre automatically retried, timed out, and monitored. you just write the logic and let worlds-engine handle the reliability.
+the key thing about activities is theyre automatically retried, timed out, and monitored. you just write the logic and let athena-js handle the reliability.
 
 ## defining activities
 
 ```typescript
-import { activity } from 'worlds-engine'
+import { activity } from 'athena-js'
 
 const sendEmail = activity('send-email', async (ctx, input) => {
   // ctx = activity context
@@ -340,7 +340,7 @@ for (const activity of workflowState.activities) {
 you can test activities directly:
 
 ```typescript
-import { activity } from 'worlds-engine'
+import { activity } from 'athena-js'
 
 const myActivity = activity('test', async (ctx, input) => {
   return { value: input.x * 2 }

@@ -1,6 +1,6 @@
 node_modules/
 dist/
-.worlds-engine/
+.athena-js/
 *.log
 .DS_Store
 .env

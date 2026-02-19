@@ -1,7 +1,7 @@
 /**
  * file-based storage
  * 
- * persists everything to .worlds-engine folder. survives process restarts.
+ * persists everything to .athena-js folder. survives process restarts.
  * uses json files for simplicity. not super efficient for huge scale but
  * good enough for most cases.
  */
@@ -23,7 +23,7 @@ export class FileStore extends BaseStore {
   private schedulesPath: string
   private queuePath: string
 
-  constructor(basePath = '.worlds-engine') {
+  constructor(basePath = '.athena-js') {
     super()
     this.basePath = basePath
     this.workflowsPath = join(basePath, 'workflows')

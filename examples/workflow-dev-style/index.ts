@@ -1,7 +1,7 @@
 ﻿/**
  * workflow dev style example
  * 
- * demonstrates worlds-engine features matching workflow.dev sdk capabilities
+ * demonstrates athena-js features matching workflow.dev sdk capabilities
  * simple declarative api for defining and using workflows with sleep delays
  * retry logic error handling and durable execution
  */
@@ -307,7 +307,7 @@ async function main() {
   
   await world.start()
   
-  console.log('=== worlds-engine workflow.dev style examples ===\n')
+  console.log('=== athena-js workflow.dev style examples ===\n')
   
   // example 1 simple onboarding workflow with sleep
   console.log('1. onboarding workflow with delayed check-in')

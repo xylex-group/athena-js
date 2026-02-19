@@ -1,6 +1,6 @@
 # failure strategies
 
-other things can fail. networks timeout, services go down, worlds-engine brings better ways to handle failures depending on what makes sense for your use case.
+other things can fail. networks timeout, services go down, athena-js brings better ways to handle failures depending on what makes sense for your use case.
 
 ## the strategies
 
@@ -213,7 +213,7 @@ const robustSaga = workflow('robust', async (ctx, data) => {
 })
 ```
 
-worlds-engine tries to run all compensations even if some fail. you can check compensation state:
+athena-js tries to run all compensations even if some fail. you can check compensation state:
 
 ```typescript
 const state = await world.query(workflowId)

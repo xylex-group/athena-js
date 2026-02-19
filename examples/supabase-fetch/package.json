@@ -1,12 +1,12 @@
 {
-  "name": "worlds-engine-example-supabase-fetch",
+  "name": "athena-js-example-supabase-fetch",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "worlds-engine": "file:../..",
+    "athena-js": "file:../..",
     "@supabase/supabase-js": "^2.39.0",
     "tsx": "^4.7.0"
   }

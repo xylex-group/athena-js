@@ -180,7 +180,7 @@ const world = new World({
   minWorkers: 2,
   maxWorkers: 8,
   persistence: 'hybrid',
-  persistencePath: '.worlds-engine-invoices'
+  persistencePath: '.athena-js-invoices'
 })
 
 world.register(

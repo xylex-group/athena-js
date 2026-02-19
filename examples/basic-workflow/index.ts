@@ -1,7 +1,7 @@
 ﻿/**
  * basic workflow example
  * 
- * the simplest possible workflow. good starting point for learning worlds-engine.
+ * the simplest possible workflow. good starting point for learning athena-js.
  */
 
 import { World, workflow, activity } from '../../src/index'
