@@ -1,0 +1,15 @@
+﻿{
+  "name": "workflow-dev-complete-example",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "worlds-engine": "file:../.."
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
+  }
+}
+

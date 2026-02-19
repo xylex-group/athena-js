@@ -1,0 +1,13 @@
+﻿{
+  "name": "worlds-engine-example-retry-patterns",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "worlds-engine": "file:../..",
+    "tsx": "^4.7.0"
+  }
+}
+

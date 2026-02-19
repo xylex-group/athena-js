@@ -1,0 +1,14 @@
+{
+  "name": "worlds-engine-example-email-resend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "worlds-engine": "file:../..",
+    "resend": "^3.0.0",
+    "tsx": "^4.7.0"
+  }
+}
+

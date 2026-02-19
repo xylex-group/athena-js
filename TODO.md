@@ -1,0 +1,13 @@
+-[] need to fix some code blocks in the docs that dont have code labels like bash or etc
+-[] deploy docs probably using fuma docs
+-[] write web terminal
+-[] write an openapi v3 compliant schema
+-[] publish benchmarks
+-[] make it easier
+-[] test thruput and delve deeper into fault tolerance, (5 requests, 3 fails but with 2 diff errors. The request that caused these duplicate errors should in the fault toleration strategy be dealth better)
+-[] expand the fault tolerance
+-[] make connector for standalone expressjs
+-[] make a stub route optionally for Prometheus data exporter endpoint
+-[] show realtime stats
+-[] cover resource usage better
+-[] include the examples as an interactive demo (probbaly on da web)

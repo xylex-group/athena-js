@@ -1,0 +1,17 @@
+{
+  "name": "worlds-engine-example-postgres-connection",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "worlds-engine": "file:../..",
+    "pg": "^8.11.3",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.10.9"
+  }
+}
+
