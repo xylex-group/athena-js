@@ -15,6 +15,7 @@ import type {
   AthenaGatewayHookConfig,
   AthenaGatewayCallOptions,
 } from '../src/gateway/types.js'
+import { createClient } from '../src/supabase.ts'
 
 // test type contracts by constructing payloads and verifying shape
 
@@ -28,8 +29,9 @@ test('AthenaFetchPayload accepts minimal required fields', () => {
 
 test('AthenaFetchPayload accepts full options', () => {
   const condition: AthenaGatewayCondition = {
-    eq_column: 'id',
-    eq_value: 42,
+    column: 'id',
+    operator: 'eq',
+    value: 42,
   }
   const payload: AthenaFetchPayload = {
     table_name: 'users',
@@ -76,7 +78,7 @@ test('AthenaDeletePayload requires table_name and resource_id', () => {
 test('AthenaUpdatePayload extends fetch payload with update_body', () => {
   const payload: AthenaUpdatePayload = {
     table_name: 'orders',
-    conditions: [{ eq_column: 'id', eq_value: '1' }],
+    conditions: [{ column: 'id', operator: 'eq', value: '1' }],
     update_body: { status: 'completed' },
   }
   assert.deepEqual(payload.update_body, { status: 'completed' })
@@ -108,17 +110,21 @@ test('AthenaGatewayCallOptions accepts per-call overrides', () => {
   assert.equal(options.userId, 'per-call-user')
 })
 
-test('AthenaGatewayCondition supports all eq_value types', () => {
+test('AthenaGatewayCondition supports multiple operators and values', () => {
   const conditions: AthenaGatewayCondition[] = [
-    { eq_column: 'active', eq_value: true },
-    { eq_column: 'count', eq_value: 0 },
-    { eq_column: 'name', eq_value: 'alice' },
-    { eq_column: 'deleted_at', eq_value: null },
+    { column: 'active', operator: 'eq', value: true },
+    { column: 'count', operator: 'gt', value: 0 },
+    { column: 'name', operator: 'like', value: 'alice' },
+    { column: 'deleted_at', operator: 'is', value: null },
   ]
-  assert.equal(conditions[0].eq_value, true)
-  assert.equal(conditions[1].eq_value, 0)
-  assert.equal(conditions[2].eq_value, 'alice')
-  assert.equal(conditions[3].eq_value, null)
+  assert.equal(conditions[0].operator, 'eq')
+  assert.equal(conditions[1].operator, 'gt')
+  assert.equal(conditions[2].operator, 'like')
+  assert.equal(conditions[3].operator, 'is')
+  assert.equal(conditions[0].value, true)
+  assert.equal(conditions[1].value, 0)
+  assert.equal(conditions[2].value, 'alice')
+  assert.equal(conditions[3].value, null)
 })
 
 test('fetch payload conditions default to empty array pattern', () => {
@@ -136,4 +142,45 @@ test('update payload conditions default to empty array pattern', () => {
   const normalized = { ...payload, conditions: payload.conditions ?? [] }
   assert.deepEqual(normalized.conditions, [])
   assert.deepEqual(normalized.update_body, { active: false })
+})
+
+test('select builds fetch payload with Supabase-style filters', async () => {
+  const received: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    received.push({ url: String(url), init })
+    return new Response(JSON.stringify({ data: [], status: 200 }), { status: 200 })
+  }
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    await client.from('characters').gt('level', 5).range(0, 9).select('id,name')
+    assert.equal(received.length, 1)
+    const payload = JSON.parse(received[0].init?.body as string)
+    assert.equal(payload.limit, 10)
+    assert.equal(payload.offset, 0)
+    assert.deepEqual(payload.conditions, [{ column: 'level', operator: 'gt', value: 5 }])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('insert mutation supports select() and returning rows', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify([{ id: 1, name: 'Frodo' }]), { status: 201 })
+  }
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    const mutation = client.from('characters').insert({ name: 'Frodo' })
+    const result = await mutation.select('id,name')
+    assert.equal(calls.length, 1)
+    assert(result.data?.[0]?.name === 'Frodo')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.insert_body, { name: 'Frodo' })
+    assert.equal(payload.columns, 'id,name')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })

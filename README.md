@@ -26,7 +26,47 @@ if (error) {
 }
 ```
 
-Use `select`, `insert`, `update`, and `delete` just like Supabase. The builder supports `.eq()`, `.match()`, `.limit()`, `.offset()`, and `.single()` / `.maybeSingle()`.
+Use `select`, `insert`, `update`, `delete`, and `upsert` just like Supabase. The builder now exposes Supabase-style helpers such as `.range()`, `.gt()`, `.lt()`, `.ilike()`, `.contains()`, `.not()`, `.or()`, and `.maybeSingle()` so existing Supabase code runs without changes.
+
+### Filters & modifiers
+
+Filters are cumulative and stack on the query builder:
+
+```ts
+const { data } = await athena
+  .from('characters')
+  .select('id, name')
+  .gt('level', 5)
+  .lte('created_at', '2024-01-01')
+  .contains('tags', ['hero'])
+  .range(0, 49)
+```
+
+Modifiers like `.limit()`, `.offset()`, `.range()`, and `.match()` behave the same as in Supabase. The fetch call automatically sends `strip_nulls`, `count`, `head`, and `defaultToNull` options when provided.
+
+### Mutations
+
+Mutation methods return a Supabase-compatible `MutationQuery` so you can chain `.select()`, `.single()`, and `.returning()` after invoking them:
+
+```ts
+const { data: inserted, error } = await athena
+  .from('countries')
+  .insert({ id: 1, name: 'Mordor' })
+  .select('id, name')
+
+const { data: updated } = await athena
+  .from('countries')
+  .update({ name: 'Gondor' })
+  .eq('id', 1)
+  .select()
+
+const { data: upserted } = await athena
+  .from('countries')
+  .upsert({ id: 2, name: 'Rohan' }, { updateBody: { name: 'Rohan' }, onConflict: 'id' })
+  .select()
+```
+
+Insert and upsert calls accept Supabase-compatible options such as `defaultToNull`, `count`, `head`, and `onConflict`. Delete operations allow filtering by `.eq()` or by passing `options.resourceId` as in Supabase.
 
 ## React hook
 

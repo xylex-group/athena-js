@@ -16,17 +16,29 @@ Creates a client that talks to the Athena gateway. Returns an object with `.from
 
 Returns a query builder with:
 
-- `.select(columns?, options?)` — fetch rows
-- `.insert(values, options?)` — insert row(s)
-- `.update(values, options?)` — update matching rows
-- `.delete(options?)` — delete by `resource_id` or `.eq('resource_id', id)`
-- `.eq(column, value)` — add equality filter
-- `.match(filters)` — add multiple equality filters
-- `.limit(n)` — limit result size
-- `.offset(n)` — offset results
-- `.single(columns?, options?)` — return first row or null
-- `.maybeSingle(columns?, options?)` — alias for `.single()`
-- `.reset()` — clear filters and start fresh
+- `.range(from, to)` — span a result window (updates `.limit()` and `.offset()`)
+- `.gt/.gte/.lt/.lte/.neq/.like/.ilike/.is/.in/.contains/.containedBy` — promote Supabase filter parity
+- `.not(expression)` — negate a filter expression
+- `.or(expression)` — logical OR expressions
+- `.upsert(values, options?)` — insert with conflict handling and optional updates
+
+Filters accumulate; you can reuse `.eq()`, `.match()`, `.not()`, `.or()`, and the comparison helpers to build complex WHERE clauses before calling `.select()` or `.update()`.
+
+### MutationQuery helpers
+
+`insert`, `update`, `upsert`, and `delete` now return a Supabase-compatible mutation query object. The returned object exposes `.select()`, `.returning()`, `.single()`, `.maybeSingle()`, `.then()`, `.catch()`, and `.finally()` so you can chain reads after mutating rows without rerunning a separate `.select()` call.
+
+### Supabase-compatible options
+
+| Option | Applies to | Description |
+|--------|------------|-------------|
+| `count` | `select` / `insert` / `upsert` | request one of the Supabase-friendly count algorithms (`exact`, `planned`, `estimated`) |
+| `head` | `select` / `insert` / `upsert` | only return headers (no rows) |
+| `defaultToNull` | `insert` / `upsert` | write explicit `null` values when no default is provided |
+| `onConflict` | `upsert` | comma-delimited column list (e.g. `"id"`) to resolve unique key conflicts |
+| `updateBody` | `upsert` | fields to apply when a conflict occurs |
+
+`delete` accepts `options.resourceId` for Supabase-style deletions, and you can still rely on `.eq('resource_id', id)` or other filters before calling `.delete()`.
 
 ### SupabaseResult
 

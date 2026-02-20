@@ -11,9 +11,31 @@ export type AthenaGatewayEndpointPath =
   | '/gateway/update'
   | '/gateway/delete'
 
+export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
+
+export type AthenaConditionValue = string | number | boolean | null
+export type AthenaConditionArrayValue = Array<AthenaConditionValue>
+
+export type AthenaConditionOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'like'
+  | 'ilike'
+  | 'is'
+  | 'in'
+  | 'contains'
+  | 'containedBy'
+  | 'not'
+  | 'or'
+
 export interface AthenaGatewayCondition {
-  eq_column: string
-  eq_value: string | number | boolean | null
+  column?: string
+  operator: AthenaConditionOperator
+  value?: AthenaConditionValue | AthenaConditionArrayValue | string
 }
 
 export interface AthenaFetchPayload {
@@ -36,13 +58,20 @@ export interface AthenaFetchPayload {
 
 export interface AthenaInsertPayload {
   table_name: string
-  insert_body: Record<string, unknown>
+  insert_body: Record<string, unknown> | Record<string, unknown>[]
   update_body?: Record<string, unknown>
+  columns?: string[] | string
+  count?: AthenaCountOption
+  head?: boolean
+  default_to_null?: boolean
+  on_conflict?: string | string[]
 }
 
 export interface AthenaDeletePayload {
   table_name: string
-  resource_id: string
+  resource_id?: string
+  columns?: string[] | string
+  conditions?: AthenaGatewayCondition[]
 }
 
 export interface AthenaUpdatePayload extends AthenaFetchPayload {
@@ -65,7 +94,13 @@ export interface AthenaGatewayBaseOptions {
 }
 
 export interface AthenaGatewayHookConfig extends AthenaGatewayBaseOptions {}
-export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {}
+export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
+  count?: AthenaCountOption
+  head?: boolean
+  defaultToNull?: boolean
+  onConflict?: string | string[]
+  updateBody?: Record<string, unknown>
+}
 
 export interface AthenaGatewayResponse<T = unknown> {
   ok: boolean

@@ -1,11 +1,15 @@
 import type {
+  AthenaConditionArrayValue,
+  AthenaConditionOperator,
+  AthenaConditionValue,
+  AthenaDeletePayload,
   AthenaGatewayCallOptions,
   AthenaGatewayCondition,
   AthenaGatewayResponse,
-} from './gateway/types.js'
-import { createAthenaGatewayClient } from './gateway/client.js'
-
-type AthenaConditionValue = string | number | boolean | null
+  AthenaInsertPayload,
+  AthenaUpdatePayload,
+} from './gateway/types.ts'
+import { createAthenaGatewayClient } from './gateway/client.ts'
 
 export interface SupabaseResult<T> {
   data: T | null
@@ -20,6 +24,30 @@ type TableBuilderState = {
   offset?: number
 }
 
+type MutationSingleResult<Result> = Result extends Array<infer Item> ? Item | null : Result | null
+const DEFAULT_COLUMNS = '*'
+
+export interface MutationQuery<Result> extends PromiseLike<SupabaseResult<Result>> {
+  select(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<Result>>
+  returning(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<Result>>
+  single(
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): Promise<SupabaseResult<MutationSingleResult<Result>>>
+  maybeSingle(
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): Promise<SupabaseResult<MutationSingleResult<Result>>>
+  then<TResult1 = SupabaseResult<Result>, TResult2 = never>(
+    onfulfilled?: ((value: SupabaseResult<Result>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined | null,
+  ): Promise<TResult1 | TResult2>
+  catch<TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | undefined | null,
+  ): Promise<SupabaseResult<Result> | TResult>
+  finally(onfinally?: (() => void) | undefined | null): Promise<SupabaseResult<Result>>
+}
+
 function formatResult<T>(response: AthenaGatewayResponse<T>): SupabaseResult<T> {
   return {
     data: response.data ?? null,
@@ -29,26 +57,104 @@ function formatResult<T>(response: AthenaGatewayResponse<T>): SupabaseResult<T> 
   }
 }
 
-function ensureConditionValue(value: AthenaConditionValue): AthenaConditionValue {
-  return value
+function toSingleResult<Result>(response: SupabaseResult<Result>): SupabaseResult<MutationSingleResult<Result>> {
+  const payload = response.data
+  const singleData =
+    Array.isArray(payload) ? (payload.length ? payload[0] : null) : payload ?? null
+  return {
+    ...response,
+    data: singleData as MutationSingleResult<Result>,
+  }
 }
 
-function buildCondition(column: string, value: AthenaConditionValue): AthenaGatewayCondition {
-  return {
-    eq_column: column,
-    eq_value: ensureConditionValue(value),
+function mergeOptions(...options: Array<AthenaGatewayCallOptions | undefined>): AthenaGatewayCallOptions | undefined {
+  return options.reduce<AthenaGatewayCallOptions | undefined>((acc, next) => {
+    if (!next) return acc
+    return { ...acc, ...next }
+  }, undefined)
+}
+
+function createMutationQuery<Result>(
+  executor: (
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ) => Promise<SupabaseResult<Result>>,
+  defaultColumns: string | string[] = DEFAULT_COLUMNS,
+): MutationQuery<Result> {
+  let selectedColumns: string | string[] = defaultColumns
+  let selectedOptions: AthenaGatewayCallOptions | undefined
+  let promise: Promise<SupabaseResult<Result>> | null = null
+
+  const run = (columns?: string | string[], options?: AthenaGatewayCallOptions) => {
+    const payloadColumns = columns ?? selectedColumns
+    const payloadOptions = options ?? selectedOptions
+    if (!promise) {
+      promise = executor(payloadColumns, payloadOptions)
+    }
+    return promise
   }
+
+  const mutationQuery: MutationQuery<Result> = {
+    select(columns = selectedColumns, options) {
+      selectedColumns = columns
+      selectedOptions = options ?? selectedOptions
+      return run(columns, options)
+    },
+    returning(columns = selectedColumns, options) {
+      return mutationQuery.select(columns, options)
+    },
+    single(columns = selectedColumns, options) {
+      selectedColumns = columns
+      selectedOptions = options ?? selectedOptions
+      return run(columns, options).then(toSingleResult)
+    },
+    maybeSingle(columns = selectedColumns, options) {
+      return mutationQuery.single(columns, options)
+    },
+    then(onfulfilled, onrejected) {
+      return run(selectedColumns, selectedOptions).then(onfulfilled, onrejected)
+    },
+    catch(onrejected) {
+      return run(selectedColumns, selectedOptions).catch(onrejected)
+    },
+    finally(onfinally) {
+      return run(selectedColumns, selectedOptions).finally(onfinally)
+    },
+  }
+
+  return mutationQuery
 }
 
 export interface TableQueryBuilder<Row> {
   select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<T>>
-  insert(values: Row | Row[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<Row | Row[]>>
-  update(values: Partial<Row>, options?: AthenaGatewayCallOptions): Promise<SupabaseResult<Row[]>>
-  delete(options?: AthenaGatewayCallOptions & { resourceId?: string }): Promise<SupabaseResult<null>>
+  insert(values: Row | Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row | Row[]>
+  upsert(
+    values: Row | Row[],
+    options?: AthenaGatewayCallOptions & {
+      updateBody?: Partial<Row>
+      onConflict?: string | string[]
+    },
+  ): MutationQuery<Row | Row[]>
+  update(values: Partial<Row>, options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
+  delete(options?: AthenaGatewayCallOptions & { resourceId?: string }): MutationQuery<Row | null>
   eq(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
   match(filters: Record<string, AthenaConditionValue>): TableQueryBuilder<Row>
+  range(from: number, to: number): TableQueryBuilder<Row>
   limit(count: number): TableQueryBuilder<Row>
   offset(count: number): TableQueryBuilder<Row>
+  gt(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  gte(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  lt(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  lte(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  neq(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  like(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  ilike(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  is(column: string, value: AthenaConditionValue): TableQueryBuilder<Row>
+  in(column: string, values: AthenaConditionArrayValue): TableQueryBuilder<Row>
+  contains(column: string, values: AthenaConditionArrayValue): TableQueryBuilder<Row>
+  containedBy(column: string, values: AthenaConditionArrayValue): TableQueryBuilder<Row>
+  not(columnOrExpression: string, operator?: AthenaConditionOperator, value?: AthenaConditionValue): TableQueryBuilder<Row>
+  or(expression: string): TableQueryBuilder<Row>
   single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<T | null>>
   maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<T | null>>
   reset(): TableQueryBuilder<Row>
@@ -56,9 +162,18 @@ export interface TableQueryBuilder<Row> {
 
 function getResourceId(state: TableBuilderState): string | undefined {
   const candidate = state.conditions.find(
-    condition => condition.eq_column === 'resource_id' || condition.eq_column === 'id',
+    condition =>
+      condition.operator === 'eq' &&
+      (condition.column === 'resource_id' || condition.column === 'id'),
   )
-  return candidate?.eq_value?.toString()
+  return candidate?.value?.toString()
+}
+
+function stringifyFilterValue(value: AthenaConditionValue | AthenaConditionArrayValue | string): string {
+  if (Array.isArray(value)) {
+    return value.join(',')
+  }
+  return String(value)
 }
 
 function createTableBuilder<Row>(
@@ -69,6 +184,17 @@ function createTableBuilder<Row>(
     conditions: [],
   }
 
+  const addCondition = (
+    operator: AthenaConditionOperator,
+    column?: string,
+    value?: AthenaConditionValue | AthenaConditionArrayValue | string,
+  ) => {
+    const condition: AthenaGatewayCondition = { operator }
+    if (column) condition.column = column
+    if (value !== undefined) condition.value = value
+    state.conditions.push(condition)
+  }
+
   const builder: TableQueryBuilder<Row> = {
     reset() {
       state.conditions = []
@@ -76,25 +202,86 @@ function createTableBuilder<Row>(
       state.offset = undefined
       return builder
     },
-    limit(count: number) {
+    range(from, to) {
+      state.offset = from
+      state.limit = to - from + 1
+      return builder
+    },
+    limit(count) {
       state.limit = count
       return builder
     },
-    offset(count: number) {
+    offset(count) {
       state.offset = count
       return builder
     },
-    match(filters: Record<string, AthenaConditionValue>) {
+    match(filters) {
       Object.entries(filters).forEach(([column, value]) => {
-        state.conditions.push(buildCondition(column, value))
+        addCondition('eq', column, value)
       })
       return builder
     },
-    eq(column: string, value: AthenaConditionValue) {
-      state.conditions.push(buildCondition(column, value))
+    eq(column, value) {
+      addCondition('eq', column, value)
       return builder
     },
-    async select<T = Row>(columns: string | string[] = '*', options?: AthenaGatewayCallOptions) {
+    gt(column, value) {
+      addCondition('gt', column, value)
+      return builder
+    },
+    gte(column, value) {
+      addCondition('gte', column, value)
+      return builder
+    },
+    lt(column, value) {
+      addCondition('lt', column, value)
+      return builder
+    },
+    lte(column, value) {
+      addCondition('lte', column, value)
+      return builder
+    },
+    neq(column, value) {
+      addCondition('neq', column, value)
+      return builder
+    },
+    like(column, value) {
+      addCondition('like', column, value)
+      return builder
+    },
+    ilike(column, value) {
+      addCondition('ilike', column, value)
+      return builder
+    },
+    is(column, value) {
+      addCondition('is', column, value)
+      return builder
+    },
+    in(column, values) {
+      addCondition('in', column, values)
+      return builder
+    },
+    contains(column, values) {
+      addCondition('contains', column, values)
+      return builder
+    },
+    containedBy(column, values) {
+      addCondition('containedBy', column, values)
+      return builder
+    },
+    not(columnOrExpression, operator, value) {
+      if (operator && value !== undefined) {
+        addCondition('not', undefined, `${columnOrExpression}.${operator}.${stringifyFilterValue(value)}`)
+      } else {
+        addCondition('not', undefined, columnOrExpression)
+      }
+      return builder
+    },
+    or(expression) {
+      addCondition('or', undefined, expression)
+      return builder
+    },
+    async select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
       const payload = {
         table_name: tableName,
         columns,
@@ -106,50 +293,97 @@ function createTableBuilder<Row>(
       const response = await client.fetchGateway<T>(payload, options)
       return formatResult(response)
     },
-    async insert(values: Row | Row[], options?: AthenaGatewayCallOptions) {
-      const response = await client.insertGateway<Row | Row[]>(
-        {
+    insert(values, options) {
+      const executeInsert = async (
+        columns?: string | string[],
+        selectOptions?: AthenaGatewayCallOptions,
+      ) => {
+        const mergedOptions = mergeOptions(options, selectOptions)
+        const payload: AthenaInsertPayload = {
           table_name: tableName,
-          insert_body: values as Record<string, unknown>,
-        },
-        options,
-      )
-      return formatResult(response)
-    },
-    async update(values: Partial<Row>, options?: AthenaGatewayCallOptions) {
-      const payload = {
-        table_name: tableName,
-        update_body: values,
-        conditions: state.conditions.length ? [...state.conditions] : undefined,
-        strip_nulls: options?.stripNulls ?? true,
+          insert_body: values as Record<string, unknown> | Record<string, unknown>[],
+        }
+        if (columns) payload.columns = columns
+        if (mergedOptions?.count) payload.count = mergedOptions.count
+        if (mergedOptions?.head) payload.head = mergedOptions.head
+        if (mergedOptions?.defaultToNull !== undefined) {
+          payload.default_to_null = mergedOptions.defaultToNull
+        }
+        const response = await client.insertGateway<Row | Row[]>(payload, mergedOptions)
+        return formatResult(response)
       }
-      const response = await client.updateGateway<Row[]>(payload, options)
-      return formatResult(response)
+      return createMutationQuery<Row | Row[]>(executeInsert)
     },
-    async delete(options?: AthenaGatewayCallOptions & { resourceId?: string }) {
+    upsert(values, options) {
+      const executeUpsert = async (
+        columns?: string | string[],
+        selectOptions?: AthenaGatewayCallOptions,
+      ) => {
+        const mergedOptions = mergeOptions(options, selectOptions)
+        const payload: AthenaInsertPayload = {
+          table_name: tableName,
+          insert_body: values as Record<string, unknown> | Record<string, unknown>[],
+          update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
+        }
+        if (columns) payload.columns = columns
+        if (options?.onConflict) payload.on_conflict = options.onConflict
+        if (mergedOptions?.count) payload.count = mergedOptions.count
+        if (mergedOptions?.head) payload.head = mergedOptions.head
+        if (mergedOptions?.defaultToNull !== undefined) {
+          payload.default_to_null = mergedOptions.defaultToNull
+        }
+        const response = await client.insertGateway<Row | Row[]>(payload, mergedOptions)
+        return formatResult(response)
+      }
+      return createMutationQuery<Row | Row[]>(executeUpsert)
+    },
+    update(values, options) {
+      const filters = state.conditions.length ? [...state.conditions] : undefined
+      const executeUpdate = async (
+        columns?: string | string[],
+        selectOptions?: AthenaGatewayCallOptions,
+      ) => {
+        const mergedOptions = mergeOptions(options, selectOptions)
+        const payload: AthenaUpdatePayload = {
+          table_name: tableName,
+          update_body: values,
+          conditions: filters,
+          columns,
+          strip_nulls: mergedOptions?.stripNulls ?? true,
+        }
+        const response = await client.updateGateway<Row[]>(payload, mergedOptions)
+        return formatResult(response)
+      }
+      return createMutationQuery<Row[]>(executeUpdate)
+    },
+    delete(options) {
+      const filters = state.conditions.length ? [...state.conditions] : undefined
       const resourceId = options?.resourceId ?? getResourceId(state)
-      if (!resourceId) {
+      if (!resourceId && !filters?.length) {
         throw new Error('delete requires a resource_id either via eq("resource_id", ...) or options.resourceId')
       }
-      const response = await client.deleteGateway<null>(
-        {
+      const executeDelete = async (
+        columns?: string | string[],
+        selectOptions?: AthenaGatewayCallOptions,
+      ) => {
+        const mergedOptions = mergeOptions(options, selectOptions)
+        const payload: AthenaDeletePayload = {
           table_name: tableName,
           resource_id: resourceId,
-        },
-        options,
-      )
-      return formatResult(response)
+          conditions: filters,
+          columns,
+        }
+        const response = await client.deleteGateway<Row | null>(payload, mergedOptions)
+        return formatResult(response)
+      }
+      return createMutationQuery<Row | null>(executeDelete)
     },
     async single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions) {
       const response = await builder.select<T[]>(columns, options)
-      const rows = Array.isArray(response.data) ? response.data : response.data ? [response.data] : []
-      return {
-        ...response,
-        data: (rows[0] ?? null) as unknown as T | null,
-      }
+      return toSingleResult(response)
     },
     async maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions) {
-      return builder.single<T | null>(columns ?? '*', options)
+      return builder.single<T>(columns, options)
     },
   }
 

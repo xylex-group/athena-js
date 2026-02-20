@@ -28,7 +28,44 @@ if (error) throw new Error(error);
 console.table(data);
 ```
 
-## 3. React
+## 2. Insert & upsert
+
+```ts
+const { data: inserted } = await athena
+  .from("users")
+  .insert({ name: "Bilbo" })
+  .select("id, name")
+
+const { data: updated } = await athena
+  .from("users")
+  .update({ name: "Bilbo Baggins" })
+  .eq("id", inserted?.[0]?.id ?? 0)
+  .select()
+
+// Supabase-style upsert with conflict resolution
+await athena
+  .from("users")
+  .upsert(
+    { id: 1, name: "Bilbo" },
+    { updateBody: { name: "Bilbo Baggins" }, onConflict: "id" },
+  )
+  .select("id, name")
+```
+
+## 3. Filters & pagination
+
+Use dot-chain helpers exactly as in Supabase:
+
+```ts
+const { data: page2 } = await athena
+  .from("users")
+  .select("id, email")
+  .contains("roles", ["admin"])
+  .or("status.eq.active,status.eq.suspended")
+  .range(10, 19)
+```
+
+## 4. React
 
 Use the hook for client-side calls with loading and error state:
 
