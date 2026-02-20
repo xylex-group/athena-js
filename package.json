@@ -1,7 +1,7 @@
 {
   "name": "athena-js",
-  "version": "0.1.0",
-  "description": "database driver API gateway SDK for JavaScript/TypeScript apps.",
+  "version": "0.1.1",
+  "description": "Athena SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
