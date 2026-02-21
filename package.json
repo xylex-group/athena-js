@@ -41,7 +41,6 @@
     "example:retry-patterns": "cd examples/retry-patterns && bun run start",
     "example:email-resend": "cd examples/email-resend && bun run start",
     "example:api-call": "cd examples/api-call && bun run start",
-    "example:supabase-fetch": "cd examples/supabase-fetch && bun run start",
     "example:postgres-connection": "cd examples/postgres-connection && bun run start"
   },
   "keywords": [
@@ -53,7 +52,6 @@
     "hooks",
     "http",
     "postgres",
-    "supabase",
     "query-builder"
   ],
   "author": "floris@xylex.group",

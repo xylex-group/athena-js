@@ -144,7 +144,7 @@ test('update payload conditions default to empty array pattern', () => {
   assert.deepEqual(normalized.update_body, { active: false })
 })
 
-test('select builds fetch payload with Supabase-style filters', async () => {
+test('select builds fetch payload with Athena-style filters', async () => {
   const received: Array<{ url: string; init?: RequestInit }> = []
   const originalFetch = globalThis.fetch
   globalThis.fetch = async (url, init) => {

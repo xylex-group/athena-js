@@ -18,7 +18,7 @@ npm run build
 athena-js/
 ├── src/
 │   ├── gateway/     # HTTP client, React hook, types
-│   └── supabase.ts   # Supabase-style query builder
+│   └── supabase.ts   # Athena query builder
 ├── docs/
 └── test/
 ```

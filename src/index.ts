@@ -1,11 +1,11 @@
 /**
  * athena-js
  *
- * database driver API gateway SDK — Supabase-style client for the Athena HTTP API
+ * database driver API gateway SDK — Athena client for the Athena HTTP API
  * built by XYLEX Group
  */
 
-// Supabase-style client
+// Athena client
 export { createClient } from './supabase.js'
 export type {
   SupabaseClient,
