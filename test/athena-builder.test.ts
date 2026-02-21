@@ -72,7 +72,8 @@ test('mutations support chaining and option propagation', async () => {
       )
       .single('id', { head: false })
 
-    assert.equal(upsertResult.data?.id, 1)
+    const upsertRow = upsertResult.data as { id: number } | null
+    assert.equal(upsertRow?.id, 1)
     assert.equal(calls.length, 2)
     const upsertPayload = JSON.parse(calls[1].init?.body as string)
     assert.equal(upsertPayload.on_conflict, 'id')
