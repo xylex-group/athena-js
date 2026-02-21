@@ -289,6 +289,8 @@ function createTableBuilder<Row>(
         limit: state.limit,
         offset: state.offset,
         strip_nulls: options?.stripNulls ?? true,
+        count: options?.count,
+        head: options?.head,
       }
       const response = await client.fetchGateway<T>(payload, options)
       return formatResult(response)

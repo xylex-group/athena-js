@@ -1,11 +1,11 @@
 # athena-js
 
-Athena is a database driver + API gateway SDK that lets you interact with SQL backends using the familiar `supabase-js` syntax.
+`@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API.
 
 ## Gateway query builder
 
 ```ts
-import { createClient } from "athena-js";
+import { createClient } from "@xylex-group/athena";
 
 const athena = createClient(
   "https://athena-db.com",
@@ -26,47 +26,47 @@ if (error) {
 }
 ```
 
-Use `select`, `insert`, `update`, `delete`, and `upsert` just like Supabase. The builder now exposes Supabase-style helpers such as `.range()`, `.gt()`, `.lt()`, `.ilike()`, `.contains()`, `.not()`, `.or()`, and `.maybeSingle()` so existing Supabase code runs without changes.
+The builder exposes `select`, `insert`, `update`, `delete`, and `upsert`, along with shared helpers such as `.eq()`, `.match()`, `.range()`, `.gt()`, `.ilike()`, `.contains()`, `.not()`, and `.or()`. Filters, modifiers, and mutation chaining all follow the same fluent pattern.
 
 ### Filters & modifiers
 
-Filters are cumulative and stack on the query builder:
+Filters accumulate on the builder, so you can stack conditions before executing the query:
 
 ```ts
 const { data } = await athena
-  .from('characters')
-  .select('id, name')
-  .gt('level', 5)
-  .lte('created_at', '2024-01-01')
-  .contains('tags', ['hero'])
-  .range(0, 49)
+  .from("characters")
+  .select("id, name")
+  .gt("level", 5)
+  .lte("created_at", "2024-01-01")
+  .contains("tags", ["hero"])
+  .range(0, 49);
 ```
 
-Modifiers like `.limit()`, `.offset()`, `.range()`, and `.match()` behave the same as in Supabase. The fetch call automatically sends `strip_nulls`, `count`, `head`, and `defaultToNull` options when provided.
+Modifiers such as `.limit()`, `.offset()`, `.range()`, and `.match()` adjust pagination and filtering. Athena automatically applies `strip_nulls`, `count`, `head`, and `defaultToNull` when passed through the builder options.
 
 ### Mutations
 
-Mutation methods return a Supabase-compatible `MutationQuery` so you can chain `.select()`, `.single()`, and `.returning()` after invoking them:
+Mutation methods return a `MutationQuery`, so you can call `.select()`, `.single()`, `.returning()`, `.then()`, `.catch()`, or `.finally()` after mutating rows:
 
 ```ts
-const { data: inserted, error } = await athena
-  .from('countries')
-  .insert({ id: 1, name: 'Mordor' })
-  .select('id, name')
+const { data: inserted } = await athena
+  .from("countries")
+  .insert({ id: 1, name: "Mordor" })
+  .select("id, name");
 
 const { data: updated } = await athena
-  .from('countries')
-  .update({ name: 'Gondor' })
-  .eq('id', 1)
-  .select()
+  .from("countries")
+  .update({ name: "Gondor" })
+  .eq("id", 1)
+  .select();
 
 const { data: upserted } = await athena
-  .from('countries')
-  .upsert({ id: 2, name: 'Rohan' }, { updateBody: { name: 'Rohan' }, onConflict: 'id' })
-  .select()
+  .from("countries")
+  .upsert({ id: 2, name: "Rohan" }, { updateBody: { name: "Rohan" }, onConflict: "id" })
+  .select();
 ```
 
-Insert and upsert calls accept Supabase-compatible options such as `defaultToNull`, `count`, `head`, and `onConflict`. Delete operations allow filtering by `.eq()` or by passing `options.resourceId` as in Supabase.
+Insert and upsert calls accept options such as `defaultToNull`, `count`, `head`, `onConflict`, and `updateBody`. Delete operations accept `.eq()` filters or an explicit `options.resourceId` value.
 
 ## React hook
 

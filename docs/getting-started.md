@@ -1,17 +1,17 @@
 # Getting started with athena-js
 
-Athena is a database driver API gateway SDK. Use the Supabase-style client to query structured data over HTTP.
+Athena is a database driver and API gateway SDK. Create a client and the builder lets you read and mutate rows with optional filtering and pagination.
 
 ## 1. Install
 
 ```bash
-npm install athena-js
+npm install @xylex-group/athena
 ```
 
 ## 2. Create a client
 
 ```ts
-import { createClient } from "athena-js";
+import { createClient } from "@xylex-group/athena";
 
 const athena = createClient(
   "https://athena-db.com",
@@ -28,33 +28,32 @@ if (error) throw new Error(error);
 console.table(data);
 ```
 
-## 2. Insert & upsert
+## 3. Create and update rows
 
 ```ts
 const { data: inserted } = await athena
   .from("users")
   .insert({ name: "Bilbo" })
-  .select("id, name")
+  .select("id, name");
 
 const { data: updated } = await athena
   .from("users")
   .update({ name: "Bilbo Baggins" })
   .eq("id", inserted?.[0]?.id ?? 0)
-  .select()
+  .select();
 
-// Supabase-style upsert with conflict resolution
 await athena
   .from("users")
   .upsert(
     { id: 1, name: "Bilbo" },
     { updateBody: { name: "Bilbo Baggins" }, onConflict: "id" },
   )
-  .select("id, name")
+  .select("id, name");
 ```
 
-## 3. Filters & pagination
+## 4. Filters & pagination
 
-Use dot-chain helpers exactly as in Supabase:
+You can chain filters and modifiers to narrow results:
 
 ```ts
 const { data: page2 } = await athena
@@ -62,10 +61,10 @@ const { data: page2 } = await athena
   .select("id, email")
   .contains("roles", ["admin"])
   .or("status.eq.active,status.eq.suspended")
-  .range(10, 19)
+  .range(10, 19);
 ```
 
-## 4. React
+## 5. React
 
 Use the hook for client-side calls with loading and error state:
 
