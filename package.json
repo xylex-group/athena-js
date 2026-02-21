@@ -1,12 +1,12 @@
 {
   "name": "@xylex-group/athena",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "description": "Athena SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "bin": {
-    "athena-js": "./bin/athena-js.js"
+    "athena-js": "bin/athena-js.js"
   },
   "exports": {
     ".": {
@@ -59,7 +59,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xylex-group/athena-js"
+    "url": "git+https://github.com/xylex-group/athena-js.git"
   },
   "dependencies": {
     "blessed": "^0.1.81",
