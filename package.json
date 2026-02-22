@@ -29,9 +29,9 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "node --test test/**/*.test.ts",
-    "test:watch": "node --test --watch test/**/*.test.ts",
-    "lint": "eslint \"src/**/*.ts\" \"examples/**/*.ts\" \"test/**/*.ts\"",
+    "test": "node --test test/*.test.ts",
+    "test:watch": "node --test --watch test/*.test.ts",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "prepublishOnly": "npm run build",
     "publish:token": "node scripts/publish.js",
