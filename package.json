@@ -62,6 +62,7 @@
     "url": "git+https://github.com/xylex-group/athena-js.git"
   },
   "dependencies": {
+    "@xylex-group/athena": "^0.2.1",
     "blessed": "^0.1.81",
     "chalk": "^4.1.2",
     "cron-parser": "^4.9.0",
