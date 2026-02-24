@@ -4,8 +4,10 @@ import type {
   AthenaFetchPayload,
   AthenaGatewayCallLog,
   AthenaGatewayCallOptions,
+  AthenaGatewayEndpointPath,
   AthenaGatewayHookConfig,
   AthenaGatewayHookResult,
+  AthenaGatewayMethod,
   AthenaGatewayResponse,
   AthenaGatewayResponseLog,
   AthenaInsertPayload,
@@ -59,8 +61,8 @@ export function useAthenaGateway(
       },
     ): Promise<AthenaGatewayResponse<T>> => {
       const requestLog: AthenaGatewayCallLog = {
-        endpoint: metadata.endpoint as any,
-        method: metadata.method as any,
+        endpoint: metadata.endpoint as AthenaGatewayEndpointPath,
+        method: metadata.method as AthenaGatewayMethod,
         payload: metadata.payload,
         headers: client.buildHeaders(metadata.options),
         timestamp: new Date().toISOString(),
