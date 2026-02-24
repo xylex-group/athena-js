@@ -21,11 +21,11 @@ app.use((_req, res, next) => {
 
 const ATHENA_URL = process.env.ATHENA_URL ?? "https://mirror3.athena-db.com";
 const ATHENA_API_KEY = process.env.ATHENA_API_KEY ?? "";
-const ATHENA_CLIENT = process.env.ATHENA_CLIENT ?? "xylex_cloud";
+const ATHENA_CLIENT = process.env.ATHENA_CLIENT ?? "athena_logging";
 const DEBUG_ATHENA_REQUESTS = process.env.DEBUG_ATHENA_REQUESTS === "1";
 
 const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
-  client: "xylex_cloud",
+  client: "athena_logging",
   backend: { type: "athena" },
 });
 
