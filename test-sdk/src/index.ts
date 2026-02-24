@@ -45,7 +45,9 @@ if (DEBUG_ATHENA_REQUESTS) {
       console.log(chalk.magenta("  → Athena request:"), url);
       console.log(
         chalk.magenta("    x-athena-client:"),
-        headers["x-athena-client"] ?? headers["X-Athena-Client"] ?? chalk.dim("(not set)"),
+        headers["x-athena-client"] ??
+          headers["X-Athena-Client"] ??
+          chalk.dim("(not set)"),
       );
     }
     return origFetch(input, init);

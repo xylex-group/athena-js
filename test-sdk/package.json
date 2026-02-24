@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@xylex-group/athena": "1.0.2",
+    "@xylex-group/athena": "file:../dist",
     "chalk": "^4.1.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.0"

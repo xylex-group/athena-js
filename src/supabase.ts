@@ -362,9 +362,9 @@ function createTableBuilder<Row>(
       return builder
     },
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
-      return createSelectChain(columns, options) as SelectChain<T>
+      return createSelectChain(columns, options) as unknown as SelectChain<T>
     },
-    insert(values, options) {
+    insert(values: Row | Row[], options?: AthenaGatewayCallOptions) {
       const executeInsert = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
@@ -385,7 +385,10 @@ function createTableBuilder<Row>(
       }
       return createMutationQuery<Row | Row[]>(executeInsert)
     },
-    upsert(values, options) {
+    upsert(
+      values: Row | Row[],
+      options?: AthenaGatewayCallOptions & { updateBody?: Partial<Row>; onConflict?: string | string[] },
+    ) {
       const executeUpsert = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
@@ -408,7 +411,7 @@ function createTableBuilder<Row>(
       }
       return createMutationQuery<Row | Row[]>(executeUpsert)
     },
-    update(values, options) {
+    update(values: Partial<Row>, options?: AthenaGatewayCallOptions) {
       const executeUpdate = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
@@ -431,7 +434,7 @@ function createTableBuilder<Row>(
       Object.assign(updateChain, filterMethods, mutation)
       return updateChain
     },
-    delete(options) {
+    delete(options?: AthenaGatewayCallOptions & { resourceId?: string }) {
       const filters = state.conditions.length ? [...state.conditions] : undefined
       const resourceId = options?.resourceId ?? getResourceId(state)
       if (!resourceId && !filters?.length) {
