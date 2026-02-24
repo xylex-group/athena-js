@@ -243,7 +243,7 @@ export function UsersPanel() {
 
 The hook returns `fetchGateway`, `insertGateway`, `updateGateway`, `deleteGateway`, `isLoading`, `error`, `lastRequest`, `lastResponse`, and `baseUrl`.
 
-Hook config options mirror the client options: `baseUrl`, `apiKey`, `stripNulls`, `headers`, `userId`, `companyId`, `organizationId`, `supabaseUrl`, `supabaseKey`, `publishEvent`.
+Hook config options mirror the client options: `baseUrl`, `apiKey`, `headers`, `userId`, `organizationId`, `publishEvent`.
 
 ## User context headers
 
@@ -251,13 +251,14 @@ Pass user and tenant context to every request without repeating it on each call:
 
 ```ts
 const athena = createClient("https://athena-db.com", process.env.ATHENA_API_KEY, {
-  userId: currentUser.id,
-  companyId: currentUser.companyId,
-  organizationId: currentUser.organizationId,
+  headers: {
+    "X-User-Id": currentUser.id,
+    "X-Organization-Id": currentUser.organizationId ?? "",
+  },
 });
 ```
 
-These are sent as `X-User-Id`, `X-Company-Id`, and `X-Organization-Id` request headers. You can override them per-call by passing the same options to `.select()` or any mutation method.
+Or pass per-call via options. The Athena server interprets `url` and `key` based on the backend type (Supabase, PostgREST, etc.).
 
 ## Custom headers
 

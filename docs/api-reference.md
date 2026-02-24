@@ -226,14 +226,10 @@ React hook that wraps the Athena gateway client with React state for loading, er
 | Option | Type | Description |
 |--------|------|-------------|
 | `baseUrl` | `string` | Gateway server URL |
-| `apiKey` | `string` | API key for all requests |
-| `stripNulls` | `boolean` | Strip null values from responses (default `true`) |
+| `apiKey` | `string` | API key (or service-role key for Supabase backend) |
 | `headers` | `Record<string, string>` | Extra headers added to every request |
 | `userId` | `string \| null` | Sent as `X-User-Id` |
-| `companyId` | `string \| null` | Sent as `X-Company-Id` |
 | `organizationId` | `string \| null` | Sent as `X-Organization-Id` |
-| `supabaseUrl` | `string` | Sent as `x-supabase-url` |
-| `supabaseKey` | `string` | Sent as `x-supabase-key` |
 | `publishEvent` | `string` | Sent as `X-Publish-Event` |
 | `client` | `string` | Sent as `x-athena-client` (default `"railway_direct"`) |
 
@@ -267,10 +263,7 @@ Options that can be passed to `createClient`, any builder method, or any hook ga
 | `stripNulls` | `boolean` | strip null fields from the response (default `true`) |
 | `headers` | `Record<string, string>` | additional request headers |
 | `userId` | `string \| null` | `X-User-Id` header |
-| `companyId` | `string \| null` | `X-Company-Id` header |
 | `organizationId` | `string \| null` | `X-Organization-Id` header |
-| `supabaseUrl` | `string` | `x-supabase-url` header |
-| `supabaseKey` | `string` | `x-supabase-key` header |
 | `publishEvent` | `string` | `X-Publish-Event` header |
 | `count` | `"exact" \| "planned" \| "estimated"` | request a row count |
 | `head` | `boolean` | return response headers only, no rows |

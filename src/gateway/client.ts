@@ -32,7 +32,7 @@ function buildHeaders(
   config: AthenaGatewayBaseOptions,
   options?: AthenaGatewayCallOptions,
 ): Record<string, string> {
-  const mergedStripNulls = options?.stripNulls ?? config.stripNulls ?? true;
+  const mergedStripNulls = options?.stripNulls ?? true;
   const extraHeaders = {
     ...(config.headers ?? {}),
     ...(options?.headers ?? {}),
@@ -46,8 +46,6 @@ function buildHeaders(
     (typeof headerClient === "string" ? headerClient : undefined) ??
     DEFAULT_CLIENT;
   const finalApiKey = options?.apiKey ?? config.apiKey;
-  const finalSupabaseUrl = options?.supabaseUrl ?? config.supabaseUrl;
-  const finalSupabaseKey = options?.supabaseKey ?? config.supabaseKey;
   const finalPublishEvent = options?.publishEvent ?? config.publishEvent;
 
   const headers: Record<string, string> = {
@@ -58,16 +56,11 @@ function buildHeaders(
     headers["X-User-Id"] = options?.userId ?? config.userId ?? "";
   }
 
-  if (options?.companyId ?? config.companyId) {
-    headers["X-Company-Id"] = options?.companyId ?? config.companyId ?? "";
-  }
-
   if (options?.organizationId ?? config.organizationId) {
     headers["X-Organization-Id"] =
       options?.organizationId ?? config.organizationId ?? "";
   }
 
-  // Use X-Athena-Client (Title-Case) - conventional HTTP header format expected by many gateways
   if (finalClient) {
     headers["X-Athena-Client"] = finalClient;
   }
@@ -85,15 +78,6 @@ function buildHeaders(
     headers["x-api-key"] = headers["x-api-key"] ?? finalApiKey;
   }
 
-  if (finalSupabaseUrl) {
-    headers["x-supabase-url"] = finalSupabaseUrl;
-  }
-
-  if (finalSupabaseKey) {
-    headers["x-supabase-key"] = finalSupabaseKey;
-  }
-
-  // Skip x-athena-client from extraHeaders to avoid overwriting; we set X-Athena-Client above
   const athenaClientKeys = ["x-athena-client", "X-Athena-Client"];
   Object.entries(extraHeaders).forEach(([key, value]) => {
     if (athenaClientKeys.includes(key)) return;

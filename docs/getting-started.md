@@ -38,9 +38,10 @@ const athena = createClient(
   "https://athena-db.com",
   process.env.ATHENA_API_KEY,
   {
-    stripNulls: false,
-    userId: currentUser.id,
-    companyId: currentUser.companyId,
+    client: "your_client",
+    headers: {
+      "X-User-Id": currentUser.id ?? "",
+    },
   },
 );
 ```

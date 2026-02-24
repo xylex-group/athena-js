@@ -78,18 +78,17 @@ export interface AthenaUpdatePayload extends AthenaFetchPayload {
   update_body?: Record<string, unknown>
 }
 
+/** Backend type for Athena client (aligns with athena-rs) */
+export type BackendType = 'athena' | 'postgrest' | 'supabase' | 'postgresql' | 'scylladb'
+
 export interface AthenaGatewayBaseOptions {
   baseUrl?: string
   client?: string
   apiKey?: string
-  stripNulls?: boolean
-  supabaseUrl?: string
-  supabaseKey?: string
   publishEvent?: string
   headers?: Record<string, string>
   /** optional user context injected as gateway request headers */
   userId?: string | null
-  companyId?: string | null
   organizationId?: string | null
 }
 
@@ -98,6 +97,7 @@ export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
   count?: AthenaCountOption
   head?: boolean
   defaultToNull?: boolean
+  stripNulls?: boolean
   onConflict?: string | string[]
   updateBody?: Record<string, unknown>
 }

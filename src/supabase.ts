@@ -9,6 +9,7 @@ import type {
   AthenaInsertPayload,
   AthenaUpdatePayload,
 } from './gateway/types.ts'
+import type { BackendType } from './gateway/types.ts'
 import { createAthenaGatewayClient } from './gateway/client.ts'
 
 export interface SupabaseResult<T> {
@@ -472,21 +473,119 @@ export interface SupabaseClient {
   from<Row = unknown>(table: string): TableQueryBuilder<Row>
 }
 
+/** Client config for builder (minimal, no companyId/defaultToNull/stripNulls/supabase*) */
+export interface AthenaClientConfig {
+  baseUrl: string
+  apiKey: string
+  client?: string
+  backend?: BackendType
+  headers?: Record<string, string>
+  healthTracking?: boolean
+}
+
+function createClientFromConfig(config: AthenaClientConfig): SupabaseClient {
+  const gateway = createAthenaGatewayClient({
+    baseUrl: config.baseUrl,
+    apiKey: config.apiKey,
+    client: config.client,
+    headers: config.headers,
+  })
+  return {
+    from<Row = unknown>(table: string) {
+      return createTableBuilder<Row>(table, gateway)
+    },
+  }
+}
+
+export interface AthenaClientBuilder {
+  url(url: string): AthenaClientBuilder
+  key(apiKey: string): AthenaClientBuilder
+  backend(backend: BackendType): AthenaClientBuilder
+  client(clientName: string): AthenaClientBuilder
+  headers(headers: Record<string, string>): AthenaClientBuilder
+  healthTracking(enabled: boolean): AthenaClientBuilder
+  build(): SupabaseClient
+}
+
+export const AthenaClient = {
+  builder(): AthenaClientBuilder {
+    let url: string | undefined
+    let key: string | undefined
+    let backend: BackendType = 'athena'
+    let clientName: string | undefined
+    let headers: Record<string, string> | undefined
+    let healthTracking = false
+    const builder = {
+      url(u: string) {
+        url = u
+        return builder
+      },
+      key(k: string) {
+        key = k
+        return builder
+      },
+      backend(b: BackendType) {
+        backend = b
+        return builder
+      },
+      client(c: string) {
+        clientName = c
+        return builder
+      },
+      headers(h: Record<string, string>) {
+        headers = h
+        return builder
+      },
+      healthTracking(enabled: boolean) {
+        healthTracking = enabled
+        return builder
+      },
+      build(): SupabaseClient {
+        if (!url || !key) {
+          throw new Error('AthenaClient requires url and key; call .url() and .key() before .build()')
+        }
+        return createClientFromConfig({
+          baseUrl: url,
+          apiKey: key,
+          client: clientName,
+          backend,
+          headers,
+          healthTracking,
+        })
+      },
+    }
+    return builder
+  },
+
+  /** Build client from env: ATHENA_SUPABASE_URL, ATHENA_SUPABASE_KEY (or SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) */
+  fromSupabaseEnv(): SupabaseClient {
+    const url =
+      process.env.ATHENA_SUPABASE_URL ??
+      process.env.SUPABASE_URL
+    const key =
+      process.env.ATHENA_SUPABASE_KEY ??
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) {
+      throw new Error(
+        'ATHENA_SUPABASE_URL and ATHENA_SUPABASE_KEY (or SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY) are required',
+      )
+    }
+    return AthenaClient.builder()
+      .backend('supabase')
+      .url(url)
+      .key(key)
+      .build()
+  },
+}
+
+/** Create client (convenience wrapper; use AthenaClient.builder() for full control) */
 export function createClient(
   url: string,
   apiKey: string,
-  options?: AthenaGatewayCallOptions,
+  options?: Pick<AthenaGatewayCallOptions, 'client' | 'headers'> & { backend?: BackendType },
 ): SupabaseClient {
-  const { baseUrl: optBaseUrl, apiKey: optApiKey, ...restOptions } = options ?? {}
-  const client = createAthenaGatewayClient({
-    baseUrl: optBaseUrl ?? url,
-    apiKey: optApiKey ?? apiKey,
-    ...restOptions,
-  })
-
-  return {
-    from<Row = unknown>(table: string) {
-      return createTableBuilder<Row>(table, client)
-    },
-  }
+  const b = AthenaClient.builder().url(url).key(apiKey).backend(options?.backend ?? 'athena')
+  if (options?.client) b.client(options.client)
+  if (options?.headers && Object.keys(options.headers).length > 0) b.headers(options.headers)
+  return b.build()
 }

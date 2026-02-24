@@ -89,15 +89,11 @@ test('AthenaGatewayHookConfig accepts optional user context fields', () => {
   const config: AthenaGatewayHookConfig = {
     baseUrl: 'https://athena-db.com',
     userId: 'user-1',
-    companyId: 'company-1',
     organizationId: 'org-1',
     apiKey: 'secret',
-    stripNulls: false,
   }
   assert.equal(config.userId, 'user-1')
-  assert.equal(config.companyId, 'company-1')
   assert.equal(config.organizationId, 'org-1')
-  assert.equal(config.stripNulls, false)
 })
 
 test('AthenaGatewayCallOptions accepts per-call overrides', () => {

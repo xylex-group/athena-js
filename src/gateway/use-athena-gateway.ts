@@ -30,26 +30,18 @@ export function useAthenaGateway(
         client: config?.client,
         baseUrl: config?.baseUrl,
         apiKey: config?.apiKey,
-        supabaseUrl: config?.supabaseUrl,
-        supabaseKey: config?.supabaseKey,
         publishEvent: config?.publishEvent,
-        stripNulls: config?.stripNulls,
         headers: config?.headers,
         userId: config?.userId,
-        companyId: config?.companyId,
         organizationId: config?.organizationId,
       }),
     [
       config?.baseUrl,
       config?.client,
       config?.apiKey,
-      config?.supabaseUrl,
-      config?.supabaseKey,
       config?.publishEvent,
-      config?.stripNulls,
       config?.headers,
       config?.userId,
-      config?.companyId,
       config?.organizationId,
     ],
   );
@@ -110,10 +102,7 @@ export function useAthenaGateway(
     [client],
   );
 
-  const normalizedConfigStripNulls = useMemo(
-    () => config?.stripNulls ?? true,
-    [config?.stripNulls],
-  );
+  const defaultStripNulls = true;
 
   const fetchGateway = useCallback(
     <T = unknown>(
@@ -126,7 +115,7 @@ export function useAthenaGateway(
         strip_nulls:
           payload.strip_nulls ??
           options?.stripNulls ??
-          normalizedConfigStripNulls,
+          defaultStripNulls,
       };
       return callWithLifecycle<T>(
         () => client.fetchGateway<T>(normalizedPayload, options),
@@ -138,7 +127,7 @@ export function useAthenaGateway(
         },
       );
     },
-    [callWithLifecycle, client, normalizedConfigStripNulls],
+    [callWithLifecycle, client],
   );
 
   const insertGateway = useCallback(
@@ -166,7 +155,7 @@ export function useAthenaGateway(
         strip_nulls:
           payload.strip_nulls ??
           options?.stripNulls ??
-          normalizedConfigStripNulls,
+          defaultStripNulls,
       };
       return callWithLifecycle<T>(
         () => client.updateGateway<T>(normalizedPayload, options),
@@ -178,7 +167,7 @@ export function useAthenaGateway(
         },
       );
     },
-    [callWithLifecycle, client, normalizedConfigStripNulls],
+    [callWithLifecycle, client],
   );
 
   const deleteGateway = useCallback(

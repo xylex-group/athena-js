@@ -26,6 +26,7 @@ const DEBUG_ATHENA_REQUESTS = process.env.DEBUG_ATHENA_REQUESTS === "1";
 
 const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
   client: ATHENA_CLIENT,
+  
 });
 
 if (DEBUG_ATHENA_REQUESTS) {

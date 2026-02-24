@@ -1,10 +1,57 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
-import { createClient } from '../src/supabase.ts'
+import { createClient, AthenaClient } from '../src/supabase.ts'
 
 function createMockResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
 }
+
+test('AthenaClient.builder() builds client with url and key', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify([{ id: 1 }]), { status: 200 })
+  }
+
+  try {
+    const client = AthenaClient.builder()
+      .backend('athena')
+      .url('https://athena-db.com')
+      .key('secret')
+      .client('test_client')
+      .build()
+
+    const result = await client.from('users').select('id').limit(1)
+    assert.equal(result.status, 200)
+    assert.equal(calls.length, 1)
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers['X-Athena-Client'], 'test_client')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('createClient(url, key, { client }) still works', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify([]), { status: 200 })
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      client: 'athena_logging',
+    })
+    await client.from('users').select()
+    assert.equal(calls.length, 1)
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers['X-Athena-Client'], 'athena_logging')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
 
 test('select builder honors filters, range, and options', async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = []
