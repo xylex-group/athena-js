@@ -20,13 +20,17 @@ npm run start
 npm run dev
 ```
 
+Environment variables from `.env` and `.env.local` are loaded automatically. On Windows PowerShell, to set vars inline: `$env:ATHENA_CLIENT="xylex_cloud"; npm run dev`
+
 ## Environment
 
-| Variable         | Default              | Description                          |
-|------------------|----------------------|--------------------------------------|
-| `ATHENA_URL`     | `https://athena-db.com` | Athena gateway base URL            |
-| `ATHENA_API_KEY` | _(required)_         | API key for Athena gateway           |
-| `PORT`           | `3000`               | HTTP server port                     |
+| Variable               | Default              | Description                                |
+|------------------------|----------------------|--------------------------------------------|
+| `ATHENA_URL`           | `https://athena-db.com` | Athena gateway base URL                  |
+| `ATHENA_API_KEY`       | _(required)_         | API key for Athena gateway                 |
+| `ATHENA_CLIENT`        | `railway_direct`     | Client routing key (sent as `x-athena-client`) |
+| `DEBUG_ATHENA_REQUESTS`| -                    | Set to `1` to log outgoing Athena request headers |
+| `PORT`                 | `3000`               | HTTP server port                           |
 
 ## Endpoints
 

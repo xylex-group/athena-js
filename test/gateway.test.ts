@@ -164,6 +164,28 @@ test('select builds fetch payload with Athena-style filters', async () => {
   }
 })
 
+test('x-athena-client header is sent for routing when client option is set', async () => {
+  const received: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    received.push({ url: String(url), init })
+    return new Response(JSON.stringify({ data: [] }), { status: 200 })
+  }
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      client: 'xylex_cloud',
+    })
+    await client.from('users').limit(5).select()
+    assert.equal(received.length, 1, 'expected one request')
+    const reqHeaders = (received[0].init?.headers ?? {}) as Record<string, string>
+    const clientHeader =
+      reqHeaders['X-Athena-Client'] ?? reqHeaders['x-athena-client']
+    assert.equal(clientHeader, 'xylex_cloud', 'X-Athena-Client header must be sent for routing')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('insert mutation supports select() and returning rows', async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = []
   const originalFetch = globalThis.fetch

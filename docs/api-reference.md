@@ -235,7 +235,7 @@ React hook that wraps the Athena gateway client with React state for loading, er
 | `supabaseUrl` | `string` | Sent as `x-supabase-url` |
 | `supabaseKey` | `string` | Sent as `x-supabase-key` |
 | `publishEvent` | `string` | Sent as `X-Publish-Event` |
-| `client` | `string` | Sent as `X-Athena-Client` (default `"railway_direct"`) |
+| `client` | `string` | Sent as `x-athena-client` (default `"railway_direct"`) |
 
 **Returns** (`AthenaGatewayHookResult`)
 
@@ -263,7 +263,7 @@ Options that can be passed to `createClient`, any builder method, or any hook ga
 |--------|------|-------------|
 | `baseUrl` | `string` | override the base URL for this call |
 | `apiKey` | `string` | override the API key for this call |
-| `client` | `string` | value for the `X-Athena-Client` header |
+| `client` | `string` | value for the `x-athena-client` header |
 | `stripNulls` | `boolean` | strip null fields from the response (default `true`) |
 | `headers` | `Record<string, string>` | additional request headers |
 | `userId` | `string \| null` | `X-User-Id` header |
