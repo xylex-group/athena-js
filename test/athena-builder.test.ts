@@ -16,7 +16,7 @@ test('AthenaClient.builder() builds client with url and key', async () => {
 
   try {
     const client = AthenaClient.builder()
-      .backend('athena')
+      .backend({ type: 'athena' })
       .url('https://athena-db.com')
       .key('secret')
       .client('test_client')
@@ -27,6 +27,7 @@ test('AthenaClient.builder() builds client with url and key', async () => {
     assert.equal(calls.length, 1)
     const headers = calls[0].init?.headers as Record<string, string>
     assert.equal(headers['X-Athena-Client'], 'test_client')
+    assert.equal(headers['X-Backend-Type'], 'athena')
   } finally {
     globalThis.fetch = originalFetch
   }

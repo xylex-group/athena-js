@@ -7,7 +7,11 @@ Complete reference for every export in `@xylex-group/athena`.
 ```ts
 import { createClient } from "@xylex-group/athena";
 
-const athena = createClient(url: string, apiKey: string, options?: AthenaGatewayCallOptions): SupabaseClient
+const athena = createClient(
+  url: string,
+  apiKey: string,
+  options?: { client?: string; headers?: Record<string, string>; backend?: BackendConfig }
+): SupabaseClient
 ```
 
 Creates and returns a `SupabaseClient` bound to the given URL and API key. All requests use `url` as the base URL and send `apiKey` as the `apikey` and `x-api-key` headers.
@@ -18,7 +22,7 @@ Creates and returns a `SupabaseClient` bound to the given URL and API key. All r
 |-----------|------|-------------|
 | `url` | `string` | Base URL of the Athena gateway server |
 | `apiKey` | `string` | API key sent with every request |
-| `options` | `AthenaGatewayCallOptions` | Default options applied to every request from this client |
+| `options` | `{ client?, headers?, backend? }` | Optional: `client`, `headers`, `backend` (object with `type: BackendType` and `options?`) |
 
 **Returns** `SupabaseClient`
 
@@ -253,7 +257,7 @@ React hook that wraps the Athena gateway client with React state for loading, er
 
 ## AthenaGatewayCallOptions
 
-Options that can be passed to `createClient`, any builder method, or any hook gateway function:
+Options for builder methods (`.select()`, `.insert()`, etc.) and the React hook. `createClient` only accepts `client`, `headers`, and `backend`.
 
 | Option | Type | Description |
 |--------|------|-------------|

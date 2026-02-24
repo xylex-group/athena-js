@@ -65,6 +65,12 @@ function buildHeaders(
     headers["X-Athena-Client"] = finalClient;
   }
 
+  const finalBackend = options?.backend ?? config.backend;
+  if (finalBackend) {
+    const type = typeof finalBackend === "string" ? finalBackend : finalBackend.type;
+    if (type) headers["X-Backend-Type"] = type;
+  }
+
   if (typeof mergedStripNulls === "boolean") {
     headers["X-Strip-Nulls"] = mergedStripNulls ? "true" : "false";
   }

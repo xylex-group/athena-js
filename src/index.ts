@@ -7,29 +7,10 @@
 
 // Athena client
 export { createClient, AthenaClient } from './supabase.js'
+export { Backend } from './gateway/types.js'
 export type {
   SupabaseClient,
   TableQueryBuilder,
   SupabaseResult,
-  AthenaClientBuilder,
-  AthenaClientConfig,
 } from './supabase.js'
-
-// Gateway types
-export type {
-  BackendType,
-  AthenaGatewayCondition,
-  AthenaFetchPayload,
-  AthenaInsertPayload,
-  AthenaDeletePayload,
-  AthenaUpdatePayload,
-  AthenaGatewayBaseOptions,
-  AthenaGatewayHookConfig,
-  AthenaGatewayCallOptions,
-  AthenaGatewayResponse,
-  AthenaGatewayResponseLog,
-  AthenaGatewayCallLog,
-  AthenaGatewayHookResult,
-  AthenaGatewayMethod,
-  AthenaGatewayEndpointPath,
-} from './gateway/types.js'
+export type { BackendType, BackendConfig, AthenaGatewayCallOptions } from './gateway/types.js'

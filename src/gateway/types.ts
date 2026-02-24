@@ -81,13 +81,30 @@ export interface AthenaUpdatePayload extends AthenaFetchPayload {
 /** Backend type for Athena client (aligns with athena-rs) */
 export type BackendType = 'athena' | 'postgrest' | 'supabase' | 'postgresql' | 'scylladb'
 
+/** Backend config: type from SDK + backend-scoped options */
+export interface BackendConfig {
+  type: BackendType
+  options?: Record<string, unknown>
+}
+
+/** Pre-defined backends for lean usage: backend: Backend.Athena */
+export const Backend = {
+  Athena: { type: 'athena' } as const,
+  Supabase: { type: 'supabase' } as const,
+  Postgrest: { type: 'postgrest' } as const,
+  PostgreSQL: { type: 'postgresql' } as const,
+  ScyllaDB: { type: 'scylladb' } as const,
+} as const satisfies Record<string, BackendConfig>
+
+export type BackendOption = BackendConfig | BackendType
+
 export interface AthenaGatewayBaseOptions {
   baseUrl?: string
-  client?: string
   apiKey?: string
+  client?: string
+  backend?: BackendOption
   publishEvent?: string
   headers?: Record<string, string>
-  /** optional user context injected as gateway request headers */
   userId?: string | null
   organizationId?: string | null
 }

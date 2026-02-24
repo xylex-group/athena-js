@@ -3,7 +3,7 @@ dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
 import express from "express";
 import chalk from "chalk";
-import { createClient } from "@xylex-group/athena";
+import { createClient, BackendType} from "@xylex-group/athena";
 
 const app = express();
 app.use(express.json());
@@ -26,6 +26,7 @@ const DEBUG_ATHENA_REQUESTS = process.env.DEBUG_ATHENA_REQUESTS === "1";
 
 const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
   client: ATHENA_CLIENT,
+  backend: Backend.Athena,
 });
 
 if (DEBUG_ATHENA_REQUESTS) {

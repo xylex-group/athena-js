@@ -1,23 +1,17 @@
 /**
  * athena gateway react module
  *
- * exports the useAthenaGateway hook and all associated types
+ * Low-level gateway hook. Most users should use createClient() and the query builder.
  */
 
 export { useAthenaGateway } from './use-athena-gateway.js'
 export type {
-  AthenaGatewayCondition,
+  AthenaGatewayHookConfig,
+  AthenaGatewayHookResult,
+  AthenaGatewayCallOptions,
   AthenaFetchPayload,
   AthenaInsertPayload,
-  AthenaDeletePayload,
   AthenaUpdatePayload,
-  AthenaGatewayBaseOptions,
-  AthenaGatewayHookConfig,
-  AthenaGatewayCallOptions,
+  AthenaDeletePayload,
   AthenaGatewayResponse,
-  AthenaGatewayResponseLog,
-  AthenaGatewayCallLog,
-  AthenaGatewayHookResult,
-  AthenaGatewayMethod,
-  AthenaGatewayEndpointPath,
 } from './types.js'

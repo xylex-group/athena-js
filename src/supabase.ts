@@ -9,7 +9,7 @@ import type {
   AthenaInsertPayload,
   AthenaUpdatePayload,
 } from './gateway/types.ts'
-import type { BackendType } from './gateway/types.ts'
+import type { BackendConfig, BackendType } from './gateway/types.ts'
 import { createAthenaGatewayClient } from './gateway/client.ts'
 
 export interface SupabaseResult<T> {
@@ -473,12 +473,12 @@ export interface SupabaseClient {
   from<Row = unknown>(table: string): TableQueryBuilder<Row>
 }
 
-/** Client config for builder (minimal, no companyId/defaultToNull/stripNulls/supabase*) */
+/** Client config for builder */
 export interface AthenaClientConfig {
   baseUrl: string
   apiKey: string
   client?: string
-  backend?: BackendType
+  backend?: BackendConfig
   headers?: Record<string, string>
   healthTracking?: boolean
 }
@@ -488,6 +488,7 @@ function createClientFromConfig(config: AthenaClientConfig): SupabaseClient {
     baseUrl: config.baseUrl,
     apiKey: config.apiKey,
     client: config.client,
+    backend: config.backend,
     headers: config.headers,
   })
   return {
@@ -500,18 +501,25 @@ function createClientFromConfig(config: AthenaClientConfig): SupabaseClient {
 export interface AthenaClientBuilder {
   url(url: string): AthenaClientBuilder
   key(apiKey: string): AthenaClientBuilder
-  backend(backend: BackendType): AthenaClientBuilder
+  backend(backend: BackendConfig | BackendType): AthenaClientBuilder
   client(clientName: string): AthenaClientBuilder
   headers(headers: Record<string, string>): AthenaClientBuilder
   healthTracking(enabled: boolean): AthenaClientBuilder
   build(): SupabaseClient
 }
 
+const DEFAULT_BACKEND: BackendConfig = { type: 'athena' }
+
+function toBackendConfig(b: BackendConfig | BackendType | undefined): BackendConfig {
+  if (!b) return DEFAULT_BACKEND
+  return typeof b === 'string' ? { type: b } : b
+}
+
 export const AthenaClient = {
   builder(): AthenaClientBuilder {
     let url: string | undefined
     let key: string | undefined
-    let backend: BackendType = 'athena'
+    let backend: BackendConfig = DEFAULT_BACKEND
     let clientName: string | undefined
     let headers: Record<string, string> | undefined
     let healthTracking = false
@@ -524,8 +532,8 @@ export const AthenaClient = {
         key = k
         return builder
       },
-      backend(b: BackendType) {
-        backend = b
+      backend(b: BackendConfig | BackendType) {
+        backend = toBackendConfig(b)
         return builder
       },
       client(c: string) {
@@ -571,7 +579,7 @@ export const AthenaClient = {
       )
     }
     return AthenaClient.builder()
-      .backend('supabase')
+      .backend({ type: 'supabase' })
       .url(url)
       .key(key)
       .build()
@@ -582,9 +590,9 @@ export const AthenaClient = {
 export function createClient(
   url: string,
   apiKey: string,
-  options?: Pick<AthenaGatewayCallOptions, 'client' | 'headers'> & { backend?: BackendType },
+  options?: Pick<AthenaGatewayCallOptions, 'client' | 'headers' | 'backend'>,
 ): SupabaseClient {
-  const b = AthenaClient.builder().url(url).key(apiKey).backend(options?.backend ?? 'athena')
+  const b = AthenaClient.builder().url(url).key(apiKey).backend(toBackendConfig(options?.backend))
   if (options?.client) b.client(options.client)
   if (options?.headers && Object.keys(options.headers).length > 0) b.headers(options.headers)
   return b.build()
