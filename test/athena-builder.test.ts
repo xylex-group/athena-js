@@ -95,3 +95,90 @@ test('mutations support chaining and option propagation', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+test('select chain supports filters after select (flexible ordering)', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1, name: 'Alice' }], 200)
+  }
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret')
+    const result = await athena
+      .from('users')
+      .select('id, name')
+      .eq('id', 1)
+      .limit(10)
+
+    assert.equal(result.status, 200)
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.columns, 'id, name')
+    assert.equal(payload.limit, 10)
+    assert.deepEqual(
+      payload.conditions,
+      [{ operator: 'eq', column: 'id', value: 1 }],
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('select chain supports single() after filters', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1, name: 'Alice' }], 200)
+  }
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret')
+    const result = await athena
+      .from('users')
+      .select('*')
+      .eq('id', 1)
+      .single()
+
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data, { id: 1, name: 'Alice' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(
+      payload.conditions,
+      [{ operator: 'eq', column: 'id', value: 1 }],
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('update chain supports filters after update (flexible ordering)', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1, name: 'Updated' }], 200)
+  }
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret')
+    const result = await athena
+      .from('users')
+      .update({ name: 'Updated' })
+      .eq('id', 1)
+      .select()
+
+    assert.equal(result.status, 200)
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.update_body, { name: 'Updated' })
+    assert.deepEqual(
+      payload.conditions,
+      [{ operator: 'eq', column: 'id', value: 1 }],
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

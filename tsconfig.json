@@ -8,6 +8,7 @@
     "allowJs": false,
     "checkJs": false,
     "allowImportingTsExtensions": true,
+    "noEmit": true,
     "outDir": "./dist",
     "rootDir": "./src",
     "declaration": true,
