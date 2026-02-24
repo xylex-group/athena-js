@@ -19,7 +19,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-const ATHENA_URL = process.env.ATHENA_URL ?? "https://athena-db.com";
+const ATHENA_URL = process.env.ATHENA_URL ?? "https://mirror3.athena-db.com";
 const ATHENA_API_KEY = process.env.ATHENA_API_KEY ?? "";
 const ATHENA_CLIENT = process.env.ATHENA_CLIENT ?? "xylex_cloud";
 const DEBUG_ATHENA_REQUESTS = process.env.DEBUG_ATHENA_REQUESTS === "1";
