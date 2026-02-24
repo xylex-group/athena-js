@@ -23,10 +23,10 @@ npm install react  # React >=17 required for the hook
 ```ts
 import { createClient } from "@xylex-group/athena";
 
-const athena = createClient(
-  "https://athena-db.com",
-  process.env.ATHENA_API_KEY,
-);
+const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  client: "CLIENT_NAME",
+  backend: { type: "athena" },
+});
 
 const { data, error } = await athena.from("characters").select(`
     id,

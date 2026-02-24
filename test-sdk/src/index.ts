@@ -25,7 +25,7 @@ const ATHENA_CLIENT = process.env.ATHENA_CLIENT ?? "athena_logging";
 const DEBUG_ATHENA_REQUESTS = process.env.DEBUG_ATHENA_REQUESTS === "1";
 
 const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
-  client: "athena_logging",
+  client: "xylex_cloud",
   backend: { type: "athena" },
 });
 
