@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@xylex-group/athena": "file:..",
+    "chalk": "^4.1.2",
     "express": "^4.21.0"
   },
   "devDependencies": {

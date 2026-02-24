@@ -1,4 +1,5 @@
 import express from "express";
+import chalk from "chalk";
 import { createClient } from "@xylex-group/athena";
 
 const app = express();
@@ -9,11 +10,49 @@ const ATHENA_API_KEY = process.env.ATHENA_API_KEY ?? "";
 
 const client = createClient(ATHENA_URL, ATHENA_API_KEY);
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, sdk: "athena-js" });
+function logRequest(
+  method: string,
+  path: string,
+  status: number,
+  responseTimeMs: number,
+) {
+  const methodColor =
+    method === "GET"
+      ? chalk.green
+      : method === "POST"
+        ? chalk.blue
+        : method === "PATCH"
+          ? chalk.yellow
+          : method === "DELETE"
+            ? chalk.red
+            : chalk.gray;
+  const statusColor =
+    status >= 200 && status < 300
+      ? chalk.green
+      : status >= 400
+        ? chalk.red
+        : chalk.yellow;
+  const speedColor =
+    responseTimeMs < 100
+      ? chalk.green
+      : responseTimeMs < 500
+        ? chalk.yellow
+        : chalk.red;
+  console.log(
+    `${methodColor(method.padEnd(6))} ${chalk.cyan(path)} ${statusColor(String(status))} ${speedColor(`${responseTimeMs}ms`)}`,
+  );
+}
+
+app.get("/", (_req, res) => {
+  const start = performance.now();
+  const elapsed = Math.round(performance.now() - start);
+  res.json({ ok: true, sdk: "athena-js", responseTimeMs: elapsed });
+  logRequest("GET", "/", 200, elapsed);
 });
 
 app.get("/table/:name", async (req, res) => {
+  const path = req.path;
+  const start = performance.now();
   try {
     const { name } = req.params;
     const { limit = "10", offset = "0" } = req.query;
@@ -24,37 +63,56 @@ app.get("/table/:name", async (req, res) => {
       .offset(Number(offset))
       .select();
 
+    const elapsed = Math.round(performance.now() - start);
+
     if (error) {
-      return res.status(status || 500).json({ error });
+      logRequest("GET", path, status || 500, elapsed);
+      return res
+        .status(status || 500)
+        .json({ error, responseTimeMs: elapsed });
     }
-    res.json({ data });
+    logRequest("GET", path, 200, elapsed);
+    res.json({ data, responseTimeMs: elapsed });
   } catch (err) {
+    const elapsed = Math.round(performance.now() - start);
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    logRequest("GET", path, 500, elapsed);
+    res.status(500).json({ error: message, responseTimeMs: elapsed });
   }
 });
 
 app.get("/table/:name/by/:column/:value", async (req, res) => {
+  const path = req.path;
+  const start = performance.now();
   try {
     const { name, column, value } = req.params;
 
     const { data, error, status } = await client
       .from(name)
       .eq(column, value)
-      .select()
       .maybeSingle();
 
+    const elapsed = Math.round(performance.now() - start);
+
     if (error) {
-      return res.status(status || 500).json({ error });
+      logRequest("GET", path, status || 500, elapsed);
+      return res
+        .status(status || 500)
+        .json({ error, responseTimeMs: elapsed });
     }
-    res.json({ data });
+    logRequest("GET", path, 200, elapsed);
+    res.json({ data, responseTimeMs: elapsed });
   } catch (err) {
+    const elapsed = Math.round(performance.now() - start);
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    logRequest("GET", path, 500, elapsed);
+    res.status(500).json({ error: message, responseTimeMs: elapsed });
   }
 });
 
 app.post("/table/:name", async (req, res) => {
+  const path = req.path;
+  const start = performance.now();
   try {
     const { name } = req.params;
     const body = req.body;
@@ -62,17 +120,27 @@ app.post("/table/:name", async (req, res) => {
     const mutation = client.from(name).insert(body);
     const { data, error, status } = await mutation.select();
 
+    const elapsed = Math.round(performance.now() - start);
+
     if (error) {
-      return res.status(status || 500).json({ error });
+      logRequest("POST", path, status || 500, elapsed);
+      return res
+        .status(status || 500)
+        .json({ error, responseTimeMs: elapsed });
     }
-    res.status(201).json({ data });
+    logRequest("POST", path, 201, elapsed);
+    res.status(201).json({ data, responseTimeMs: elapsed });
   } catch (err) {
+    const elapsed = Math.round(performance.now() - start);
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    logRequest("POST", path, 500, elapsed);
+    res.status(500).json({ error: message, responseTimeMs: elapsed });
   }
 });
 
 app.patch("/table/:name/by/:column/:value", async (req, res) => {
+  const path = req.path;
+  const start = performance.now();
   try {
     const { name, column, value } = req.params;
     const body = req.body;
@@ -80,17 +148,27 @@ app.patch("/table/:name/by/:column/:value", async (req, res) => {
     const mutation = client.from(name).eq(column, value).update(body);
     const { data, error, status } = await mutation.select();
 
+    const elapsed = Math.round(performance.now() - start);
+
     if (error) {
-      return res.status(status || 500).json({ error });
+      logRequest("PATCH", path, status || 500, elapsed);
+      return res
+        .status(status || 500)
+        .json({ error, responseTimeMs: elapsed });
     }
-    res.json({ data });
+    logRequest("PATCH", path, 200, elapsed);
+    res.json({ data, responseTimeMs: elapsed });
   } catch (err) {
+    const elapsed = Math.round(performance.now() - start);
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    logRequest("PATCH", path, 500, elapsed);
+    res.status(500).json({ error: message, responseTimeMs: elapsed });
   }
 });
 
 app.delete("/table/:name/:resourceId", async (req, res) => {
+  const path = req.path;
+  const start = performance.now();
   try {
     const { name, resourceId } = req.params;
 
@@ -98,21 +176,40 @@ app.delete("/table/:name/:resourceId", async (req, res) => {
       .from(name)
       .delete({ resourceId });
 
+    const elapsed = Math.round(performance.now() - start);
+
     if (error) {
-      return res.status(status || 500).json({ error });
+      logRequest("DELETE", path, status || 500, elapsed);
+      return res
+        .status(status || 500)
+        .json({ error, responseTimeMs: elapsed });
     }
-    res.json({ data });
+    logRequest("DELETE", path, 200, elapsed);
+    res.json({ data, responseTimeMs: elapsed });
   } catch (err) {
+    const elapsed = Math.round(performance.now() - start);
     const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    logRequest("DELETE", path, 500, elapsed);
+    res.status(500).json({ error: message, responseTimeMs: elapsed });
   }
 });
 
-const PORT = process.env.PORT ?? 3000;
+const portArg = process.argv.find((a) => a.startsWith("--port"));
+const portFromArg = portArg
+  ? Number(
+      portArg.includes("=")
+        ? portArg.split("=")[1]
+        : process.argv[process.argv.indexOf(portArg) + 1],
+    )
+  : undefined;
+const PORT = portFromArg ?? (Number(process.env.PORT) || 3000);
 app.listen(PORT, () => {
-  console.log(`Test SDK server running at http://localhost:${PORT}`);
-  console.log(`Environment: ATHENA_URL=${ATHENA_URL}`);
+  console.log(chalk.bold.cyan("\n  Athena Test SDK"));
+  console.log(chalk.gray("  ————————"));
+  console.log(chalk.green("  ●") + ` Server: ${chalk.underline(`http://localhost:${PORT}`)}`);
+  console.log(chalk.gray(`  ● ATHENA_URL: ${ATHENA_URL}`));
   if (!ATHENA_API_KEY) {
-    console.warn("ATHENA_API_KEY not set — requests to Athena will fail");
+    console.log(chalk.yellow("  ⚠ ATHENA_API_KEY not set — requests may fail"));
   }
+  console.log("");
 });

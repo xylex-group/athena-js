@@ -130,10 +130,19 @@ async function callAthena<T>(
         ? parsedError
         : undefined;
 
+    // Unwrap envelope: API may return { data: [...], error: null } (e.g. when cached)
+    // vs raw array when uncached. Use inner data when present to avoid double nesting.
+    const payloadData =
+      parsedPayload &&
+      typeof parsedPayload === "object" &&
+      "data" in parsedPayload
+        ? (parsedPayload.data as T)
+        : (parsed as T);
+
     return {
       ok: response.ok,
       status: response.status,
-      data: (parsed as T) ?? null,
+      data: payloadData ?? null,
       error: hasError,
       raw: parsed,
     };
