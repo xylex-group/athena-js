@@ -202,3 +202,30 @@ test('insert mutation supports select() and returning rows', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+test('eq filter sends operator/column/value plus legacy eq_column/eq_value', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify({ data: [], status: 200 }), { status: 200 })
+  }
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    await client.from('formations').eq('user_id', 'abc123').select('id')
+
+    assert.equal(calls.length, 1, 'expected one request')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.conditions, [
+      {
+        operator: 'eq',
+        column: 'user_id',
+        value: 'abc123',
+        eq_column: 'user_id',
+        eq_value: 'abc123',
+      },
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

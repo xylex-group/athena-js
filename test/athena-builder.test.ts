@@ -167,7 +167,15 @@ test('select chain supports filters after select (flexible ordering)', async () 
     assert.equal(payload.limit, 10)
     assert.deepEqual(
       payload.conditions,
-      [{ operator: 'eq', column: 'id', value: 1 }],
+      [
+        {
+          operator: 'eq',
+          column: 'id',
+          value: 1,
+          eq_column: 'id',
+          eq_value: 1,
+        },
+      ],
     )
   } finally {
     globalThis.fetch = originalFetch
@@ -195,7 +203,15 @@ test('select chain supports single() after filters', async () => {
     const payload = JSON.parse(calls[0].init?.body as string)
     assert.deepEqual(
       payload.conditions,
-      [{ operator: 'eq', column: 'id', value: 1 }],
+      [
+        {
+          operator: 'eq',
+          column: 'id',
+          value: 1,
+          eq_column: 'id',
+          eq_value: 1,
+        },
+      ],
     )
   } finally {
     globalThis.fetch = originalFetch
@@ -224,7 +240,15 @@ test('update chain supports filters after update (flexible ordering)', async () 
     assert.deepEqual(payload.update_body, { name: 'Updated' })
     assert.deepEqual(
       payload.conditions,
-      [{ operator: 'eq', column: 'id', value: 1 }],
+      [
+        {
+          operator: 'eq',
+          column: 'id',
+          value: 1,
+          eq_column: 'id',
+          eq_value: 1,
+        },
+      ],
     )
   } finally {
     globalThis.fetch = originalFetch

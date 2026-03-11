@@ -36,6 +36,9 @@ export interface AthenaGatewayCondition {
   column?: string
   operator: AthenaConditionOperator
   value?: AthenaConditionValue | AthenaConditionArrayValue | string
+  /** Back-compat shape expected by older gateway implementations */
+  eq_column?: string
+  eq_value?: AthenaConditionValue | AthenaConditionArrayValue | string
 }
 
 export interface AthenaFetchPayload {

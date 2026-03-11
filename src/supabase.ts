@@ -298,8 +298,19 @@ function createTableBuilder<Row>(
     value?: AthenaConditionValue | AthenaConditionArrayValue | string,
   ) => {
     const condition: AthenaGatewayCondition = { operator }
-    if (column) condition.column = column
-    if (value !== undefined) condition.value = value
+    if (column) {
+      condition.column = column
+      if (operator === 'eq') {
+        // include legacy gateway shape for compatibility
+        condition.eq_column = column
+      }
+    }
+    if (value !== undefined) {
+      condition.value = value
+      if (operator === 'eq') {
+        condition.eq_value = value
+      }
+    }
     state.conditions.push(condition)
   }
 

@@ -1,65 +1,7 @@
 {
-  "name": "@xylex-group/athena",
-  "version": "1.0.4",
-  "description": "Athena SDK",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "author": "floris@xylex.group",
   "bin": {
     "athena-js": "./bin/athena-js.js"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.mjs",
-      "require": "./dist/react.js"
-    }
-  },
-  "files": [
-    "dist",
-    "bin",
-    "README.md",
-    "LICENSE"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "test": "node --test test/*.test.ts",
-    "test:watch": "node --test --watch test/*.test.ts",
-    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "lint:fix": "npm run lint -- --fix",
-    "prepublishOnly": "npm run build",
-    "publish:token": "node scripts/publish.js",
-    "example:express-api": "cd examples/express-api && bun run start",
-    "example:order-saga": "cd examples/order-saga && bun run start",
-    "example:recurring-invoice": "cd examples/recurring-invoice && bun run start",
-    "example:retry-patterns": "cd examples/retry-patterns && bun run start",
-    "example:email-resend": "cd examples/email-resend && bun run start",
-    "example:api-call": "cd examples/api-call && bun run start",
-    "example:postgres-connection": "cd examples/postgres-connection && bun run start"
-  },
-  "keywords": [
-    "database",
-    "driver",
-    "api-gateway",
-    "sdk",
-    "react",
-    "hooks",
-    "http",
-    "postgres",
-    "query-builder"
-  ],
-  "author": "floris@xylex.group",
-  "publisher": "XYLEX Group",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/xylex-group/athena-js.git"
   },
   "dependencies": {
     "@xylex-group/athena": "^0.2.1",
@@ -68,14 +10,7 @@
     "cron-parser": "^4.9.0",
     "uuid": "^9.0.1"
   },
-  "peerDependencies": {
-    "react": ">=17.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    }
-  },
+  "description": "Athena SDK",
   "devDependencies": {
     "@types/blessed": "^0.1.25",
     "@types/node": "^20.10.5",
@@ -90,5 +25,71 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js",
+      "types": "./dist/react.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "database",
+    "driver",
+    "api-gateway",
+    "sdk",
+    "react",
+    "hooks",
+    "http",
+    "postgres",
+    "query-builder"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "name": "@xylex-group/athena",
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "publisher": "XYLEX Group",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xylex-group/athena-js.git"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "example:api-call": "cd examples/api-call && bun run start",
+    "example:email-resend": "cd examples/email-resend && bun run start",
+    "example:express-api": "cd examples/express-api && bun run start",
+    "example:order-saga": "cd examples/order-saga && bun run start",
+    "example:postgres-connection": "cd examples/postgres-connection && bun run start",
+    "example:recurring-invoice": "cd examples/recurring-invoice && bun run start",
+    "example:retry-patterns": "cd examples/retry-patterns && bun run start",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint:fix": "npm run lint -- --fix",
+    "prepublishOnly": "npm run build",
+    "publish:token": "node scripts/publish.js",
+    "test": "node --test test/*.test.ts",
+    "test:watch": "node --test --watch test/*.test.ts"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "version": "1.1.0"
 }
