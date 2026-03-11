@@ -10,7 +10,7 @@
     "cron-parser": "^4.9.0",
     "uuid": "^9.0.1"
   },
-  "description": "Athena SDK",
+  "description": "Athena JS SDK",
   "devDependencies": {
     "@types/blessed": "^0.1.25",
     "@types/node": "^20.10.5",
