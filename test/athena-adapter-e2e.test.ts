@@ -57,7 +57,7 @@ test("adapter E2E: insert, select, update, delete on athena_adapter_e2e", async 
 
     // Select
     const selectResult = await client
-      .from("public.athena_adapter_e2e")
+      .from("athena_adapter_e2e")
       .select("id,name,email,created_at,updated_at")
       .eq("id", id)
       .single();
@@ -75,7 +75,7 @@ test("adapter E2E: insert, select, update, delete on athena_adapter_e2e", async 
 
     // Delete
     const deleteResult = await client
-      .from("public.athena_adapter_e2e")
+      .from("athena_adapter_e2e")
       .eq("id", id)
       .delete()
       .single("id");
