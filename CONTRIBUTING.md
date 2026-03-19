@@ -1,8 +1,8 @@
-# contributing
+# Contributing
 
-thanks for considering contributing to athena-js. heres how to get started.
+Thanks for considering a contribution to `athena-js`. This guide covers the local setup and checks we run before merge.
 
-## development setup
+## Development setup
 
 ```bash
 git clone https://github.com/xylex-group/athena-js
@@ -12,7 +12,7 @@ npm install
 npm run build
 ```
 
-## project structure
+## Project structure
 
 ```
 athena-js/
@@ -29,14 +29,25 @@ athena-js/
 - **casual docs** — explain like to a colleague
 - **typescript strict** — all code must pass strict type checking
 
-## pull requests
+## Validation checks
+
+Run these before opening a PR:
+
+```bash
+pnpm typecheck
+pnpm check:all
+```
+
+`check:all` runs lint, typecheck, tests, and build.
+
+## Pull requests
 
 1. fork the repo
 2. create a feature branch
 3. make your changes
-4. run `npm run build` and `npm run lint`
+4. run `pnpm check:all`
 5. push and open a PR
 
-## license
+## License
 
-by contributing, you agree your contributions will be licensed under the MIT license.
+By contributing, you agree your contributions will be licensed under the MIT License.

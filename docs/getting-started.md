@@ -162,6 +162,10 @@ const { data } = await athena
     { name: "Sam" },
   ])
   .select();
+
+// Types are inferred from payload shape:
+// inserted: User | null (single payload)
+// data: User[] | null (array payload)
 ```
 
 ## 8. Update rows
@@ -186,6 +190,9 @@ await athena
     { updateBody: { name: "Bilbo Baggins" }, onConflict: "id" },
   )
   .select("id, name");
+
+// upsert(one) resolves as SupabaseResult<User>
+// upsert(many) resolves as SupabaseResult<User[]>
 ```
 
 `updateBody` specifies which fields to update on conflict. `onConflict` names the unique key column(s).
@@ -263,6 +270,17 @@ if (error) {
 ```
 
 The React hook sets `error` state automatically and throws from the gateway functions — use `try/catch` around `insertGateway`, `updateGateway`, and `deleteGateway` calls.
+
+## 13. Local validation commands
+
+Before opening a PR, run:
+
+```bash
+pnpm typecheck
+pnpm check:all
+```
+
+`check:all` runs lint, typecheck, tests, and build in sequence.
 
 ## Next steps
 

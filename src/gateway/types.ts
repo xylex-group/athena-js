@@ -112,7 +112,7 @@ export interface AthenaGatewayBaseOptions {
   organizationId?: string | null
 }
 
-export interface AthenaGatewayHookConfig extends AthenaGatewayBaseOptions {}
+export type AthenaGatewayHookConfig = AthenaGatewayBaseOptions
 export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
   count?: AthenaCountOption
   head?: boolean

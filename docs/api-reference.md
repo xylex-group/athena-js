@@ -57,10 +57,10 @@ All filter methods return `this` so they can be chained. The query does not exec
 ### .select
 
 ```ts
-.select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<T>>
+.select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<T>
 ```
 
-Executes a fetch query and resolves to a `SupabaseResult`. Defaults to `"*"` (all columns) when `columns` is omitted.
+Returns a `SelectChain<T>` that supports additional filters and `single()/maybeSingle()` before execution. The request executes when the chain is awaited or when you call `.then()`, `.single()`, or `.maybeSingle()`. Defaults to `"*"` (all columns) when `columns` is omitted.
 
 ```ts
 const { data } = await athena.from("users").select();
@@ -83,7 +83,8 @@ Alias for `.single()`. Identical behavior.
 ### .insert
 
 ```ts
-.insert(values: Row | Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row | Row[]>
+.insert(values: Row, options?: AthenaGatewayCallOptions): MutationQuery<Row>
+.insert(values: Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
 ```
 
 Inserts one or more rows. Returns a `MutationQuery` — await it directly, or chain `.select()` / `.single()` to fetch the inserted rows.
@@ -108,12 +109,20 @@ Updates rows matching the conditions applied before this call. Chain filter meth
 
 ```ts
 .upsert(
-  values: Row | Row[],
+  values: Row,
   options?: AthenaGatewayCallOptions & {
     updateBody?: Partial<Row>
     onConflict?: string | string[]
   },
-): MutationQuery<Row | Row[]>
+): MutationQuery<Row>
+
+.upsert(
+  values: Row[],
+  options?: AthenaGatewayCallOptions & {
+    updateBody?: Partial<Row>
+    onConflict?: string | string[]
+  },
+): MutationQuery<Row[]>
 ```
 
 Inserts rows and updates them when a unique key conflict is detected.
@@ -197,6 +206,15 @@ interface MutationQuery<Result> extends PromiseLike<SupabaseResult<Result>> {
 | `.returning(columns?, options?)` | alias for `.select()` |
 | `.single(columns?, options?)` | fire request and return first row or `null` |
 | `.maybeSingle(columns?, options?)` | alias for `.single()` |
+
+---
+
+## Contributor validation scripts
+
+```bash
+pnpm typecheck  # compile-time type compatibility assertions
+pnpm check:all  # lint + typecheck + test + build
+```
 
 ---
 

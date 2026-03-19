@@ -1,7 +1,6 @@
 # athena-js
 
-current version: `1.1.0`
-
+current version: `1.1.1`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments and a React hook for client-side use.
 
 ## Install
@@ -30,7 +29,7 @@ const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
   backend: { type: "athena" },
 });
 
-const { data, error } = await athena.from("characters").select(`
+const { data, error } = await athenaClient.from("characters").select(`
     id,
     name,
     from:sender_id(name),
@@ -142,6 +141,10 @@ const { data } = await athena
   .from("characters")
   .insert([{ name: "Frodo" }, { name: "Sam" }])
   .select();
+
+// Type inference differs by payload shape:
+// - insert(one) => SupabaseResult<Row>
+// - insert(many) => SupabaseResult<Row[]>
 ```
 
 ### Update
@@ -166,6 +169,10 @@ const { data } = await athena
     { updateBody: { name: "Rohan" }, onConflict: "id" },
   )
   .select();
+
+// Type inference differs by payload shape:
+// - upsert(one) => SupabaseResult<Row>
+// - upsert(many) => SupabaseResult<Row[]>
 ```
 
 | Option | Type | Description |
@@ -289,6 +296,17 @@ interface User {
 const { data } = await athena.from<User>("users").select("id, name").eq("active", true);
 // data is User[] | null
 ```
+
+## Development Validation
+
+For local quality checks:
+
+```bash
+pnpm typecheck   # compile-time type compatibility checks
+pnpm check:all   # lint + typecheck + test + build
+```
+
+CI and publish workflows run `typecheck` before build/publish.
 
 ## Learn more
 

@@ -163,14 +163,22 @@ export interface UpdateChain<Row> extends FilterChain<UpdateChain<Row>>, Mutatio
 
 export interface TableQueryBuilder<Row> extends FilterChain<TableQueryBuilder<Row>> {
   select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<T>
-  insert(values: Row | Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row | Row[]>
+  insert(values: Row, options?: AthenaGatewayCallOptions): MutationQuery<Row>
+  insert(values: Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
   upsert(
-    values: Row | Row[],
+    values: Row,
     options?: AthenaGatewayCallOptions & {
       updateBody?: Partial<Row>
       onConflict?: string | string[]
     },
-  ): MutationQuery<Row | Row[]>
+  ): MutationQuery<Row>
+  upsert(
+    values: Row[],
+    options?: AthenaGatewayCallOptions & {
+      updateBody?: Partial<Row>
+      onConflict?: string | string[]
+    },
+  ): MutationQuery<Row[]>
   update(values: Partial<Row>, options?: AthenaGatewayCallOptions): UpdateChain<Row>
   delete(options?: AthenaGatewayCallOptions & { resourceId?: string }): MutationQuery<Row | null>
   single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<SupabaseResult<T | null>>
@@ -336,31 +344,31 @@ function createTableBuilder<Row>(
     return formatResult(response)
   }
 
-  const createSelectChain = (
+  const createSelectChain = <SelectedRow>(
     columns: string | string[],
     options?: AthenaGatewayCallOptions,
-  ): SelectChain<Row> => {
-    const chain = {} as SelectChain<Row>
+  ): SelectChain<SelectedRow> => {
+    const chain = {} as SelectChain<SelectedRow>
     const filterMethods = createFilterMethods(state, addCondition, chain)
     Object.assign(chain, filterMethods, {
-      async single<T = Row>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
+      async single<T = SelectedRow>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
         const r = await runSelect<T[]>(cols ?? columns, opts ?? options)
         return toSingleResult(r)
       },
-      maybeSingle<T = Row>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
+      maybeSingle<T = SelectedRow>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
         return chain.single<T>(cols, opts)
       },
-      then<T1 = SupabaseResult<Row[]>, T2 = never>(
-        onfulfilled?: (v: SupabaseResult<Row[]>) => T1 | PromiseLike<T1>,
+      then<T1 = SupabaseResult<SelectedRow[]>, T2 = never>(
+        onfulfilled?: (v: SupabaseResult<SelectedRow[]>) => T1 | PromiseLike<T1>,
         onrejected?: (reason: unknown) => T2 | PromiseLike<T2>,
       ) {
-        return runSelect<Row[]>(columns, options).then(onfulfilled, onrejected)
+        return runSelect<SelectedRow[]>(columns, options).then(onfulfilled, onrejected)
       },
       catch<T = never>(onrejected?: (reason: unknown) => T | PromiseLike<T>) {
-        return runSelect<Row[]>(columns, options).catch(onrejected)
+        return runSelect<SelectedRow[]>(columns, options).catch(onrejected)
       },
       finally(onfinally?: () => void) {
-        return runSelect<Row[]>(columns, options).finally(onfinally)
+        return runSelect<SelectedRow[]>(columns, options).finally(onfinally)
       },
     })
     return chain
@@ -374,17 +382,38 @@ function createTableBuilder<Row>(
       return builder
     },
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
-      return createSelectChain(columns, options) as unknown as SelectChain<T>
+      return createSelectChain<T>(columns, options)
     },
     insert(values: Row | Row[], options?: AthenaGatewayCallOptions) {
-      const executeInsert = async (
+      if (Array.isArray(values)) {
+        const executeInsertMany = async (
+          columns?: string | string[],
+          selectOptions?: AthenaGatewayCallOptions,
+        ) => {
+          const mergedOptions = mergeOptions(options, selectOptions)
+          const payload: AthenaInsertPayload = {
+            table_name: tableName,
+            insert_body: values as Record<string, unknown>[],
+          }
+          if (columns) payload.columns = columns
+          if (mergedOptions?.count) payload.count = mergedOptions.count
+          if (mergedOptions?.head) payload.head = mergedOptions.head
+          if (mergedOptions?.defaultToNull !== undefined) {
+            payload.default_to_null = mergedOptions.defaultToNull
+          }
+          const response = await client.insertGateway<Row[]>(payload, mergedOptions)
+          return formatResult(response)
+        }
+        return createMutationQuery<Row[]>(executeInsertMany)
+      }
+      const executeInsertOne = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
         const payload: AthenaInsertPayload = {
           table_name: tableName,
-          insert_body: values as Record<string, unknown> | Record<string, unknown>[],
+          insert_body: values as Record<string, unknown>,
         }
         if (columns) payload.columns = columns
         if (mergedOptions?.count) payload.count = mergedOptions.count
@@ -392,23 +421,46 @@ function createTableBuilder<Row>(
         if (mergedOptions?.defaultToNull !== undefined) {
           payload.default_to_null = mergedOptions.defaultToNull
         }
-        const response = await client.insertGateway<Row | Row[]>(payload, mergedOptions)
+        const response = await client.insertGateway<Row>(payload, mergedOptions)
         return formatResult(response)
       }
-      return createMutationQuery<Row | Row[]>(executeInsert)
+      return createMutationQuery<Row>(executeInsertOne)
     },
     upsert(
       values: Row | Row[],
       options?: AthenaGatewayCallOptions & { updateBody?: Partial<Row>; onConflict?: string | string[] },
     ) {
-      const executeUpsert = async (
+      if (Array.isArray(values)) {
+        const executeUpsertMany = async (
+          columns?: string | string[],
+          selectOptions?: AthenaGatewayCallOptions,
+        ) => {
+          const mergedOptions = mergeOptions(options, selectOptions)
+          const payload: AthenaInsertPayload = {
+            table_name: tableName,
+            insert_body: values as Record<string, unknown>[],
+            update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
+          }
+          if (columns) payload.columns = columns
+          if (options?.onConflict) payload.on_conflict = options.onConflict
+          if (mergedOptions?.count) payload.count = mergedOptions.count
+          if (mergedOptions?.head) payload.head = mergedOptions.head
+          if (mergedOptions?.defaultToNull !== undefined) {
+            payload.default_to_null = mergedOptions.defaultToNull
+          }
+          const response = await client.insertGateway<Row[]>(payload, mergedOptions)
+          return formatResult(response)
+        }
+        return createMutationQuery<Row[]>(executeUpsertMany)
+      }
+      const executeUpsertOne = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
         const payload: AthenaInsertPayload = {
           table_name: tableName,
-          insert_body: values as Record<string, unknown> | Record<string, unknown>[],
+          insert_body: values as Record<string, unknown>,
           update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
         }
         if (columns) payload.columns = columns
@@ -418,10 +470,10 @@ function createTableBuilder<Row>(
         if (mergedOptions?.defaultToNull !== undefined) {
           payload.default_to_null = mergedOptions.defaultToNull
         }
-        const response = await client.insertGateway<Row | Row[]>(payload, mergedOptions)
+        const response = await client.insertGateway<Row>(payload, mergedOptions)
         return formatResult(response)
       }
-      return createMutationQuery<Row | Row[]>(executeUpsert)
+      return createMutationQuery<Row>(executeUpsertOne)
     },
     update(values: Partial<Row>, options?: AthenaGatewayCallOptions) {
       const executeUpdate = async (

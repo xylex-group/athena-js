@@ -23,7 +23,6 @@ module.exports = {
   rules: {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': 'warn',
-    '@typescript-eslint/ban-types': 'warn',
     '@typescript-eslint/no-this-alias': 'warn',
     'no-useless-catch': 'warn',
     'no-constant-condition': 'warn',
