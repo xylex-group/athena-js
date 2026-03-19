@@ -38,8 +38,7 @@ function buildHeaders(
     ...(options?.headers ?? {}),
   };
   const headerClient =
-    extraHeaders["x-athena-client"] ??
-    extraHeaders["X-Athena-Client"];
+    extraHeaders["x-athena-client"] ?? extraHeaders["X-Athena-Client"];
   const finalClient =
     options?.client ??
     config.client ??
@@ -67,7 +66,8 @@ function buildHeaders(
 
   const finalBackend = options?.backend ?? config.backend;
   if (finalBackend) {
-    const type = typeof finalBackend === "string" ? finalBackend : finalBackend.type;
+    const type =
+      typeof finalBackend === "string" ? finalBackend : finalBackend.type;
     if (type) headers["X-Backend-Type"] = type;
   }
 

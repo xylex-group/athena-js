@@ -117,9 +117,7 @@ export function useAthenaGateway(
         ...payload,
         conditions: payload.conditions ?? [],
         strip_nulls:
-          payload.strip_nulls ??
-          options?.stripNulls ??
-          defaultStripNulls,
+          payload.strip_nulls ?? options?.stripNulls ?? defaultStripNulls,
       };
       return callWithLifecycle<T>(
         () => client.fetchGateway<T>(normalizedPayload, options),
@@ -157,9 +155,7 @@ export function useAthenaGateway(
         ...payload,
         conditions: payload.conditions ?? [],
         strip_nulls:
-          payload.strip_nulls ??
-          options?.stripNulls ??
-          defaultStripNulls,
+          payload.strip_nulls ?? options?.stripNulls ?? defaultStripNulls,
       };
       return callWithLifecycle<T>(
         () => client.updateGateway<T>(normalizedPayload, options),

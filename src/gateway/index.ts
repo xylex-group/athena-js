@@ -4,7 +4,7 @@
  * Low-level gateway hook. Most users should use createClient() and the query builder.
  */
 
-export { useAthenaGateway } from './use-athena-gateway.js'
+export { useAthenaGateway } from "./use-athena-gateway.js";
 export type {
   AthenaGatewayHookConfig,
   AthenaGatewayHookResult,
@@ -14,4 +14,4 @@ export type {
   AthenaUpdatePayload,
   AthenaDeletePayload,
   AthenaGatewayResponse,
-} from './types.js'
+} from "./types.js";
