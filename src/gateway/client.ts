@@ -127,7 +127,9 @@ async function callAthena<T>(
           (parsedPayload.message as string | undefined))
         : undefined;
     const hasError =
-      typeof parsedError === "string" && parsedError.length > 0
+      !response.ok &&
+      typeof parsedError === "string" &&
+      parsedError.length > 0
         ? parsedError
         : undefined;
 

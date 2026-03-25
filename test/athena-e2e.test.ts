@@ -36,9 +36,7 @@ test('e2e: insert, filter, and delete rows in test table (athena_logging client)
       insertResult.status >= 200 && insertResult.status < 300,
       `unexpected insert status: ${insertResult.status}`,
     )
-    if (insertResult.error && insertResult.error !== 'Data inserted successfully') {
-      assert.fail(`insert failed: ${insertResult.error}`)
-    }
+    assert.equal(insertResult.error, null, `insert failed: ${insertResult.error ?? ''}`)
     const insertedData = insertResult.data as { id?: number } | { id?: number }[] | null
     if (Array.isArray(insertedData)) {
       insertedId = insertedData[0]?.id

@@ -72,9 +72,7 @@ test("adapter E2E: insert, select, update, delete on athena_adapter_e2e", async 
       insertStatus >= 200 && insertStatus < 300,
       `insert unexpected status ${insertStatus} error ${insertError ?? ""}`,
     );
-    if (insertError && insertError !== "Data inserted successfully") {
-      assert.fail(`insert error: ${insertError}`);
-    }
+    assert.equal(insertError, null, `insert error: ${insertError ?? ""}`);
     assert.equal(inserted?.id, id);
     assert.equal(inserted?.email, email);
 

@@ -229,3 +229,45 @@ test('eq filter sends operator/column/value plus legacy eq_column/eq_value', asy
     globalThis.fetch = originalFetch
   }
 })
+
+test('insert success message on 2xx does not surface as error', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        data: [{ id: 123, name: 'Frodo' }],
+        message: 'Data inserted successfully',
+      }),
+      { status: 201 },
+    )
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    const result = await client.from('characters').insert({ name: 'Frodo' }).select('id,name')
+    assert.equal(result.error, null)
+    assert.equal(result.status, 201)
+    assert.equal(result.data?.[0]?.id, 123)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('non-2xx message still surfaces as error', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        message: 'Validation failed',
+      }),
+      { status: 400 },
+    )
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    const result = await client.from('characters').insert({ name: 'Frodo' }).select('id,name')
+    assert.equal(result.status, 400)
+    assert.equal(result.error, 'Validation failed')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
