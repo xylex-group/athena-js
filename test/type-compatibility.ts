@@ -55,6 +55,8 @@ acceptsMaybeUserPromise(listUsersRpc.single())
 acceptsMaybeUserPromise(listUsersRpc.maybeSingle())
 acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { count: 'exact' }).select())
 client.rpc<UserRow>('list_users').select().then(result => acceptsCountValue(result.count))
+acceptsUserArrayPromise(client.rpc<UserRow>('list_users').order('created_at').range(0, 24).select())
+acceptsMaybeUserPromise(client.rpc<UserRow>('list_users').order('created_at', { ascending: false }).single())
 
 // @ts-expect-error insert(one) should not be inferred as array result
 acceptsUserArrayPromise(users.insert({ id: "1", name: "Alice" }).select())
@@ -70,6 +72,9 @@ acceptsUserPromise(users.upsert([{ id: "1", name: "Alice" }], { onConflict: "id"
 
 // @ts-expect-error rpc count only supports "exact"
 client.rpc<UserRow>('list_users', {}, { count: 'planned' })
+
+// @ts-expect-error rpc in() requires an array value
+client.rpc<UserRow>('list_users').in('id', 'not-an-array')
 
 declare function acceptsUserPickArrayPromise(
   value: PromiseLike<SupabaseResult<Array<Pick<UserRow, "id">>>>,

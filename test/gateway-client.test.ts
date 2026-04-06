@@ -230,6 +230,37 @@ test('rpcGateway surfaces count from response envelope', async () => {
   }
 })
 
+test('rpcGateway includes schema and forwards call-level client override', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com', client: 'base_client' })
+    await client.rpcGateway(
+      { function: 'list_users', schema: 'private' },
+      { client: 'override_client' },
+    )
+    const body = JSON.parse(calls[0].init?.body as string)
+    assert.equal(body.schema, 'private')
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers['X-Athena-Client'], 'override_client')
+  } finally {
+    restore()
+  }
+})
+
+test('rpcGateway ignores non-numeric count in envelope', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ data: [{ id: 1 }], count: 'bad' }), { status: 200 })
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
+    const response = await client.rpcGateway<{ id: number }[]>({ function: 'list_users' })
+    assert.equal(response.count, undefined)
+    assert.deepEqual(response.data, [{ id: 1 }])
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
 test('fetchGateway merges config and call headers', async () => {
   const { calls, restore } = mockFetch()
   try {

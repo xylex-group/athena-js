@@ -524,3 +524,71 @@ test('rpc single and maybeSingle return first row', async () => {
     globalThis.fetch = original
   }
 })
+
+test('rpc throws when function name is blank', () => {
+  assert.throws(
+    () => client.rpc('   '),
+    /rpc requires a function name/,
+  )
+})
+
+test('rpc select-level options override constructor options', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .rpc('list_characters', { scope: 'all' }, { schema: 'public' })
+      .select('id', { schema: 'private', count: 'exact' })
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.schema, 'private')
+    assert.equal(payload.count, 'exact')
+  } finally {
+    restore()
+  }
+})
+
+test('rpc select-level count can be set without constructor options', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.rpc('list_characters').select('id', { count: 'exact' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.count, 'exact')
+  } finally {
+    restore()
+  }
+})
+
+test('rpc order defaults ascending to true when not provided', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.rpc('list_characters').order('created_at').select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.order, { column: 'created_at', ascending: true })
+  } finally {
+    restore()
+  }
+})
+
+test('rpc with no filters omits filters field', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.rpc('list_characters').select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.filters, undefined)
+  } finally {
+    restore()
+  }
+})
+
+test('rpc result with count keeps count after single()', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ data: [{ id: 1 }], count: 3 }), { status: 200 })
+  try {
+    const result = await client.rpc<{ id: number }>('list_characters').single('id')
+    assert.equal(result.count, 3)
+    assert.deepEqual(result.data, { id: 1 })
+  } finally {
+    globalThis.fetch = original
+  }
+})
