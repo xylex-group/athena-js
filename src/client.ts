@@ -739,7 +739,11 @@ function createSqlBuilder(client: ReturnType<typeof createAthenaGatewayClient>) 
     query: string,
     options?: AthenaGatewayCallOptions,
   ): Promise<AthenaResult<Row[]>> {
-    const response = await client.queryGateway<Row[]>({ query }, options)
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) {
+      throw new Error('sql requires a query')
+    }
+    const response = await client.queryGateway<Row[]>({ query: normalizedQuery }, options)
     return formatResult(response)
   }
 }
