@@ -11,6 +11,7 @@ export type AthenaGatewayEndpointPath =
   | '/gateway/update'
   | '/gateway/delete'
   | '/gateway/rpc'
+  | '/gateway/query'
 
 export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
 
@@ -103,6 +104,10 @@ export interface AthenaRpcFilter {
 export interface AthenaRpcOrder {
   column: string
   ascending?: boolean
+}
+
+export interface AthenaQueryPayload {
+  query: string
 }
 
 export interface AthenaRpcPayload {
@@ -203,6 +208,10 @@ export interface AthenaGatewayCallLog {
 }
 
 export interface AthenaGatewayHookResult {
+  queryGateway?: <T = unknown>(
+    payload: AthenaQueryPayload,
+    options?: AthenaGatewayCallOptions,
+  ) => Promise<AthenaGatewayResponse<T>>
   fetchGateway: <T = unknown>(
     payload: AthenaFetchPayload,
     options?: AthenaGatewayCallOptions,

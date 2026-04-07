@@ -734,6 +734,20 @@ function createTableBuilder<Row>(
   return builder
 }
 
+function createSqlBuilder(client: ReturnType<typeof createAthenaGatewayClient>) {
+  return async function sql<Row = unknown>(
+    query: string,
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<Row[]>> {
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) {
+      throw new Error('sql requires a query')
+    }
+    const response = await client.queryGateway<Row[]>({ query: normalizedQuery }, options)
+    return formatResult(response)
+  }
+}
+
 export interface AthenaSdkClient {
   from<Row = unknown>(table: string): TableQueryBuilder<Row>
   rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, unknown>>(
@@ -741,6 +755,7 @@ export interface AthenaSdkClient {
     args?: Args,
     options?: AthenaRpcCallOptions,
   ): RpcQueryBuilder<Row>
+  sql<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
 }
 
 /** Client config for builder */
@@ -781,6 +796,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
         gateway,
       )
     },
+    sql: createSqlBuilder(gateway) as AthenaSdkClient['sql'],
   }
 }
 
