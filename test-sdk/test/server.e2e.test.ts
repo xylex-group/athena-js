@@ -1,14 +1,22 @@
 import { strict as assert } from "assert";
 import { test } from "node:test";
 import type { AddressInfo } from "node:net";
+import dotenv from "dotenv";
 import { createAthenaTestSdkServer } from "../src/server.ts";
 
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
+
 const ATHENA_URL =
-  process.env.ATHENA_URL_E2E ?? process.env.ATHENA_URL ?? "http://localhost:4052";
+  process.env.ATHENA_URL_E2E ??
+  process.env.ATHENA_URL ??
+  "http://localhost:4052";
 const ATHENA_API_KEY =
   process.env.ATHENA_API_KEY_E2E ?? process.env.ATHENA_API_KEY ?? "x";
 const ATHENA_CLIENT =
-  process.env.ATHENA_CLIENT_E2E ?? process.env.ATHENA_CLIENT ?? "athena_logging";
+  process.env.ATHENA_CLIENT_E2E ??
+  process.env.ATHENA_CLIENT ??
+  "athena_logging";
 const ATHENA_TABLE = process.env.ATHENA_TABLE_E2E ?? "test";
 
 async function startServer() {
@@ -48,7 +56,8 @@ async function httpJson<T>(
 ) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers:
+      body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
@@ -62,11 +71,11 @@ async function httpJson<T>(
 test("test-sdk e2e: GET /health returns sdk status payload", async () => {
   const server = await startServer();
   try {
-    const { response, json } = await httpJson<{ ok: boolean; sdk: string; responseTimeMs: number }>(
-      server.baseUrl,
-      "GET",
-      "/health",
-    );
+    const { response, json } = await httpJson<{
+      ok: boolean;
+      sdk: string;
+      responseTimeMs: number;
+    }>(server.baseUrl, "GET", "/health");
 
     assert.equal(response.status, 200);
     assert.equal(json.ok, true);
@@ -103,7 +112,11 @@ test("test-sdk e2e: validation errors are normalized with code and details", asy
 
   try {
     const { response, json } = await httpJson<{
-      error: { code: string; message: string; details: Record<string, unknown> | null };
+      error: {
+        code: string;
+        message: string;
+        details: Record<string, unknown> | null;
+      };
       responseTimeMs: number;
     }>(server.baseUrl, "GET", "/table/characters?limit=not-a-number");
 
@@ -133,7 +146,10 @@ test("test-sdk e2e: Athena gateway failures are surfaced with ATHENA_GATEWAY_ERR
       args: { role: "admin" },
     });
 
-    assert.ok(response.status >= 400, "expected rpc call to fail through Athena gateway");
+    assert.ok(
+      response.status >= 400,
+      "expected rpc call to fail through Athena gateway",
+    );
     assert.equal(json.error.code, "ATHENA_GATEWAY_ERROR");
     assert.ok(json.error.message.length > 0);
     assert.ok(
