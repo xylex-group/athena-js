@@ -206,8 +206,8 @@ export function useAthenaGateway(
   const rpcGateway = useCallback(
     <T = unknown>(payload: AthenaRpcPayload, options?: AthenaRpcCallOptions) =>
       callWithLifecycle<T>(() => client.rpcGateway<T>(payload, options), {
-        endpoint: "/gateway/rpc",
-        method: "POST",
+        endpoint: options?.get ? `/rpc/${payload.function}` : "/gateway/rpc",
+        method: options?.get ? "GET" : "POST",
         payload,
         options,
       }),

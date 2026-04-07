@@ -54,6 +54,10 @@ acceptsUserArrayPromise(listUsersRpc.select())
 acceptsMaybeUserPromise(listUsersRpc.single())
 acceptsMaybeUserPromise(listUsersRpc.maybeSingle())
 acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { count: 'exact' }).select())
+acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { count: 'planned' }).select())
+acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { count: 'estimated' }).select())
+acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { get: true }).select())
+acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { head: true }).select())
 client.rpc<UserRow>('list_users').select().then(result => acceptsCountValue(result.count))
 acceptsUserArrayPromise(client.rpc<UserRow>('list_users').order('created_at').range(0, 24).select())
 acceptsMaybeUserPromise(client.rpc<UserRow>('list_users').order('created_at', { ascending: false }).single())
@@ -69,9 +73,6 @@ acceptsUserArrayPromise(users.upsert({ id: "1", name: "Alice" }, { onConflict: "
 
 // @ts-expect-error upsert(many) should not be inferred as single-row result
 acceptsUserPromise(users.upsert([{ id: "1", name: "Alice" }], { onConflict: "id" }).select())
-
-// @ts-expect-error rpc count only supports "exact"
-client.rpc<UserRow>('list_users', {}, { count: 'planned' })
 
 // @ts-expect-error rpc in() requires an array value
 client.rpc<UserRow>('list_users').in('id', 'not-an-array')

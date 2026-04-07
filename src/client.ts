@@ -427,6 +427,7 @@ function createRpcBuilder<Row>(
       select: toRpcSelect(columns),
       filters: state.filters.length ? [...state.filters] : undefined,
       count: mergedOptions?.count,
+      head: mergedOptions?.head,
       limit: state.limit,
       offset: state.offset,
       order: state.order,

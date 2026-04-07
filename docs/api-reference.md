@@ -63,7 +63,7 @@ athena.rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, 
 ): RpcQueryBuilder<Row>
 ```
 
-Creates a chainable RPC query against `POST /gateway/rpc`.
+Creates a chainable RPC query. By default it calls `POST /gateway/rpc`; when `options.get = true`, it calls `GET /rpc/{function_name}` compatibility route.
 
 ```ts
 const { data, count } = await athena
@@ -72,6 +72,11 @@ const { data, count } = await athena
   .order("created_at", { ascending: false })
   .range(0, 24)
   .select(["id", "email"]);
+
+const { data: country } = await athena
+  .rpc("list_stored_countries")
+  .eq("id", 1)
+  .single();
 ```
 
 ---
@@ -263,7 +268,9 @@ interface RpcQueryBuilder<Row> extends PromiseLike<AthenaResult<Row[]>> {
 
 `AthenaRpcCallOptions` extends gateway call options with:
 - `schema?: string`
-- `count?: "exact"`
+- `count?: "exact" | "planned" | "estimated"`
+- `head?: boolean`
+- `get?: boolean`
 
 ---
 
@@ -364,7 +371,9 @@ RPC call options accepted by `athena.rpc(..., options)` and `.select/.single/.ma
 |--------|------|-------------|
 | all `AthenaGatewayCallOptions` | inherited | base URL, headers, client, auth, etc. |
 | `schema` | `string` | schema used for RPC execution |
-| `count` | `"exact"` | request exact row count in RPC responses |
+| `count` | `"exact" \| "planned" \| "estimated"` | row count strategy for set-returning functions |
+| `head` | `boolean` | request metadata without returning rows (when backend supports it) |
+| `get` | `boolean` | call RPC through compatibility `GET /rpc/{function_name}` route |
 
 ---
 
@@ -439,7 +448,8 @@ interface AthenaRpcPayload {
   args?: Record<string, unknown>
   select?: string
   filters?: AthenaRpcFilter[]
-  count?: "exact"
+  count?: "exact" | "planned" | "estimated"
+  head?: boolean
   limit?: number
   offset?: number
   order?: AthenaRpcOrder

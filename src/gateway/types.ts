@@ -4,13 +4,14 @@
  * type definitions for the athena gateway api client and react hook
  */
 
-export type AthenaGatewayMethod = 'POST' | 'PUT' | 'DELETE'
+export type AthenaGatewayMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 export type AthenaGatewayEndpointPath =
   | '/gateway/fetch'
   | '/gateway/insert'
   | '/gateway/update'
   | '/gateway/delete'
   | '/gateway/rpc'
+  | `/rpc/${string}`
 
 export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
 
@@ -112,7 +113,8 @@ export interface AthenaRpcPayload {
   args?: Record<string, unknown>
   select?: string
   filters?: AthenaRpcFilter[]
-  count?: 'exact'
+  count?: AthenaCountOption
+  head?: boolean
   limit?: number
   offset?: number
   order?: AthenaRpcOrder
@@ -160,7 +162,8 @@ export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
 
 export interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
   schema?: string
-  count?: 'exact'
+  count?: AthenaCountOption
+  get?: boolean
 }
 
 export interface AthenaGatewayResponse<T = unknown> {

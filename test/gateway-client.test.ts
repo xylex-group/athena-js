@@ -215,6 +215,33 @@ test('rpcGateway sends rpc payload', async () => {
   }
 })
 
+test('rpcGateway supports planned and estimated count payload values', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
+    await client.rpcGateway({ function: 'list_users', count: 'planned' })
+    await client.rpcGateway({ function: 'list_users', count: 'estimated' })
+    const first = JSON.parse(calls[0].init?.body as string)
+    const second = JSON.parse(calls[1].init?.body as string)
+    assert.equal(first.count, 'planned')
+    assert.equal(second.count, 'estimated')
+  } finally {
+    restore()
+  }
+})
+
+test('rpcGateway forwards head when provided', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
+    await client.rpcGateway({ function: 'list_users', head: true })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.head, true)
+  } finally {
+    restore()
+  }
+})
+
 test('rpcGateway surfaces count from response envelope', async () => {
   const original = globalThis.fetch
   globalThis.fetch = async () =>
@@ -259,6 +286,66 @@ test('rpcGateway ignores non-numeric count in envelope', async () => {
   } finally {
     globalThis.fetch = original
   }
+})
+
+test('rpcGateway supports GET mode with args, filters, and modifiers', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
+    await client.rpcGateway(
+      {
+        function: 'list_users',
+        args: { role: 'admin' },
+        schema: 'public',
+        select: 'id,name',
+        filters: [
+          { column: 'active', operator: 'eq', value: true },
+          { column: 'id', operator: 'in', value: [1, 2, 3] },
+        ],
+        order: { column: 'created_at', ascending: false },
+        count: 'planned',
+        head: true,
+        limit: 10,
+        offset: 5,
+      },
+      { get: true },
+    )
+
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[0].init?.body, undefined)
+    assert.ok(calls[0].url.includes('/rpc/list_users?'))
+
+    const url = new URL(calls[0].url)
+    assert.equal(url.pathname, '/rpc/list_users')
+    assert.equal(url.searchParams.get('role'), 'admin')
+    assert.equal(url.searchParams.get('schema'), 'public')
+    assert.equal(url.searchParams.get('select'), 'id,name')
+    assert.equal(url.searchParams.get('active'), 'eq.true')
+    assert.equal(url.searchParams.get('id'), 'in.{1,2,3}')
+    assert.equal(url.searchParams.get('order'), 'created_at.desc')
+    assert.equal(url.searchParams.get('count'), 'planned')
+    assert.equal(url.searchParams.get('head'), 'true')
+    assert.equal(url.searchParams.get('limit'), '10')
+    assert.equal(url.searchParams.get('offset'), '5')
+  } finally {
+    restore()
+  }
+})
+
+test('rpcGateway GET mode throws on arg/filter column conflict', () => {
+  const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
+  assert.throws(
+    () =>
+      client.rpcGateway(
+        {
+          function: 'list_users',
+          args: { role: 'admin' },
+          filters: [{ column: 'role', operator: 'eq', value: 'admin' }],
+        },
+        { get: true },
+      ),
+    /conflicts with RPC argument/,
+  )
 })
 
 test('fetchGateway merges config and call headers', async () => {

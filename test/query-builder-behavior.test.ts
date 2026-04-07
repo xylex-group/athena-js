@@ -433,6 +433,46 @@ test('like after match keeps both conditions', async () => {
   }
 })
 
+test('canonical select filter order works: select(...).eq(...)', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('instruments')
+      .select('name,section_id')
+      .eq('name', 'violin')
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'instruments')
+    assert.equal(payload.columns, 'name,section_id')
+    assert.deepEqual(payload.conditions, [
+      { operator: 'eq', column: 'name', value: 'violin', eq_column: 'name', eq_value: 'violin' },
+    ])
+  } finally {
+    restore()
+  }
+})
+
+test('canonical chained range filters work: gte + lt after select', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('cities')
+      .select('name,country_id')
+      .gte('population', 1000)
+      .lt('population', 10000)
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'cities')
+    assert.equal(payload.columns, 'name,country_id')
+    assert.deepEqual(payload.conditions, [
+      { operator: 'gte', column: 'population', value: 1000 },
+      { operator: 'lt', column: 'population', value: 10000 },
+    ])
+  } finally {
+    restore()
+  }
+})
+
 test('rpc is awaitable and executes once', async () => {
   const { calls, restore } = mockFetch()
   try {
@@ -509,6 +549,31 @@ test('rpc count exact is sent and surfaced on result', async () => {
   }
 })
 
+test('rpc supports planned and estimated count options', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.rpc('list_characters').select('id', { count: 'planned' })
+    await client.rpc('list_characters').select('id', { count: 'estimated' })
+    const first = JSON.parse(calls[0].init?.body as string)
+    const second = JSON.parse(calls[1].init?.body as string)
+    assert.equal(first.count, 'planned')
+    assert.equal(second.count, 'estimated')
+  } finally {
+    restore()
+  }
+})
+
+test('rpc head option is forwarded to payload', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.rpc('list_characters').select('id', { head: true })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.head, true)
+  } finally {
+    restore()
+  }
+})
+
 test('rpc single and maybeSingle return first row', async () => {
   const original = globalThis.fetch
   globalThis.fetch = async () =>
@@ -520,6 +585,30 @@ test('rpc single and maybeSingle return first row', async () => {
     const maybe = await client.rpc<{ id: number; name: string }>('list_characters').maybeSingle('id,name')
     assert.deepEqual(single.data, { id: 1, name: 'Aragorn' })
     assert.deepEqual(maybe.data, { id: 1, name: 'Aragorn' })
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('rpc table-return filters with single are supported', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify({ data: [{ id: 1, name: 'Rohan' }] }), {
+      status: 200,
+    })
+  }
+  try {
+    const result = await client
+      .rpc<{ id: number; name: string }>('list_stored_countries')
+      .eq('id', 1)
+      .single()
+
+    assert.deepEqual(result.data, { id: 1, name: 'Rohan' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.function, 'list_stored_countries')
+    assert.deepEqual(payload.filters, [{ column: 'id', operator: 'eq', value: 1 }])
   } finally {
     globalThis.fetch = original
   }
@@ -542,6 +631,35 @@ test('rpc select-level options override constructor options', async () => {
     const payload = JSON.parse(calls[0].init?.body as string)
     assert.equal(payload.schema, 'private')
     assert.equal(payload.count, 'exact')
+  } finally {
+    restore()
+  }
+})
+
+test('rpc get mode calls compatibility endpoint with filters', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .rpc('list_characters', { role: 'admin' }, { get: true, schema: 'public' })
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+      .range(2, 6)
+      .select('id,name', { count: 'planned', head: true })
+
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.ok(calls[0].url.includes('/rpc/list_characters?'))
+
+    const url = new URL(calls[0].url)
+    assert.equal(url.searchParams.get('role'), 'admin')
+    assert.equal(url.searchParams.get('schema'), 'public')
+    assert.equal(url.searchParams.get('active'), 'eq.true')
+    assert.equal(url.searchParams.get('order'), 'created_at.desc')
+    assert.equal(url.searchParams.get('limit'), '5')
+    assert.equal(url.searchParams.get('offset'), '2')
+    assert.equal(url.searchParams.get('select'), 'id,name')
+    assert.equal(url.searchParams.get('count'), 'planned')
+    assert.equal(url.searchParams.get('head'), 'true')
   } finally {
     restore()
   }
