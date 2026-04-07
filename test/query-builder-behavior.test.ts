@@ -710,3 +710,35 @@ test('rpc result with count keeps count after single()', async () => {
     globalThis.fetch = original
   }
 })
+
+test('query calls /gateway/query with { query } payload', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const result = await client.query('select * from characters')
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload, { query: 'select * from characters' })
+    assert.deepEqual(result.data, [])
+    assert.equal(result.status, 200)
+    assert.equal(result.error, null)
+  } finally {
+    restore()
+  }
+})
+
+test('query handles error propagation', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: 'invalid syntax', status: 400 }), {
+      status: 400,
+    })
+  try {
+    const result = await client.query('select * from syntax_error')
+    assert.equal(result.data, null)
+    assert.equal(result.status, 400)
+    assert.equal(result.error, 'invalid syntax')
+  } finally {
+    globalThis.fetch = original
+  }
+})

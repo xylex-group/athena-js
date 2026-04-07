@@ -735,6 +735,20 @@ function createTableBuilder<Row>(
   return builder
 }
 
+function createQueryBuilder(client: ReturnType<typeof createAthenaGatewayClient>) {
+  return async function query<Row = unknown>(
+    query: string,
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<Row[]>> {
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) {
+      throw new Error('query requires a non-empty string')
+    }
+    const response = await client.queryGateway<Row[]>({ query: normalizedQuery }, options)
+    return formatResult(response)
+  }
+}
+
 export interface AthenaSdkClient {
   from<Row = unknown>(table: string): TableQueryBuilder<Row>
   rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, unknown>>(
@@ -742,6 +756,7 @@ export interface AthenaSdkClient {
     args?: Args,
     options?: AthenaRpcCallOptions,
   ): RpcQueryBuilder<Row>
+  query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
 }
 
 /** Client config for builder */
@@ -782,6 +797,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
         gateway,
       )
     },
+    query: createQueryBuilder(gateway) as AthenaSdkClient['query'],
   }
 }
 

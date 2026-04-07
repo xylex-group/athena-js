@@ -14,6 +14,7 @@ import type {
   AthenaInsertPayload,
   AthenaRpcFilter,
   AthenaUpdatePayload,
+  AthenaQueryPayload,
 } from "./types.js";
 import { AthenaGatewayError } from "./errors.ts";
 
@@ -390,6 +391,10 @@ export interface AthenaGatewayClient {
     payload: AthenaRpcPayload,
     options?: AthenaRpcCallOptions,
   ): Promise<AthenaGatewayResponse<T>>;
+  queryGateway<T>(
+    payload: AthenaQueryPayload,
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaGatewayResponse<T>>;
 }
 
 export function createAthenaGatewayClient(
@@ -418,6 +423,9 @@ export function createAthenaGatewayClient(
         return callAthena(config, endpoint, "GET", null, options);
       }
       return callAthena(config, "/gateway/rpc", "POST", payload, options);
+    },
+    queryGateway(payload, options) {
+      return callAthena(config, "/gateway/query", "POST", payload, options);
     },
   };
 }
