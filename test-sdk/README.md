@@ -49,6 +49,8 @@ The E2E tests boot the Express server and verify route behavior and gateway forw
 | `DELETE` | `/table/:name/:resourceId` | Delete row by `resource_id` |
 | `POST` | `/rpc/:functionName` | Execute RPC through `POST /gateway/rpc` |
 
+`POST /rpc/:functionName` also supports compatibility GET-mode by sending `{ "get": true }` in body, plus `filters`, `count` (`exact`/`planned`/`estimated`), `head`, `order`, `limit`, and `offset`.
+
 ## Error response shape
 
 All server-side validation and upstream failures are normalized:

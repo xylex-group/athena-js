@@ -1,30 +1,19 @@
 import { strict as assert } from "assert";
 import { test } from "node:test";
 import type { AddressInfo } from "node:net";
-import dotenv from "dotenv";
 import { createAthenaTestSdkServer } from "../src/server.ts";
 
-dotenv.config();
-dotenv.config({ path: ".env.local", override: true });
-
-const ATHENA_URL =
-  process.env.ATHENA_URL_E2E ??
-  process.env.ATHENA_URL ??
-  "http://localhost:4052";
-const ATHENA_API_KEY =
-  process.env.ATHENA_API_KEY_E2E ?? process.env.ATHENA_API_KEY ?? "x";
-const ATHENA_CLIENT =
-  process.env.ATHENA_CLIENT_E2E ??
-  process.env.ATHENA_CLIENT ??
-  "athena_logging";
-const ATHENA_TABLE = process.env.ATHENA_TABLE_E2E ?? "test";
+type CapturedFetchCall = {
+  url: string;
+  init?: RequestInit;
+};
 
 async function startServer() {
   const appServer = createAthenaTestSdkServer({
     config: {
-      athenaUrl: ATHENA_URL,
-      athenaApiKey: ATHENA_API_KEY,
-      athenaClient: ATHENA_CLIENT,
+      athenaUrl: "https://mock-athena.local",
+      athenaApiKey: "test-key",
+      athenaClient: "test-client",
     },
   });
 
@@ -48,6 +37,29 @@ async function startServer() {
   });
 }
 
+function installAthenaFetchMock(
+  handler: (url: string, init?: RequestInit) => Promise<Response> | Response,
+) {
+  const calls: CapturedFetchCall[] = [];
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.startsWith("https://mock-athena.local")) {
+      calls.push({ url, init });
+      return handler(url, init);
+    }
+    return originalFetch(input, init);
+  };
+
+  return {
+    calls,
+    restore() {
+      globalThis.fetch = originalFetch;
+    },
+  };
+}
+
 async function httpJson<T>(
   baseUrl: string,
   method: "GET" | "POST" | "PATCH" | "DELETE",
@@ -56,26 +68,22 @@ async function httpJson<T>(
 ) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
-    headers:
-      body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
-  if (!text) {
-    throw new Error(`Expected JSON response for ${method} ${path}`);
-  }
-  const json = JSON.parse(text) as T;
+  const json = text ? (JSON.parse(text) as T) : null;
   return { response, json };
 }
 
 test("test-sdk e2e: GET /health returns sdk status payload", async () => {
   const server = await startServer();
   try {
-    const { response, json } = await httpJson<{
-      ok: boolean;
-      sdk: string;
-      responseTimeMs: number;
-    }>(server.baseUrl, "GET", "/health");
+    const { response, json } = await httpJson<{ ok: boolean; sdk: string; responseTimeMs: number }>(
+      server.baseUrl,
+      "GET",
+      "/health",
+    );
 
     assert.equal(response.status, 200);
     assert.equal(json.ok, true);
@@ -86,82 +94,189 @@ test("test-sdk e2e: GET /health returns sdk status payload", async () => {
   }
 });
 
-test("test-sdk e2e: GET /table/:name reads rows from live Athena", async () => {
+test("test-sdk e2e: GET /table/:name forwards pagination and headers to Athena gateway", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(JSON.stringify({ data: [{ id: 1, name: "Aragorn" }] }), { status: 200 });
+  });
   const server = await startServer();
 
   try {
-    const { response, json } = await httpJson<{ data: unknown[] | null }>(
+    const { response, json } = await httpJson<{ data: Array<{ id: number; name: string }> }>(
       server.baseUrl,
       "GET",
-      `/table/${ATHENA_TABLE}?limit=1&offset=0`,
+      "/table/characters?limit=5&offset=10",
     );
 
-    assert.equal(
-      response.status,
-      200,
-      `expected live Athena table read to succeed for table '${ATHENA_TABLE}' via ${ATHENA_URL}`,
-    );
-    assert.ok(Array.isArray(json.data), "expected data to be an array");
+    assert.equal(response.status, 200);
+    assert.equal(json.data.length, 1);
+    assert.equal(json.data[0].name, "Aragorn");
+    assert.equal(athenaMock.calls.length, 1);
+
+    const outbound = athenaMock.calls[0];
+    assert.ok(outbound.url.endsWith("/gateway/fetch"));
+    assert.equal(outbound.init?.method, "POST");
+
+    const outboundHeaders = outbound.init?.headers as Record<string, string>;
+    assert.equal(outboundHeaders["apikey"], "test-key");
+    assert.equal(outboundHeaders["X-Athena-Client"], "test-client");
+
+    const outboundPayload = JSON.parse(outbound.init?.body as string) as Record<string, unknown>;
+    assert.equal(outboundPayload.table_name, "characters");
+    assert.equal(outboundPayload.limit, 5);
+    assert.equal(outboundPayload.offset, 10);
   } finally {
+    athenaMock.restore();
     await server.close();
   }
 });
 
 test("test-sdk e2e: validation errors are normalized with code and details", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  });
   const server = await startServer();
 
   try {
     const { response, json } = await httpJson<{
-      error: {
-        code: string;
-        message: string;
-        details: Record<string, unknown> | null;
-      };
+      error: { code: string; message: string; details: Record<string, unknown> | null };
       responseTimeMs: number;
     }>(server.baseUrl, "GET", "/table/characters?limit=not-a-number");
 
     assert.equal(response.status, 400);
     assert.equal(json.error.code, "VALIDATION_ERROR");
     assert.equal(json.error.details?.field, "limit");
+    assert.equal(athenaMock.calls.length, 0);
   } finally {
+    athenaMock.restore();
+    await server.close();
+  }
+});
+
+test("test-sdk e2e: POST /rpc/:functionName executes /gateway/rpc and returns count", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(
+      JSON.stringify({
+        data: [{ id: 1, email: "admin@example.com" }],
+        count: 1,
+      }),
+      { status: 200 },
+    );
+  });
+  const server = await startServer();
+
+  try {
+    const { response, json } = await httpJson<{
+      data: Array<{ id: number; email: string }>;
+      count: number | null;
+    }>(server.baseUrl, "POST", "/rpc/list_users", {
+      args: { role: "admin" },
+      select: ["id", "email"],
+      schema: "public",
+      count: "exact",
+      filters: [{ column: "active", operator: "eq", value: true }],
+      order: { column: "created_at", ascending: false },
+      limit: 5,
+      offset: 0,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(json.count, 1);
+    assert.equal(json.data.length, 1);
+    assert.equal(athenaMock.calls.length, 1);
+
+    const outbound = athenaMock.calls[0];
+    assert.ok(outbound.url.endsWith("/gateway/rpc"));
+    const outboundPayload = JSON.parse(outbound.init?.body as string) as Record<string, unknown>;
+    assert.equal(outboundPayload.function, "list_users");
+    assert.equal(outboundPayload.schema, "public");
+    assert.equal(outboundPayload.count, "exact");
+    assert.equal(outboundPayload.select, "id,email");
+    assert.equal(outboundPayload.limit, 5);
+    assert.equal(outboundPayload.offset, 0);
+    assert.deepEqual(outboundPayload.order, { column: "created_at", ascending: false });
+    assert.deepEqual(outboundPayload.args, { role: "admin" });
+    assert.deepEqual(outboundPayload.filters, [{ column: "active", operator: "eq", value: true }]);
+  } finally {
+    athenaMock.restore();
+    await server.close();
+  }
+});
+
+test("test-sdk e2e: POST /rpc/:functionName supports GET mode with filters and planned count", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(
+      JSON.stringify({
+        data: [{ id: 2, email: "viewer@example.com" }],
+        count: 1,
+      }),
+      { status: 200 },
+    );
+  });
+  const server = await startServer();
+
+  try {
+    const { response, json } = await httpJson<{
+      data: Array<{ id: number; email: string }>;
+      count: number | null;
+    }>(server.baseUrl, "POST", "/rpc/list_users", {
+      get: true,
+      head: true,
+      count: "planned",
+      args: { role: "viewer" },
+      filters: [
+        { column: "active", operator: "eq", value: true },
+        { column: "id", operator: "in", value: [2, 3] },
+      ],
+      select: "id,email",
+      order: { column: "created_at", ascending: false },
+      limit: 3,
+      offset: 1,
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(json.count, 1);
+    assert.equal(json.data.length, 1);
+    assert.equal(athenaMock.calls.length, 1);
+    assert.equal(athenaMock.calls[0].init?.method, "GET");
+
+    const outbound = new URL(athenaMock.calls[0].url);
+    assert.equal(outbound.pathname, "/rpc/list_users");
+    assert.equal(outbound.searchParams.get("role"), "viewer");
+    assert.equal(outbound.searchParams.get("active"), "eq.true");
+    assert.equal(outbound.searchParams.get("id"), "in.{2,3}");
+    assert.equal(outbound.searchParams.get("count"), "planned");
+    assert.equal(outbound.searchParams.get("head"), "true");
+    assert.equal(outbound.searchParams.get("order"), "created_at.desc");
+    assert.equal(outbound.searchParams.get("limit"), "3");
+    assert.equal(outbound.searchParams.get("offset"), "1");
+  } finally {
+    athenaMock.restore();
     await server.close();
   }
 });
 
 test("test-sdk e2e: Athena gateway failures are surfaced with ATHENA_GATEWAY_ERROR", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(JSON.stringify({ message: "missing gateway.rpc.execute" }), { status: 403 });
+  });
   const server = await startServer();
 
   try {
-    const missingFunctionName = `missing_rpc_${Date.now()}`;
     const { response, json } = await httpJson<{
       error: {
         code: string;
         message: string;
-        details: {
-          gatewayStatus: number;
-          gatewayErrorDetails: Record<string, unknown> | null;
-        };
+        details: { gatewayStatus: number; gatewayErrorDetails: { code: string } | null };
       };
-    }>(server.baseUrl, "POST", `/rpc/${missingFunctionName}`, {
-      args: { role: "admin" },
-    });
+    }>(server.baseUrl, "POST", "/rpc/list_users", { args: { role: "admin" } });
 
-    assert.ok(
-      response.status >= 400,
-      "expected rpc call to fail through Athena gateway",
-    );
+    assert.equal(response.status, 403);
     assert.equal(json.error.code, "ATHENA_GATEWAY_ERROR");
-    assert.ok(json.error.message.length > 0);
-    assert.ok(
-      json.error.details.gatewayStatus === response.status ||
-        json.error.details.gatewayStatus === 0,
-      "expected gatewayStatus to match upstream status or 0 when upstream is unreachable",
-    );
-    assert.ok(
-      json.error.details.gatewayErrorDetails === null ||
-        typeof json.error.details.gatewayErrorDetails === "object",
-    );
+    assert.equal(json.error.message, "missing gateway.rpc.execute");
+    assert.equal(json.error.details.gatewayStatus, 403);
+    assert.equal(json.error.details.gatewayErrorDetails?.code, "HTTP_ERROR");
   } finally {
+    athenaMock.restore();
     await server.close();
   }
 });

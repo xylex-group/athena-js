@@ -12,6 +12,7 @@ import type {
   AthenaDeletePayload,
   AthenaFetchPayload,
   AthenaInsertPayload,
+  AthenaRpcFilter,
   AthenaUpdatePayload,
   AthenaQueryPayload,
 } from "./types.js";
@@ -77,6 +78,103 @@ function resolveErrorMessage(payload: unknown, fallback: string) {
 
 function detailsFromError(error: AthenaGatewayError): AthenaGatewayErrorDetails {
   return error.toDetails();
+}
+
+function toQueryScalar(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "null";
+  return String(value);
+}
+
+function toQueryArray(values: unknown[]): string {
+  return `{${values.map(toQueryScalar).join(",")}}`;
+}
+
+function toRpcArgumentQueryValue(value: unknown): string {
+  if (Array.isArray(value)) return toQueryArray(value);
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return toQueryScalar(value);
+}
+
+function toRpcFilterQueryValue(filter: AthenaRpcFilter): string {
+  const value = filter.value;
+  switch (filter.operator) {
+    case "in": {
+      if (!Array.isArray(value)) {
+        throw new AthenaGatewayError({
+          code: "UNKNOWN_ERROR",
+          message: `RPC filter "${filter.column}" with operator "in" requires an array value`,
+          status: 0,
+        });
+      }
+      return `in.${toQueryArray(value)}`;
+    }
+    case "is":
+      return `is.${toQueryScalar(value)}`;
+    case "eq":
+    case "neq":
+    case "gt":
+    case "gte":
+    case "lt":
+    case "lte":
+    case "like":
+    case "ilike":
+      return `${filter.operator}.${toQueryScalar(value)}`;
+  }
+}
+
+function buildRpcGetEndpoint(payload: AthenaRpcPayload): AthenaGatewayEndpointPath {
+  const functionName = (payload.function_name ?? payload.function).trim();
+  if (!functionName) {
+    throw new AthenaGatewayError({
+      code: "UNKNOWN_ERROR",
+      message: "rpc requires a function name",
+      status: 0,
+      endpoint: "/gateway/rpc",
+      method: "GET",
+    });
+  }
+
+  const query = new URLSearchParams();
+  if (payload.schema) query.set("schema", payload.schema);
+  if (payload.select) query.set("select", payload.select);
+  if (payload.count) query.set("count", payload.count);
+  if (payload.head) query.set("head", "true");
+  if (typeof payload.limit === "number") query.set("limit", String(payload.limit));
+  if (typeof payload.offset === "number") query.set("offset", String(payload.offset));
+  if (payload.order?.column) {
+    query.set(
+      "order",
+      payload.order.ascending === false
+        ? `${payload.order.column}.desc`
+        : payload.order.column,
+    );
+  }
+
+  if (payload.args) {
+    for (const [key, value] of Object.entries(payload.args)) {
+      query.set(key, toRpcArgumentQueryValue(value));
+    }
+  }
+
+  if (payload.filters?.length) {
+    for (const filter of payload.filters) {
+      if (payload.args && Object.prototype.hasOwnProperty.call(payload.args, filter.column)) {
+        throw new AthenaGatewayError({
+          code: "UNKNOWN_ERROR",
+          message: `RPC filter "${filter.column}" conflicts with RPC argument "${filter.column}" in GET mode`,
+          status: 0,
+        });
+      }
+      query.set(filter.column, toRpcFilterQueryValue(filter));
+    }
+  }
+
+  const endpoint = `/rpc/${encodeURIComponent(functionName)}`;
+  const queryText = query.toString();
+  const withQuery = queryText ? `${endpoint}?${queryText}` : endpoint;
+  return withQuery as AthenaGatewayEndpointPath;
 }
 
 function buildHeaders(
@@ -163,11 +261,15 @@ async function callAthena<T>(
   const headers = buildHeaders(config, options);
 
   try {
-    const response = await fetch(url, {
+    const requestInit: RequestInit = {
       method,
       headers,
-      body: JSON.stringify(payload),
-    });
+    };
+    if (method !== "GET") {
+      requestInit.body = JSON.stringify(payload);
+    }
+
+    const response = await fetch(url, requestInit);
 
     const rawText = await response.text();
     const requestId = resolveRequestId(response.headers);
@@ -316,6 +418,10 @@ export function createAthenaGatewayClient(
       return callAthena(config, "/gateway/delete", "DELETE", payload, options);
     },
     rpcGateway(payload, options) {
+      if (options?.get) {
+        const endpoint = buildRpcGetEndpoint(payload);
+        return callAthena(config, endpoint, "GET", null, options);
+      }
       return callAthena(config, "/gateway/rpc", "POST", payload, options);
     },
     queryGateway(payload, options) {

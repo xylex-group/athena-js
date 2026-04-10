@@ -4,7 +4,7 @@
  * type definitions for the athena gateway api client and react hook
  */
 
-export type AthenaGatewayMethod = 'POST' | 'PUT' | 'DELETE'
+export type AthenaGatewayMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 export type AthenaGatewayEndpointPath =
   | '/gateway/fetch'
   | '/gateway/insert'
@@ -12,6 +12,7 @@ export type AthenaGatewayEndpointPath =
   | '/gateway/delete'
   | '/gateway/rpc'
   | '/gateway/query'
+  | `/rpc/${string}`
 
 export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
 
@@ -107,10 +108,6 @@ export interface AthenaRpcOrder {
   ascending?: boolean
 }
 
-export interface AthenaQueryPayload {
-  query: string
-}
-
 export interface AthenaRpcPayload {
   function: string
   function_name?: string
@@ -118,10 +115,15 @@ export interface AthenaRpcPayload {
   args?: Record<string, unknown>
   select?: string
   filters?: AthenaRpcFilter[]
-  count?: 'exact'
+  count?: AthenaCountOption
+  head?: boolean
   limit?: number
   offset?: number
   order?: AthenaRpcOrder
+}
+
+export interface AthenaQueryPayload {
+  query: string
 }
 
 /** Backend type for Athena client (aligns with athena-rs) */
@@ -166,7 +168,8 @@ export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
 
 export interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
   schema?: string
-  count?: 'exact'
+  count?: AthenaCountOption
+  get?: boolean
 }
 
 export interface AthenaGatewayResponse<T = unknown> {
@@ -209,10 +212,6 @@ export interface AthenaGatewayCallLog {
 }
 
 export interface AthenaGatewayHookResult {
-  queryGateway?: <T = unknown>(
-    payload: AthenaQueryPayload,
-    options?: AthenaGatewayCallOptions,
-  ) => Promise<AthenaGatewayResponse<T>>
   fetchGateway: <T = unknown>(
     payload: AthenaFetchPayload,
     options?: AthenaGatewayCallOptions,

@@ -83,7 +83,7 @@ const { data } = await athena.from<User>("users").select("id, name");
 
 ## 4. Filter rows
 
-Chain filter methods before `.select()`. Filters accumulate and are all sent in the same request.
+Chain filter methods with `.select()`. Filters accumulate and are all sent in the same request.
 
 ```ts
 const { data } = await athena
@@ -93,6 +93,15 @@ const { data } = await athena
   .gte("score", 100)
   .ilike("email", "%@example.com")
   .not("role", "eq", "banned");
+```
+
+Canonical read style is:
+
+```ts
+const { data } = await athena
+  .from("instruments")
+  .select("name, section_id")
+  .eq("name", "violin");
 ```
 
 All available filter methods:
@@ -215,7 +224,7 @@ Delete requires a `.eq("resource_id", …)`, `.eq("id", …)`, or `options.resou
 
 ## 11. RPC
 
-Use `.rpc()` to call Postgres functions via `POST /gateway/rpc` with a chainable API.
+Use `.rpc()` to call Postgres functions with a chainable API. By default it uses `POST /gateway/rpc`; with `{ get: true }`, it uses the compatibility route `GET /rpc/{function_name}`.
 
 ```ts
 const { data, count } = await athena
@@ -228,9 +237,24 @@ const { data, count } = await athena
 const { data: user } = await athena
   .rpc<{ id: number; email: string }>("list_users", { role: "admin" })
   .single("id,email");
+
+const { data: readOnlyUser } = await athena
+  .rpc<{ id: number; email: string }>("list_users", { role: "admin" }, { get: true, count: "planned", head: true })
+  .eq("id", 1)
+  .single("id,email");
 ```
 
 RPC chain supports: `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.like()`, `.ilike()`, `.is()`, `.in()`, `.order()`, `.limit()`, `.offset()`, `.range()`, `.select()`, `.single()`, `.maybeSingle()`.
+RPC options include `schema`, `count` (`exact`, `planned`, `estimated`), `head`, and `get`.
+
+For table-returning RPC functions, you can apply filters before `.single()`/`.maybeSingle()`:
+
+```ts
+const { data } = await athena
+  .rpc("list_stored_countries")
+  .eq("id", 1)
+  .single();
+```
 ## 12. React hook
 
 Use `useAthenaGateway` for client-side calls with loading and error state managed by React.

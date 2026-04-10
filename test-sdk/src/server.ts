@@ -336,7 +336,12 @@ export class AthenaTestSdkServer {
           typeof body.select === "string" || Array.isArray(body.select)
             ? body.select
             : undefined;
-        const count = body.count === "exact" ? "exact" : undefined;
+      const count =
+        body.count === "exact" || body.count === "planned" || body.count === "estimated"
+          ? body.count
+          : undefined;
+      const head = body.head === true;
+      const get = body.get === true;
         const limit =
           body.limit === undefined
             ? undefined
@@ -385,8 +390,8 @@ export class AthenaTestSdkServer {
           query = query.offset(offset);
         }
 
-        const result = await query.select(select);
-        const data = this.unwrapResult("execute rpc", result);
+      const result = await query.select(select, { schema, count, head, get });
+      const data = this.unwrapResult("execute rpc", result);
         this.sendSuccess(res, 200, { data, count: result.count ?? null });
       }),
     );

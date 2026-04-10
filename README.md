@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `1.1.2`
+current version: `1.2.0`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments and a React hook for client-side use.
 
 ## Install
@@ -87,6 +87,15 @@ const { data } = await athena
   .or("status.eq.active,status.eq.pending"); // OR expression
 ```
 
+Canonical style for reads is to call `.select(...)` first, then apply filters:
+
+```ts
+const { data } = await athena
+  .from("instruments")
+  .select("name, section_id")
+  .eq("name", "violin");
+```
+
 ### Pagination
 
 ```ts
@@ -112,7 +121,7 @@ const { data: user } = await athena
 
 ### RPC
 
-Use `athena.rpc(...)` for Postgres function calls through `POST /gateway/rpc`.
+Use `athena.rpc(...)` for Postgres function calls. By default it calls `POST /gateway/rpc`, and with `{ get: true }` it uses the compatibility route `GET /rpc/{function_name}`.
 
 ```ts
 const { data, count } = await athena
@@ -125,9 +134,15 @@ const { data, count } = await athena
 const { data: firstUser } = await athena
   .rpc<{ id: number; email: string }>("list_users", { role: "admin" })
   .single("id,email");
+
+const { data: readOnlyUser } = await athena
+  .rpc<{ id: number; email: string }>("list_users", { role: "admin" }, { get: true, count: "planned", head: true })
+  .eq("id", 1)
+  .single("id,email");
 ```
 
 RPC chain methods: `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.like()`, `.ilike()`, `.is()`, `.in()`, `.order()`, `.limit()`, `.offset()`, `.range()`, `.select()`, `.single()`, `.maybeSingle()`.
+RPC options: `schema`, `count` (`"exact" | "planned" | "estimated"`), `head`, `get`.
 
 ### Options
 
