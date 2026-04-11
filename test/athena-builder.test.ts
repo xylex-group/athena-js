@@ -237,7 +237,7 @@ test('update chain supports filters after update (flexible ordering)', async () 
     assert.equal(result.status, 200)
     assert.equal(calls.length, 1)
     const payload = JSON.parse(calls[0].init?.body as string)
-    assert.deepEqual(payload.update_body, { name: 'Updated' })
+    assert.deepEqual(payload.set, { name: 'Updated' })
     assert.deepEqual(
       payload.conditions,
       [

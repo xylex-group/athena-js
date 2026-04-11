@@ -81,7 +81,8 @@ export interface AthenaDeletePayload {
 }
 
 export interface AthenaUpdatePayload extends AthenaFetchPayload {
-  update_body?: Record<string, unknown>
+  set?: Record<string, unknown>
+  data?: Record<string, unknown>
 }
 
 export type AthenaRpcFilterOperator =

@@ -92,9 +92,9 @@ function createMutationQuery<Result>(
     columns?: string | string[],
     options?: AthenaGatewayCallOptions,
   ) => Promise<AthenaResult<Result>>,
-  defaultColumns: string | string[] = DEFAULT_COLUMNS,
+  defaultColumns: string | string[] | null = DEFAULT_COLUMNS,
 ): MutationQuery<Result> {
-  let selectedColumns: string | string[] = defaultColumns
+  let selectedColumns: string | string[] | undefined = defaultColumns === null ? undefined : defaultColumns
   let selectedOptions: AthenaGatewayCallOptions | undefined
   let promise: Promise<AthenaResult<Result>> | null = null
 
@@ -687,15 +687,15 @@ function createTableBuilder<Row>(
         const mergedOptions = mergeOptions(options, selectOptions)
         const payload: AthenaUpdatePayload = {
           table_name: tableName,
-          update_body: values,
+          set: values,
           conditions: filters,
-          columns,
           strip_nulls: mergedOptions?.stripNulls ?? true,
         }
+        if (columns) payload.columns = columns
         const response = await client.updateGateway<Row[]>(payload, mergedOptions)
         return formatResult(response)
       }
-      const mutation = createMutationQuery<Row[]>(executeUpdate)
+      const mutation = createMutationQuery<Row[]>(executeUpdate, null)
       const updateChain = {} as UpdateChain<Row>
       const filterMethods = createFilterMethods(state, addCondition, updateChain)
       Object.assign(updateChain, filterMethods, mutation)
@@ -716,12 +716,12 @@ function createTableBuilder<Row>(
           table_name: tableName,
           resource_id: resourceId,
           conditions: filters,
-          columns,
         }
+        if (columns) payload.columns = columns
         const response = await client.deleteGateway<Row | null>(payload, mergedOptions)
         return formatResult(response)
       }
-      return createMutationQuery<Row | null>(executeDelete)
+      return createMutationQuery<Row | null>(executeDelete, null)
     },
     async single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions) {
       const response = await builder.select<T[]>(columns, options)

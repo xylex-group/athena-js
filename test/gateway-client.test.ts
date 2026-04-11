@@ -160,9 +160,9 @@ test('updateGateway sends update payload', async () => {
   const { calls, restore } = mockFetch()
   try {
     const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
-    await client.updateGateway({ table_name: 't', update_body: { name: 'n' } })
+    await client.updateGateway({ table_name: 't', set: { name: 'n' } })
     const body = JSON.parse(calls[0].init?.body as string)
-    assert.deepEqual(body.update_body, { name: 'n' })
+    assert.deepEqual(body.set, { name: 'n' })
     assert.equal(calls[0].init?.method, 'POST')
   } finally {
     restore()
