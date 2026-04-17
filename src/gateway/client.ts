@@ -20,6 +20,14 @@ import { AthenaGatewayError } from "./errors.ts";
 
 const DEFAULT_BASE_URL = "https://athena-db.com";
 const DEFAULT_CLIENT = "railway_direct";
+const FALLBACK_SDK_VERSION = "1.3.0";
+const SDK_NAME = "xylex-group/athena";
+
+const SDK_VERSION =
+  typeof process !== "undefined" && process?.env?.npm_package_version
+    ? process.env.npm_package_version
+    : FALLBACK_SDK_VERSION;
+const SDK_HEADER_VALUE = `${SDK_NAME} ${SDK_VERSION}`;
 
 function parseResponseBody(rawText: string, contentType: string | null) {
   if (!rawText) {
@@ -198,6 +206,7 @@ function buildHeaders(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Athena-Sdk": SDK_HEADER_VALUE,
   };
 
   if (options?.userId ?? config.userId) {

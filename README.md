@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `1.3.0`
+current version: `1.3.1`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments and a React hook for client-side use.
 
 ## Install
@@ -416,6 +416,10 @@ const athena = createClient(
 ```
 
 Per-call headers are merged with the client-level headers, with per-call values winning on conflict.
+
+The SDK also sends a standard identification header on every request:
+
+- `X-Athena-Sdk: xylex-group/athena <version>`
 
 ## TypeScript
 

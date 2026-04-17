@@ -491,6 +491,10 @@ React hook that wraps the Athena gateway client with React state for loading, er
 
 Options for builder methods (`.select()`, `.insert()`, etc.) and the React hook. `createClient` only accepts `client`, `headers`, and `backend`.
 
+The SDK automatically includes a standard identification header on every request:
+
+- `X-Athena-Sdk: xylex-group/athena <version>`
+
 | Option | Type | Description |
 |--------|------|-------------|
 | `baseUrl` | `string` | override the base URL for this call |

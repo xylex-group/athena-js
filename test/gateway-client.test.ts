@@ -21,6 +21,12 @@ test('buildHeaders sets client and strip nulls by default', () => {
   assert.equal(headers['X-Strip-Nulls'], 'true')
 })
 
+test('buildHeaders includes standard sdk identification header', () => {
+  const client = createAthenaGatewayClient({})
+  const headers = client.buildHeaders()
+  assert.match(headers['X-Athena-Sdk'] ?? '', /^xylex-group\/athena\s+\d+\.\d+\.\d+$/)
+})
+
 test('buildHeaders sets api key', () => {
   const client = createAthenaGatewayClient({ apiKey: 'k1' })
   const headers = client.buildHeaders()
@@ -94,6 +100,7 @@ test('fetchGateway uses default client header when none provided', async () => {
     await client.fetchGateway({ table_name: 't' })
     const headers = calls[0].init?.headers as Record<string, string>
     assert.ok(headers['X-Athena-Client'], 'default client header should be set')
+    assert.match(headers['X-Athena-Sdk'] ?? '', /^xylex-group\/athena\s+\d+\.\d+\.\d+$/)
   } finally {
     restore()
   }
