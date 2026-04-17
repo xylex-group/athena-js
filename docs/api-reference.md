@@ -206,12 +206,132 @@ All filter methods return `TableQueryBuilder<Row>` for chaining.
 
 ### Modifier methods
 
-| Method | Description |
-|--------|-------------|
-| `.limit(count)` | maximum number of rows to return |
-| `.offset(count)` | number of rows to skip |
-| `.range(from, to)` | shorthand for `.offset(from).limit(to - from + 1)` |
-| `.reset()` | clears all accumulated conditions, limit, and offset |
+All modifier methods live on the shared `FilterChain` and are available on `TableQueryBuilder`, `SelectChain`, and `UpdateChain` — i.e. before or after `.select()` / `.update()` / `.delete()`. Every setter returns `Self` for further chaining.
+
+| Method | Payload field | Description |
+|--------|---------------|-------------|
+| `.limit(count)` | `limit` | maximum number of rows to return |
+| `.offset(count)` | `offset` | number of rows to skip before returning |
+| `.range(from, to)` | `offset` + `limit` | shorthand for `.offset(from).limit(to - from + 1)` |
+| `.currentPage(n)` | `current_page` | 1-based page number for page-based pagination |
+| `.pageSize(n)` | `page_size` | rows per page for page-based pagination |
+| `.totalPages(n)` | `total_pages` | explicit total-page count hint (optional) |
+| `.order(column, { ascending? })` | `sort_by` | `ORDER BY column ASC/DESC` — defaults to ascending |
+| `.reset()` | — | clears all accumulated conditions, pagination, and order |
+
+#### Ordering — `.order()`
+
+```ts
+.order(column: string, options?: { ascending?: boolean }): Self
+```
+
+Maps to the `sort_by` object on fetch, update, and delete payloads:
+
+```ts
+interface AthenaSortBy {
+  field: string
+  direction: "ascending" | "descending"
+}
+```
+
+- `.order("created_at")` → `{ field: "created_at", direction: "ascending" }`
+- `.order("created_at", { ascending: true })` → `ascending`
+- `.order("created_at", { ascending: false })` → `descending`
+
+Only the **last** `.order()` call wins — calling it twice overwrites the previous column. The SDK does not currently support multi-column ordering; use `.rpc()` or `.query()` for that.
+
+```ts
+// SELECT * FROM rsf_messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 100
+const { data } = await athena
+  .from("rsf_messages")
+  .eq("room_id", roomId)
+  .select("*", { stripNulls: false })
+  .order("created_at", { ascending: false })
+  .limit(100);
+
+// order also works before .select()
+const { data: oldest } = await athena
+  .from("events")
+  .order("occurred_at")
+  .limit(10)
+  .select("id, occurred_at");
+
+// order composes with .single() to get the most-recent / least-recent row
+const { data: latest } = await athena
+  .from("messages")
+  .eq("room_id", roomId)
+  .select("*")
+  .order("created_at", { ascending: false })
+  .single();
+```
+
+#### Pagination
+
+The builder offers two interchangeable pagination styles that both map to body fields the gateway understands:
+
+**1. Offset / limit (contiguous windows)**
+
+```ts
+// rows 51..75
+await athena.from("orders").select("id").limit(25).offset(50);
+
+// range: offset = from, limit = to - from + 1
+await athena.from("orders").select("id").range(50, 74); // same as above
+```
+
+**2. Page based**
+
+```ts
+// rows for page 3 at 25-per-page
+await athena
+  .from("orders")
+  .select("id, total")
+  .currentPage(3)
+  .pageSize(25);
+
+// include a total-pages hint if the gateway needs one for its response envelope
+await athena
+  .from("orders")
+  .select("id, total")
+  .currentPage(1)
+  .pageSize(25)
+  .totalPages(10);
+```
+
+Offset/limit and page-based can be combined if a specific backend interprets them together — they're forwarded independently as separate body fields (`limit`, `offset`, `current_page`, `page_size`, `total_pages`). In typical usage you pick one style.
+
+Pagination helpers work **before or after `.select()`** because they live on the shared `FilterChain`:
+
+```ts
+// before .select()
+await athena.from("users").currentPage(2).pageSize(50).select();
+
+// after .select()
+await athena.from("users").select().currentPage(2).pageSize(50);
+```
+
+They also propagate on the update and delete chains (body-field-equivalent semantics):
+
+```ts
+await athena
+  .from("queued_jobs")
+  .update({ status: "claimed" })
+  .eq("status", "ready")
+  .order("priority", { ascending: false })
+  .limit(10)
+  .select("id");
+```
+
+#### `.reset()`
+
+Clears accumulated conditions, `limit`, `offset`, `order`, `currentPage`, `pageSize`, and `totalPages` on the underlying builder state. Does not reset `columns` passed to `.select()` or any mutation body already queued — it only affects filter / pagination / order state.
+
+```ts
+const b = athena.from("users");
+b.eq("active", true).limit(10);
+// ...some condition you decide you need a fresh query
+await b.reset().eq("role", "admin").select("id");
+```
 
 ---
 
@@ -534,6 +654,13 @@ These are the raw payload shapes sent to the Athena gateway. The query builder c
 ### AthenaFetchPayload
 
 ```ts
+type AthenaSortDirection = "ascending" | "descending"
+
+interface AthenaSortBy {
+  field: string
+  direction: AthenaSortDirection
+}
+
 interface AthenaFetchPayload {
   table_name?: string
   view_name?: string
@@ -550,6 +677,7 @@ interface AthenaFetchPayload {
   aggregation_column?: string
   aggregation_strategy?: "cumulative_sum"
   aggregation_dedup?: boolean
+  sort_by?: AthenaSortBy
 }
 ```
 
@@ -586,6 +714,10 @@ interface AthenaDeletePayload {
   resource_id?: string
   columns?: string[] | string
   conditions?: AthenaGatewayCondition[]
+  sort_by?: AthenaSortBy
+  current_page?: number
+  page_size?: number
+  total_pages?: number
 }
 ```
 

@@ -473,6 +473,213 @@ test('canonical chained range filters work: gte + lt after select', async () => 
   }
 })
 
+test('currentPage and pageSize serialize as current_page and page_size on select', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('orders').select('id, total').currentPage(2).pageSize(25)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.current_page, 2)
+    assert.equal(payload.page_size, 25)
+  } finally {
+    restore()
+  }
+})
+
+test('totalPages serializes as total_pages on select', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('orders').select('id').totalPages(10)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.total_pages, 10)
+  } finally {
+    restore()
+  }
+})
+
+test('currentPage/pageSize/totalPages combine with limit on select', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('orders')
+      .select('id')
+      .currentPage(1)
+      .pageSize(50)
+      .totalPages(4)
+      .limit(50)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.current_page, 1)
+    assert.equal(payload.page_size, 50)
+    assert.equal(payload.total_pages, 4)
+    assert.equal(payload.limit, 50)
+  } finally {
+    restore()
+  }
+})
+
+test('pagination helpers work before .select()', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('orders').currentPage(3).pageSize(20).totalPages(12).select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.current_page, 3)
+    assert.equal(payload.page_size, 20)
+    assert.equal(payload.total_pages, 12)
+  } finally {
+    restore()
+  }
+})
+
+test('update chain forwards currentPage/pageSize/totalPages', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('characters')
+      .update({ level: 10 })
+      .eq('role', 'mage')
+      .currentPage(2)
+      .pageSize(10)
+      .totalPages(5)
+      .select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.set, { level: 10 })
+    assert.equal(payload.current_page, 2)
+    assert.equal(payload.page_size, 10)
+    assert.equal(payload.total_pages, 5)
+  } finally {
+    restore()
+  }
+})
+
+test('select without pagination helpers omits page fields', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('orders').select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.current_page, undefined)
+    assert.equal(payload.page_size, undefined)
+    assert.equal(payload.total_pages, undefined)
+  } finally {
+    restore()
+  }
+})
+
+test('reset clears currentPage/pageSize/totalPages', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const b = client.from('orders')
+    b.currentPage(2).pageSize(25).totalPages(4)
+    await b.reset().select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.current_page, undefined)
+    assert.equal(payload.page_size, undefined)
+    assert.equal(payload.total_pages, undefined)
+  } finally {
+    restore()
+  }
+})
+
+test('select chain supports .order() after .select() (desc) with limit', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('rsf_messages')
+      .eq('room_id', '31')
+      .select('*', { stripNulls: false })
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'rsf_messages')
+    assert.equal(payload.columns, '*')
+    assert.equal(payload.strip_nulls, false)
+    assert.equal(payload.limit, 100)
+    assert.deepEqual(payload.sort_by, { field: 'created_at', direction: 'descending' })
+    assert.deepEqual(payload.conditions, [
+      { operator: 'eq', column: 'room_id', value: '31', eq_column: 'room_id', eq_value: '31' },
+    ])
+  } finally {
+    restore()
+  }
+})
+
+test('order defaults to ascending when options omitted', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('characters').select('id').order('created_at')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.sort_by, { field: 'created_at', direction: 'ascending' })
+  } finally {
+    restore()
+  }
+})
+
+test('order defaults to ascending when { ascending: true }', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('characters').select('id').order('created_at', { ascending: true })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.sort_by, { field: 'created_at', direction: 'ascending' })
+  } finally {
+    restore()
+  }
+})
+
+test('order before .select() is also serialized', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('characters')
+      .order('level', { ascending: false })
+      .eq('role', 'mage')
+      .select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.sort_by, { field: 'level', direction: 'descending' })
+  } finally {
+    restore()
+  }
+})
+
+test('select without .order() omits sort_by from payload', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('characters').select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.sort_by, undefined)
+  } finally {
+    restore()
+  }
+})
+
+test('update chain supports .order() and serializes sort_by', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('characters')
+      .update({ name: 'Renamed' })
+      .eq('role', 'mage')
+      .order('created_at', { ascending: false })
+      .select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.set, { name: 'Renamed' })
+    assert.deepEqual(payload.sort_by, { field: 'created_at', direction: 'descending' })
+  } finally {
+    restore()
+  }
+})
+
+test('reset clears .order() state', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const b = client.from('characters')
+    b.order('created_at', { ascending: false })
+    await b.reset().select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.sort_by, undefined)
+  } finally {
+    restore()
+  }
+})
+
 test('rpc is awaitable and executes once', async () => {
   const { calls, restore } = mockFetch()
   try {

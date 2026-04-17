@@ -126,20 +126,102 @@ All available filter methods:
 
 ## 5. Paginate results
 
+The builder supports two styles of pagination. Both map to plain body fields on `/gateway/fetch` — pick the one that matches your backend/UI.
+
+### 5.1 Offset / limit
+
+Good for infinite-scroll or cursor-free sequential loading.
+
 ```ts
-// explicit limit and offset
+// rows 51..75
 const { data } = await athena
   .from("orders")
   .select("id, total")
   .limit(25)
   .offset(50);
 
-// range shorthand — equivalent to offset(0).limit(10)
-const { data: page1 } = await athena
+// range shorthand — equivalent to .offset(0).limit(10)
+const { data: firstTen } = await athena
   .from("orders")
   .select()
   .range(0, 9);
 ```
+
+### 5.2 Page based
+
+Good for classic "page 1 of 10" UIs. `.currentPage` is 1-based.
+
+```ts
+// second page of 25 rows each
+const { data } = await athena
+  .from("orders")
+  .select("id, total")
+  .currentPage(2)
+  .pageSize(25);
+
+// if your gateway needs a total-pages hint in the request, pass it
+const { data: hinted } = await athena
+  .from("orders")
+  .select("id, total")
+  .currentPage(2)
+  .pageSize(25)
+  .totalPages(8);
+```
+
+Payload field mapping:
+
+| Method | Body field |
+|--------|------------|
+| `.limit(n)` | `limit` |
+| `.offset(n)` | `offset` |
+| `.currentPage(n)` | `current_page` |
+| `.pageSize(n)` | `page_size` |
+| `.totalPages(n)` | `total_pages` |
+
+Pagination helpers work **before or after `.select()`** — the `FilterChain` is shared:
+
+```ts
+// both of these serialize identically
+await athena.from("users").currentPage(2).pageSize(50).select();
+await athena.from("users").select().currentPage(2).pageSize(50);
+```
+
+## 5a. Sort results with `.order()`
+
+`.order()` maps to the gateway `sort_by: { field, direction }` object. It's available on the base builder, `SelectChain`, `UpdateChain`, and on delete — so it can appear before or after the operation terminator.
+
+```ts
+// ascending (default)
+await athena.from("events").select("id, occurred_at").order("occurred_at");
+
+// descending
+await athena
+  .from("rsf_messages")
+  .eq("room_id", roomId)
+  .select("*", { stripNulls: false })
+  .order("created_at", { ascending: false })
+  .limit(100);
+// → SELECT * FROM rsf_messages WHERE room_id = $1
+//     ORDER BY created_at DESC LIMIT 100
+
+// combined with page-based pagination
+await athena
+  .from("orders")
+  .select("id, total, created_at")
+  .order("created_at", { ascending: false })
+  .currentPage(1)
+  .pageSize(25);
+
+// pick the most-recent row
+const { data: latest } = await athena
+  .from("messages")
+  .eq("room_id", roomId)
+  .select("*")
+  .order("created_at", { ascending: false })
+  .single();
+```
+
+> Only the last `.order()` wins — the SDK does not support multi-column ordering. Use `.rpc()` or `.query()` if you need that.
 
 ## 6. Fetch a single row
 

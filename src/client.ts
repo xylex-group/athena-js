@@ -12,6 +12,7 @@ import type {
   AthenaRpcFilter,
   AthenaRpcFilterOperator,
   AthenaRpcPayload,
+  AthenaSortBy,
   AthenaUpdatePayload,
 } from './gateway/types.ts'
 import type { BackendConfig, BackendType } from './gateway/types.ts'
@@ -30,6 +31,10 @@ type TableBuilderState = {
   conditions: AthenaGatewayCondition[]
   limit?: number
   offset?: number
+  order?: AthenaSortBy
+  currentPage?: number
+  pageSize?: number
+  totalPages?: number
 }
 
 type MutationSingleResult<Result> = Result extends Array<infer Item> ? Item | null : Result | null
@@ -138,6 +143,10 @@ function createMutationQuery<Result>(
   return mutationQuery
 }
 
+export interface OrderOptions {
+  ascending?: boolean
+}
+
 /** Shared filter chain - supports eq, limit, etc. in any order relative to select/update */
 interface FilterChain<Self> {
   eq(column: string, value: AthenaConditionValue): Self
@@ -145,6 +154,10 @@ interface FilterChain<Self> {
   range(from: number, to: number): Self
   limit(count: number): Self
   offset(count: number): Self
+  currentPage(value: number): Self
+  pageSize(value: number): Self
+  totalPages(value: number): Self
+  order(column: string, options?: OrderOptions): Self
   gt(column: string, value: AthenaConditionValue): Self
   gte(column: string, value: AthenaConditionValue): Self
   lt(column: string, value: AthenaConditionValue): Self
@@ -274,6 +287,25 @@ function createFilterMethods<Self>(
     },
     offset(count: number) {
       state.offset = count
+      return self
+    },
+    currentPage(value: number) {
+      state.currentPage = value
+      return self
+    },
+    pageSize(value: number) {
+      state.pageSize = value
+      return self
+    },
+    totalPages(value: number) {
+      state.totalPages = value
+      return self
+    },
+    order(column: string, options?: OrderOptions) {
+      state.order = {
+        field: column,
+        direction: options?.ascending === false ? 'descending' : 'ascending',
+      }
       return self
     },
     gt(column: string, value: AthenaConditionValue) {
@@ -539,6 +571,10 @@ function createTableBuilder<Row>(
       conditions: state.conditions.length ? [...state.conditions] : undefined,
       limit: state.limit,
       offset: state.offset,
+      current_page: state.currentPage,
+      page_size: state.pageSize,
+      total_pages: state.totalPages,
+      sort_by: state.order,
       strip_nulls: options?.stripNulls ?? true,
       count: options?.count,
       head: options?.head,
@@ -582,6 +618,10 @@ function createTableBuilder<Row>(
       state.conditions = []
       state.limit = undefined
       state.offset = undefined
+      state.order = undefined
+      state.currentPage = undefined
+      state.pageSize = undefined
+      state.totalPages = undefined
       return builder
     },
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
@@ -691,6 +731,10 @@ function createTableBuilder<Row>(
           conditions: filters,
           strip_nulls: mergedOptions?.stripNulls ?? true,
         }
+        if (state.order) payload.sort_by = state.order
+        if (state.currentPage !== undefined) payload.current_page = state.currentPage
+        if (state.pageSize !== undefined) payload.page_size = state.pageSize
+        if (state.totalPages !== undefined) payload.total_pages = state.totalPages
         if (columns) payload.columns = columns
         const response = await client.updateGateway<Row[]>(payload, mergedOptions)
         return formatResult(response)
@@ -717,6 +761,10 @@ function createTableBuilder<Row>(
           resource_id: resourceId,
           conditions: filters,
         }
+        if (state.order) payload.sort_by = state.order
+        if (state.currentPage !== undefined) payload.current_page = state.currentPage
+        if (state.pageSize !== undefined) payload.page_size = state.pageSize
+        if (state.totalPages !== undefined) payload.total_pages = state.totalPages
         if (columns) payload.columns = columns
         const response = await client.deleteGateway<Row | null>(payload, mergedOptions)
         return formatResult(response)

@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `1.3.1`
+current version: `1.4.0`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments and a React hook for client-side use.
 
 ## Install
@@ -183,13 +183,72 @@ const { data } = await athena
 
 ### Pagination
 
+Two styles, pick whichever matches your UI / backend. Both live on the shared `FilterChain`, so they work before or after `.select()`.
+
 ```ts
-// explicit limit and offset
+// 1. offset / limit — contiguous windows
 const { data } = await athena.from("users").select().limit(25).offset(50);
 
-// range shorthand — equivalent to offset(from).limit(to - from + 1)
-const { data } = await athena.from("users").select().range(0, 24);
+// range shorthand: offset = from, limit = to - from + 1
+const { data: firstTwentyFive } = await athena.from("users").select().range(0, 24);
+
+// 2. page based — maps to current_page / page_size / total_pages
+const { data: page2 } = await athena
+  .from("orders")
+  .select("id, total")
+  .currentPage(2)
+  .pageSize(25);
+
+// .totalPages() is an optional hint some backends use in the response envelope
+const { data: hinted } = await athena
+  .from("orders")
+  .select("id, total")
+  .currentPage(1)
+  .pageSize(25)
+  .totalPages(10);
 ```
+
+| Method | Body field |
+|--------|------------|
+| `.limit(n)` | `limit` |
+| `.offset(n)` | `offset` |
+| `.range(from, to)` | `offset` + `limit` |
+| `.currentPage(n)` | `current_page` |
+| `.pageSize(n)` | `page_size` |
+| `.totalPages(n)` | `total_pages` |
+
+### Ordering
+
+`.order(column, { ascending? })` is available on the table builder, select chain, update chain, and delete — before or after the operation terminator. It serializes to `sort_by: { field, direction }` on the gateway payload and defaults to ascending.
+
+```ts
+// descending + limit
+// SELECT * FROM rsf_messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 100
+const { data } = await athena
+  .from("rsf_messages")
+  .eq("room_id", roomId)
+  .select("*", { stripNulls: false })
+  .order("created_at", { ascending: false })
+  .limit(100);
+
+// ascending (default) + page-based pagination
+const { data: page } = await athena
+  .from("orders")
+  .select("id, total, created_at")
+  .order("created_at")
+  .currentPage(1)
+  .pageSize(25);
+
+// combine with .single() to grab the newest / oldest row
+const { data: latest } = await athena
+  .from("messages")
+  .eq("room_id", roomId)
+  .select("*")
+  .order("created_at", { ascending: false })
+  .single();
+```
+
+Only the last `.order()` wins — the SDK does not support multi-column ordering on the table builder. Use `.rpc()` or `.query()` for that.
 
 ### Single row
 

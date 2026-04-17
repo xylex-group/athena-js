@@ -44,6 +44,13 @@ export interface AthenaGatewayCondition {
   eq_value?: AthenaConditionValue | AthenaConditionArrayValue | string
 }
 
+export type AthenaSortDirection = 'ascending' | 'descending'
+
+export interface AthenaSortBy {
+  field: string
+  direction: AthenaSortDirection
+}
+
 export interface AthenaFetchPayload {
   view_name?: string
   table_name?: string
@@ -60,6 +67,7 @@ export interface AthenaFetchPayload {
   aggregation_column?: string
   aggregation_strategy?: 'cumulative_sum'
   aggregation_dedup?: boolean
+  sort_by?: AthenaSortBy
 }
 
 export interface AthenaInsertPayload {
@@ -78,6 +86,10 @@ export interface AthenaDeletePayload {
   resource_id?: string
   columns?: string[] | string
   conditions?: AthenaGatewayCondition[]
+  sort_by?: AthenaSortBy
+  current_page?: number
+  page_size?: number
+  total_pages?: number
 }
 
 export interface AthenaUpdatePayload extends AthenaFetchPayload {

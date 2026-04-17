@@ -218,6 +218,46 @@ test('select chain supports single() after filters', async () => {
   }
 })
 
+test('select chain supports .order() after .select() (user example)', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1, room_id: '31', body: 'hi' }], 200)
+  }
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret')
+    const roomId = '31'
+    const result = await athena
+      .from('rsf_messages')
+      .eq('room_id', roomId)
+      .select('*', { stripNulls: false })
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    assert.equal(result.status, 200)
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'rsf_messages')
+    assert.equal(payload.columns, '*')
+    assert.equal(payload.strip_nulls, false)
+    assert.equal(payload.limit, 100)
+    assert.deepEqual(payload.sort_by, { field: 'created_at', direction: 'descending' })
+    assert.deepEqual(payload.conditions, [
+      {
+        operator: 'eq',
+        column: 'room_id',
+        value: '31',
+        eq_column: 'room_id',
+        eq_value: '31',
+      },
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('update chain supports filters after update (flexible ordering)', async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = []
   const originalFetch = globalThis.fetch
