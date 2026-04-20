@@ -273,3 +273,36 @@ test('non-2xx message still surfaces as error', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+test('eqCast serializes cast hints on fetch payload when query fallback is disabled', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify({ data: [], status: 200, count: 0 }), { status: 200 })
+  }
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    await client
+      .from('form_sessions')
+      .eqCast('session_id', '550e8400-e29b-41d4-a716-446655440000', 'uuid')
+      .select('id', { count: 'exact' })
+
+    assert.equal(calls.length, 1, 'expected one request')
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.conditions, [
+      {
+        operator: 'eq',
+        column: 'session_id',
+        value: '550e8400-e29b-41d4-a716-446655440000',
+        value_cast: 'uuid',
+        eq_column: 'session_id',
+        eq_value: '550e8400-e29b-41d4-a716-446655440000',
+        eq_value_cast: 'uuid',
+      },
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

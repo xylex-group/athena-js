@@ -109,6 +109,8 @@ All available filter methods:
 | Method | SQL equivalent |
 |--------|---------------|
 | `.eq(col, val)` | `col = val` |
+| `.eqUuid(col, val)` | `col = val::uuid` (explicit UUID compare) |
+| `.eqCast(col, val, cast)` | `col = val::cast` (explicit cast compare) |
 | `.neq(col, val)` | `col != val` |
 | `.gt(col, val)` | `col > val` |
 | `.gte(col, val)` | `col >= val` |
@@ -123,6 +125,8 @@ All available filter methods:
 | `.match(filters)` | multiple `col = val` |
 | `.not(col, op, val)` | `NOT col op val` |
 | `.or(expression)` | `col1.op1.val1,col2.op2.val2` |
+
+`eq()` also auto-detects UUID-like values on identifier columns (`id`, `*_id`, `*uuid*`) and uses a typed-safe comparison path, so fluent UUID filters work without manual app-side casts.
 
 ## 5. Paginate results
 

@@ -18,6 +18,7 @@ export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
 
 export type AthenaConditionValue = string | number | boolean | null
 export type AthenaConditionArrayValue = Array<AthenaConditionValue>
+export type AthenaConditionCastType = string
 
 export type AthenaConditionOperator =
   | 'eq'
@@ -39,9 +40,23 @@ export interface AthenaGatewayCondition {
   column?: string
   operator: AthenaConditionOperator
   value?: AthenaConditionValue | AthenaConditionArrayValue | string
+  /**
+   * Optional explicit cast for `value` (for example `"uuid"`).
+   * Older gateways ignore unknown fields; newer gateways may use this hint.
+   */
+  value_cast?: AthenaConditionCastType
+  /**
+   * Optional explicit cast for `column` (for example `"text"`).
+   * Used by SDK SQL fallback for typed comparisons.
+   */
+  column_cast?: AthenaConditionCastType
   /** Back-compat shape expected by older gateway implementations */
   eq_column?: string
   eq_value?: AthenaConditionValue | AthenaConditionArrayValue | string
+  /** Optional cast hint aligned with legacy eq_* fields */
+  eq_value_cast?: AthenaConditionCastType
+  /** Optional cast hint aligned with legacy eq_* fields */
+  eq_column_cast?: AthenaConditionCastType
 }
 
 export type AthenaSortDirection = 'ascending' | 'descending'

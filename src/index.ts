@@ -40,6 +40,7 @@ export type {
   RetryBackoffStrategy,
 } from './auxiliaries.js'
 export type {
+  AthenaConditionCastType,
   AthenaRpcCallOptions,
   AthenaRpcFilter,
   AthenaRpcFilterOperator,

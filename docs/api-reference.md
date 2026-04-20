@@ -189,6 +189,8 @@ All filter methods return `TableQueryBuilder<Row>` for chaining.
 | Method | Description |
 |--------|-------------|
 | `.eq(column, value)` | `column = value` |
+| `.eqUuid(column, value)` | `column = value::uuid` (explicit UUID cast) |
+| `.eqCast(column, value, cast)` | `column = value::cast` (explicit cast type) |
 | `.neq(column, value)` | `column != value` |
 | `.gt(column, value)` | `column > value` |
 | `.gte(column, value)` | `column >= value` |
@@ -203,6 +205,8 @@ All filter methods return `TableQueryBuilder<Row>` for chaining.
 | `.match(filters)` | adds an `.eq()` condition for each key in `filters` |
 | `.not(column, operator, value)` | `NOT column operator value` |
 | `.or(expression)` | OR expression in `col.op.val,col.op.val` format |
+
+`eq()` also auto-detects UUID-like values on identifier columns (`id`, `*_id`, `*uuid*`) and switches to a typed-safe comparison path to avoid Postgres UUID-vs-text operator errors.
 
 ### Modifier methods
 
@@ -766,6 +770,12 @@ interface AthenaGatewayCondition {
   column?: string
   operator: AthenaConditionOperator
   value?: string | number | boolean | null | Array<string | number | boolean | null>
+  value_cast?: string
+  column_cast?: string
+  eq_column?: string
+  eq_value?: string | number | boolean | null | Array<string | number | boolean | null>
+  eq_value_cast?: string
+  eq_column_cast?: string
 }
 ```
 

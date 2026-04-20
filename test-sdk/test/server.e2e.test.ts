@@ -130,6 +130,53 @@ test("test-sdk e2e: GET /table/:name forwards pagination and headers to Athena g
   }
 });
 
+test("test-sdk e2e: GET /table/:name/by/:column/:value uses typed UUID comparison path", async () => {
+  const columnName = "workflow_uuid";
+  const uuidValue = "550e8400-e29b-41d4-a716-446655440000";
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(
+      JSON.stringify({
+        data: [{ [columnName]: uuidValue, state: "active" }],
+      }),
+      { status: 200 },
+    );
+  });
+  const server = await startServer();
+
+  try {
+    const { response, json } = await httpJson<{
+      data: Record<string, string> | null;
+    }>(
+      server.baseUrl,
+      "GET",
+      `/table/form_sessions/by/${columnName}/${uuidValue}`,
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(json.data?.[columnName], uuidValue);
+    assert.equal(json.data?.state, "active");
+    assert.equal(athenaMock.calls.length, 1);
+
+    const outbound = athenaMock.calls[0];
+    assert.ok(outbound.url.endsWith("/gateway/query"));
+    assert.equal(outbound.init?.method, "POST");
+
+    const outboundPayload = JSON.parse(outbound.init?.body as string) as {
+      query?: string;
+    };
+    assert.equal(typeof outboundPayload.query, "string");
+    assert.ok(outboundPayload.query?.includes(`FROM "form_sessions"`));
+    assert.ok(
+      outboundPayload.query?.includes(
+        `"${columnName}"::text = '${uuidValue}'`,
+      ),
+    );
+  } finally {
+    athenaMock.restore();
+    await server.close();
+  }
+});
+
 test("test-sdk e2e: validation errors are normalized with code and details", async () => {
   const athenaMock = installAthenaFetchMock(async () => {
     return new Response(JSON.stringify({ data: [] }), { status: 200 });

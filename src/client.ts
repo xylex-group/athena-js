@@ -1,5 +1,6 @@
 import type {
   AthenaConditionArrayValue,
+  AthenaConditionCastType,
   AthenaConditionOperator,
   AthenaConditionValue,
   AthenaDeletePayload,
@@ -37,8 +38,16 @@ type TableBuilderState = {
   totalPages?: number
 }
 
+type ConditionCastHints = {
+  valueCast?: AthenaConditionCastType
+  columnCast?: AthenaConditionCastType
+}
+
 type MutationSingleResult<Result> = Result extends Array<infer Item> ? Item | null : Result | null
 const DEFAULT_COLUMNS = '*'
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
 
 export interface MutationQuery<Result> extends PromiseLike<AthenaResult<Result>> {
   select(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<Result>>
@@ -150,6 +159,8 @@ export interface OrderOptions {
 /** Shared filter chain - supports eq, limit, etc. in any order relative to select/update */
 interface FilterChain<Self> {
   eq(column: string, value: AthenaConditionValue): Self
+  eqCast(column: string, value: AthenaConditionValue, cast: AthenaConditionCastType): Self
+  eqUuid(column: string, value: string): Self
   match(filters: Record<string, AthenaConditionValue>): Self
   range(from: number, to: number): Self
   limit(count: number): Self
@@ -258,22 +269,195 @@ function stringifyFilterValue(value: AthenaConditionValue | AthenaConditionArray
   return String(value)
 }
 
+function isUuidString(value: string): boolean {
+  return UUID_PATTERN.test(value.trim())
+}
+
+function isUuidIdentifierColumn(column: string): boolean {
+  return column === 'id' || /(?:^|_)uuid(?:_|$)/i.test(column) || /_id$/i.test(column)
+}
+
+function shouldUseUuidTextComparison(column: string, value: AthenaConditionValue): boolean {
+  return typeof value === 'string' && isUuidString(value) && isUuidIdentifierColumn(column)
+}
+
+function normalizeCast(cast: AthenaConditionCastType): string {
+  const normalized = cast.trim().toLowerCase()
+  if (!SAFE_CAST_PATTERN.test(normalized)) {
+    throw new Error(`Invalid cast type "${cast}"`)
+  }
+  return normalized
+}
+
+function escapeSqlStringLiteral(value: string): string {
+  return value.replace(/'/g, "''")
+}
+
+function quoteIdentifier(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`
+}
+
+function quoteQualifiedIdentifier(identifier: string): string {
+  return identifier
+    .split('.')
+    .map(segment => quoteIdentifier(segment))
+    .join('.')
+}
+
+function toSqlLiteral(value: AthenaConditionValue): string {
+  if (value === null) return 'NULL'
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL'
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
+  return `'${escapeSqlStringLiteral(value)}'`
+}
+
+function withCast(expression: string, cast?: AthenaConditionCastType): string {
+  if (!cast) return expression
+  return `${expression}::${normalizeCast(cast)}`
+}
+
+function buildSelectColumnsClause(columns: string | string[]): string {
+  if (Array.isArray(columns)) {
+    return columns.map(column => quoteQualifiedIdentifier(column)).join(', ')
+  }
+  return columns
+}
+
+function conditionToSqlClause(condition: AthenaGatewayCondition): string | null {
+  if (!condition.column) return null
+  const column = withCast(quoteQualifiedIdentifier(condition.column), condition.column_cast)
+  const value = condition.value
+  const sqlOperator = {
+    eq: '=',
+    neq: '!=',
+    gt: '>',
+    gte: '>=',
+    lt: '<',
+    lte: '<=',
+    like: 'LIKE',
+    ilike: 'ILIKE',
+  } as const
+
+  switch (condition.operator) {
+    case 'eq':
+    case 'neq':
+    case 'gt':
+    case 'gte':
+    case 'lt':
+    case 'lte':
+    case 'like':
+    case 'ilike': {
+      if (Array.isArray(value) || value === undefined) return null
+      const rhs = withCast(toSqlLiteral(value), condition.value_cast)
+      return `${column} ${sqlOperator[condition.operator]} ${rhs}`
+    }
+    case 'is': {
+      if (value === null) return `${column} IS NULL`
+      if (value === true) return `${column} IS TRUE`
+      if (value === false) return `${column} IS FALSE`
+      return null
+    }
+    case 'in': {
+      if (!Array.isArray(value)) return null
+      if (value.length === 0) return 'FALSE'
+      const values = value.map(item => withCast(toSqlLiteral(item), condition.value_cast))
+      return `${column} IN (${values.join(', ')})`
+    }
+    default:
+      return null
+  }
+}
+
+function buildTypedSelectQuery(input: {
+  tableName: string
+  columns: string | string[]
+  conditions: AthenaGatewayCondition[]
+  limit?: number
+  offset?: number
+  currentPage?: number
+  pageSize?: number
+  order?: AthenaSortBy
+}): string | null {
+  const whereClauses: string[] = []
+  for (const condition of input.conditions) {
+    const clause = conditionToSqlClause(condition)
+    if (!clause) return null
+    whereClauses.push(clause)
+  }
+
+  let limit = input.limit
+  let offset = input.offset
+  if (limit === undefined && input.pageSize !== undefined) {
+    limit = input.pageSize
+  }
+  if (
+    offset === undefined &&
+    input.pageSize !== undefined &&
+    input.currentPage !== undefined &&
+    input.currentPage > 0
+  ) {
+    offset = (input.currentPage - 1) * input.pageSize
+  }
+
+  const sqlParts = [
+    `SELECT ${buildSelectColumnsClause(input.columns)} FROM ${quoteQualifiedIdentifier(input.tableName)}`,
+  ]
+
+  if (whereClauses.length > 0) {
+    sqlParts.push(`WHERE ${whereClauses.join(' AND ')}`)
+  }
+
+  if (input.order?.field) {
+    const direction = input.order.direction === 'descending' ? 'DESC' : 'ASC'
+    sqlParts.push(`ORDER BY ${quoteQualifiedIdentifier(input.order.field)} ${direction}`)
+  }
+
+  if (limit !== undefined) {
+    sqlParts.push(`LIMIT ${Math.max(0, Math.trunc(limit))}`)
+  }
+
+  if (offset !== undefined) {
+    sqlParts.push(`OFFSET ${Math.max(0, Math.trunc(offset))}`)
+  }
+
+  return `${sqlParts.join(' ')};`
+}
+
 function createFilterMethods<Self>(
   state: TableBuilderState,
   addCondition: (
     operator: AthenaConditionOperator,
     column?: string,
     value?: AthenaConditionValue | AthenaConditionArrayValue | string,
+    hints?: ConditionCastHints,
   ) => void,
   self: Self,
 ) {
   return {
     eq(column: string, value: AthenaConditionValue) {
-      addCondition('eq', column, value)
+      if (shouldUseUuidTextComparison(column, value)) {
+        addCondition('eq', column, value, { columnCast: 'text' })
+      } else {
+        addCondition('eq', column, value)
+      }
+      return self
+    },
+    eqCast(column: string, value: AthenaConditionValue, cast: AthenaConditionCastType) {
+      addCondition('eq', column, value, { valueCast: cast })
+      return self
+    },
+    eqUuid(column: string, value: string) {
+      addCondition('eq', column, value, { valueCast: 'uuid' })
       return self
     },
     match(filters: Record<string, AthenaConditionValue>) {
-      Object.entries(filters).forEach(([column, value]) => addCondition('eq', column, value))
+      Object.entries(filters).forEach(([column, value]) => {
+        if (shouldUseUuidTextComparison(column, value)) {
+          addCondition('eq', column, value, { columnCast: 'text' })
+        } else {
+          addCondition('eq', column, value)
+        }
+      })
       return self
     },
     range(from: number, to: number) {
@@ -539,6 +723,7 @@ function createTableBuilder<Row>(
     operator: AthenaConditionOperator,
     column?: string,
     value?: AthenaConditionValue | AthenaConditionArrayValue | string,
+    hints?: ConditionCastHints,
   ) => {
     const condition: AthenaGatewayCondition = { operator }
     if (column) {
@@ -554,6 +739,18 @@ function createTableBuilder<Row>(
         condition.eq_value = value
       }
     }
+    if (hints?.valueCast) {
+      condition.value_cast = hints.valueCast
+      if (operator === 'eq') {
+        condition.eq_value_cast = hints.valueCast
+      }
+    }
+    if (hints?.columnCast) {
+      condition.column_cast = hints.columnCast
+      if (operator === 'eq') {
+        condition.eq_column_cast = hints.columnCast
+      }
+    }
     state.conditions.push(condition)
   }
 
@@ -565,10 +762,37 @@ function createTableBuilder<Row>(
     columns: string | string[] = DEFAULT_COLUMNS,
     options?: AthenaGatewayCallOptions,
   ) => {
+    const conditions = state.conditions.length
+      ? state.conditions.map(condition => ({ ...condition }))
+      : undefined
+    const hasTypedEqualityComparison =
+      conditions?.some(
+        condition =>
+          condition.operator === 'eq' &&
+          (condition.value_cast !== undefined || condition.column_cast !== undefined),
+      ) ?? false
+
+    if (hasTypedEqualityComparison && !options?.head && !options?.count && conditions) {
+      const query = buildTypedSelectQuery({
+        tableName,
+        columns,
+        conditions,
+        limit: state.limit,
+        offset: state.offset,
+        currentPage: state.currentPage,
+        pageSize: state.pageSize,
+        order: state.order,
+      })
+      if (query) {
+        const queryResponse = await client.queryGateway<T>({ query }, options)
+        return formatResult(queryResponse)
+      }
+    }
+
     const payload = {
       table_name: tableName,
       columns,
-      conditions: state.conditions.length ? [...state.conditions] : undefined,
+      conditions,
       limit: state.limit,
       offset: state.offset,
       current_page: state.currentPage,

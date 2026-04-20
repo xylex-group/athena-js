@@ -473,6 +473,80 @@ test('canonical chained range filters work: gte + lt after select', async () => 
   }
 })
 
+test('uuid-like eq on *_id uses query fallback with ::text comparison', async () => {
+  const { calls, restore } = mockFetch()
+  const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+  try {
+    await client
+      .from('form_sessions')
+      .eq('session_id', sessionId)
+      .limit(1)
+      .select('*')
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(typeof payload.query, 'string')
+    assert.ok(payload.query.includes(`FROM "form_sessions"`))
+    assert.ok(payload.query.includes(`"session_id"::text = '${sessionId}'`))
+    assert.ok(payload.query.includes('LIMIT 1'))
+  } finally {
+    restore()
+  }
+})
+
+test('eqUuid uses explicit ::uuid value cast', async () => {
+  const { calls, restore } = mockFetch()
+  const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+  try {
+    await client
+      .from('form_sessions')
+      .eqUuid('session_id', sessionId)
+      .select('*')
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.ok(payload.query.includes(`"session_id" = '${sessionId}'::uuid`))
+  } finally {
+    restore()
+  }
+})
+
+test('eqCast forwards explicit cast via query fallback', async () => {
+  const { calls, restore } = mockFetch()
+  const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+  try {
+    await client
+      .from('form_sessions')
+      .eqCast('session_id', sessionId, 'uuid')
+      .select('*')
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.ok(payload.query.includes(`"session_id" = '${sessionId}'::uuid`))
+  } finally {
+    restore()
+  }
+})
+
+test('non-uuid eq on *_id stays on /gateway/fetch', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('form_sessions').eq('session_id', 'not-a-uuid').select('*')
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload.conditions, [
+      { operator: 'eq', column: 'session_id', value: 'not-a-uuid', eq_column: 'session_id', eq_value: 'not-a-uuid' },
+    ])
+  } finally {
+    restore()
+  }
+})
+
 test('currentPage and pageSize serialize as current_page and page_size on select', async () => {
   const { calls, restore } = mockFetch()
   try {

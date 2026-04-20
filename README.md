@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `1.4.0`
+current version: `1.4.1`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments and a React hook for client-side use.
 
 ## Install
@@ -156,6 +156,8 @@ const { data } = await athena
   .from("characters")
   .select("id, name")
   .eq("active", true) // column = value
+  .eqUuid("session_id", "550e8400-e29b-41d4-a716-446655440000") // explicit UUID cast
+  .eqCast("session_id", "550e8400-e29b-41d4-a716-446655440000", "uuid") // explicit cast type
   .neq("role", "guest") // column != value
   .gt("level", 5) // column > value
   .gte("score", 100) // column >= value
@@ -171,6 +173,8 @@ const { data } = await athena
   .not("role", "eq", "banned") // NOT col op val
   .or("status.eq.active,status.eq.pending"); // OR expression
 ```
+
+`eq()` now auto-detects UUID-like values on identifier columns (for example `id`, `*_id`, `*uuid*`) and uses a safe typed comparison path so UUID columns no longer require app-side manual `::uuid` / `::text` casts.
 
 Canonical style for reads is to call `.select(...)` first, then apply filters:
 
