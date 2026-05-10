@@ -8,6 +8,7 @@
     "blessed": "^0.1.81",
     "chalk": "^4.1.2",
     "cron-parser": "^4.9.0",
+    "use-sync-external-store": "^1.5.0",
     "uuid": "^9.0.1"
   },
   "description": "Athena JS SDK",
@@ -15,10 +16,13 @@
     "@types/blessed": "^0.1.25",
     "@types/node": "^20.10.5",
     "@types/react": "^18.3.12",
+    "@types/react-test-renderer": "^18.3.1",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
     "eslint": "^8.57.1",
+    "react": "^18.3.1",
+    "react-test-renderer": "^18.3.1",
     "tsup": "^8.5.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
@@ -103,5 +107,5 @@
       ]
     }
   },
-  "version": "1.4.1"
+  "version": "1.5.0"
 }

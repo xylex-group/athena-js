@@ -611,6 +611,164 @@ React hook that wraps the Athena gateway client with React state for loading, er
 
 ---
 
+## createAthenaQueryClient
+
+```ts
+import { createAthenaQueryClient } from "@xylex-group/athena/react";
+
+const queryClient = createAthenaQueryClient(config?: AthenaQueryClientConfig)
+```
+
+Creates an Athena-native query runtime used by `useQuery` / `useMutation`.
+
+Default policy is low-latency oriented:
+
+- `cache.mode = "none"` (no persistent data cache)
+- inflight dedupe enabled for identical query keys
+- no automatic invalidation system
+
+`AthenaQueryClientConfig`:
+
+```ts
+type AthenaQueryClientConfig = {
+  cache?: {
+    mode?: "none" | "memory"
+    staleTime?: number
+    gcTime?: number
+  }
+  defaultQueryOptions?: {
+    retry?: number | false
+    retryDelay?: number | ((attempt: number) => number)
+    refetchOnMount?: boolean
+    refetchOnWindowFocus?: boolean
+    refetchOnReconnect?: boolean
+  }
+  defaultMutationOptions?: {
+    retry?: number | false
+    retryDelay?: number | ((attempt: number) => number)
+  }
+}
+```
+
+---
+
+## AthenaQueryClientProvider / useAthenaQueryClient
+
+```ts
+import {
+  AthenaQueryClientProvider,
+  useAthenaQueryClient,
+} from "@xylex-group/athena/react";
+```
+
+Provider and context hook for scoping query runtime state.
+
+```tsx
+const client = createAthenaQueryClient()
+
+<AthenaQueryClientProvider client={client}>
+  <App />
+</AthenaQueryClientProvider>
+```
+
+---
+
+## useQuery
+
+```ts
+import { useQuery } from "@xylex-group/athena/react";
+
+const query = useQuery({
+  queryKey: ["products"],
+  queryFn: () => athena.from("products").select("*"),
+})
+```
+
+Lightweight read lifecycle hook with normalized Athena results and errors. This is intentionally not a cache-heavy React Query clone.
+
+`UseQueryOptions<TQueryFnData, TData = TQueryFnData>`:
+
+| Option | Type | Default |
+|--------|------|---------|
+| `queryKey` | `readonly unknown[] \| string` | required |
+| `queryFn` | `() => Promise<TQueryFnData>` | required |
+| `enabled` | `boolean` | `true` |
+| `initialData` | `TData` | `undefined` |
+| `refetchOnMount` | `boolean` | `true` |
+| `refetchOnWindowFocus` | `boolean` | `false` |
+| `refetchOnReconnect` | `boolean` | `false` |
+| `retry` | `number \| false` | `0` |
+| `retryDelay` | `number \| ((attempt) => number)` | `0` |
+| `select` | `(data: TQueryFnData) => TData` | optional |
+| `onSuccess` | `(data: TData) => void` | optional |
+| `onError` | `(error: AthenaQueryError) => void` | optional |
+| `onSettled` | `(data, error) => void` | optional |
+
+Returns `UseQueryResult<TData>`:
+
+- `data`, `error`, `status`, `isLoading`, `isFetching`, `isSuccess`, `isError`
+- `refetch(): Promise<AthenaQueryResult<TData>>`
+- `reset(): void`
+- `lastRequest`, `lastResponse`
+
+`queryFn` can return either raw data or Athena envelopes (`{ data, error, status, raw }`).
+
+---
+
+## useMutation
+
+```ts
+import { useMutation } from "@xylex-group/athena/react";
+
+const createProduct = useMutation({
+  mutationFn: (input) => athena.from("products").insert(input).select("*"),
+})
+```
+
+Lightweight write lifecycle hook with normalized Athena errors and explicit manual refetch flow.
+
+`UseMutationOptions<TVariables, TMutationFnData, TData = TMutationFnData>`:
+
+| Option | Type | Default |
+|--------|------|---------|
+| `mutationFn` | `(variables) => Promise<TMutationFnData>` | required |
+| `mutationKey` | `readonly unknown[] \| string` | optional |
+| `onMutate` | `(variables) => void \| Promise<void>` | optional |
+| `onSuccess` | `(data, variables) => void` | optional |
+| `onError` | `(error, variables) => void` | optional |
+| `onSettled` | `(data, error, variables) => void` | optional |
+| `select` | `(data: TMutationFnData) => TData` | optional |
+| `retry` | `number \| false` | `0` |
+| `retryDelay` | `number \| ((attempt) => number)` | `0` |
+
+Returns `UseMutationResult<TVariables, TData>`:
+
+- `mutate(variables): void`
+- `mutateAsync(variables): Promise<TData>`
+- `data`, `error`, `status`, `isIdle`, `isLoading`, `isSuccess`, `isError`
+- `reset(): void`
+- `lastVariables`, `lastRequest`, `lastResponse`
+
+---
+
+## State adapters and events
+
+For external state managers (Zustand/Redux), the runtime exposes adapters and event subscriptions without adding hard dependencies.
+
+```ts
+import { attachStateAdapter } from "@xylex-group/athena/react";
+
+const detach = attachStateAdapter(queryClient, {
+  onEvent(event) {
+    // dispatch to Redux or write to Zustand
+  },
+})
+```
+
+`queryClient.subscribeEvents(listener)` is also available for low-level runtime event streams.
+
+---
+
 ## AthenaGatewayCallOptions
 
 Options for builder methods (`.select()`, `.insert()`, etc.) and the React hook. `createClient` only accepts `client`, `headers`, and `backend`.

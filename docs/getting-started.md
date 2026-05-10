@@ -1,6 +1,6 @@
 # Getting started with athena-js
 
-Athena is a database driver and API gateway SDK. This guide walks through installation, client setup, querying, mutations, pagination, and the React hook.
+Athena is a database driver and API gateway SDK. This guide walks through installation, client setup, querying, mutations, pagination, and React integration (`useAthenaGateway`, `useQuery`, `useMutation`).
 
 ## 1. Install
 
@@ -12,7 +12,7 @@ pnpm add @xylex-group/athena
 yarn add @xylex-group/athena
 ```
 
-Install the React peer dependency only if you plan to use `useAthenaGateway`:
+Install the React peer dependency only if you plan to use `@xylex-group/athena/react` hooks:
 
 ```bash
 npm install react  # React >=17
@@ -341,28 +341,99 @@ const { data } = await athena
   .eq("id", 1)
   .single();
 ```
-## 12. React hook
+## 12. React hooks
 
-Use `useAthenaGateway` for client-side calls with loading and error state managed by React.
+`@xylex-group/athena/react` now provides:
+
+- `useAthenaGateway` for low-level gateway calls.
+- `createAthenaQueryClient` + `AthenaQueryClientProvider` for runtime state.
+- `useQuery` for read lifecycle state.
+- `useMutation` for write lifecycle state.
+
+Default runtime behavior is latency-first: no persistent data cache by default, inflight dedupe only, and manual `refetch()` after mutations.
 
 ```tsx
 "use client";
 
+import {
+  AthenaQueryClientProvider,
+  createAthenaQueryClient,
+  useMutation,
+  useQuery,
+} from "@xylex-group/athena/react";
+import { createClient } from "@xylex-group/athena";
+
+const athena = createClient(
+  process.env.NEXT_PUBLIC_ATHENA_URL!,
+  process.env.NEXT_PUBLIC_ATHENA_API_KEY!,
+);
+
+const queryClient = createAthenaQueryClient({
+  cache: { mode: "none" },
+});
+
+function UserListInner() {
+  const users = useQuery<Array<{ id: number; name: string; email: string }>>({
+    queryKey: ["users"],
+    queryFn: () =>
+      athena
+        .from("users")
+        .eq("active", true)
+        .select("id,name,email")
+        .limit(25),
+  });
+
+  const createUser = useMutation<{ name: string; email: string }, { id: number }>({
+    mutationFn: async (input) =>
+      athena.from("users").insert(input).select("id").single(),
+    onSuccess: () => {
+      void users.refetch();
+    },
+  });
+
+  if (users.isLoading) return <p>Loading…</p>;
+  if (users.error) return <p>Error: {users.error.message}</p>;
+
+  return (
+    <div>
+      <button onClick={() => createUser.mutate({ name: "Ada", email: "ada@example.com" })}>
+        Add user
+      </button>
+      <ul>
+        {(users.data ?? []).map((user) => (
+          <li key={user.id}>{user.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function UserList() {
+  return (
+    <AthenaQueryClientProvider client={queryClient}>
+      <UserListInner />
+    </AthenaQueryClientProvider>
+  );
+}
+```
+
+Use `useAthenaGateway` when you need explicit access to raw gateway payloads and lifecycle logs:
+
+```tsx
 import { useAthenaGateway } from "@xylex-group/athena/react";
 import { useEffect } from "react";
 
-export function UserList() {
+function GatewayDebugPanel() {
   const { fetchGateway, lastResponse, isLoading, error } = useAthenaGateway({
     baseUrl: "https://athena-db.com",
     apiKey: process.env.NEXT_PUBLIC_ATHENA_API_KEY,
   });
 
   useEffect(() => {
-    fetchGateway({
+    void fetchGateway({
       table_name: "users",
-      columns: ["id", "name", "email"],
-      conditions: [{ column: "active", operator: "eq", value: true }],
-      limit: 25,
+      columns: ["id", "name"],
+      limit: 10,
     });
   }, [fetchGateway]);
 
@@ -379,7 +450,7 @@ export function UserList() {
 }
 ```
 
-The hook also exposes `insertGateway`, `updateGateway`, `deleteGateway`, and `rpcGateway` for mutations, plus `lastRequest` and `lastResponse` for debugging.
+`useAthenaGateway` also exposes `insertGateway`, `updateGateway`, `deleteGateway`, and `rpcGateway`, plus `lastRequest` and `lastResponse` for debugging.
 
 ## 13. Error handling
 
@@ -398,7 +469,7 @@ if (error) {
 // data is typed as User[] | null here
 ```
 
-The React hook sets `error` state automatically and throws from the gateway functions, so use `try/catch` around `insertGateway`, `updateGateway`, `deleteGateway`, and `rpcGateway` calls. For typed exceptions, use `AthenaGatewayError` and `isAthenaGatewayError`.
+`useQuery` and `useMutation` normalize Athena errors into `{ message, status?, code?, details?, raw? }`. `useAthenaGateway` keeps gateway-specific string error state and throws from mutation helpers. Use `AthenaGatewayError` / `isAthenaGatewayError` for typed gateway exceptions.
 
 ## 14. Local validation commands
 

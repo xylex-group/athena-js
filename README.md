@@ -1,7 +1,7 @@
 # athena-js
 
-current version: `1.4.1`
-`@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments and a React hook for client-side use.
+current version: `1.5.0`
+`@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments plus Athena-native React hooks for client-side use.
 
 ## Install
 
@@ -13,7 +13,7 @@ pnpm add @xylex-group/athena
 yarn add @xylex-group/athena
 ```
 
-React peer dependency is optional — only needed if you use `useAthenaGateway`.
+React peer dependency is optional — only needed if you use `@xylex-group/athena/react` hooks.
 
 ```bash
 npm install react  # React >=17 required for the hook
@@ -412,11 +412,102 @@ mutation.finally(() => …);
 
 The request fires only once regardless of how many times you call `.then()` or await the object.
 
-## React hook
+## React hooks
 
 ```tsx
 "use client";
 
+import {
+  AthenaQueryClientProvider,
+  createAthenaQueryClient,
+  useAthenaGateway,
+  useMutation,
+  useQuery,
+} from "@xylex-group/athena/react";
+import { createClient } from "@xylex-group/athena";
+
+const queryClient = createAthenaQueryClient({
+  cache: { mode: "none" }, // default: no persistent data cache, inflight dedupe only
+});
+
+const athena = createClient(
+  process.env.NEXT_PUBLIC_ATHENA_URL!,
+  process.env.NEXT_PUBLIC_ATHENA_API_KEY!,
+);
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+type CreateProductInput = {
+  name: string;
+  price: number;
+};
+
+function ProductsInner() {
+  const products = useQuery<Product[]>({
+    queryKey: ["products"],
+    queryFn: () =>
+      athena.from("products").select("id,name,price").limit(50),
+  });
+
+  const createProduct = useMutation<CreateProductInput, Product>({
+    mutationFn: (input) =>
+      athena.from("products").insert(input).select("id,name,price").single(),
+    onSuccess: () => {
+      void products.refetch();
+    },
+  });
+
+  if (products.isLoading) return <div>Loading...</div>;
+  if (products.error) return <div>{products.error.message}</div>;
+
+  return (
+    <div>
+      <button
+        onClick={() => {
+          createProduct.mutate({ name: "New product", price: 99 });
+        }}
+      >
+        Add Product
+      </button>
+      {products.data?.map((product) => (
+        <div key={product.id}>
+          {product.name} - {product.price}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function Products() {
+  return (
+    <AthenaQueryClientProvider client={queryClient}>
+      <ProductsInner />
+    </AthenaQueryClientProvider>
+  );
+}
+```
+
+Available React APIs:
+
+- `useAthenaGateway`: low-level gateway hook (`fetchGateway`, `insertGateway`, `updateGateway`, `deleteGateway`, `rpcGateway`) with request/response logging.
+- `createAthenaQueryClient` + `AthenaQueryClientProvider`: Athena query runtime boundary for scoped state and subscriptions.
+- `useQuery`: lightweight read lifecycle hook (`status`, `isFetching`, `refetch`, `reset`) with normalized Athena error/result handling.
+- `useMutation`: lightweight write lifecycle hook (`mutate`, `mutateAsync`, `reset`) with manual refetch/invalidation flow.
+
+By design this is not a cache-heavy React Query clone:
+
+- No TanStack/React Query dependency.
+- No persistent data cache by default (`cache.mode = "none"`).
+- Inflight dedupe for identical query keys is enabled.
+- Manual `refetch()` after mutations is the default invalidation strategy.
+
+`useAthenaGateway` example:
+
+```tsx
 import { useAthenaGateway } from "@xylex-group/athena/react";
 import { useEffect } from "react";
 
@@ -427,7 +518,7 @@ export function UsersPanel() {
   });
 
   useEffect(() => {
-    fetchGateway({
+    void fetchGateway({
       table_name: "users",
       columns: ["id", "email"],
       limit: 25,
@@ -441,9 +532,7 @@ export function UsersPanel() {
 }
 ```
 
-The hook returns `fetchGateway`, `insertGateway`, `updateGateway`, `deleteGateway`, `rpcGateway`, `isLoading`, `error`, `lastRequest`, `lastResponse`, and `baseUrl`.
-
-Hook config options mirror the client options: `baseUrl`, `apiKey`, `headers`, `userId`, `organizationId`, `publishEvent`.
+`useAthenaGateway` config options mirror the client options: `baseUrl`, `apiKey`, `headers`, `userId`, `organizationId`, `publishEvent`.
 
 ## User context headers
 

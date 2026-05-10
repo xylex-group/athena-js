@@ -9,6 +9,13 @@ import {
   type RequireAffectedOptions,
   type AthenaResult,
 } from "../src/index.ts"
+import type {
+  AthenaStateAdapter,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult,
+} from "../src/react/index.ts"
 
 interface UserRow {
   id: string
@@ -120,3 +127,51 @@ client.rpc<UserRow>('list_users').in('id', 'not-an-array')
 declare function acceptsUserPickArrayPromise(
   value: PromiseLike<AthenaResult<Array<Pick<UserRow, "id">>>>,
 ): void
+
+declare function acceptsUserQueryHookResult(value: UseQueryResult<UserRow[]>): void
+declare function acceptsUserMutationHookResult(
+  value: UseMutationResult<{ name: string }, UserRow>,
+): void
+declare function acceptsUserQueryOptions(
+  value: UseQueryOptions<AthenaResult<UserRow[]>, UserRow[]>,
+): void
+declare function acceptsUserMutationOptions(
+  value: UseMutationOptions<{ name: string }, AthenaResult<UserRow>, UserRow>,
+): void
+declare function acceptsAthenaStateAdapter(value: AthenaStateAdapter): void
+
+const queryHookResult = {} as UseQueryResult<UserRow[]>
+acceptsUserQueryHookResult(queryHookResult)
+
+const mutationHookResult = {} as UseMutationResult<{ name: string }, UserRow>
+acceptsUserMutationHookResult(mutationHookResult)
+
+const queryOptions: UseQueryOptions<AthenaResult<UserRow[]>, UserRow[]> = {
+  queryKey: ["users"],
+  queryFn: async () => ({
+    data: [{ id: "1", name: "Alice" }],
+    error: null,
+    status: 200,
+    raw: null,
+  }),
+  select: payload => payload.data ?? [],
+}
+acceptsUserQueryOptions(queryOptions)
+
+const mutationOptions: UseMutationOptions<{ name: string }, AthenaResult<UserRow>, UserRow> = {
+  mutationFn: async variables => ({
+    data: { id: "2", name: variables.name },
+    error: null,
+    status: 201,
+    raw: null,
+  }),
+  select: payload => payload.data ?? { id: "fallback", name: "fallback" },
+}
+acceptsUserMutationOptions(mutationOptions)
+
+const stateAdapter: AthenaStateAdapter = {
+  onEvent: () => undefined,
+  onQueryUpdated: () => undefined,
+  onMutationUpdated: () => undefined,
+}
+acceptsAthenaStateAdapter(stateAdapter)
