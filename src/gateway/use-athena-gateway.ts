@@ -14,8 +14,8 @@ import type {
   AthenaRpcCallOptions,
   AthenaRpcPayload,
   AthenaUpdatePayload,
-} from "./types.js";
-import { createAthenaGatewayClient } from "./client.js";
+} from "./types.ts";
+import { createAthenaGatewayClient } from "./client.ts";
 import { AthenaGatewayError } from "./errors.ts";
 
 export function useAthenaGateway(
