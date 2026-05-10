@@ -1,25 +1,63 @@
-# changelog
+# Changelog
 
-all notable changes to athena-js will be documented here.
+## Unreleased
 
-## [Unreleased] - 2026-04-20
+### Notes
 
-### added
-- `eqUuid(column, value)` and `eqCast(column, value, cast)` on the shared fluent filter chain.
-- Optional cast hints on `AthenaGatewayCondition` (`value_cast`, `column_cast`, plus legacy `eq_*_cast` companions).
+- _No unreleased changes yet._
 
-### changed
-- UUID-like `.eq()` filters on identifier columns (`id`, `*_id`, `*uuid*`) now use a typed-safe select fallback path, avoiding Postgres `uuid = text` comparison failures without requiring app-side raw SQL casts.
+## [1.5.0](https://github.com/xylex-group/athena-js/compare/v1.4.1...v1.5.0) (2026-05-10)
 
-## [0.1.0] - 2025-12-01
+- Release channel: stable
+- Tag: `v1.5.0`
 
-### initial release
+## [1.4.1](https://github.com/xylex-group/athena-js/compare/v1.4.0...v1.4.1) (2026-04-20)
 
-athena-js — Athena query builder client for the Athena HTTP gateway.
+- Release channel: stable
+- Tag: `v1.4.1`
 
-#### features
--[x] `createClient(url, apiKey)` — Fluent Athena query builder
--[x] `athena.from(table).select()`, `.insert()`, `.update()`, `.delete()`
--[x] `.eq()`, `.match()`, `.limit()`, `.offset()`, `.single()`, `.maybeSingle()`
--[x] `useAthenaGateway` React hook — loading state, error handling, request/response logs
--[x] gateway types for typed fetch/insert/update/delete payloads
+## [1.4.0](https://github.com/xylex-group/athena-js/compare/v1.3.0...v1.4.0) (2026-04-17)
+
+- Release channel: stable
+- Tag: `v1.4.0`
+
+## [1.3.0](https://github.com/xylex-group/athena-js/compare/v1.2.0...v1.3.0) (2026-04-17)
+
+- Release channel: stable
+- Tag: `v1.3.0`
+
+## [1.2.0](https://github.com/xylex-group/athena-js/compare/v1.1.2...v1.2.0) (2026-04-11)
+
+- Release channel: stable
+- Tag: `v1.2.0`
+
+## [1.1.2](https://github.com/xylex-group/athena-js/compare/v1.0.4...v1.1.2) (2026-04-07)
+
+- Release channel: stable
+- Tag: `v1.1.2`
+
+## [1.0.4](https://github.com/xylex-group/athena-js/compare/v1.0.1...v1.0.4) (2026-03-11)
+
+- Release channel: stable
+- Tag: `v1.0.4`
+
+## [1.0.1](https://github.com/xylex-group/athena-js/compare/v1.0.0...v1.0.1) (2026-02-21)
+
+- Release channel: stable
+- Tag: `v1.0.1`
+
+## [1.0.0](https://github.com/xylex-group/athena-js/compare/v0.1.1...v1.0.0) (2026-02-21)
+
+- Release channel: stable
+- Tag: `v1.0.0`
+
+## [0.1.1](https://github.com/xylex-group/athena-js/compare/v0.2.1...v0.1.1) (2026-02-21)
+
+- Release channel: stable
+- Tag: `v0.1.1`
+
+## [0.2.1](https://github.com/xylex-group/athena-js/releases/tag/v0.2.1) (2026-02-21)
+
+- Release channel: stable
+- Tag: `v0.2.1`
+
