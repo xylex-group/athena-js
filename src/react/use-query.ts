@@ -92,6 +92,8 @@ export function useQuery<TQueryFnData, TData = TQueryFnData>(
     () => client.getQueryKeyToken(options.queryKey),
     [client, options.queryKey],
   )
+  const activeQueryKeyTokenRef = useRef(queryKeyToken)
+  activeQueryKeyTokenRef.current = queryKeyToken
 
   const subscribe = useCallback(
     (listener: () => void) => client.subscribeQuery(queryKeyToken, listener),
@@ -139,6 +141,13 @@ export function useQuery<TQueryFnData, TData = TQueryFnData>(
         force,
       })
 
+      const internalResult = result as AthenaQueryResult<TData> & {
+        __applied?: boolean
+      }
+      if (activeQueryKeyTokenRef.current !== queryKeyToken || internalResult.__applied === false) {
+        return result
+      }
+
       if (result.error) {
         onErrorRef.current?.(result.error)
         onSettledRef.current?.(result.data, result.error)
@@ -155,21 +164,21 @@ export function useQuery<TQueryFnData, TData = TQueryFnData>(
   const lastAutoKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
+    const refetchOnMount =
+      refetchOnMountRef.current ?? client.defaultQueryOptions.refetchOnMount ?? true
+
+    const isFirstRenderForKey = lastAutoKeyRef.current !== queryKeyToken
+    lastAutoKeyRef.current = queryKeyToken
+
     if (!enabledRef.current) {
-      lastAutoKeyRef.current = queryKeyToken
       return
     }
 
-    const isKeyChange = lastAutoKeyRef.current !== queryKeyToken
-    const refetchOnMount =
-      refetchOnMountRef.current ?? client.defaultQueryOptions.refetchOnMount ?? true
     const state = client.getQueryState(queryKeyToken)
-    const shouldFetch = isKeyChange || state.status === 'idle' || refetchOnMount
-
-    lastAutoKeyRef.current = queryKeyToken
+    const shouldFetch = state.status === 'idle' || (isFirstRenderForKey && refetchOnMount)
 
     if (shouldFetch) {
-      void runQuery(isKeyChange)
+      void runQuery(false)
     }
   }, [client, queryKeyToken, runQuery])
 

@@ -189,6 +189,7 @@ export class AthenaQueryClient {
   resetQuery(queryKey: QueryKey): void {
     const key = this.getQueryKeyToken(queryKey)
     const entry = this.ensureQueryEntry(key)
+    entry.activeRequestId = ++this.requestCounter
     this.setQueryState(entry, createInitialQueryState(), 'query_reset')
     this.inflightQueries.delete(key)
   }
@@ -196,6 +197,7 @@ export class AthenaQueryClient {
   resetMutation(mutationKey?: QueryKey): void {
     const key = this.getMutationKeyToken(mutationKey)
     const entry = this.ensureMutationEntry(key)
+    entry.activeRequestId = ++this.requestCounter
     this.setMutationState(entry, createInitialMutationState(), 'mutation_reset')
   }
 
@@ -224,7 +226,8 @@ export class AthenaQueryClient {
           error: null,
           status: 200,
           raw: entry.state.lastResponse ?? entry.state.data,
-        }
+          __applied: true,
+        } as AthenaQueryResult<TData>
       }
     }
 
@@ -295,7 +298,8 @@ export class AthenaQueryClient {
       },
     )
       .then(result => {
-        if (entry.activeRequestId === requestId) {
+        const applied = entry.activeRequestId === requestId
+        if (applied) {
           const finishedAt = Date.now()
           const doneRequestLog: AthenaQueryRequestLog = {
             ...startRequestLog,
@@ -318,7 +322,10 @@ export class AthenaQueryClient {
           )
         }
 
-        return result.normalized
+        return {
+          ...result.normalized,
+          __applied: applied,
+        } as AthenaQueryResult<TData>
       })
       .catch(error => {
         const wrapped =
@@ -336,7 +343,8 @@ export class AthenaQueryClient {
         const raw = wrapped?.__athenaRaw ?? normalizedError.raw ?? null
         const response = wrapped?.__athenaResponse ?? raw
 
-        if (entry.activeRequestId === requestId) {
+        const applied = entry.activeRequestId === requestId
+        if (applied) {
           const finishedAt = Date.now()
           const doneRequestLog: AthenaQueryRequestLog = {
             ...startRequestLog,
@@ -366,6 +374,7 @@ export class AthenaQueryClient {
           error: normalizedError,
           status,
           raw,
+          __applied: applied,
         } as AthenaQueryResult<TData>
       })
       .finally(() => {

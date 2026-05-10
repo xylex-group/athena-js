@@ -307,3 +307,51 @@ test('query client keeps success status during background refetch when data alre
   assert.equal(finalState.isFetching, false)
   assert.deepEqual(finalState.data, [{ id: 2 }])
 })
+
+test('query reset invalidates in-flight request completion', async () => {
+  const client = createAthenaQueryClient()
+  const key = client.getQueryKeyToken(['reset-inflight-query'])
+  const deferred = createDeferred<Array<{ id: number }>>()
+
+  const pending = client.executeQuery({
+    queryKey: ['reset-inflight-query'],
+    queryKeyToken: key,
+    queryFn: async () => deferred.promise,
+    force: true,
+  })
+
+  client.resetQuery(['reset-inflight-query'])
+  const resetState = client.getQueryState<Array<{ id: number }>>(key)
+  assert.equal(resetState.status, 'idle')
+
+  deferred.resolve([{ id: 1 }])
+  await pending
+
+  const afterResolve = client.getQueryState<Array<{ id: number }>>(key)
+  assert.equal(afterResolve.status, 'idle')
+  assert.equal(afterResolve.data, undefined)
+})
+
+test('mutation reset invalidates in-flight mutation completion', async () => {
+  const client = createAthenaQueryClient()
+  const key = client.getMutationKeyToken(['reset-inflight-mutation'])
+  const deferred = createDeferred<{ id: string }>()
+
+  const pending = client.executeMutation({
+    mutationKey: ['reset-inflight-mutation'],
+    mutationKeyToken: key,
+    variables: { name: 'x' },
+    mutationFn: async () => deferred.promise,
+  })
+
+  client.resetMutation(['reset-inflight-mutation'])
+  const resetState = client.getMutationState<{ name: string }, { id: string }>(key)
+  assert.equal(resetState.status, 'idle')
+
+  deferred.resolve({ id: 'ok' })
+  await pending
+
+  const afterResolve = client.getMutationState<{ name: string }, { id: string }>(key)
+  assert.equal(afterResolve.status, 'idle')
+  assert.equal(afterResolve.data, undefined)
+})

@@ -22,11 +22,15 @@ function isPrimitive(value: unknown): value is string | number | boolean | null 
 }
 
 function encodePrimitive(value: string | number | boolean | null | undefined): string {
-  if (value === null) return 'null'
-  if (value === undefined) return 'undefined'
-  if (typeof value === 'string') return `str:${value}`
-  if (typeof value === 'number') return `num:${Number.isFinite(value) ? value : 'nan'}`
-  return `bool:${value ? '1' : '0'}`
+  if (value === null) return 'null:0:'
+  if (value === undefined) return 'undefined:0:'
+  if (typeof value === 'string') return `str:${value.length}:${value}`
+  if (typeof value === 'number') {
+    const serialized = Number.isFinite(value) ? String(value) : 'nan'
+    return `num:${serialized.length}:${serialized}`
+  }
+  const serialized = value ? '1' : '0'
+  return `bool:${serialized.length}:${serialized}`
 }
 
 function stableSerialize(value: unknown, seen: WeakSet<object>): string {
@@ -202,12 +206,13 @@ export function normalizeAthenaError(
 
 export function isAthenaResponseLike<T>(value: unknown): value is AthenaResponseLike<T> {
   if (!isRecord(value)) return false
+  if ('error' in value || 'errorDetails' in value) return true
+  if ('status' in value && typeof value.status === 'number') {
+    return 'data' in value || 'raw' in value
+  }
   return (
-    'data' in value ||
-    'error' in value ||
-    'status' in value ||
-    'raw' in value ||
-    'errorDetails' in value
+    'data' in value &&
+    ('raw' in value || 'status' in value)
   )
 }
 
@@ -226,10 +231,15 @@ export function normalizeAthenaResult<TQueryFnData, TData = TQueryFnData>(
       }
     }
 
-    const sourceData = (value.data ?? undefined) as TQueryFnData | undefined
+    const hasData = 'data' in value
+    const sourceData = hasData
+      ? (value.data as TQueryFnData | null | undefined)
+      : undefined
     const selectedData =
       sourceData === undefined
         ? undefined
+        : sourceData === null
+          ? (null as unknown as TData)
         : select
           ? select(sourceData)
           : (sourceData as unknown as TData)

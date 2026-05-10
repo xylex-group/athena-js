@@ -25,6 +25,12 @@ test('safeSerializeQueryKey handles circular objects safely', () => {
   assert.equal(token.includes('[circular]'), true)
 })
 
+test('safeSerializeQueryKey avoids primitive-array token collisions with delimiter characters', () => {
+  const first = safeSerializeQueryKey(['a|str:b', 'c'])
+  const second = safeSerializeQueryKey(['a', 'b', 'c'])
+  assert.notEqual(first, second)
+})
+
 test('normalizeAthenaResult unwraps envelope success and applies select', () => {
   const result = normalizeAthenaResult<{ id: number }[], number[]>(
     {
@@ -56,6 +62,25 @@ test('normalizeAthenaResult maps envelope errors to AthenaQueryError', () => {
   assert.equal(result.error?.message, 'denied')
   assert.equal(result.error?.status, 403)
   assert.equal(result.status, 403)
+})
+
+test('normalizeAthenaResult treats non-envelope status fields as raw data', () => {
+  const result = normalizeAthenaResult({ id: 1, status: 'active' })
+  assert.equal(result.error, null)
+  assert.deepEqual(result.data, { id: 1, status: 'active' })
+  assert.equal(result.status, 200)
+})
+
+test('normalizeAthenaResult preserves explicit null data from Athena envelopes', () => {
+  const result = normalizeAthenaResult({
+    data: null,
+    error: null,
+    status: 200,
+    raw: { source: 'null' },
+  })
+  assert.equal(result.error, null)
+  assert.equal(result.data, null)
+  assert.equal(result.status, 200)
 })
 
 test('normalizeAthenaError converts AthenaGatewayError to query error shape', () => {

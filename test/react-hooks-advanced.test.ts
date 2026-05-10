@@ -12,6 +12,16 @@ import {
   type UseQueryResult,
 } from '../src/react/index.ts'
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 async function flush() {
   await Promise.resolve()
   await Promise.resolve()
@@ -240,6 +250,103 @@ test('useQuery retry option retries failed queryFn and eventually succeeds', asy
   assert.equal(latest.status, 'success')
   assert.deepEqual(latest.data, [{ id: 'ok' }])
   assert.equal(latest.lastRequest?.attempt, 3)
+})
+
+test('useQuery does not refetch on remount when cached and refetchOnMount=false', async () => {
+  const client = createAthenaQueryClient({
+    cache: { mode: 'memory', staleTime: 60_000 },
+  })
+  let calls = 0
+  let renderer: ReactTestRenderer | undefined
+
+  const App = () =>
+    createElement(QueryProbe, {
+      onChange: () => undefined,
+      hook: () =>
+        useQuery({
+          queryKey: ['remount-no-refetch'],
+          refetchOnMount: false,
+          queryFn: async () => {
+            calls += 1
+            return [{ id: calls }]
+          },
+        }),
+    })
+
+  await act(async () => {
+    renderer = create(
+      createElement(AthenaQueryClientProvider, { client }, createElement(App)),
+    )
+    await flush()
+  })
+
+  assert.equal(calls, 1)
+
+  await act(async () => {
+    renderer!.unmount()
+    await flush()
+  })
+
+  await act(async () => {
+    renderer = create(
+      createElement(AthenaQueryClientProvider, { client }, createElement(App)),
+    )
+    await flush()
+  })
+
+  assert.equal(calls, 1)
+  renderer?.unmount()
+})
+
+test('useQuery suppresses stale onSuccess callbacks from outdated query keys', async () => {
+  const client = createAthenaQueryClient()
+  const slow = createDeferred<Array<{ id: string }>>()
+  const fast = createDeferred<Array<{ id: string }>>()
+  const onSuccessValues: string[] = []
+
+  let scope = 'slow'
+  let renderer: ReactTestRenderer | undefined
+
+  const App = () =>
+    createElement(QueryProbe, {
+      onChange: () => undefined,
+      hook: () =>
+        useQuery({
+          queryKey: ['users', scope],
+          queryFn: async () => (scope === 'slow' ? slow.promise : fast.promise),
+          onSuccess: rows => {
+            onSuccessValues.push(rows[0]?.id ?? 'none')
+          },
+        }),
+    })
+
+  await act(async () => {
+    renderer = create(
+      createElement(AthenaQueryClientProvider, { client }, createElement(App)),
+    )
+    await flush()
+  })
+
+  await act(async () => {
+    scope = 'fast'
+    renderer!.update(
+      createElement(AthenaQueryClientProvider, { client }, createElement(App)),
+    )
+    await flush()
+  })
+
+  await act(async () => {
+    fast.resolve([{ id: 'new' }])
+    await flush()
+  })
+
+  await act(async () => {
+    slow.resolve([{ id: 'old' }])
+    await flush()
+  })
+
+  assert.deepEqual(onSuccessValues, ['new'])
+  renderer?.unmount()
 })
 
 test('useQuery refetches on focus and reconnect when enabled', async () => {
