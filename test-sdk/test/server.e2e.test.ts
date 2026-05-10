@@ -94,6 +94,78 @@ test("test-sdk e2e: GET /health returns sdk status payload", async () => {
   }
 });
 
+test("test-sdk e2e: GET /demo/products returns local demo payload without Athena call", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  });
+  const server = await startServer();
+
+  try {
+    const { response, json } = await httpJson<{
+      data: Array<{ id: string; name: string; price: number }>;
+      responseTimeMs: number;
+    }>(server.baseUrl, "GET", "/demo/products");
+
+    assert.equal(response.status, 200);
+    assert.equal(Array.isArray(json.data), true);
+    assert.equal(json.data.length, 2);
+    assert.equal(json.data[0].id, "demo-1");
+    assert.equal(athenaMock.calls.length, 0);
+  } finally {
+    athenaMock.restore();
+    await server.close();
+  }
+});
+
+test("test-sdk e2e: POST /demo/products creates product and returns it", async () => {
+  const athenaMock = installAthenaFetchMock(async () => {
+    return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  });
+  const server = await startServer();
+
+  try {
+    const { response, json } = await httpJson<{
+      data: { id: string; name: string; price: number };
+    }>(server.baseUrl, "POST", "/demo/products", {
+      name: "Notebook",
+      price: 12.5,
+    });
+
+    assert.equal(response.status, 201);
+    assert.equal(json.data.id, "demo-3");
+    assert.equal(json.data.name, "Notebook");
+    assert.equal(json.data.price, 12.5);
+    assert.equal(athenaMock.calls.length, 0);
+
+    const afterCreate = await httpJson<{
+      data: Array<{ id: string; name: string; price: number }>;
+    }>(server.baseUrl, "GET", "/demo/products");
+    assert.equal(afterCreate.response.status, 200);
+    assert.equal(afterCreate.json.data.length, 3);
+  } finally {
+    athenaMock.restore();
+    await server.close();
+  }
+});
+
+test("test-sdk e2e: POST /demo/products validates bad payload", async () => {
+  const server = await startServer();
+  try {
+    const { response, json } = await httpJson<{
+      error: { code: string; details: { field: string } };
+    }>(server.baseUrl, "POST", "/demo/products", {
+      name: "",
+      price: -1,
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(json.error.code, "VALIDATION_ERROR");
+    assert.equal(json.error.details.field, "name");
+  } finally {
+    await server.close();
+  }
+});
+
 test("test-sdk e2e: GET /table/:name forwards pagination and headers to Athena gateway", async () => {
   const athenaMock = installAthenaFetchMock(async () => {
     return new Response(JSON.stringify({ data: [{ id: 1, name: "Aragorn" }] }), { status: 200 });

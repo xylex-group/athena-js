@@ -15,6 +15,12 @@ import type { AthenaConditionValue } from "../../src/gateway/types.ts";
 
 type Logger = Pick<Console, "log" | "warn" | "error">;
 
+type DemoProduct = {
+  id: string;
+  name: string;
+  price: number;
+};
+
 function rpcScalarFilterValue(
   value: AthenaRpcFilter["value"] | undefined,
 ): AthenaConditionValue | null {
@@ -81,6 +87,25 @@ function parseNonNegativeInteger(
       {
         field: fieldName,
         received: normalized,
+      },
+    );
+  }
+  return parsed;
+}
+
+function parsePositiveNumber(
+  value: unknown,
+  fieldName: string,
+): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new ApiError(
+      400,
+      "VALIDATION_ERROR",
+      `${fieldName} must be a positive number`,
+      {
+        field: fieldName,
+        received: value,
       },
     );
   }
@@ -176,6 +201,19 @@ export class AthenaTestSdkServer {
   private readonly app: Express;
   private readonly logger: Logger;
   private readonly athenaClient: AthenaSdkClient;
+  private readonly demoProducts: DemoProduct[] = [
+    {
+      id: "demo-1",
+      name: "Starter Product",
+      price: 49,
+    },
+    {
+      id: "demo-2",
+      name: "Athena Mug",
+      price: 19,
+    },
+  ];
+  private demoProductSequence = 2;
 
   constructor(options: AthenaTestSdkServerOptions) {
     this.logger = options.logger ?? console;
@@ -215,6 +253,39 @@ export class AthenaTestSdkServer {
     this.app.get("/health", (_req, res) => {
       this.sendSuccess(res, 200, { ok: true, sdk: "athena-js" });
     });
+
+    this.app.get("/demo/products", (_req, res) => {
+      this.sendSuccess(res, 200, {
+        data: this.demoProducts,
+      });
+    });
+
+    this.app.post(
+      "/demo/products",
+      this.wrap(async (req, res) => {
+        const body = assertObjectBody(req.body, "request body");
+        const name = body.name;
+        if (typeof name !== "string" || !name.trim()) {
+          throw new ApiError(
+            400,
+            "VALIDATION_ERROR",
+            "name is required",
+            {
+              field: "name",
+              received: name,
+            },
+          );
+        }
+
+        const created: DemoProduct = {
+          id: `demo-${++this.demoProductSequence}`,
+          name: name.trim(),
+          price: parsePositiveNumber(body.price, "price"),
+        };
+        this.demoProducts.push(created);
+        this.sendSuccess(res, 201, { data: created });
+      }),
+    );
 
     this.app.get(
       "/table/:name",

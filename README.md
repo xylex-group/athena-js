@@ -505,6 +505,9 @@ By design this is not a cache-heavy React Query clone:
 - Inflight dedupe for identical query keys is enabled.
 - Manual `refetch()` after mutations is the default invalidation strategy.
 
+`test-sdk` includes runnable local examples for these hooks in
+`test-sdk/examples/react-hooks` plus a backend with `GET/POST /demo/products` for fast local iteration.
+
 `useAthenaGateway` example:
 
 ```tsx
