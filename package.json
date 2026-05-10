@@ -91,8 +91,8 @@
     "lint:fix": "pnpm lint -- --fix",
     "prepublishOnly": "pnpm typecheck && pnpm build",
     "publish:token": "node scripts/publish.js",
-    "test": "node --test test/*.test.ts",
-    "test:watch": "node --test --watch test/*.test.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/*.test.ts",
     "typecheck": "tsc -p tsconfig.typecheck.json"
   },
   "type": "module",
