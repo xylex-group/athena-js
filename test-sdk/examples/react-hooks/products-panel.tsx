@@ -1,51 +1,72 @@
 'use client'
 
 import { useState } from 'react'
+import type { AthenaSdkClient } from '@xylex-group/athena'
 import {
   AthenaQueryClientProvider,
   useMutation,
   useQuery,
 } from '@xylex-group/athena/react'
 import {
-  createDemoProduct,
+  assertAthenaSuccess,
   createExampleQueryClient,
-  listDemoProducts,
+  toDemoProduct,
+  toDemoProducts,
+  type DemoProductRow,
   type DemoProductInput,
 } from './shared'
 
 const queryClient = createExampleQueryClient()
 
 type ProductsPanelProps = {
-  baseUrl: string
+  athena: AthenaSdkClient
 }
 
-function ProductsPanelInner({ baseUrl }: ProductsPanelProps) {
+function ProductsPanelInner({ athena }: ProductsPanelProps) {
   const [input, setInput] = useState<DemoProductInput>({
-    name: 'New Demo Product',
+    name: 'New Athena Product',
     price: 100,
   })
 
   const products = useQuery({
-    queryKey: ['demo-products'],
-    queryFn: () => listDemoProducts(baseUrl),
+    queryKey: ['products'],
+    queryFn: async () => {
+      const result = await athena
+        .from<DemoProductRow>('products')
+        .select('id,name,price')
+        .limit(50)
+
+      if (result.error) {
+        throw new Error(`[${result.status}] list products: ${result.error}`)
+      }
+
+      return toDemoProducts(result.data)
+    },
     refetchOnWindowFocus: false,
   })
 
   const createProduct = useMutation({
-    mutationKey: ['demo-products-create'],
-    mutationFn: (variables: DemoProductInput) =>
-      createDemoProduct(baseUrl, variables),
+    mutationKey: ['products-create'],
+    mutationFn: async (variables: DemoProductInput) => {
+      const result = await athena
+        .from<DemoProductRow>('products')
+        .insert(variables)
+        .select('id,name,price')
+        .single()
+      const row = assertAthenaSuccess(result, 'create product')
+      return toDemoProduct(row)
+    },
     onSuccess: () => {
       void products.refetch()
     },
   })
 
-  if (products.isLoading) return <p>Loading demo products...</p>
+  if (products.isLoading) return <p>Loading products...</p>
   if (products.error) return <p>{products.error.message}</p>
 
   return (
     <section>
-      <h2>Demo products</h2>
+      <h2>Athena products</h2>
       <button
         onClick={() => {
           createProduct.mutate(input)

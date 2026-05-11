@@ -1,30 +1,53 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { AthenaSdkClient } from '@xylex-group/athena'
 import {
   AthenaQueryClientProvider,
   useQuery,
 } from '@xylex-group/athena/react'
-import { createExampleQueryClient, listDemoProducts } from './shared'
+import {
+  createExampleQueryClient,
+  toDemoProducts,
+  type DemoProductRow,
+} from './shared'
 
 const queryClient = createExampleQueryClient()
 
 type ManualDemoQueryProps = {
-  baseUrl: string
+  athena: AthenaSdkClient
 }
 
-function ManualDemoQueryInner({ baseUrl }: ManualDemoQueryProps) {
+function ManualDemoQueryInner({ athena }: ManualDemoQueryProps) {
   const [organizationId, setOrganizationId] = useState('')
 
   const queryKey = useMemo(
-    () => ['demo-products', organizationId || 'unscoped'],
+    () => ['products', organizationId || 'unscoped'],
     [organizationId],
   )
 
   const products = useQuery({
     queryKey,
     enabled: Boolean(organizationId),
-    queryFn: () => listDemoProducts(baseUrl),
+    queryFn: () => {
+      if (!organizationId) {
+        return Promise.resolve([])
+      }
+
+      return athena
+        .from<DemoProductRow>('products')
+        .select('id,name,price')
+        .eq('organization_id', organizationId)
+        .limit(50)
+        .then((result) => {
+          if (result.error) {
+            throw new Error(
+              `[${result.status}] list organization products: ${result.error}`,
+            )
+          }
+          return toDemoProducts(result.data)
+        })
+    },
   })
 
   return (

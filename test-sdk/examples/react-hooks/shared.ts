@@ -1,3 +1,8 @@
+import {
+  createClient,
+  type AthenaResult,
+  type AthenaSdkClient,
+} from '@xylex-group/athena'
 import { createAthenaQueryClient } from '@xylex-group/athena/react'
 
 export type DemoProduct = {
@@ -6,14 +11,22 @@ export type DemoProduct = {
   price: number
 }
 
+export type DemoProductRow = {
+  id?: string
+  name: string
+  price: number
+  organization_id?: string
+}
+
 export type DemoProductInput = {
   name: string
   price: number
 }
 
-type DemoApiEnvelope<T> = {
-  data: T
-  responseTimeMs: number
+export type AthenaExampleClientConfig = {
+  athenaUrl: string
+  apiKey: string
+  client?: string
 }
 
 export function createExampleQueryClient() {
@@ -24,27 +37,35 @@ export function createExampleQueryClient() {
   })
 }
 
-export async function listDemoProducts(baseUrl: string): Promise<DemoProduct[]> {
-  const response = await fetch(`${baseUrl}/demo/products`)
-  if (!response.ok) {
-    throw new Error(`GET /demo/products failed with ${response.status}`)
-  }
-  const payload = (await response.json()) as DemoApiEnvelope<DemoProduct[]>
-  return payload.data
+export function createExampleAthenaClient(
+  config: AthenaExampleClientConfig,
+): AthenaSdkClient {
+  return createClient(config.athenaUrl, config.apiKey, {
+    client: config.client ?? 'athena_logging',
+    backend: { type: 'athena' },
+  })
 }
 
-export async function createDemoProduct(
-  baseUrl: string,
-  input: DemoProductInput,
-): Promise<DemoProduct> {
-  const response = await fetch(`${baseUrl}/demo/products`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  })
-  if (!response.ok) {
-    throw new Error(`POST /demo/products failed with ${response.status}`)
+export function assertAthenaSuccess<T>(
+  result: AthenaResult<T>,
+  operation: string,
+): T {
+  if (result.error) {
+    throw new Error(`[${result.status}] ${operation}: ${result.error}`)
   }
-  const payload = (await response.json()) as DemoApiEnvelope<DemoProduct>
-  return payload.data
+  if (result.data == null) {
+    throw new Error(`${operation}: Athena returned null data`)
+  }
+  return result.data
+}
+
+export function toDemoProducts(rows: DemoProductRow[] | null | undefined): DemoProduct[] {
+  return (rows ?? []).filter((row): row is DemoProduct => Boolean(row.id))
+}
+
+export function toDemoProduct(row: DemoProductRow): DemoProduct {
+  if (!row.id) {
+    throw new Error('Athena row did not include id')
+  }
+  return row
 }
