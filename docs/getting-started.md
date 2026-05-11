@@ -452,11 +452,13 @@ function GatewayDebugPanel() {
 
 `useAthenaGateway` also exposes `insertGateway`, `updateGateway`, `deleteGateway`, and `rpcGateway`, plus `lastRequest` and `lastResponse` for debugging.
 
-For local hook iteration without live Athena credentials, use the `test-sdk` demo backend and examples in:
+For Athena-backed hook examples built on the SDK query builder, see:
 
 - `test-sdk/examples/react-hooks/products-panel.tsx`
 - `test-sdk/examples/react-hooks/manual-query.tsx`
 - `test-sdk/examples/react-hooks/adapters.ts`
+
+These hooks use direct Athena DB calls inside `queryFn` and `mutationFn` (`createClient` + `athena.from(...).select()/insert()/eq()`).
 
 ## 13. Error handling
 

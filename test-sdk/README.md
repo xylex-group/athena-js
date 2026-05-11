@@ -1,7 +1,7 @@
 # Athena JS Test SDK
 
 Express test service that exercises `@xylex-group/athena` through HTTP routes.
-It also includes local demo endpoints and React runtime examples for `useQuery` / `useMutation`.
+It also includes React runtime examples showing Athena DB calls inside `useQuery` / `useMutation`.
 
 ## Setup
 
@@ -49,8 +49,8 @@ node --import tsx --test test/react-test-sdk-hooks-integration.test.ts
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Liveness endpoint |
-| `GET` | `/demo/products` | Local demo list for React hook examples (no Athena dependency) |
-| `POST` | `/demo/products` | Local demo create route for mutation examples |
+| `GET` | `/demo/products` | Local demo list used by integration tests |
+| `POST` | `/demo/products` | Local demo create route used by integration tests |
 | `GET` | `/table/:name?limit=&offset=` | Read rows with pagination |
 | `GET` | `/table/:name/by/:column/:value` | Read one row by equality filter |
 | `POST` | `/table/:name` | Insert row(s) |
@@ -68,6 +68,8 @@ Example files are available in:
 - `test-sdk/examples/react-hooks/manual-query.tsx`
 - `test-sdk/examples/react-hooks/adapters.ts`
 
+These examples call Athena through `createClient(...).from(...).select()/insert()` (not `fetch` wrappers).
+The hook files themselves contain direct query-builder calls (`athena.from(...).select()/insert()/eq()`).
 See `test-sdk/examples/react-hooks/README.md` for wiring and usage details.
 
 ## Error response shape
