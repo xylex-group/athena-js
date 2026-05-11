@@ -63,8 +63,8 @@ export function toDemoProducts(rows: DemoProductRow[] | null | undefined): DemoP
   return (rows ?? []).filter((row): row is DemoProduct => Boolean(row.id))
 }
 
-export function toDemoProduct(row: DemoProductRow): DemoProduct {
-  if (!row.id) {
+export function toDemoProduct(row: DemoProductRow | null | undefined): DemoProduct {
+  if (!row?.id) {
     throw new Error('Athena row did not include id')
   }
   return row

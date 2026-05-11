@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import type { AthenaSdkClient } from '@xylex-group/athena'
 import {
   AthenaQueryClientProvider,
@@ -53,7 +53,8 @@ function ProductsPanelInner({ athena }: ProductsPanelProps) {
         .insert(variables)
         .select('id,name,price')
         .single()
-      const row = assertAthenaSuccess(result, 'create product')
+      const rawRow = assertAthenaSuccess(result, 'create product')
+      const row = Array.isArray(rawRow) ? rawRow[0] : rawRow
       return toDemoProduct(row)
     },
     onSuccess: () => {
