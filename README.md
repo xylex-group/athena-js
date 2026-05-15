@@ -43,6 +43,44 @@ if (error) {
 }
 ```
 
+### Typed schema registry (model-first)
+
+You can keep `createClient(...).from<T>(...)` as-is, or opt into a typed registry:
+
+```ts
+import {
+  createTypedClient,
+  defineDatabase,
+  defineModel,
+  defineRegistry,
+  defineSchema,
+} from "@xylex-group/athena";
+
+const registry = defineRegistry({
+  primary: defineDatabase({
+    public: defineSchema({
+      users: defineModel<{ id: string; email: string }>({
+        meta: {
+          primaryKey: ["id"],
+          nullable: { id: false, email: false },
+        },
+      }),
+    }),
+  }),
+});
+
+const typed = createTypedClient(registry, ATHENA_URL, ATHENA_API_KEY, {
+  tenantKeyMap: {
+    organizationId: "X-Organization-Id",
+  },
+});
+
+await typed
+  .withTenantContext({ organizationId: "org_1" })
+  .fromModel("primary", "public", "users")
+  .select("*");
+```
+
 Every query resolves to `{ data, error, errorDetails?, status, count?, raw }`. `data` is `null` on error; `error` is `null` on success.
 
 For richer handling, inspect `errorDetails` (`code`, `status`, `endpoint`, `method`, `requestId`, etc.) or use `AthenaGatewayError` / `isAthenaGatewayError` from the package exports.

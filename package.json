@@ -8,6 +8,7 @@
     "blessed": "^0.1.81",
     "chalk": "^4.1.2",
     "cron-parser": "^4.9.0",
+    "pg": "^8.16.0",
     "use-sync-external-store": "^1.5.0",
     "uuid": "^9.0.1"
   },
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@types/blessed": "^0.1.25",
     "@types/node": "^20.10.5",
+    "@types/pg": "^8.15.1",
     "@types/react": "^18.3.12",
     "@types/react-test-renderer": "^18.3.1",
     "@types/uuid": "^9.0.7",
@@ -92,6 +94,7 @@
     "prepublishOnly": "pnpm typecheck && pnpm build",
     "publish:token": "node scripts/publish.js",
     "test": "node --import tsx --test test/*.test.ts",
+    "test:integration:postgres": "node scripts/run-postgres-introspection-test.mjs",
     "test:watch": "node --import tsx --test --watch test/*.test.ts",
     "typecheck": "tsc -p tsconfig.typecheck.json"
   },

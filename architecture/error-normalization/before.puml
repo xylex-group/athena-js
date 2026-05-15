@@ -1,0 +1,24 @@
+@startuml
+title Error Normalization (Before)
+skinparam backgroundColor #FCFCFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #424242
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B3E5FC
+component "AthenaGatewayError" as GatewayError #FFCCBC
+component "normalizeAthenaError()" as Normalize #FFE082
+component "kind classifier\n(unique/auth/rate/transient/...)" as KindClassifier #FFF59D
+component "AthenaResult envelope" as Result #DCE775
+
+Consumer --> Result : Read { data, error, status }
+Consumer --> GatewayError : Catch thrown gateway errors
+GatewayError --> Normalize : Convert for helpers/hooks
+Result --> Normalize : Convert result failures
+Normalize --> KindClassifier
+KindClassifier --> Consumer : { kind, message, status, raw }
+
+note right of Normalize
+No first-class error code/category constants.
+end note
+@enduml

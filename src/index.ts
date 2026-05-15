@@ -20,7 +20,20 @@ export {
   coerceInt,
   assertInt,
   withRetry,
+  AthenaError,
+  AthenaErrorCode,
+  AthenaErrorKind,
+  AthenaErrorCategory,
 } from './auxiliaries.js'
+export { identifier } from './sql-identifiers.ts'
+export {
+  createTypedClient,
+  defineDatabase,
+  defineModel,
+  defineRegistry,
+  defineSchema,
+  createPostgresIntrospectionProvider,
+} from './schema/index.ts'
 export type {
   RpcQueryBuilder,
   RpcOrderOptions,
@@ -29,7 +42,7 @@ export type {
   AthenaResult,
 } from "./client.js";
 export type {
-  AthenaErrorKind,
+  AthenaErrorInput,
   AthenaOperationContext,
   NormalizedAthenaError,
   UnwrapOptions,
@@ -39,6 +52,33 @@ export type {
   RetryConfig,
   RetryBackoffStrategy,
 } from './auxiliaries.js'
+export type {
+  DatabaseDef,
+  InsertOf,
+  IntrospectionColumn,
+  IntrospectionInspectOptions,
+  IntrospectionRelation,
+  IntrospectionSchema,
+  IntrospectionSnapshot,
+  IntrospectionTable,
+  IntrospectionTypeKind,
+  ModelAt,
+  ModelDef,
+  ModelMetadata,
+  ModelRelationKind,
+  ModelRelationMetadata,
+  PostgresIntrospectionProviderOptions,
+  RegistryDef,
+  RowOf,
+  SchemaDef,
+  SchemaIntrospectionProvider,
+  TenantContext,
+  TenantContextValue,
+  TenantKeyMap,
+  TypedAthenaClient,
+  TypedClientOptions,
+  UpdateOf,
+} from './schema/index.ts'
 export type {
   AthenaConditionCastType,
   AthenaRpcCallOptions,

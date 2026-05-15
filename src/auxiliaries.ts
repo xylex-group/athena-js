@@ -11,6 +11,51 @@ export type AthenaErrorKind =
   | 'transient'
   | 'unknown'
 
+export const AthenaErrorKind = {
+  UniqueViolation: 'unique_violation',
+  NotFound: 'not_found',
+  Validation: 'validation',
+  Auth: 'auth',
+  RateLimit: 'rate_limit',
+  Transient: 'transient',
+  Unknown: 'unknown',
+} as const
+
+export type AthenaErrorCode =
+  | 'UNIQUE_VIOLATION'
+  | 'NOT_FOUND'
+  | 'VALIDATION_FAILED'
+  | 'AUTH_UNAUTHORIZED'
+  | 'AUTH_FORBIDDEN'
+  | 'RATE_LIMITED'
+  | 'NETWORK_UNAVAILABLE'
+  | 'TRANSIENT_FAILURE'
+  | 'HTTP_FAILURE'
+  | 'UNKNOWN'
+
+export const AthenaErrorCode = {
+  UniqueViolation: 'UNIQUE_VIOLATION',
+  NotFound: 'NOT_FOUND',
+  ValidationFailed: 'VALIDATION_FAILED',
+  AuthUnauthorized: 'AUTH_UNAUTHORIZED',
+  AuthForbidden: 'AUTH_FORBIDDEN',
+  RateLimited: 'RATE_LIMITED',
+  NetworkUnavailable: 'NETWORK_UNAVAILABLE',
+  TransientFailure: 'TRANSIENT_FAILURE',
+  HttpFailure: 'HTTP_FAILURE',
+  Unknown: 'UNKNOWN',
+} as const satisfies Record<string, AthenaErrorCode>
+
+export type AthenaErrorCategory = 'transport' | 'client' | 'server' | 'database' | 'unknown'
+
+export const AthenaErrorCategory = {
+  Transport: 'transport',
+  Client: 'client',
+  Server: 'server',
+  Database: 'database',
+  Unknown: 'unknown',
+} as const satisfies Record<string, AthenaErrorCategory>
+
 export interface AthenaOperationContext {
   table?: string
   operation?: string
@@ -19,12 +64,27 @@ export interface AthenaOperationContext {
 
 export interface NormalizedAthenaError {
   kind: AthenaErrorKind
+  code: AthenaErrorCode
+  category: AthenaErrorCategory
+  retryable: boolean
   status?: number
   constraint?: string
   table?: string
   operation?: string
   message: string
   raw: unknown
+}
+
+export interface AthenaErrorInput {
+  code: AthenaErrorCode
+  kind: AthenaErrorKind
+  category: AthenaErrorCategory
+  message: string
+  status?: number
+  retryable?: boolean
+  requestId?: string
+  context?: AthenaOperationContext
+  raw?: unknown
 }
 
 export interface UnwrapOptions {
@@ -58,6 +118,30 @@ export interface RetryConfig {
 
 export interface RequireAffectedOptions {
   min?: number
+}
+
+export class AthenaError extends Error {
+  readonly code: AthenaErrorCode
+  readonly kind: AthenaErrorKind
+  readonly category: AthenaErrorCategory
+  readonly status?: number
+  readonly retryable: boolean
+  readonly requestId?: string
+  readonly context?: AthenaOperationContext
+  readonly raw?: unknown
+
+  constructor(input: AthenaErrorInput) {
+    super(input.message)
+    this.name = 'AthenaError'
+    this.code = input.code
+    this.kind = input.kind
+    this.category = input.category
+    this.status = input.status
+    this.retryable = input.retryable ?? false
+    this.requestId = input.requestId
+    this.context = input.context
+    this.raw = input.raw
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -153,6 +237,56 @@ function classifyKind(status: number | undefined, code: AthenaGatewayErrorCode |
   return 'unknown'
 }
 
+function toAthenaErrorCode(
+  kind: AthenaErrorKind,
+  status: number | undefined,
+  gatewayCode?: AthenaGatewayErrorCode,
+): AthenaErrorCode {
+  if (gatewayCode === 'NETWORK_ERROR' || (kind === 'transient' && status === 0)) {
+    return AthenaErrorCode.NetworkUnavailable
+  }
+
+  switch (kind) {
+    case 'unique_violation':
+      return AthenaErrorCode.UniqueViolation
+    case 'not_found':
+      return AthenaErrorCode.NotFound
+    case 'validation':
+      return AthenaErrorCode.ValidationFailed
+    case 'rate_limit':
+      return AthenaErrorCode.RateLimited
+    case 'auth':
+      if (status === 403) {
+        return AthenaErrorCode.AuthForbidden
+      }
+      return AthenaErrorCode.AuthUnauthorized
+    case 'transient':
+      return status !== undefined && status >= 500
+        ? AthenaErrorCode.HttpFailure
+        : AthenaErrorCode.TransientFailure
+    case 'unknown':
+    default:
+      return status !== undefined && status >= 400
+        ? AthenaErrorCode.HttpFailure
+        : AthenaErrorCode.Unknown
+  }
+}
+
+function toAthenaErrorCategory(kind: AthenaErrorKind, status: number | undefined): AthenaErrorCategory {
+  if (kind === 'transient' && (status === 0 || status === undefined)) {
+    return AthenaErrorCategory.Transport
+  }
+  if (kind === 'unique_violation') return AthenaErrorCategory.Database
+  if (kind === 'validation' || kind === 'auth' || kind === 'not_found') return AthenaErrorCategory.Client
+  if (kind === 'rate_limit' || kind === 'transient') return AthenaErrorCategory.Server
+  return AthenaErrorCategory.Unknown
+}
+
+function isRetryable(kind: AthenaErrorKind, status: number | undefined): boolean {
+  if (kind === 'rate_limit' || kind === 'transient') return true
+  return status !== undefined && status >= 500
+}
+
 function toGatewayCode(kind: AthenaErrorKind, status?: number): AthenaGatewayErrorCode {
   if (kind === 'transient' && (status === 0 || status === undefined)) return 'NETWORK_ERROR'
   if (kind === 'validation') return 'INVALID_JSON'
@@ -227,8 +361,13 @@ export function normalizeAthenaError(
     const table = context?.table ?? extractTable(message)
     const constraint = extractConstraint(message)
     const kind = classifyKind(resultOrError.status, details?.code, message)
+    const code = toAthenaErrorCode(kind, resultOrError.status, details?.code)
+    const category = toAthenaErrorCategory(kind, resultOrError.status)
     return {
       kind,
+      code,
+      category,
+      retryable: isRetryable(kind, resultOrError.status),
       status: resultOrError.status,
       constraint,
       table,
@@ -244,8 +383,13 @@ export function normalizeAthenaError(
     const table = context?.table ?? extractTable(resultOrError.message)
     const constraint = extractConstraint(resultOrError.message)
     const kind = classifyKind(resultOrError.status, resultOrError.code, resultOrError.message)
+    const code = toAthenaErrorCode(kind, resultOrError.status, resultOrError.code)
+    const category = toAthenaErrorCategory(kind, resultOrError.status)
     return {
       kind,
+      code,
+      category,
+      retryable: isRetryable(kind, resultOrError.status),
       status: resultOrError.status,
       constraint,
       table,
@@ -260,8 +404,12 @@ export function normalizeAthenaError(
       isRecord(resultOrError) && typeof resultOrError.status === 'number'
         ? resultOrError.status
         : undefined
+    const kind = classifyKind(maybeStatus, undefined, resultOrError.message)
     return {
-      kind: classifyKind(maybeStatus, undefined, resultOrError.message),
+      kind,
+      code: toAthenaErrorCode(kind, maybeStatus),
+      category: toAthenaErrorCategory(kind, maybeStatus),
+      retryable: isRetryable(kind, maybeStatus),
       status: maybeStatus,
       constraint: extractConstraint(resultOrError.message),
       table: context?.table ?? extractTable(resultOrError.message),
@@ -272,8 +420,12 @@ export function normalizeAthenaError(
   }
 
   const message = typeof resultOrError === 'string' ? resultOrError : 'Unknown Athena error'
+  const kind = classifyKind(undefined, undefined, message)
   return {
-    kind: classifyKind(undefined, undefined, message),
+    kind,
+    code: toAthenaErrorCode(kind, undefined),
+    category: toAthenaErrorCategory(kind, undefined),
+    retryable: isRetryable(kind, undefined),
     status: undefined,
     constraint: extractConstraint(message),
     table: context?.table ?? extractTable(message),

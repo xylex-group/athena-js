@@ -1,0 +1,24 @@
+@startuml
+title Schema Registry + Provider (Before)
+skinparam backgroundColor #FCFCFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #4E342E
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B3E5FC
+component "createClient(...)" as Client #DCE775
+component "from<Row>(\"table\")" as FromGeneric #FFF59D
+component "Manual Row Interface" as ManualTypes #FFE082
+database "Database Schema" as DbSchema #EF9A9A
+
+Consumer --> ManualTypes : Maintain manually
+ManualTypes --> FromGeneric : Pass generic
+Consumer --> Client : Runtime config
+Client --> FromGeneric : table string only
+DbSchema ..> ManualTypes : Drift risk
+
+note right of FromGeneric
+No first-class registry object,
+no introspection provider contract.
+end note
+@enduml

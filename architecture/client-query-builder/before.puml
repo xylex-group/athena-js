@@ -1,0 +1,28 @@
+@startuml
+title Client Query Builder (Before)
+skinparam backgroundColor #FCFCFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #404040
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B3E5FC
+component "createClient(...)" as Client #DCE775
+component "TableQueryBuilder<Row>" as Builder #FFF59D
+component "Filter Chain\n(eq/gt/like/range/order)" as Filters #FFE082
+component "Mutation Chain\n(insert/update/delete)" as Mutations #FFCC80
+component "Gateway Client" as Gateway #AED581
+database "Athena HTTP Gateway" as GatewayApi #80CBC4
+
+Consumer --> Client : Configure URL + key
+Client --> Builder : from(\"table\")
+Builder --> Filters : select().eq().limit()...
+Builder --> Mutations : insert()/update()/delete()
+Filters --> Gateway : /gateway/fetch or /gateway/query
+Mutations --> Gateway : /gateway/insert|update|delete
+Gateway --> GatewayApi : POST/PUT/DELETE
+
+note right of Builder
+String table names only.
+No registry-aware model contracts.
+end note
+@enduml

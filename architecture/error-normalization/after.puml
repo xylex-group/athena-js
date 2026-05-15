@@ -1,0 +1,29 @@
+@startuml
+title Error Normalization (After)
+skinparam backgroundColor #F8FAFD
+skinparam componentStyle rectangle
+skinparam ArrowColor #37474F
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B2EBF2
+component "AthenaGatewayError" as GatewayError #FFCCBC
+component "normalizeAthenaError()" as Normalize #FFE082
+component "AthenaErrorCode constants" as ErrorCode #C5E1A5
+component "AthenaErrorCategory constants" as ErrorCategory #D1C4E9
+component "AthenaErrorKind constants" as ErrorKind #FFF59D
+component "AthenaError class" as AthenaErrorClass #B3E5FC
+component "Retry policy helper" as RetryPolicy #AED581
+
+GatewayError --> Normalize : source failures
+Normalize --> ErrorKind : classify by status/message
+Normalize --> ErrorCode : map to machine code
+Normalize --> ErrorCategory : map to category
+Normalize --> RetryPolicy : derive retryable
+Normalize --> Consumer : normalized envelope
+Consumer --> AthenaErrorClass : optional typed error object
+
+note right of Normalize
+Backward compatible helper contract retained,
+with added code/category/retryable metadata.
+end note
+@enduml

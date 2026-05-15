@@ -18,6 +18,7 @@ import type {
 } from './gateway/types.ts'
 import type { BackendConfig, BackendType } from './gateway/types.ts'
 import { createAthenaGatewayClient } from './gateway/client.ts'
+import { quoteQualifiedIdentifier, quoteSelectColumnsExpression } from './sql-identifiers.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -293,17 +294,6 @@ function escapeSqlStringLiteral(value: string): string {
   return value.replace(/'/g, "''")
 }
 
-function quoteIdentifier(identifier: string): string {
-  return `"${identifier.replace(/"/g, '""')}"`
-}
-
-function quoteQualifiedIdentifier(identifier: string): string {
-  return identifier
-    .split('.')
-    .map(segment => quoteIdentifier(segment))
-    .join('.')
-}
-
 function toSqlLiteral(value: AthenaConditionValue): string {
   if (value === null) return 'NULL'
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL'
@@ -320,7 +310,7 @@ function buildSelectColumnsClause(columns: string | string[]): string {
   if (Array.isArray(columns)) {
     return columns.map(column => quoteQualifiedIdentifier(column)).join(', ')
   }
-  return columns
+  return quoteSelectColumnsExpression(columns)
 }
 
 function conditionToSqlClause(condition: AthenaGatewayCondition): string | null {

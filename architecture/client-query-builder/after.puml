@@ -1,0 +1,32 @@
+@startuml
+title Client Query Builder (After)
+skinparam backgroundColor #F7FAFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #2F3E46
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B2EBF2
+component "createTypedClient(...)" as TypedClient #C5E1A5
+component "Registry\n(database->schema->model)" as Registry #FFF59D
+component "Model Metadata\n(PK/nullability/relations)" as Metadata #FFE082
+component "Tenant Context Mapper\n(configurable key map)" as Tenant #FFCCBC
+component "Typed TableQueryBuilder<Row>" as TypedBuilder #D1C4E9
+component "Identifier Quoting Layer" as Quoting #B3E5FC
+component "Gateway Client" as Gateway #AED581
+database "Athena HTTP Gateway" as GatewayApi #80CBC4
+
+Consumer --> TypedClient : Configure URL + key + registry
+TypedClient --> Registry : fromModel(db,schema,model)
+Registry --> Metadata : Resolve row + table mapping
+TypedClient --> Tenant : withTenantContext(...)
+TypedClient --> TypedBuilder : Build typed chain
+TypedBuilder --> Quoting : SQL fallback identifiers
+Quoting --> Gateway : /gateway/query (quoted SQL)
+TypedBuilder --> Gateway : /gateway/fetch|insert|update|delete
+Gateway --> GatewayApi : HTTP request
+
+note right of Quoting
+Reserved names are auto-quoted
+for generated SQL paths.
+end note
+@enduml
