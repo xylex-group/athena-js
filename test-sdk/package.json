@@ -5,7 +5,8 @@
   "scripts": {
     "start": "tsx src/index.ts --port 4000",
     "dev": "tsx watch src/index.ts",
-    "test:e2e": "tsx --test test/**/*.test.ts"
+    "test:e2e": "tsx --test test/**/*.test.ts",
+    "test:e2e:generator": "tsx --test test/generator-full-utilization.e2e.test.ts"
   },
   "dependencies": {
     "@xylex-group/athena": "file:..",

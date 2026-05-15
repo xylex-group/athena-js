@@ -72,6 +72,29 @@ These examples call Athena through `createClient(...).from(...).select()/insert(
 The hook files themselves contain direct query-builder calls (`athena.from(...).select()/insert()/eq()`).
 See `test-sdk/examples/react-hooks/README.md` for wiring and usage details.
 
+## Generator full-utilization examples
+
+Generator examples are available in:
+
+- `test-sdk/examples/generator/full-utilization.ts`
+- `test-sdk/examples/generator/README.md`
+
+The suite demonstrates:
+
+- direct PostgreSQL mode via `provider.mode = "direct"` and `connectionString` (`pg_url`)
+- gateway-only mode via `provider.mode = "gateway"` over Athena `/gateway/query`
+- config discovery/loading (`athena.config.ts`)
+- dry-run vs write generation
+- placeholder + naming strategy behavior
+- feature toggles (`emitRelations`, `emitRegistry`)
+- type mapping showcase (`resolvePostgresColumnType`)
+
+These examples are validated by:
+
+```bash
+node --import tsx --test test/generator-full-utilization.e2e.test.ts
+```
+
 ## Error response shape
 
 All server-side validation and upstream failures are normalized:
