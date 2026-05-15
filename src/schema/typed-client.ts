@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient, type AthenaSdkClient, type TableQueryBuilder } from '../client.ts'
 import type { AthenaGatewayCallOptions } from '../gateway/types.ts'
 import type {

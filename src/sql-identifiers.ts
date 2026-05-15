@@ -30,6 +30,16 @@ function quoteSelectToken(token: string): string {
   return token
 }
 
+function canAutoQuoteToken(token: string): boolean {
+  if (token === '*') return true
+  if (COMPOSITE_IDENTIFIER_PATTERN.test(token)) return true
+
+  const aliasMatch = ALIAS_PATTERN.exec(token)
+  if (!aliasMatch) return false
+  const [, baseIdentifier, aliasIdentifier] = aliasMatch
+  return COMPOSITE_IDENTIFIER_PATTERN.test(baseIdentifier) && SIMPLE_IDENTIFIER_PATTERN.test(aliasIdentifier)
+}
+
 /**
  * Quotes identifier lists while preserving raw SQL expressions.
  * `*`, function calls, or already complex expressions are passed through.
@@ -41,10 +51,13 @@ export function quoteSelectColumnsExpression(columns: string): string {
     return quoteSelectToken(trimmed)
   }
 
+  const parts = trimmed.split(',').map(part => part.trim())
+  if (parts.every(canAutoQuoteToken)) {
+    return parts.map(quoteSelectToken).join(', ')
+  }
+
+  // Complex SQL (functions/literals) should pass through unchanged.
   return trimmed
-    .split(',')
-    .map(part => quoteSelectToken(part.trim()))
-    .join(', ')
 }
 
 export interface SqlIdentifier {
@@ -69,4 +82,3 @@ export function identifier(...segments: string[]): SqlIdentifier {
     },
   }
 }
-

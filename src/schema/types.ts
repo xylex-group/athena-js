@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { BackendType } from '../gateway/types.ts'
 
 type ModelKey = string

@@ -67,3 +67,19 @@ test('query fallback quotes simple comma-separated identifier strings', async ()
     restore()
   }
 })
+
+test('query fallback does not rewrite complex select SQL expressions with commas', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const expression = "concat(\"table\", 'x,y') as computed, order"
+    await client
+      .from('public.type_lab')
+      .eqCast('id', '550e8400-e29b-41d4-a716-446655440000', 'uuid')
+      .select(expression)
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.ok(payload.query.includes(`SELECT ${expression} FROM "public"."type_lab"`))
+  } finally {
+    restore()
+  }
+})
