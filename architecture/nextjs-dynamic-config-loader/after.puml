@@ -1,27 +1,40 @@
 @startuml
-title SDK Config Loader in Next.js (After)
+title Next.js-Compatible Loader Path (After Fix)
 skinparam backgroundColor #FAFAFA
-skinparam componentStyle rectangle
-skinparam ArrowColor #1B5E20
+skinparam sequence {
+  ArrowColor #1B5E20
+  LifeLineBorderColor #2E7D32
+  LifeLineBackgroundColor #E8F5E9
+  ParticipantBorderColor #1B5E20
+  ParticipantBackgroundColor #C8E6C9
+}
 skinparam defaultFontName Consolas
+autonumber
 
-actor "Next.js Server Component" as NextServer #BBDEFB
-component "@xylex-group/athena\ndist/index.js" as SdkBundle #FFE082
-component "generator/config.ts\nloadGeneratorConfig()" as Loader #C8E6C9
-component "importConfigModule()\nnew Function('moduleSpecifier', ... )" as IndirectImport #A5D6A7
-component "extractConfigExport()\nqueue + default/module.exports unwrap" as ExportResolver #DCEDC8
-component "Node runtime config file" as ConfigFile #FFF9C4
+actor "Developer" as Dev
+participant "Next.js Compiler\n(Webpack/Turbopack)" as Compiler #BBDEFB
+participant "@xylex-group/athena\ndist/index.js" as SDK #FFE082
+participant "loadGeneratorConfig()" as Loader #C8E6C9
+participant "importConfigModule()\n(new Function runtime indirection)" as RuntimeImport #A5D6A7
+participant "extractConfigExport()\n(queue unwrap: default/config/module.exports)" as ExportUnwrap #DCEDC8
+participant "Node runtime config file\nathena.config.ts/js" as ConfigFile #FFF9C4
 
-NextServer --> SdkBundle : import createClient()/helpers
-SdkBundle --> Loader : bundled export graph
-Loader --> IndirectImport : runtime-only module loading
-Loader --> ExportResolver : robust config object extraction
-IndirectImport --> ConfigFile : import(file://...)
-ExportResolver --> Loader : normalized AthenaGeneratorConfig
+Dev -> Compiler : next build / next dev
+Compiler -> SDK : Parse SDK dependency graph
+Compiler -> Loader : Parse reachable exports
+Compiler --> Dev : Build succeeds (no direct dynamic import context)
 
-note right of IndirectImport
-No direct import(expression) syntax for bundlers
-to statically resolve in application builds.
-Dynamic loading happens only at Node runtime.
+== Only when generator is actually used ==
+Dev -> Loader : call loadGeneratorConfig(...)
+Loader -> RuntimeImport : importConfigModule(fileUrlWithCacheBust)
+RuntimeImport -> ConfigFile : runtime import(file://...)
+ConfigFile --> RuntimeImport : module object
+RuntimeImport --> Loader : loaded module
+Loader -> ExportUnwrap : normalize export shape
+ExportUnwrap --> Loader : AthenaGeneratorConfig
+
+note right of RuntimeImport
+Bundler no longer sees `await import(<template expression>)`
+in the loader call path, so compile-time resolution does not fail.
 end note
 @enduml
