@@ -1,16 +1,16 @@
-# Generator configuration and typed artifact pipeline
+# Generator Configuration and Typed Artifact Pipeline
 
-This page documents how to generate typed schema contracts from PostgreSQL and where the generated files go.
+This page is the canonical reference for Athena JS schema generation.
 
-For this to work end-to-end, three things must line up:
+The generator is optional. Existing `createClient(...).from<T>(...)` usage remains valid and supported.
 
-1. discoverable config file
-2. valid provider mode
-3. output path/naming settings
+## Quick start
 
-## CLI entrypoint
+```bash
+athena-js generate [--config <path>] [--dry-run]
+```
 
-`athena-js` exposes a dedicated generator command:
+Examples:
 
 ```bash
 athena-js generate
@@ -18,45 +18,32 @@ athena-js generate --dry-run
 athena-js generate --config ./athena.config.ts
 ```
 
-Output:
+`--dry-run` builds the snapshot and renders artifacts in memory, then prints file paths without writing files.
 
-- in normal mode, writes files to disk using configured targets
-- with `--dry-run`, prints the file list only
+## Config discovery and loading
 
-## Config discovery
+When `--config` is not provided, `loadGeneratorConfig()` scans the current working directory in this order:
 
-`loadGeneratorConfig()` discovers the first file in this order when `--config` is not passed:
+1. `athena.config.ts`
+2. `athena.config.js`
+3. `athena-js.config.ts`
+4. `athena-js.config.js`
+5. `.athena.config.ts`
+6. `.athena.config.js`
 
-- `athena.config.ts`
-- `athena.config.js`
-- `athena-js.config.ts`
-- `athena-js.config.js`
-- `.athena.config.ts`
-- `.athena.config.js`
-
-When missing, CLI throws:
+If none are found, the CLI throws:
 
 - `No generator config found in <cwd>. Expected one of: ...`
 
-Use `--config` with a relative or absolute path to avoid this in monorepos.
+Config modules must export either:
 
-## Config surface at a glance
+- a default config object, or
+- a named `config` export
 
-```ts
-export interface AthenaGeneratorConfig {
-  provider: GeneratorProviderConfig
-  output: GeneratorOutputConfig
-  naming?: Partial<GeneratorNamingConfig>
-  features?: Partial<GeneratorFeatureFlags>
-  experimental?: Partial<GeneratorExperimentalFlags>
-}
-```
+## Minimal config (direct `pg_url` style)
 
-All nested sections are validated by normal TypeScript shape and then normalized with defaults.
-
-### `defineGeneratorConfig` helper
-
-Use this helper to keep autocompletion and exactness in config files.
+Use any environment variable name you prefer (`PG_URL`, `DATABASE_URL`, etc.).
+The actual config key is `provider.connectionString`.
 
 ```ts
 import { defineGeneratorConfig } from "@xylex-group/athena";
@@ -65,8 +52,9 @@ export default defineGeneratorConfig({
   provider: {
     kind: "postgres",
     mode: "direct",
-    connectionString: process.env.DATABASE_URL!,
+    connectionString: process.env.PG_URL!,
     database: "app_db",
+    schemas: ["public"],
   },
   output: {
     targets: {
@@ -75,60 +63,58 @@ export default defineGeneratorConfig({
       database: "src/generated/{database_kebab}/index.ts",
       registry: "src/generated/index.ts",
     },
+    placeholderMap: {},
   },
 });
 ```
 
 ## Provider modes
 
-`provider` is one of two implemented PostgreSQL modes and one scaffolded future-mode contract.
-
-### Postgres direct mode
+### `provider.mode = "direct"` (PostgreSQL socket access)
 
 ```ts
-{
+provider: {
   kind: "postgres",
   mode: "direct",
-  connectionString: "postgres://user:pass@host:5432/db",
+  connectionString: process.env.PG_URL!,
   database: "app_db",
-  schemas: ["public"],
+  schemas: ["public", "billing"],
 }
 ```
 
 Behavior:
 
-- uses Node Postgres (`pg`) catalog queries
-- includes primary keys, nullability, enums, and relations via direct SQL
-- useful for local dev and CI jobs with direct DB access
+- uses `pg` catalog introspection directly against PostgreSQL
+- executes catalog SQL for columns, enums, primary keys, and foreign keys
+- derives relation metadata (including many-to-many bridge detection) from FK/PK layout
+- defaults to `schemas: ["public"]` when omitted
 
-### Postgres gateway mode
+### `provider.mode = "gateway"` (gateway-only introspection)
 
 ```ts
-{
+provider: {
   kind: "postgres",
   mode: "gateway",
-  gatewayUrl: "https://athena.example.com",
+  gatewayUrl: process.env.ATHENA_URL!,
   apiKey: process.env.ATHENA_API_KEY!,
   database: "app_db",
-  schemas: ["public"],
-  backend: "athena",
+  schemas: ["public", "billing"],
+  backend: "postgresql",
 }
 ```
 
 Behavior:
 
-- executes catalog introspection over `POST /gateway/query`
-- runs four SQL statements through Athena query path:
-  - columns
-  - enums
-  - primary keys
-  - foreign keys
-- this mode is available without the experimental flag and can be used in restricted networks where DB socket access is blocked
+- sends introspection SQL through Athena `POST /gateway/query`
+- runs four catalog query groups: columns, enums, primary keys, foreign keys
+- does not require direct database socket/network access from CI runners
+- defaults to backend `postgresql` when `backend` is not provided
+- does not require `experimental.postgresGatewayIntrospection` to be `true`
 
-### Scylla mode (contract placeholder)
+### `kind = "scylla"` placeholder contract
 
 ```ts
-{
+provider: {
   kind: "scylla",
   mode: "direct",
   contactPoints: ["127.0.0.1:9042"],
@@ -139,35 +125,40 @@ Behavior:
 
 Current behavior:
 
-- intentionally throws `Scylla introspection provider is not implemented yet`
-- controlled by `experimental.scyllaProviderContracts` (defaults to `true`), so this config is accepted but generation will fail until implemented
+- accepted by config typing when `experimental.scyllaProviderContracts` is enabled (default: `true`)
+- runtime introspection is not implemented yet and throws
 
-## Output contract
+## Full config reference
 
 ```ts
-interface GeneratorOutputConfig {
-  targets: GeneratorOutputTargets;
-  placeholderMap: Record<string, string>;
-}
+import type {
+  AthenaGeneratorConfig,
+  GeneratorExperimentalFlags,
+  GeneratorFeatureFlags,
+  GeneratorNamingConfig,
+  GeneratorOutputConfig,
+  GeneratorProviderConfig,
+} from "@xylex-group/athena";
 
-interface GeneratorOutputTargets {
-  model: string;
-  schema: string;
-  database: string;
-  registry: string;
+export interface AthenaGeneratorConfig {
+  provider: GeneratorProviderConfig;
+  output: GeneratorOutputConfig;
+  naming?: Partial<GeneratorNamingConfig>;
+  features?: Partial<GeneratorFeatureFlags>;
+  experimental?: Partial<GeneratorExperimentalFlags>;
 }
 ```
 
-### Defaults
+### `output.targets` defaults
 
 - `model`: `src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts`
 - `schema`: `src/generated/{database_kebab}/{schema_kebab}/index.ts`
 - `database`: `src/generated/{database_kebab}/index.ts`
 - `registry`: `src/generated/index.ts`
 
-### Supported placeholders
+### Placeholders
 
-The renderer resolves the following built-ins:
+Built-ins:
 
 - `provider`
 - `kind`
@@ -175,28 +166,32 @@ The renderer resolves the following built-ins:
 - `schema`, `schema_camel`, `schema_pascal`, `schema_snake`, `schema_kebab`
 - `model`, `model_camel`, `model_pascal`, `model_snake`, `model_kebab`
 
-`kind` is always set to the artifact category in the generator runtime (`model`, `schema`, `database`, `registry`).
+Custom aliases:
 
-### `placeholderMap`
+- `output.placeholderMap` supports token composition and nested resolution
+- recursion depth is internally bounded (8 passes)
 
-You can add custom tokens that may reference built-ins and each other, up to an internal recursion depth of 8.
+Example:
 
 ```ts
 output: {
   targets: {
-    model: "src/{namespace}/{schema_snake}/{model_snake}.ts",
+    model: "src/{namespace}/{model_kebab}.model.ts",
+    schema: "src/{namespace}/index.ts",
+    database: "src/generated/{database_kebab}/index.ts",
+    registry: "src/generated/index.ts",
   },
   placeholderMap: {
-    namespace: "{database_kebab}/{schema_kebab}",
+    namespace: "generated/{database_kebab}/{schema_kebab}",
   },
 }
 ```
 
-If a template references an unknown token, generation fails with:
+Unknown tokens fail fast:
 
 - `Unknown placeholder token "<token>" in template "<template>"`
 
-### Naming controls
+### Naming (`naming`)
 
 ```ts
 interface GeneratorNamingConfig {
@@ -216,7 +211,7 @@ Defaults:
 - `databaseConst: "camel"`
 - `registryConst: "camel"`
 
-### Feature flags
+### Feature flags (`features`)
 
 ```ts
 interface GeneratorFeatureFlags {
@@ -230,15 +225,12 @@ Defaults:
 - `emitRelations: true`
 - `emitRegistry: true`
 
-Disable registry emission in constrained workflows:
+Use cases:
 
-```ts
-features: {
-  emitRegistry: false,
-},
-```
+- set `emitRelations: false` to omit relation metadata from generated model `meta`
+- set `emitRegistry: false` to skip top-level registry artifact emission
 
-### Experimental flags
+### Experimental flags (`experimental`)
 
 ```ts
 interface GeneratorExperimentalFlags {
@@ -252,176 +244,310 @@ Defaults:
 - `postgresGatewayIntrospection: false`
 - `scyllaProviderContracts: true`
 
-`postgresGatewayIntrospection` is currently retained for compatibility and does not gate supported behavior.
+Notes:
 
-`scyllaProviderContracts` controls whether the Scylla config shape is allowed.
+- `postgresGatewayIntrospection` is retained for backward-compatible config shape; gateway mode works regardless of this flag
+- `scyllaProviderContracts` controls whether Scylla config contracts are allowed
 
-## What generation emits
+## Generated artifacts
 
-`runSchemaGenerator()` produces:
+`runSchemaGenerator()` renders and writes these artifact kinds:
 
-- normalized snapshot from the provider
-- generated artifacts in memory
-- written paths (when `--dry-run` is not set)
+1. `model` - per-table interfaces/types plus `defineModel(...)`
+2. `schema` - per-schema `defineSchema(...)`
+3. `database` - per-database `defineDatabase(...)`
+4. `registry` - `defineRegistry(...)` (unless `features.emitRegistry = false`)
 
-Artifact types:
+The renderer validates path uniqueness and throws on collisions:
 
-- `model`: row/interfaces + `defineModel`
-- `schema`: `defineSchema` object
-- `database`: `defineDatabase` object
-- `registry`: `defineRegistry` object (`features.emitRegistry` must be true)
+- `Generator output collision detected for path: ...`
 
-The generator deduplicates output paths and throws if two artifacts collide.
+## Type mapping details (PostgreSQL)
 
-## Config examples by profile
+Resolved by `resolvePostgresColumnType(...)`.
 
-### Local development (direct DB)
+- numeric to `number`: `int2`, `int4`, `float4`, `float8`, `smallint`, `integer`, `real`, `double precision`
+- high-precision numeric to `string`: `int8`, `bigint`, `serial8`, `bigserial`, `numeric`, `decimal`, `money`
+- boolean to `boolean`: `bool`, `boolean`
+- binary to `Buffer`: `bytea`
+- uuid/textual and scalar textual families to `string`
+- json/jsonb to `Record<string, unknown>`
+- temporal/network/geometric/bit/xml/full-text/jsonpath families to `string`
+- enum kinds to literal unions (for example `'draft' | 'published'`)
+- domain/range/multirange kinds to `string`
+- composite kinds to `Record<string, unknown>`
+- arrays wrap mapped scalar/kind type as `Array<...>` per dimension
+
+## Identifier safety
+
+Generated TypeScript stays valid for unsafe names.
+
+- object/interface property keys are escaped when needed (reserved words, symbols, invalid identifiers)
+- generated symbol names (`Row`, `Insert`, `Update`, const names) are normalized to safe identifiers
+- reserved identifiers are suffixed safely (for example `_value`)
+
+This allows source columns like `from`, `class`, `order-id`, or `123flag` to emit valid TypeScript keys/symbols.
+
+## Migration: manual typing to generated registry
+
+Existing apps can migrate incrementally.
+
+### Step 1: keep current runtime path
+
+No change required:
 
 ```ts
-import { defineGeneratorConfig } from "@xylex-group/athena";
+import { createClient } from "@xylex-group/athena";
 
-export default defineGeneratorConfig({
-  provider: {
-    kind: "postgres",
-    mode: "direct",
-    connectionString: process.env.DATABASE_URL!,
-    database: "app_db",
-    schemas: ["public", "billing"],
-  },
-  output: {
-    targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/registry.ts",
-    },
-    placeholderMap: {
-      namespace: "{database_kebab}/{schema_kebab}",
-    },
-  },
-  naming: {
-    modelType: "pascal",
-    modelConst: "camel",
-    schemaConst: "snake",
-  },
-});
+const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
+const result = await athena.from<{ id: string; email: string }>("public.users").select("id,email");
 ```
 
-### Gateway-only environment
+### Step 2: generate typed artifacts
+
+```bash
+athena-js generate --config ./athena.config.ts
+```
+
+### Step 3: adopt `createTypedClient` where stable
 
 ```ts
-export default {
-  provider: {
-    kind: "postgres",
-    mode: "gateway",
-    gatewayUrl: process.env.ATHENA_URL!,
-    apiKey: process.env.ATHENA_API_KEY!,
-    database: "app_db",
-    schemas: ["public", "billing"],
-    backend: "athena",
-  },
-  output: {
-    targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/index.ts",
-    },
-    placeholderMap: {},
-  },
-};
+import { createTypedClient } from "@xylex-group/athena";
+import { registry } from "./src/generated/index";
+
+const typed = createTypedClient(
+  registry,
+  process.env.ATHENA_URL!,
+  process.env.ATHENA_API_KEY!,
+);
+
+await typed.fromModel("app_db", "public", "users").select("id,email");
+```
+
+### Step 4: keep mixed mode where needed
+
+- use `fromModel(...)` for stable relational contracts
+- keep `from<T>(...)` and `query(...)` for dynamic tables or ad-hoc SQL
+
+## CI usage
+
+Use `--dry-run` for validation and normal mode for commit-time generation.
+
+### Direct mode CI (runner has DB network access)
+
+```yaml
+name: generate-schema-direct
+on: [pull_request]
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec athena-js generate --config ./athena.config.ts --dry-run
+        env:
+          PG_URL: ${{ secrets.PG_URL }}
+```
+
+### Gateway-only CI (no direct DB socket)
+
+```yaml
+name: generate-schema-gateway
+on: [pull_request]
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec athena-js generate --config ./athena.config.ts --dry-run
+        env:
+          ATHENA_URL: ${{ secrets.ATHENA_URL }}
+          ATHENA_API_KEY: ${{ secrets.ATHENA_API_KEY }}
+```
+
+### Diff gate pattern
+
+After generation in non-dry-run mode, fail if generated files changed unexpectedly:
+
+```bash
+pnpm exec athena-js generate --config ./athena.config.ts
+git diff --exit-code
 ```
 
 ## Troubleshooting
 
-### Config is not found
+### 1) Config not discovered
 
 Symptom:
 
 - `No generator config found in ... Expected one of: ...`
 
+Likely cause:
+
+- wrong file name or wrong working directory
+
+How to confirm:
+
+- run from repo root
+- list candidates (`athena.config.ts/js`, `athena-js.config.ts/js`, `.athena.config.ts/js`)
+
 Fix:
 
-- move config to repo root
-- run with `--config ./path/to/config` from the expected cwd
+- rename/move config to a supported filename, or pass `--config <path>`
 
-### Unknown placeholder token
+### 2) Config export shape rejected
 
 Symptom:
 
-- `Unknown placeholder token "<token>" in template "..."`
+- `Generator config file must export a config object as default export or 'config'.`
+
+Likely cause:
+
+- module exports helper functions only, or nested object without default/config
+
+How to confirm:
+
+- open the config file and verify exported value shape
 
 Fix:
 
-- check built-ins and custom entries in `placeholderMap`
-- ensure no typos in token names
-- avoid cyclic token references; resolution is bounded but should still fail fast if unresolved
+- export default `defineGeneratorConfig({...})` or `export const config = {...}`
 
-### Generated path collision
+### 3) Gateway mode fails
+
+Symptom:
+
+- request errors from `/gateway/query`
+
+Likely cause:
+
+- invalid `gatewayUrl`/`apiKey`, wrong backend routing, or gateway endpoint policy mismatch
+
+How to confirm:
+
+- verify endpoint accepts `POST /gateway/query`
+- verify configured backend can execute PostgreSQL catalog SQL
+
+Fix:
+
+- correct URL/key/backend values
+- confirm gateway allows introspection catalog queries in the target environment
+
+### 4) Empty or partial snapshot
+
+Symptom:
+
+- generated output is missing expected schemas/tables
+
+Likely cause:
+
+- `schemas` filter excludes expected schema, or database permissions are restricted
+
+How to confirm:
+
+- set `schemas` explicitly and compare result
+- run introspection in direct mode against same DB user where possible
+
+Fix:
+
+- include required schemas in config and grant catalog-read permissions
+
+### 5) Placeholder token errors
+
+Symptom:
+
+- `Unknown placeholder token "..." in template "..."`
+
+Likely cause:
+
+- typo or unresolved alias chain in `placeholderMap`
+
+How to confirm:
+
+- inspect every `{token}` in `output.targets` and `placeholderMap`
+
+Fix:
+
+- correct token names and keep alias chains resolvable
+
+### 6) Output path collisions
 
 Symptom:
 
 - `Generator output collision detected for path: ...`
 
+Likely cause:
+
+- multiple artifact contexts resolve to the same path template
+
+How to confirm:
+
+- inspect rendered `model`/`schema`/`database`/`registry` target patterns
+
 Fix:
 
-- inspect `output.targets` and `placeholderMap`
-- ensure each artifact maps to a unique path (example: avoid fixed names for all schemas)
+- include schema/model/database disambiguators in target patterns
 
-### Scylla config crashes
+### 7) Type surprises (`bigint`, `numeric`, nullable keys)
 
 Symptom:
 
-- `Scylla provider contracts are disabled...` or `not implemented`
+- generated type differs from expected runtime type
+
+Likely cause:
+
+- intentional mapping semantics (`bigint`/`numeric` as `string`, nullable columns as optional + `| null`)
+
+How to confirm:
+
+- inspect generated model file and source column metadata
 
 Fix:
 
-- enable placeholder contracts only if intended by setting
-  `experimental.scyllaProviderContracts: true`, and be ready to implement provider logic first
+- adapt app-level parsing/coercion where needed; do not assume JS-safe integer conversion for high-precision values
 
-### Gateway mode fails intermittently
+### 8) Reserved or unsafe identifiers
 
 Symptom:
 
-- failed fetch calls to `/gateway/query`
+- concern that names like `class`/`from`/`order-id` will break output
+
+Likely cause:
+
+- misunderstanding of safe-key escaping and identifier normalization
+
+How to confirm:
+
+- inspect generated file keys and symbol names
 
 Fix:
 
-- verify `gatewayUrl` and `apiKey`
-- verify the gateway endpoint accepts `POST /gateway/query`
-- run with verbose CLI logs around request payloads and inspect SQL text in `error` payload
+- no config change required; this is handled automatically by renderer naming/escaping logic
 
-## Pipeline integration tips
+## Known limitations
 
-Use dry-run first in CI:
+1. Scylla provider is a contract placeholder only; runtime introspection is not implemented.
+2. Custom SQL introspection templates are not configurable yet; catalog SQL is fixed in the provider layer.
+3. `experimental.postgresGatewayIntrospection` is compatibility-only and does not toggle current gateway support.
 
-```bash
-athena-js generate --config ./athena.config.ts --dry-run
-```
+## Programmatic API surface
 
-Useful checks:
+You can script generation without CLI by using exported APIs:
 
-1. verify no `Unknown placeholder token`
-2. verify file count/paths are stable
-3. optionally diff generated output against repo baseline
-
-A safe commit workflow:
-
-1. run `--dry-run` for PR check
-2. run `generate`
-3. review generated files only
-4. keep generated artifacts deterministic across reruns
-
-## Programmatic API usage
-
-The full config and pipeline APIs are also exposed from JS/TS:
-
-- `loadGeneratorConfig`
+- `defineGeneratorConfig`
 - `findGeneratorConfigPath`
+- `loadGeneratorConfig`
 - `normalizeGeneratorConfig`
 - `resolveGeneratorProvider`
+- `resolvePostgresColumnType`
 - `generateArtifactsFromSnapshot`
 - `runSchemaGenerator`
-- `resolvePostgresColumnType`
-
-Use these to build custom scripts, schema verification steps, or local snapshot tests.

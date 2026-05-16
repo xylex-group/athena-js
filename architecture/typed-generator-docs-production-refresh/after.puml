@@ -1,0 +1,33 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 12
+  BorderColor #1B4F72
+}
+skinparam note {
+  BackgroundColor #E8F8F5
+  BorderColor #17A589
+}
+
+package "After: Production Generator Docs" {
+  rectangle "README\n- Compatibility-first quickstart\n- Direct vs gateway summary\n- Canonical docs links" as readme #D4EFDF
+
+  rectangle "docs/generator-config.md\n- Full config reference\n- Direct + gateway behavior\n- Placeholder/naming/feature details\n- Type mapping and identifier safety\n- Migration runbook\n- CI usage (direct + gateway)\n- Troubleshooting matrix\n- Known limitations" as generatorDoc #D6EAF8
+
+  rectangle "Implementation Truth\n- Config discovery order\n- CLI syntax\n- Provider behavior\n- Artifact emission flags\n- Type mapping + escaping" as impl #E8DAEF
+
+  rectangle "Operator Outcomes\n- Fewer config mistakes\n- Safer migrations\n- Deterministic CI checks\n- Clear unsupported-path expectations" as outcomes #FCF3CF
+}
+
+readme --> generatorDoc : links to canonical reference
+impl --> generatorDoc : verified against source/tests
+generatorDoc --> outcomes : actionable guidance
+
+note right of generatorDoc
+Known limitations called out:
+- Scylla contract placeholder
+- Custom SQL introspection deferred
+end note
+
+@enduml

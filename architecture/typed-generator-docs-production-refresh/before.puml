@@ -1,0 +1,32 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 12
+  BorderColor #2E4057
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #E0A800
+}
+
+package "Before: Generator Docs Surface" {
+  rectangle "README\n- Generator section\n- Basic command list\n- Link to generator docs" as readme #D6EAF8
+
+  rectangle "docs/generator-config.md\n- CLI + discovery\n- Provider modes\n- Placeholders/naming/flags\n- Basic troubleshooting" as generatorDoc #FDEBD0
+
+  rectangle "Implementation Truth\n- src/generator/config.ts\n- src/generator/providers.ts\n- src/generator/renderer.ts\n- src/generator/postgres-type-mapping.ts" as impl #E8DAEF
+
+  rectangle "Gaps\n- No migration runbook\n- No CI strategy split\n- Limited failure diagnosis\n- Limitations not explicit" as gaps #F5B7B1
+}
+
+readme --> generatorDoc : references
+impl --> generatorDoc : informs content
+gaps ..> generatorDoc : unresolved
+
+note right of generatorDoc
+Coverage existed but was not
+explicitly production-operator oriented.
+end note
+
+@enduml
