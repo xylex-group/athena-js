@@ -59,6 +59,15 @@ function normalizeOutputConfig(output: GeneratorOutputConfig): GeneratorOutputCo
   }
 }
 
+function isAthenaGeneratorConfig(value: unknown): value is AthenaGeneratorConfig {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return Boolean(record.provider && typeof record.provider === 'object') &&
+    Boolean(record.output && typeof record.output === 'object')
+}
+
 export function normalizeGeneratorConfig(input: AthenaGeneratorConfig): NormalizedAthenaGeneratorConfig {
   return {
     provider: input.provider,
@@ -101,19 +110,50 @@ export function findGeneratorConfigPath(cwd: string = process.cwd()): string | u
 }
 
 function extractConfigExport(module: unknown): AthenaGeneratorConfig {
-  if (module && typeof module === 'object') {
-    const record = module as Record<string, unknown>
+  const visited = new Set<unknown>()
+  const queue: unknown[] = [module]
+
+  while (queue.length > 0) {
+    const current = queue.shift()
+    if (!current || typeof current !== 'object' || visited.has(current)) {
+      continue
+    }
+    visited.add(current)
+
+    const record = current as Record<string, unknown>
+    if (isAthenaGeneratorConfig(record)) {
+      return record
+    }
+
     const defaultExport = record.default
     if (defaultExport && typeof defaultExport === 'object') {
-      return defaultExport as AthenaGeneratorConfig
+      queue.push(defaultExport)
     }
+
     const namedConfigExport = record.config
     if (namedConfigExport && typeof namedConfigExport === 'object') {
-      return namedConfigExport as AthenaGeneratorConfig
+      queue.push(namedConfigExport)
+    }
+
+    const moduleExports = record['module.exports']
+    if (moduleExports && typeof moduleExports === 'object') {
+      queue.push(moduleExports)
     }
   }
 
-  throw new Error('Generator config file must export a config object as default export or `config`.')
+  throw new Error(
+    'Generator config file must export a config object as default export or `config`.',
+  )
+}
+
+function importConfigModule(moduleSpecifier: string): Promise<unknown> {
+  // Keep this as an indirect import so bundlers do not try to statically resolve
+  // runtime file-system config paths when athena-js is consumed in Next.js.
+  const runtimeImport = new Function(
+    'moduleSpecifier',
+    'return import(moduleSpecifier)',
+  ) as (moduleSpecifier: string) => Promise<unknown>
+  return runtimeImport(moduleSpecifier)
 }
 
 /**
@@ -134,7 +174,7 @@ export async function loadGeneratorConfig(
   }
 
   const moduleUrl = pathToFileURL(resolvedPath)
-  const module = await import(`${moduleUrl.href}?cacheBust=${Date.now()}`)
+  const module = await importConfigModule(`${moduleUrl.href}?cacheBust=${Date.now()}`)
   const rawConfig = extractConfigExport(module)
 
   return {

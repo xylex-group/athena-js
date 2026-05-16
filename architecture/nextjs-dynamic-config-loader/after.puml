@@ -1,0 +1,27 @@
+@startuml
+title SDK Config Loader in Next.js (After)
+skinparam backgroundColor #FAFAFA
+skinparam componentStyle rectangle
+skinparam ArrowColor #1B5E20
+skinparam defaultFontName Consolas
+
+actor "Next.js Server Component" as NextServer #BBDEFB
+component "@xylex-group/athena\ndist/index.js" as SdkBundle #FFE082
+component "generator/config.ts\nloadGeneratorConfig()" as Loader #C8E6C9
+component "importConfigModule()\nnew Function('moduleSpecifier', ... )" as IndirectImport #A5D6A7
+component "extractConfigExport()\nqueue + default/module.exports unwrap" as ExportResolver #DCEDC8
+component "Node runtime config file" as ConfigFile #FFF9C4
+
+NextServer --> SdkBundle : import createClient()/helpers
+SdkBundle --> Loader : bundled export graph
+Loader --> IndirectImport : runtime-only module loading
+Loader --> ExportResolver : robust config object extraction
+IndirectImport --> ConfigFile : import(file://...)
+ExportResolver --> Loader : normalized AthenaGeneratorConfig
+
+note right of IndirectImport
+No direct import(expression) syntax for bundlers
+to statically resolve in application builds.
+Dynamic loading happens only at Node runtime.
+end note
+@enduml

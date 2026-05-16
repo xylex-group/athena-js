@@ -1,0 +1,24 @@
+@startuml
+title SDK Config Loader in Next.js (Before)
+skinparam backgroundColor #FAFAFA
+skinparam componentStyle rectangle
+skinparam ArrowColor #4E342E
+skinparam defaultFontName Consolas
+
+actor "Next.js Server Component" as NextServer #BBDEFB
+component "@xylex-group/athena\ndist/index.js" as SdkBundle #FFE082
+component "generator/config.ts\nloadGeneratorConfig()" as Loader #FFCCBC
+component "direct dynamic import\nimport(`${moduleUrl.href}?cacheBust=...`)" as DynamicImport #EF9A9A
+component "Webpack/Turbopack resolver" as Resolver #E1BEE7
+
+NextServer --> SdkBundle : import createClient()/helpers
+SdkBundle --> Loader : bundled export graph
+Loader --> DynamicImport : parse import(expression)
+Resolver --> DynamicImport : static resolution attempt
+Resolver ..> NextServer : Module not found: Can't resolve <dynamic>
+
+note right of DynamicImport
+Bundler sees runtime template-string import
+in a dependency bundle and aborts compile.
+end note
+@enduml
