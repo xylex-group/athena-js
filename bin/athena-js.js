@@ -33,6 +33,21 @@ function printMissingEntrypointError() {
   )
 }
 
+function formatRuntimeError(error) {
+  if (error instanceof Error) {
+    if (process.env.ATHENA_JS_DEBUG === '1') {
+      return error.stack ?? error.message
+    }
+    return error.message
+  }
+
+  if (typeof error === 'string') {
+    return error
+  }
+
+  return 'Unknown error.'
+}
+
 async function main() {
   if (!existsSync(cliEntrypointPath)) {
     printMissingEntrypointError()
@@ -48,7 +63,12 @@ async function main() {
     }
     await cliModule.runCLI(process.argv.slice(2))
   } catch (err) {
-    console.error('Failed to start athena-js CLI:', err)
+    const errorDetail = formatRuntimeError(err)
+    if (errorDetail.includes('\n')) {
+      console.error(`Failed to start athena-js CLI:\n${errorDetail}`)
+    } else {
+      console.error(`Failed to start athena-js CLI: ${errorDetail}`)
+    }
     process.exit(1)
   }
 }

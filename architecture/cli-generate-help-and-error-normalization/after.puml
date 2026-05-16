@@ -1,0 +1,36 @@
+@startuml
+title Athena JS CLI behavior after help + error normalization
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam Rectangle {
+  BackgroundColor #D9EAD3
+  BorderColor #38761D
+}
+skinparam ArrowColor #355C7D
+
+actor "Developer" as Dev
+
+rectangle "parseCommand(argv)\n--help support for generate/help generate" as Parse #D9EAD3
+rectangle "runCLI runtime wrapper\n(error normalization for 3D000)" as CliRuntime #CFE2F3
+rectangle "runSchemaGenerator(...)" as Run #E2F0D9
+rectangle "bin formatter\nmessage-first output" as Bin #D0E0E3
+rectangle "Terminal output" as Output #EAF4EA
+
+Dev --> Parse : athena-js generate --help
+Parse --> Output : shows generate usage
+
+Dev --> Parse : athena-js generate --config ...
+Parse --> CliRuntime : command accepted
+CliRuntime --> Run : execute generator
+Run --> CliRuntime : postgres 3D000
+CliRuntime --> Bin : normalized actionable message
+Bin --> Output : concise failure + next step
+
+note right of Output
+Outputs now guide recovery:
+- identify missing database
+- point to provider.connectionString/provider.database
+end note
+
+@enduml
