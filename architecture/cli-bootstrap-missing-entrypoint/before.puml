@@ -1,0 +1,29 @@
+@startuml
+title Athena JS CLI bootstrap (before hardening)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam Rectangle {
+  BackgroundColor #FFF4CC
+  BorderColor #C28B00
+}
+skinparam ArrowColor #7A7A7A
+
+actor "Developer" as Dev
+
+rectangle "bin/athena-js.js" as Bin #FFD966
+rectangle "dist/cli/index.js" as CliDist #B7DEE8
+rectangle "Node ESM Loader" as Loader #F4B183
+rectangle "Terminal Output" as Output #F8CECC
+
+Dev --> Bin : run `athena-js`
+Bin --> CliDist : dynamic import('../dist/cli/index.js')
+Bin --> Loader : resolve module
+Loader --> Output : ERR_MODULE_NOT_FOUND\n(raw stack trace)
+
+note right of Output
+No pre-check for missing generated CLI bundle.
+Failure is cryptic for global installs.
+end note
+
+@enduml

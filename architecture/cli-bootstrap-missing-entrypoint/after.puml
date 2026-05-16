@@ -1,0 +1,30 @@
+@startuml
+title Athena JS CLI bootstrap (after hardening)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam Rectangle {
+  BackgroundColor #DAF7DC
+  BorderColor #3C8D40
+}
+skinparam ArrowColor #4E6A8A
+
+actor "Developer" as Dev
+
+rectangle "bin/athena-js.js" as Bin #C6EFCE
+rectangle "dist/cli/index.js exists?" as Exists #D9EAF7
+rectangle "Import and run\nrunCLI(argv)" as RunCli #B7DEE8
+rectangle "Friendly recovery message\n(version + reinstall command)" as Recovery #FCE4D6
+
+Dev --> Bin : run `athena-js`
+Bin --> Exists : check generated bundle path
+Exists --> RunCli : yes
+Exists --> Recovery : no
+Recovery --> Dev : actionable fix path
+
+note right of Recovery
+Includes expected file path and installed version.
+Avoids opaque ERR_MODULE_NOT_FOUND-only output.
+end note
+
+@enduml
