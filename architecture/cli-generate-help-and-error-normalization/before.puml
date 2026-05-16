@@ -1,0 +1,33 @@
+@startuml
+title Athena JS CLI behavior before help + error normalization
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam Rectangle {
+  BackgroundColor #FFE5CC
+  BorderColor #B45F06
+}
+skinparam ArrowColor #7A7A7A
+
+actor "Developer" as Dev
+
+rectangle "parseCommand(argv)" as Parse #FCE5CD
+rectangle "runSchemaGenerator(...)" as Run #FFF2CC
+rectangle "bin catch console.error(err)" as BinCatch #F8CECC
+rectangle "Terminal output" as Output #F4CCCC
+
+Dev --> Parse : athena-js generate --help
+Parse --> Output : throws Unknown option "--help"
+
+Dev --> Parse : athena-js generate --config ...
+Parse --> Run : command accepted
+Run --> BinCatch : postgres 3D000 bubbles up
+BinCatch --> Output : raw stack + pg internals
+
+note right of Output
+Two UX gaps:
+1) subcommand help flag is rejected.
+2) missing database errors are verbose and noisy.
+end note
+
+@enduml
