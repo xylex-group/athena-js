@@ -102,8 +102,8 @@ Generator supports:
 - Placeholder-driven output paths
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 
-For full configuration, direct-vs-gateway behavior, implementation snapshot, troubleshooting, and test evidence, see [`docs/generator-config.md`](./docs/generator-config.md).
-For CI/CD pipelines and branch policy for generated artifacts, see [`docs/generator-cicd.md`](./docs/generator-cicd.md).
+For full generator configuration and troubleshooting, see [`docs/generator-config.md`](./docs/generator-config.md).
+For CI/CD pipelines and generated-file branch policy, see [`docs/generator-cicd.md`](./docs/generator-cicd.md).
 For prompt-ready documentation handoff text, see [`docs/generator-codex-handoff-prompt-pack.md`](./docs/generator-codex-handoff-prompt-pack.md).
 
 Every query resolves to `{ data, error, errorDetails?, status, count?, raw }`. `data` is `null` on error; `error` is `null` on success.
