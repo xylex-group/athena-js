@@ -1,0 +1,32 @@
+@startuml
+title Athena JS command docs after CLI-reference pass
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam Rectangle {
+  BackgroundColor #D9EAD3
+  BorderColor #38761D
+}
+skinparam ArrowColor #355C7D
+
+actor "Developer" as Dev
+
+rectangle "docs/cli-command-reference.md\n(commands + help + troubleshooting)" as CliRef #D9EAD3
+rectangle "docs/index.md\nreading order includes CLI reference" as DocsIndex #CFE2F3
+rectangle "README + getting-started + generator-config\nlinked to CLI reference" as LinkedDocs #E2F0D9
+rectangle "Standalone guidance\nAthena JS + Athena RS positioning" as Positioning #D0E0E3
+
+Dev --> DocsIndex : start docs flow
+DocsIndex --> CliRef : command source of truth
+CliRef --> LinkedDocs : shared references
+CliRef --> Positioning : runtime split guidance
+
+note right of CliRef
+One canonical page now documents:
+- all supported commands
+- help behavior
+- Windows shim recovery
+- common error meanings (ERR_MODULE_NOT_FOUND, 3D000)
+end note
+
+@enduml

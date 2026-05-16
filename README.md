@@ -93,6 +93,8 @@ CLI:
 athena-js generate
 athena-js generate --dry-run
 athena-js generate --config ./athena.config.ts
+athena-js generate --help
+athena-js help generate
 ```
 
 Generator supports:
@@ -103,8 +105,22 @@ Generator supports:
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 
 For full generator configuration and troubleshooting, see [`docs/generator-config.md`](./docs/generator-config.md).
+For full CLI commands, help behavior, and troubleshooting, see [`docs/cli-command-reference.md`](./docs/cli-command-reference.md).
 For CI/CD pipelines and generated-file branch policy, see [`docs/generator-cicd.md`](./docs/generator-cicd.md).
 For prompt-ready documentation handoff text, see [`docs/generator-codex-handoff-prompt-pack.md`](./docs/generator-codex-handoff-prompt-pack.md).
+
+### Athena JS and Athena RS
+
+`athena-js` is designed to be standalone for TypeScript/Node and React-native workflows:
+
+- query builder + hooks
+- typed registry and generator pipeline
+- CLI-driven codegen in JS/TS projects
+
+`athena-rs` remains the faster fit for Rust service execution paths. Teams can run both in parallel:
+
+- `athena-rs` for Rust backend throughput
+- `athena-js` for app/tooling layers that need TypeScript contracts and frontend-facing ergonomics
 
 Every query resolves to `{ data, error, errorDetails?, status, count?, raw }`. `data` is `null` on error; `error` is `null` on success.
 
@@ -673,6 +689,7 @@ CI and publish workflows run `typecheck` before build/publish.
 
 - [Documentation index](docs/index.md) — complete documentation map
 - [Getting started](docs/getting-started.md) — step-by-step walkthrough
+- [CLI command reference](docs/cli-command-reference.md) — all `athena-js` commands, help flows, and troubleshooting
 - [Typed schema registry](docs/typed-schema-registry.md) — typed contracts and migration path
 - [Generator config](docs/generator-config.md) — generator provider and output pipeline
 - [Generator CI/CD](docs/generator-cicd.md) — pipeline patterns, secret mapping, retries, and branch policy

@@ -16,12 +16,17 @@ For this to work end-to-end, three things must line up:
 athena-js generate
 athena-js generate --dry-run
 athena-js generate --config ./athena.config.ts
+athena-js generate --help
+athena-js help generate
 ```
 
 Output:
 
 - in normal mode, writes files to disk using configured targets
 - with `--dry-run`, prints the file list only
+
+For the full command matrix and troubleshooting, see
+[`cli-command-reference.md`](cli-command-reference.md).
 
 ## Config discovery
 

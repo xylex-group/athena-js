@@ -1,0 +1,31 @@
+@startuml
+title Athena JS command docs before CLI-reference pass
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam Rectangle {
+  BackgroundColor #FCE5CD
+  BorderColor #B45F06
+}
+skinparam ArrowColor #7A7A7A
+
+actor "Developer" as Dev
+
+rectangle "README\n(partial CLI examples)" as Readme #FCE5CD
+rectangle "docs/getting-started.md\n(generator basics)" as GettingStarted #FCE5CD
+rectangle "docs/generator-config.md\nconfig + provider modes" as GeneratorConfig #FCE5CD
+rectangle "No single command matrix\nor shim troubleshooting source" as Gap #F4CCCC
+
+Dev --> Readme : find command hints
+Dev --> GettingStarted : infer command usage
+Dev --> GeneratorConfig : infer options/errors
+Readme --> Gap
+GettingStarted --> Gap
+GeneratorConfig --> Gap
+
+note right of Gap
+CLI help behavior and Windows global-shim recovery
+were spread across notes and terminal threads.
+end note
+
+@enduml

@@ -17,6 +17,7 @@ Package entrypoint `@xylex-group/athena` exports:
 For a high-level workflow, see:
 
 - [`getting-started.md`](getting-started.md)
+- [`cli-command-reference.md`](cli-command-reference.md)
 - [`typed-schema-registry.md`](typed-schema-registry.md)
 - [`generator-config.md`](generator-config.md)
 

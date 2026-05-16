@@ -250,10 +250,13 @@ When the schema changes often, generate model files and registry code instead of
 athena-js generate
 athena-js generate --dry-run
 athena-js generate --config ./athena.config.ts
+athena-js generate --help
 ```
 
 The full generator contract, provider modes, output tokens, and feature flags are documented in
 [`generator-config.md`](generator-config.md).
+The full CLI command/help/troubleshooting reference is documented in
+[`cli-command-reference.md`](cli-command-reference.md).
 
 A minimal direct mode config:
 
