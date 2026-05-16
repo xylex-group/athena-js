@@ -1,0 +1,13 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #2E4057
+}
+
+package "Before: Getting Started" {
+  rectangle "docs/getting-started.md\n- runtime client setup\n- typed migration\n- generator intro" as A #FDEBD0
+}
+
+@enduml

@@ -1,0 +1,16 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #1B4F72
+}
+
+package "After: Getting Started" {
+  rectangle "docs/getting-started.md\n- command-first setup flow\n- untyped + typed paths\n- generator handoff path\n- error handling + next links" as A #D4EFDF
+  rectangle "Outcome\n- fast runtime onboarding\n- clear migration to typed contracts\n- clear bridge to generator docs" as B #E8DAEF
+}
+
+A --> B
+
+@enduml
