@@ -83,9 +83,11 @@ await typed
 
 For full details, see [`docs/typed-schema-registry.md`](./docs/typed-schema-registry.md).
 
-### Typed schema generator (phase 2 scaffolding)
+### Typed schema generator
 
-The SDK now includes a project-root generator config system (`athena.config.ts`) and CLI command:
+Schema generation is additive. Existing `createClient(...).from<T>(...)` usage remains valid while teams migrate to generated registry files.
+
+CLI:
 
 ```bash
 athena-js generate
@@ -93,10 +95,15 @@ athena-js generate --dry-run
 athena-js generate --config ./athena.config.ts
 ```
 
-Generator output paths support placeholder tokens (database/schema/model + case variants), feature flags, and experimental provider contracts.
-PostgreSQL introspection works both via direct `pg_url` and gateway-only `/gateway/query` execution.
+Generator supports:
 
-For full generator configuration, see [`docs/generator-config.md`](./docs/generator-config.md).
+- PostgreSQL direct introspection (`provider.mode = "direct"`, `provider.connectionString` from your `PG_URL`/`DATABASE_URL`)
+- PostgreSQL gateway-only introspection (`provider.mode = "gateway"` via Athena `POST /gateway/query`)
+- Placeholder-driven output paths
+- Feature flags (`features.emitRegistry`, `features.emitRelations`)
+
+For full generator configuration and troubleshooting, see [`docs/generator-config.md`](./docs/generator-config.md).
+For CI/CD pipelines and generated-file branch policy, see [`docs/generator-cicd.md`](./docs/generator-cicd.md).
 For prompt-ready documentation handoff text, see [`docs/generator-codex-handoff-prompt-pack.md`](./docs/generator-codex-handoff-prompt-pack.md).
 
 Every query resolves to `{ data, error, errorDetails?, status, count?, raw }`. `data` is `null` on error; `error` is `null` on success.
@@ -668,4 +675,5 @@ CI and publish workflows run `typecheck` before build/publish.
 - [Getting started](docs/getting-started.md) — step-by-step walkthrough
 - [Typed schema registry](docs/typed-schema-registry.md) — typed contracts and migration path
 - [Generator config](docs/generator-config.md) — generator provider and output pipeline
+- [Generator CI/CD](docs/generator-cicd.md) — pipeline patterns, secret mapping, retries, and branch policy
 - [API reference](docs/api-reference.md) — complete method and type reference

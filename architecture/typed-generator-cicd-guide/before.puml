@@ -1,0 +1,16 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #2E4057
+}
+
+package "Before: CI/CD Coverage" {
+  rectangle "docs/generator-config.md\n- small CI usage section\n- direct + gateway examples\n- basic diff gate" as A #FDEBD0
+  rectangle "Missing detail\n- secret mapping playbook\n- retry/failure guidance\n- branch policy for generated files" as B #F5B7B1
+}
+
+A --> B : gaps
+
+@enduml

@@ -1,0 +1,18 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #1B4F72
+}
+
+package "After: Generator Config Doc" {
+  rectangle "docs/generator-config.md\n- concise generator pipeline reference\n- provider modes + config keys\n- troubleshooting + pipeline tips\n- programmatic API summary" as A #D4EFDF
+  rectangle "README generator section\n- generic config/troubleshooting link\n- separate CI/CD guide link" as B #FDEBD0
+  rectangle "docs/generator-cicd.md\n- dedicated CI/CD policy guide (unchanged)" as C #E8DAEF
+}
+
+B --> A : canonical config reference
+B --> C : CI/CD reference
+
+@enduml

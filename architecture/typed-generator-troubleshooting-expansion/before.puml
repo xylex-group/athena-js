@@ -1,0 +1,16 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #2C3E50
+}
+
+package "Before: Troubleshooting Layout" {
+  rectangle "Troubleshooting (mixed)\n- 8 sections\n- includes non-requested items\n- Fix label used, not Exact fix" as T1 #FDEBD0
+  rectangle "Required focus areas\n1 config discovery\n2 gateway auth/header/backend\n3 empty snapshot\n4 path collisions\n5 unsafe identifiers\n6 type mapping surprises" as R1 #D6EAF8
+}
+
+T1 --> R1 : partial overlap
+
+@enduml

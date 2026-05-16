@@ -1,0 +1,20 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #1B4F72
+}
+
+package "After: CI/CD Coverage" {
+  rectangle "docs/generator-cicd.md\n- direct pg_url pipeline\n- gateway /gateway/query pipeline\n- secure secret mapping\n- dry-run gate\n- diff gate\n- retry/failure strategy\n- branch policy" as A #D4EFDF
+
+  rectangle "docs/index.md\n- includes generator-cicd in reading order" as B #D6EAF8
+
+  rectangle "docs/generator-config.md\n- links to CI/CD guide from CI usage section" as C #FCF3CF
+}
+
+A --> B : discoverable
+A --> C : canonical cross-link
+
+@enduml

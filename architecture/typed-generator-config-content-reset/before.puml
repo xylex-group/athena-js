@@ -1,0 +1,16 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #2E4057
+}
+
+package "Before: Generator Config Doc" {
+  rectangle "docs/generator-config.md\n- expanded with implementation snapshot\n- expanded test evidence section\n- expanded troubleshooting matrix" as A #D6EAF8
+  rectangle "README generator section\n- references snapshot/evidence framing" as B #FCF3CF
+}
+
+B --> A : references
+
+@enduml

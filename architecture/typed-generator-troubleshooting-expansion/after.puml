@@ -1,0 +1,20 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #1F618D
+}
+
+package "After: Troubleshooting Layout" {
+  rectangle "Troubleshooting (expanded)\n- exactly 6 required sections\n- each section has:\n  Symptom\n  Likely cause\n  How to confirm\n  Exact fix" as T2 #D4EFDF
+
+  rectangle "Mode-aligned examples\n- direct (provider.mode=direct, connectionString)\n- gateway (provider.mode=gateway, /gateway/query)" as E2 #FCF3CF
+
+  rectangle "Operational outcome\n- faster diagnosis\n- no config-key drift\n- clear header/backend checks\n- clear type/identifier expectations" as O2 #E8DAEF
+}
+
+T2 --> E2
+E2 --> O2
+
+@enduml
