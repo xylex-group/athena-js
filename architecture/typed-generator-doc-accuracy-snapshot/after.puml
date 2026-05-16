@@ -1,0 +1,18 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #1B4F72
+}
+
+package "After: Accuracy Framing" {
+  rectangle "docs/generator-config.md\n+ implementation snapshot\n+ explicit function-behavior mapping\n+ generator-focused test evidence with file references" as A #D4EFDF
+  rectangle "README generator section\n+ explicit direct/gateway + implementation/test references\n+ explicit CI/CD doc link" as B #FCF3CF
+  rectangle "Outcome\n- code-backed behavior clarity\n- evidence-backed claims\n- lower docs drift risk" as C #E8DAEF
+}
+
+A --> C
+B --> A
+
+@enduml

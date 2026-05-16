@@ -20,6 +20,19 @@ athena-js generate --config ./athena.config.ts
 
 `--dry-run` builds the snapshot and renders artifacts in memory, then prints file paths without writing files.
 
+## Implementation snapshot (code-backed behavior)
+
+Use this section as the source-of-truth summary for generator runtime behavior.
+
+- `defineGeneratorConfig(...)` is a typed identity helper for config authoring.
+- `loadGeneratorConfig(...)` discovers config files, loads module exports, and normalizes defaults.
+- `resolveGeneratorProvider(...)` supports:
+  - `postgres/direct` (implemented)
+  - `postgres/gateway` (implemented through Athena `POST /gateway/query`)
+  - `scylla/direct` (contract placeholder; runtime introspection not implemented)
+- `runSchemaGenerator(...)` is the end-to-end pipeline: load config, resolve provider, introspect, render artifacts, and optionally write files.
+- `generateArtifactsFromSnapshot(...)` produces in-memory artifacts; `runSchemaGenerator(...)` writes those files unless `dryRun` is enabled.
+
 ## Config discovery and loading
 
 When `--config` is not provided, `loadGeneratorConfig()` scans the current working directory in this order:
@@ -654,6 +667,23 @@ Exact fix:
 1. Scylla provider is a contract placeholder only; runtime introspection is not implemented.
 2. Custom SQL introspection templates are not configurable yet; catalog SQL is fixed in the provider layer.
 3. `experimental.postgresGatewayIntrospection` is compatibility-only and does not toggle current gateway support.
+
+## Test evidence (generator-focused)
+
+Coverage in this repo includes:
+
+- direct `pg_url` provider resolution and introspection:
+  - `test/generator-provider.test.ts`
+- gateway-only provider resolution and `/gateway/query` transport:
+  - `test/generator-provider.test.ts`
+- pipeline write output in both direct and gateway modes:
+  - `test/generator-pipeline.test.ts`
+- config loading and typed helper behavior:
+  - `test/generator-config.test.ts`
+- renderer path placeholder and feature toggle behavior:
+  - `test/generator-renderer.test.ts`
+- PostgreSQL datatype mapping breadth:
+  - `test/postgres-type-mapping.test.ts`
 
 ## Programmatic API surface
 

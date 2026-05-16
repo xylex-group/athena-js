@@ -1,0 +1,18 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 10
+  BorderColor #2E4057
+}
+
+package "Before: Accuracy Framing" {
+  rectangle "docs/generator-config.md\n- functional reference\n- CI/troubleshooting sections" as A #FDEBD0
+  rectangle "Gap\n- implementation snapshot not explicit\n- test evidence section not explicit" as B #F5B7B1
+  rectangle "README generator section\n- links to config page" as C #D6EAF8
+}
+
+A --> B
+C --> A
+
+@enduml

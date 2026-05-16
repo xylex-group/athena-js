@@ -102,7 +102,8 @@ Generator supports:
 - Placeholder-driven output paths
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 
-For full configuration, migration, troubleshooting, and CI patterns, see [`docs/generator-config.md`](./docs/generator-config.md).
+For full configuration, direct-vs-gateway behavior, implementation snapshot, troubleshooting, and test evidence, see [`docs/generator-config.md`](./docs/generator-config.md).
+For CI/CD pipelines and branch policy for generated artifacts, see [`docs/generator-cicd.md`](./docs/generator-cicd.md).
 For prompt-ready documentation handoff text, see [`docs/generator-codex-handoff-prompt-pack.md`](./docs/generator-codex-handoff-prompt-pack.md).
 
 Every query resolves to `{ data, error, errorDetails?, status, count?, raw }`. `data` is `null` on error; `error` is `null` on success.
@@ -674,4 +675,5 @@ CI and publish workflows run `typecheck` before build/publish.
 - [Getting started](docs/getting-started.md) — step-by-step walkthrough
 - [Typed schema registry](docs/typed-schema-registry.md) — typed contracts and migration path
 - [Generator config](docs/generator-config.md) — generator provider and output pipeline
+- [Generator CI/CD](docs/generator-cicd.md) — pipeline patterns, secret mapping, retries, and branch policy
 - [API reference](docs/api-reference.md) — complete method and type reference
