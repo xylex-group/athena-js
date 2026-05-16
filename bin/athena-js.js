@@ -36,40 +36,42 @@ function printMissingEntrypointError() {
 function formatRuntimeError(error) {
   if (error instanceof Error) {
     if (process.env.ATHENA_JS_DEBUG === '1') {
-      return error.stack ?? error.message
+      return error.stack ?? error.message;
     }
-    return error.message
+    return error.message;
   }
 
   if (typeof error === 'string') {
-    return error
+    return error;
   }
 
-  return 'Unknown error.'
+  return 'Unknown error.';
 }
 
 async function main() {
   if (!existsSync(cliEntrypointPath)) {
-    printMissingEntrypointError()
-    process.exit(1)
-    return
+    printMissingEntrypointError();
+    process.exit(1);
+    return;
   }
 
   try {
-    const cliEntrypointUrl = pathToFileURL(cliEntrypointPath).href
-    const cliModule = await import(cliEntrypointUrl)
+    const cliEntrypointUrl = pathToFileURL(cliEntrypointPath).href;
+    const cliModule = await import(cliEntrypointUrl);
     if (typeof cliModule.runCLI !== 'function') {
-      throw new Error('CLI module does not export runCLI.')
+      throw new Error('CLI module does not export runCLI.');
     }
-    await cliModule.runCLI(process.argv.slice(2))
+    await cliModule.runCLI(process.argv.slice(2));
   } catch (err) {
-    const errorDetail = formatRuntimeError(err)
+    const errorDetail = formatRuntimeError(err);
     if (errorDetail.includes('\n')) {
-      console.error(`Failed to start athena-js CLI:\n${errorDetail}`)
+      console.error(`Failed to start athena-js CLI:\n${errorDetail}`);
     } else {
-      console.error(`Failed to start athena-js CLI: ${errorDetail}`)
+      console.error(`Failed to start athena-js CLI: ${errorDetail}`);
     }
-    process.exit(1)
+    process.exit(1);
+  }
+}
   }
 }
 
