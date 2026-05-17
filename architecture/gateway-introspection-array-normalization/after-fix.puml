@@ -1,0 +1,37 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam RectangleBackgroundColor #FFFFFF
+skinparam noteBackgroundColor #E8F5E9
+skinparam noteBorderColor #000000
+
+title Gateway Introspection After Fix
+
+rectangle "Athena Gateway\n/gateway/query" as GW
+rectangle "Athena SDK query<T>()" as SDK
+rectangle "Catalog Rows\nsource_columns: \"{user_id}\"" as ROWS
+rectangle "coerceStringArray()\n(JSON array / PG literal / CSV)" as COERCE
+rectangle "PostgresCatalogSnapshotAssembler\n(addForeignKeyRows + addPrimaryKeyRows)" as ASM
+rectangle "IntrospectionRelation\nsourceColumns: string[]" as REL
+rectangle "Generator Renderer\nrelation.sourceColumns.map(...)" as RENDER
+
+GW --> SDK : JSON response
+SDK --> ROWS : data rows
+ROWS --> COERCE : normalize array fields
+COERCE --> ASM : always string[]
+ASM --> REL : safe relation metadata
+REL --> RENDER : render relations
+RENDER --> RENDER : successful generation
+
+note right of COERCE
+Handles:
+- ["user_id"]
+- {user_id}
+- user_id,user_org_id
+end note
+
+@enduml

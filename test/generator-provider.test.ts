@@ -11,6 +11,10 @@ type GatewayCall = {
   body: { query: string }
 }
 
+type GatewayFetchMockOptions = {
+  foreignKeysAsStringLiterals?: boolean
+}
+
 function createMinimalPgCatalogMock() {
   return async (sqlText: string) => {
     if (sqlText.includes('FROM pg_attribute')) {
@@ -69,7 +73,7 @@ function createMinimalPgCatalogMock() {
   }
 }
 
-function createGatewayFetchMock() {
+function createGatewayFetchMock(options: GatewayFetchMockOptions = {}) {
   const calls: GatewayCall[] = []
   const original = globalThis.fetch
 
@@ -143,9 +147,24 @@ function createGatewayFetchMock() {
     }
 
     if (sqlText.includes("WHERE con.contype = 'f'")) {
+      const foreignKeyRows = options.foreignKeysAsStringLiterals
+        ? [
+            {
+              source_schema: 'public',
+              source_table: 'profiles',
+              constraint_name: 'profile_user_fk',
+              source_columns: '{user_id}',
+              target_schema: 'public',
+              target_table: 'users',
+              target_columns: '{id}',
+              source_is_unique: true,
+            },
+          ]
+        : []
+
       return new Response(
         JSON.stringify({
-          data: [],
+          data: foreignKeyRows,
           error: null,
           status: 200,
         }),
@@ -228,6 +247,44 @@ test('resolveGeneratorProvider supports gateway-only postgres introspection over
     assert.equal(calls.every(call => call.method === 'POST'), true)
     assert.equal(calls.some(call => call.body.query.includes('pg_attribute')), true)
     assert.equal(calls.some(call => call.body.query.includes("ARRAY['public']::text[]")), true)
+  } finally {
+    restore()
+  }
+})
+
+test('resolveGeneratorProvider gateway mode normalizes string-literal foreign key arrays', async () => {
+  const { restore } = createGatewayFetchMock({ foreignKeysAsStringLiterals: true })
+
+  try {
+    const provider = resolveGeneratorProvider(
+      {
+        kind: 'postgres',
+        mode: 'gateway',
+        gatewayUrl: 'https://athena-db.com',
+        apiKey: 'secret',
+        database: 'app_db',
+      },
+      {
+        postgresGatewayIntrospection: true,
+        scyllaProviderContracts: true,
+      },
+    )
+
+    const snapshot = await provider.inspect({ schemas: ['public'] })
+    const profilesRelation = Object.values(snapshot.schemas.public.tables.profiles.relations).find(
+      relation => relation.targetModel === 'users',
+    )
+    const usersRelation = Object.values(snapshot.schemas.public.tables.users.relations).find(
+      relation => relation.targetModel === 'profiles',
+    )
+
+    assert.ok(profilesRelation)
+    assert.ok(usersRelation)
+
+    assert.deepEqual(profilesRelation.sourceColumns, ['user_id'])
+    assert.deepEqual(profilesRelation.targetColumns, ['id'])
+    assert.deepEqual(usersRelation.sourceColumns, ['id'])
+    assert.deepEqual(usersRelation.targetColumns, ['user_id'])
   } finally {
     restore()
   }

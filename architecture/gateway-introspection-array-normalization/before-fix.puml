@@ -1,0 +1,33 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam RectangleBackgroundColor #FFFFFF
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #000000
+
+title Gateway Introspection Before Fix
+
+rectangle "Athena Gateway\n/gateway/query" as GW
+rectangle "Athena SDK query<T>()" as SDK
+rectangle "Catalog Rows\nforeign_keys.source_columns = \"{user_id}\"" as ROWS
+rectangle "PostgresCatalogSnapshotAssembler\n(addForeignKeyRows)" as ASM
+rectangle "IntrospectionRelation\nsourceColumns: string" as REL
+rectangle "Generator Renderer\nrelation.sourceColumns.map(...)" as RENDER
+
+GW --> SDK : JSON response
+SDK --> ROWS : data rows
+ROWS --> ASM : raw row values
+ASM --> REL : no normalization
+REL --> RENDER : relation metadata
+RENDER --> RENDER : TypeError\n"map is not a function"
+
+note right of RENDER
+Failure observed in `athena-js generate`
+when FK arrays are serialized as strings.
+end note
+
+@enduml

@@ -168,6 +168,75 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''")
 }
 
+function parsePostgresArrayLiteral(text: string): string[] {
+  const body = text.slice(1, -1).trim()
+  if (!body) return []
+
+  const values: string[] = []
+  let current = ''
+  let inQuotes = false
+  let escaped = false
+
+  for (const char of body) {
+    if (escaped) {
+      current += char
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inQuotes = !inQuotes
+      continue
+    }
+    if (char === ',' && !inQuotes) {
+      values.push(current)
+      current = ''
+      continue
+    }
+    current += char
+  }
+
+  values.push(current)
+  return values.map(value => value.trim()).filter(value => value.length > 0)
+}
+
+function coerceStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => (typeof item === 'string' ? item : String(item)))
+      .map(item => item.trim())
+      .filter(item => item.length > 0)
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        return coerceStringArray(parsed)
+      } catch {
+        // Fall through to more permissive parsing paths.
+      }
+    }
+
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return parsePostgresArrayLiteral(trimmed)
+    }
+
+    return trimmed
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length > 0)
+  }
+
+  return []
+}
+
 export function buildSchemaArrayLiteral(schemas: string[]): string {
   const normalized = schemas.length > 0 ? schemas : ['public']
   const literals = normalized.map(schema => `'${escapeSqlLiteral(schema)}'`).join(', ')
@@ -217,8 +286,10 @@ export class PostgresCatalogSnapshotAssembler {
   addPrimaryKeyRows(primaryKeyRows: PrimaryKeyQueryRow[]) {
     for (const row of primaryKeyRows) {
       const table = this.ensureTable(row.schema_name, row.table_name)
-      table.primaryKey = row.columns
-      for (const columnName of row.columns) {
+      const primaryKeyColumns = coerceStringArray(row.columns)
+      row.columns = primaryKeyColumns
+      table.primaryKey = primaryKeyColumns
+      for (const columnName of primaryKeyColumns) {
         const column = table.columns[columnName]
         if (column) {
           column.isPrimaryKey = true
@@ -231,25 +302,29 @@ export class PostgresCatalogSnapshotAssembler {
     for (const row of foreignKeyRows) {
       const sourceTable = this.ensureTable(row.source_schema, row.source_table)
       const targetTable = this.ensureTable(row.target_schema, row.target_table)
+      const sourceColumns = coerceStringArray(row.source_columns)
+      const targetColumns = coerceStringArray(row.target_columns)
+      row.source_columns = sourceColumns
+      row.target_columns = targetColumns
 
       const sourceRelationKind: ModelRelationKind = row.source_is_unique ? 'one-to-one' : 'many-to-one'
       this.upsertRelation(sourceTable, relationKey(row.constraint_name, row.target_table), {
         name: row.constraint_name,
         kind: sourceRelationKind,
-        sourceColumns: row.source_columns,
+        sourceColumns,
         targetSchema: row.target_schema,
         targetModel: row.target_table,
-        targetColumns: row.target_columns,
+        targetColumns,
       })
 
       const targetRelationKind: ModelRelationKind = row.source_is_unique ? 'one-to-one' : 'one-to-many'
       this.upsertRelation(targetTable, relationKey(row.source_table), {
         name: relationKey(row.source_table, row.constraint_name),
         kind: targetRelationKind,
-        sourceColumns: row.target_columns,
+        sourceColumns: targetColumns,
         targetSchema: row.source_schema,
         targetModel: row.source_table,
-        targetColumns: row.source_columns,
+        targetColumns: sourceColumns,
       })
     }
   }
