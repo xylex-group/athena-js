@@ -1,0 +1,32 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam RectangleBackgroundColor #FFFFFF
+skinparam noteBackgroundColor #E8F5E9
+skinparam noteBorderColor #000000
+
+title Generator Default Targets After
+
+rectangle "athena-js generate" as CLI
+rectangle "DEFAULT_TARGETS\n(src/generator/config.ts)" as DEFAULTS
+rectangle "model -> athena/models/{model}.ts" as M
+rectangle "schema -> athena/schema.ts" as S
+rectangle "database -> athena/relations.ts" as D
+rectangle "registry -> athena/config.ts" as R
+
+CLI --> DEFAULTS
+DEFAULTS --> M
+DEFAULTS --> S
+DEFAULTS --> D
+DEFAULTS --> R
+
+note bottom
+Out-of-the-box output now matches
+athena/structure without per-project overrides.
+end note
+
+@enduml

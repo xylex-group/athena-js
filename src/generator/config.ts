@@ -23,10 +23,10 @@ const DEFAULT_CONFIG_CANDIDATES = [
 ]
 
 const DEFAULT_TARGETS: GeneratorOutputTargets = {
-  model: 'src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts',
-  schema: 'src/generated/{database_kebab}/{schema_kebab}/index.ts',
-  database: 'src/generated/{database_kebab}/index.ts',
-  registry: 'src/generated/index.ts',
+  model: 'athena/models/{model_kebab}.ts',
+  schema: 'athena/schema.ts',
+  database: 'athena/relations.ts',
+  registry: 'athena/config.ts',
 }
 
 const DEFAULT_NAMING: GeneratorNamingConfig = {

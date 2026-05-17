@@ -1,0 +1,32 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam RectangleBackgroundColor #FFFFFF
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #000000
+
+title Generator Default Targets Before
+
+rectangle "athena-js generate" as CLI
+rectangle "DEFAULT_TARGETS\n(src/generator/config.ts)" as DEFAULTS
+rectangle "model -> src/generated/{database}/{schema}/{model}.model.ts" as M
+rectangle "schema -> src/generated/{database}/{schema}/index.ts" as S
+rectangle "database -> src/generated/{database}/index.ts" as D
+rectangle "registry -> src/generated/index.ts" as R
+
+CLI --> DEFAULTS
+DEFAULTS --> M
+DEFAULTS --> S
+DEFAULTS --> D
+DEFAULTS --> R
+
+note bottom
+Consumers had to override output.targets manually
+if they wanted a compact athena/ layout.
+end note
+
+@enduml

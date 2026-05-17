@@ -174,10 +174,10 @@ That means `generated registry artifacts` can be imported as-is with `createType
 
 By default, generator target templates are:
 
-- `src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts`
-- `src/generated/{database_kebab}/{schema_kebab}/index.ts`
-- `src/generated/{database_kebab}/index.ts`
-- `src/generated/index.ts`
+- `athena/models/{model_kebab}.ts`
+- `athena/schema.ts`
+- `athena/relations.ts`
+- `athena/config.ts`
 
 These can be changed via `output.targets`.
 
@@ -211,3 +211,4 @@ For concrete CLI/config examples, flags, and provider behavior, continue to:
 
 - [`generator-config.md`](generator-config.md)
 - [`api-reference.md`](api-reference.md)
+

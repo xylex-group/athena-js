@@ -55,6 +55,36 @@ test('loadGeneratorConfig resolves default export from ts config file', async ()
   }
 })
 
+test('loadGeneratorConfig applies athena folder defaults when output targets are omitted', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-default-targets-'))
+  try {
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+          database: 'app_db',
+          schemas: ['public'],
+        },
+        output: {},
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.config.output.targets.model, 'athena/models/{model_kebab}.ts')
+    assert.equal(loaded.config.output.targets.schema, 'athena/schema.ts')
+    assert.equal(loaded.config.output.targets.database, 'athena/relations.ts')
+    assert.equal(loaded.config.output.targets.registry, 'athena/config.ts')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('defineGeneratorConfig is an identity helper for typed configs', () => {
   const config = defineGeneratorConfig({
     provider: {

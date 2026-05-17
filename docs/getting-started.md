@@ -273,10 +273,10 @@ const config = defineGeneratorConfig({
   },
   output: {
     targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/index.ts",
+      model: "athena/models/{model_kebab}.ts",
+      schema: "athena/schema.ts",
+      database: "athena/relations.ts",
+      registry: "athena/config.ts",
     },
   },
 });
@@ -329,3 +329,4 @@ The next decision point is straightforward:
 
 - keep table-string calls for legacy stability, or
 - adopt `fromModel` and optional generated contracts for team-wide consistency.
+

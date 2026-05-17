@@ -75,10 +75,10 @@ export default defineGeneratorConfig({
   },
   output: {
     targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/index.ts",
+      model: "athena/models/{model_kebab}.ts",
+      schema: "athena/schema.ts",
+      database: "athena/relations.ts",
+      registry: "athena/config.ts",
     },
   },
 });
@@ -165,10 +165,10 @@ interface GeneratorOutputTargets {
 
 ### Defaults
 
-- `model`: `src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts`
-- `schema`: `src/generated/{database_kebab}/{schema_kebab}/index.ts`
-- `database`: `src/generated/{database_kebab}/index.ts`
-- `registry`: `src/generated/index.ts`
+- `model`: `athena/models/{model_kebab}.ts`
+- `schema`: `athena/schema.ts`
+- `database`: `athena/relations.ts`
+- `registry`: `athena/config.ts`
 
 ### Supported placeholders
 
@@ -295,9 +295,9 @@ export default defineGeneratorConfig({
   },
   output: {
     targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
+      model: "athena/models/{model_kebab}.ts",
+      schema: "athena/schema.ts",
+      database: "athena/relations.ts",
       registry: "src/generated/registry.ts",
     },
     placeholderMap: {
@@ -327,10 +327,10 @@ export default {
   },
   output: {
     targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/index.ts",
+      model: "athena/models/{model_kebab}.ts",
+      schema: "athena/schema.ts",
+      database: "athena/relations.ts",
+      registry: "athena/config.ts",
     },
     placeholderMap: {},
   },
@@ -430,3 +430,4 @@ The full config and pipeline APIs are also exposed from JS/TS:
 - `resolvePostgresColumnType`
 
 Use these to build custom scripts, schema verification steps, or local snapshot tests.
+

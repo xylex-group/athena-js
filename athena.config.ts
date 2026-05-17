@@ -10,13 +10,13 @@ export default defineGeneratorConfig({
   },
   output: {
     targets: {
-      model: 'src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts',
-      schema: 'src/generated/{database_kebab}/{schema_kebab}/index.ts',
-      database: 'src/generated/{database_kebab}/index.ts',
-      registry: 'src/generated/index.ts',
+      model: 'athena/models/{model_kebab}.ts',
+      schema: 'athena/schema.ts',
+      database: 'athena/relations.ts',
+      registry: 'athena/config.ts',
     },
     placeholderMap: {
-      namespace: '{database_kebab}/{schema_kebab}',
+      namespace: 'athena',
     },
   },
   naming: {

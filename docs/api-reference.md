@@ -658,10 +658,10 @@ Use these after large API-level updates or generated contract changes.
 
 - `provider` has no runtime default and must be configured.
 - output targets:
-  - `model`: `src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts`
-  - `schema`: `src/generated/{database_kebab}/{schema_kebab}/index.ts`
-  - `database`: `src/generated/{database_kebab}/index.ts`
-  - `registry`: `src/generated/index.ts`
+  - `model`: `athena/models/{model_kebab}.ts`
+  - `schema`: `athena/schema.ts`
+  - `database`: `athena/relations.ts`
+  - `registry`: `athena/config.ts`
 - naming:
   - `modelType: "pascal"`
   - `modelConst: "camel"`
@@ -694,3 +694,4 @@ Generator config discovery checks in order:
 
 If you need concrete examples and troubleshooting scenarios, use the full
 [`generator-config.md`](generator-config.md) page.
+

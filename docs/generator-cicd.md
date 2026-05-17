@@ -31,10 +31,10 @@ export default {
   },
   output: {
     targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/index.ts",
+      model: "athena/models/{model_kebab}.ts",
+      schema: "athena/schema.ts",
+      database: "athena/relations.ts",
+      registry: "athena/config.ts",
     },
     placeholderMap: {},
   },
@@ -95,10 +95,10 @@ export default {
   },
   output: {
     targets: {
-      model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts",
-      schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
-      database: "src/generated/{database_kebab}/index.ts",
-      registry: "src/generated/index.ts",
+      model: "athena/models/{model_kebab}.ts",
+      schema: "athena/schema.ts",
+      database: "athena/relations.ts",
+      registry: "athena/config.ts",
     },
     placeholderMap: {},
   },
@@ -269,3 +269,4 @@ This keeps generated-only changes easy to review and isolate.
 3. Retry transient gateway failures with short backoff.
 4. Enforce deterministic diff behavior if generated files are committed.
 5. Keep branch policy explicit and documented.
+
