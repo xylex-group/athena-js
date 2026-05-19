@@ -72,11 +72,12 @@ export default defineGeneratorConfig({
     mode: "direct",
     connectionString: process.env.DATABASE_URL!,
     database: "app_db",
+    schemas: (process.env.ATHENA_GENERATOR_SCHEMAS ?? "public,athena").split(","),
   },
   output: {
     targets: {
-      model: "athena/models/{model_kebab}.ts",
-      schema: "athena/schema.ts",
+      model: "athena/models/{schema_kebab}/{model_kebab}.ts",
+      schema: "athena/schemas/{schema_kebab}.ts",
       database: "athena/relations.ts",
       registry: "athena/config.ts",
     },
@@ -96,7 +97,7 @@ export default defineGeneratorConfig({
   mode: "direct",
   connectionString: "postgres://user:pass@host:5432/db",
   database: "app_db",
-  schemas: ["public"],
+  schemas: ["public", "athena"],
 }
 ```
 
@@ -115,7 +116,7 @@ Behavior:
   gatewayUrl: "https://athena.example.com",
   apiKey: process.env.ATHENA_API_KEY!,
   database: "app_db",
-  schemas: ["public"],
+  schemas: ["public", "athena"],
   backend: "athena",
 }
 ```
@@ -165,10 +166,26 @@ interface GeneratorOutputTargets {
 
 ### Defaults
 
-- `model`: `athena/models/{model_kebab}.ts`
-- `schema`: `athena/schema.ts`
+- `model`: `athena/models/{schema_kebab}/{model_kebab}.ts`
+- `schema`: `athena/schemas/{schema_kebab}.ts`
 - `database`: `athena/relations.ts`
 - `registry`: `athena/config.ts`
+
+The defaults include the schema name in model and schema paths so `public.users`
+and `athena.users` can be generated in the same run without path collisions.
+
+### Schema selection
+
+PostgreSQL providers accept `schemas` as either an array or a comma-separated string:
+
+```ts
+schemas: ["public", "athena"]
+// or
+schemas: process.env.ATHENA_GENERATOR_SCHEMAS ?? "public,athena"
+```
+
+The generator trims whitespace, removes duplicates, and falls back to `["public"]`
+when the selection is missing or empty.
 
 ### Supported placeholders
 
@@ -291,12 +308,12 @@ export default defineGeneratorConfig({
     mode: "direct",
     connectionString: process.env.DATABASE_URL!,
     database: "app_db",
-    schemas: ["public", "billing"],
+    schemas: ["public", "athena"],
   },
   output: {
     targets: {
-      model: "athena/models/{model_kebab}.ts",
-      schema: "athena/schema.ts",
+      model: "athena/models/{schema_kebab}/{model_kebab}.ts",
+      schema: "athena/schemas/{schema_kebab}.ts",
       database: "athena/relations.ts",
       registry: "src/generated/registry.ts",
     },
@@ -322,13 +339,13 @@ export default {
     gatewayUrl: process.env.ATHENA_URL!,
     apiKey: process.env.ATHENA_API_KEY!,
     database: "app_db",
-    schemas: ["public", "billing"],
+    schemas: ["public", "athena"],
     backend: "athena",
   },
   output: {
     targets: {
-      model: "athena/models/{model_kebab}.ts",
-      schema: "athena/schema.ts",
+      model: "athena/models/{schema_kebab}/{model_kebab}.ts",
+      schema: "athena/schemas/{schema_kebab}.ts",
       database: "athena/relations.ts",
       registry: "athena/config.ts",
     },
@@ -371,7 +388,8 @@ Symptom:
 Fix:
 
 - inspect `output.targets` and `placeholderMap`
-- ensure each artifact maps to a unique path (example: avoid fixed names for all schemas)
+- ensure each artifact maps to a unique path
+- for multi-schema syncs, include `{schema}` or `{schema_kebab}` in `model` and `schema` targets
 
 ### Scylla config crashes
 

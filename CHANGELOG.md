@@ -4,7 +4,7 @@
 
 ### Notes
 
-- _No unreleased changes yet._
+- Added schema-safe generator defaults and normalized multi-schema selection for PostgreSQL generator runs.
 
 ## [1.6.2](https://github.com/xylex-group/athena-js/compare/v1.6.1...v1.6.2) (2026-05-17)
 

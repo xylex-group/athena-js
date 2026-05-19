@@ -8,10 +8,12 @@ import type {
   GeneratorNamingConfig,
   GeneratorOutputConfig,
   GeneratorOutputTargets,
+  GeneratorProviderConfig,
   LoadGeneratorConfigOptions,
   LoadedGeneratorConfig,
   NormalizedAthenaGeneratorConfig,
 } from './types.ts'
+import { normalizeSchemaSelection } from './schema-selection.ts'
 
 const DEFAULT_CONFIG_CANDIDATES = [
   'athena.config.ts',
@@ -23,8 +25,8 @@ const DEFAULT_CONFIG_CANDIDATES = [
 ]
 
 const DEFAULT_TARGETS: GeneratorOutputTargets = {
-  model: 'athena/models/{model_kebab}.ts',
-  schema: 'athena/schema.ts',
+  model: 'athena/models/{schema_kebab}/{model_kebab}.ts',
+  schema: 'athena/schemas/{schema_kebab}.ts',
   database: 'athena/relations.ts',
   registry: 'athena/config.ts',
 }
@@ -59,6 +61,17 @@ function normalizeOutputConfig(output: GeneratorOutputConfig): GeneratorOutputCo
   }
 }
 
+function normalizeProviderConfig(provider: GeneratorProviderConfig): GeneratorProviderConfig {
+  if (provider.kind === 'postgres') {
+    return {
+      ...provider,
+      schemas: normalizeSchemaSelection(provider.schemas),
+    }
+  }
+
+  return provider
+}
+
 function isAthenaGeneratorConfig(value: unknown): value is AthenaGeneratorConfig {
   if (!value || typeof value !== 'object') {
     return false
@@ -70,7 +83,7 @@ function isAthenaGeneratorConfig(value: unknown): value is AthenaGeneratorConfig
 
 export function normalizeGeneratorConfig(input: AthenaGeneratorConfig): NormalizedAthenaGeneratorConfig {
   return {
-    provider: input.provider,
+    provider: normalizeProviderConfig(input.provider),
     output: normalizeOutputConfig(input.output),
     naming: {
       ...DEFAULT_NAMING,

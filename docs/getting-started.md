@@ -269,12 +269,12 @@ const config = defineGeneratorConfig({
     mode: "direct",
     connectionString: process.env.DATABASE_URL!,
     database: "app_db",
-    schemas: ["public"],
+    schemas: ["public", "athena"],
   },
   output: {
     targets: {
-      model: "athena/models/{model_kebab}.ts",
-      schema: "athena/schema.ts",
+      model: "athena/models/{schema_kebab}/{model_kebab}.ts",
+      schema: "athena/schemas/{schema_kebab}.ts",
       database: "athena/relations.ts",
       registry: "athena/config.ts",
     },
@@ -293,7 +293,7 @@ provider: {
   gatewayUrl: process.env.ATHENA_URL!,
   apiKey: process.env.ATHENA_API_KEY!,
   database: "app_db",
-  schemas: ["public"],
+  schemas: ["public", "athena"],
 }
 ```
 

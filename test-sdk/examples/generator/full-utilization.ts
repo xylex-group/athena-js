@@ -52,7 +52,7 @@ export function createDirectGeneratorConfig(connectionString: string): AthenaGen
       mode: 'direct',
       connectionString,
       database: 'app_db',
-      schemas: ['public', 'analytics'],
+      schemas: ['public', 'athena'],
     },
     output: {
       targets: { ...DEFAULT_TARGETS },
@@ -87,7 +87,7 @@ export function createGatewayOnlyGeneratorConfig(gatewayUrl: string, apiKey: str
       apiKey,
       backend: 'postgresql',
       database: 'app_db',
-      schemas: ['public', 'analytics'],
+      schemas: ['public', 'athena'],
     },
     output: {
       targets: { ...DEFAULT_TARGETS },
@@ -225,11 +225,11 @@ export function createFullFeatureSnapshot(): IntrospectionSnapshot {
           },
         },
       },
-      analytics: {
-        name: 'analytics',
+      athena: {
+        name: 'athena',
         tables: {
           users: {
-            schema: 'analytics',
+            schema: 'athena',
             name: 'users',
             primaryKey: ['id'],
             columns: {
@@ -326,7 +326,7 @@ export async function runDirectProviderInspect(
       scyllaProviderContracts: true,
     },
   )
-  return provider.inspect({ schemas: ['public'] })
+  return provider.inspect()
 }
 
 export async function runGatewayProviderInspect(
@@ -340,7 +340,7 @@ export async function runGatewayProviderInspect(
       scyllaProviderContracts: true,
     },
   )
-  return provider.inspect({ schemas: ['public'] })
+  return provider.inspect()
 }
 
 export async function ensureWorkspace(workspace: ExampleWorkspace): Promise<void> {

@@ -1,0 +1,58 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam rectangle {
+  FontColor #111111
+  BorderColor #111111
+}
+
+title Athena JS Generator After Multi-Schema Sync
+
+rectangle "athena.config.ts" as Config #F7F7F7 {
+  rectangle "schemas: array or\ncomma-separated string" as Schemas #EAF7FF
+  rectangle "schema-safe defaults\nathena/models/{schema}/{model}.ts\nathena/schemas/{schema}.ts" as Targets #EFFFF0
+}
+
+rectangle "Schema Selection" as Selection #F7F7F7 {
+  rectangle "normalizeSchemaSelection()\ntrim + dedupe + fallback public" as Normalize #EAF7FF
+  rectangle "resolveProviderSchemas()\none effective list" as Resolve #EAF7FF
+}
+
+rectangle "runSchemaGenerator" as Pipeline #F7F7F7 {
+  rectangle "passes normalized schemas\nto any provider" as Pass #EFFFF0
+}
+
+rectangle "Direct Postgres Provider" as Direct #F7F7F7 {
+  rectangle "stores config schemas\ninspect() uses them by default" as DirectInspect #EFFFF0
+}
+
+rectangle "Gateway Provider" as Gateway #F7F7F7 {
+  rectangle "stores config schemas\ninlines escaped schema array" as GatewayInspect #EFFFF0
+}
+
+rectangle "Renderer" as Renderer #F7F7F7 {
+  rectangle "public.users and athena.users\nwrite separate files" as Separate #EFFFF0
+  rectangle "collision error recommends\n{schema} or {schema_kebab}" as Error #EAF7FF
+}
+
+Config --> Selection
+Schemas --> Normalize
+Normalize --> Resolve
+Resolve --> Pass
+Pass --> DirectInspect
+Pass --> GatewayInspect
+Targets --> Separate
+DirectInspect --> Renderer
+GatewayInspect --> Renderer
+Renderer --> Separate
+Renderer --> Error
+
+note bottom of Separate
+The default generator layout is now safe
+for public, athena, and additional
+application-owned schemas in one sync.
+end note
+@enduml

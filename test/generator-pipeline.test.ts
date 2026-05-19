@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { test } from 'node:test'
-import type { SchemaIntrospectionProvider } from '../src/schema/index.ts'
+import type { IntrospectionInspectOptions, SchemaIntrospectionProvider } from '../src/schema/index.ts'
 import { runSchemaGenerator } from '../src/generator/index.ts'
 
 function createSnapshotProvider(): SchemaIntrospectionProvider {
@@ -175,6 +175,55 @@ test('runSchemaGenerator loads athena.config.ts and writes generated artifacts',
     const content = readFileSync(modelPath, 'utf8')
     assert.equal(content.includes('export interface PublicUsersRow'), true)
     assert.equal(content.includes('email: string'), true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('runSchemaGenerator passes normalized multi-schema selection to custom providers', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-schema-selection-'))
+  const inspectedOptions: IntrospectionInspectOptions[] = []
+  const provider = createSnapshotProvider()
+  const recordingProvider: SchemaIntrospectionProvider = {
+    backend: provider.backend,
+    inspect(options) {
+      inspectedOptions.push(options ?? {})
+      return provider.inspect(options)
+    },
+  }
+
+  try {
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/phase_two',
+          database: 'phase_two',
+          schemas: ' public, athena, public ',
+        },
+        output: {
+          targets: {
+            model: 'src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.model.ts',
+            schema: 'src/generated/{database_kebab}/{schema_kebab}/index.ts',
+            database: 'src/generated/{database_kebab}/index.ts',
+            registry: 'src/generated/index.ts',
+          },
+        },
+      }
+      `,
+      'utf8',
+    )
+
+    await runSchemaGenerator({
+      cwd: root,
+      dryRun: true,
+      provider: recordingProvider,
+    })
+
+    assert.deepEqual(inspectedOptions[0]?.schemas, ['public', 'athena'])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

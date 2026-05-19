@@ -78,6 +78,48 @@ const snapshot: IntrospectionSnapshot = {
   },
 }
 
+const multiSchemaSnapshot: IntrospectionSnapshot = {
+  ...snapshot,
+  schemas: {
+    public: snapshot.schemas.public,
+    athena: {
+      name: 'athena',
+      tables: {
+        users: {
+          schema: 'athena',
+          name: 'users',
+          primaryKey: ['id'],
+          columns: {
+            id: {
+              name: 'id',
+              dataType: 'uuid',
+              udtName: 'uuid',
+              typeKind: 'scalar',
+              isNullable: false,
+              isPrimaryKey: true,
+              hasDefault: false,
+              isGenerated: false,
+              arrayDimensions: 0,
+            },
+            event_name: {
+              name: 'event_name',
+              dataType: 'text',
+              udtName: 'text',
+              typeKind: 'scalar',
+              isNullable: false,
+              isPrimaryKey: false,
+              hasDefault: false,
+              isGenerated: false,
+              arrayDimensions: 0,
+            },
+          },
+          relations: {},
+        },
+      },
+    },
+  },
+}
+
 test('generateArtifactsFromSnapshot renders model/schema/database/registry outputs with placeholder paths', () => {
   const config = defineGeneratorConfig({
     provider: {
@@ -150,4 +192,52 @@ test('generateArtifactsFromSnapshot can disable registry emission with feature f
 
   const artifacts = generateArtifactsFromSnapshot(snapshot, config)
   assert.equal(artifacts.files.some(file => file.kind === 'registry'), false)
+})
+
+test('generateArtifactsFromSnapshot default targets are safe for multiple schemas with shared table names', () => {
+  const config = defineGeneratorConfig({
+    provider: {
+      kind: 'postgres',
+      mode: 'direct',
+      connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+      database: 'app_db',
+      schemas: ['public', 'athena'],
+    },
+    output: {},
+  })
+
+  const artifacts = generateArtifactsFromSnapshot(multiSchemaSnapshot, config)
+  const paths = artifacts.files.map(file => file.path)
+
+  assert.equal(paths.includes('athena/models/public/users.ts'), true)
+  assert.equal(paths.includes('athena/models/athena/users.ts'), true)
+  assert.equal(paths.includes('athena/schemas/public.ts'), true)
+  assert.equal(paths.includes('athena/schemas/athena.ts'), true)
+  assert.equal(paths.includes('athena/relations.ts'), true)
+  assert.equal(paths.includes('athena/config.ts'), true)
+})
+
+test('generateArtifactsFromSnapshot explains schema-safe paths when multi-schema configs collide', () => {
+  const config = defineGeneratorConfig({
+    provider: {
+      kind: 'postgres',
+      mode: 'direct',
+      connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+      database: 'app_db',
+      schemas: ['public', 'athena'],
+    },
+    output: {
+      targets: {
+        model: 'athena/models/{model_kebab}.ts',
+        schema: 'athena/schema.ts',
+        database: 'athena/relations.ts',
+        registry: 'athena/config.ts',
+      },
+    },
+  })
+
+  assert.throws(
+    () => generateArtifactsFromSnapshot(multiSchemaSnapshot, config),
+    /include a schema placeholder/,
+  )
 })

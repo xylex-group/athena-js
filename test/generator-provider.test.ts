@@ -219,6 +219,96 @@ test('resolveGeneratorProvider supports direct postgres provider from pg_url con
   }
 })
 
+test('resolveGeneratorProvider direct postgres mode uses config schemas when inspect options are omitted', async () => {
+  const originalQuery = Pool.prototype.query
+  const originalEnd = Pool.prototype.end
+  const schemaParams: unknown[] = []
+
+  ;(Pool.prototype.query as unknown as (...args: unknown[]) => Promise<{ rows: QueryResultRow[] }>) =
+    async (sqlTextValue: unknown, values?: unknown) => {
+      const sqlText = String(sqlTextValue)
+      if (Array.isArray(values)) {
+        schemaParams.push(values[0])
+      }
+
+      if (sqlText.includes('FROM pg_attribute')) {
+        return {
+          rows: [
+            {
+              schema_name: 'public',
+              table_name: 'users',
+              column_name: 'id',
+              data_type: 'uuid',
+              udt_name: 'uuid',
+              type_kind_code: 'b',
+              type_oid: 1,
+              is_nullable: false,
+              has_default: false,
+              is_generated: false,
+              array_dimensions: 0,
+            },
+            {
+              schema_name: 'athena',
+              table_name: 'audit_log',
+              column_name: 'id',
+              data_type: 'uuid',
+              udt_name: 'uuid',
+              type_kind_code: 'b',
+              type_oid: 1,
+              is_nullable: false,
+              has_default: false,
+              is_generated: false,
+              array_dimensions: 0,
+            },
+          ],
+        }
+      }
+
+      if (sqlText.includes('FROM pg_type t') && sqlText.includes('JOIN pg_enum')) {
+        return { rows: [] }
+      }
+
+      if (sqlText.includes("WHERE con.contype = 'p'")) {
+        return {
+          rows: [
+            { schema_name: 'public', table_name: 'users', columns: ['id'] },
+            { schema_name: 'athena', table_name: 'audit_log', columns: ['id'] },
+          ],
+        }
+      }
+
+      if (sqlText.includes("WHERE con.contype = 'f'")) {
+        return { rows: [] }
+      }
+
+      throw new Error(`Unexpected SQL in direct schema-selection test: ${sqlText.slice(0, 80)}...`)
+    }
+  ;(Pool.prototype.end as unknown as () => Promise<void>) = async () => undefined
+
+  try {
+    const provider = resolveGeneratorProvider(
+      {
+        kind: 'postgres',
+        mode: 'direct',
+        connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+        database: 'app_db',
+        schemas: [' public ', 'athena', 'public'],
+      },
+      {
+        postgresGatewayIntrospection: false,
+        scyllaProviderContracts: true,
+      },
+    )
+
+    const snapshot = await provider.inspect()
+    assert.deepEqual(schemaParams.filter(Array.isArray)[0], ['public', 'athena'])
+    assert.deepEqual(snapshot.schemas.athena.tables.audit_log.primaryKey, ['id'])
+  } finally {
+    Pool.prototype.query = originalQuery
+    Pool.prototype.end = originalEnd
+  }
+})
+
 test('resolveGeneratorProvider supports gateway-only postgres introspection over /gateway/query', async () => {
   const { calls, restore } = createGatewayFetchMock()
 
@@ -247,6 +337,32 @@ test('resolveGeneratorProvider supports gateway-only postgres introspection over
     assert.equal(calls.every(call => call.method === 'POST'), true)
     assert.equal(calls.some(call => call.body.query.includes('pg_attribute')), true)
     assert.equal(calls.some(call => call.body.query.includes("ARRAY['public']::text[]")), true)
+  } finally {
+    restore()
+  }
+})
+
+test('resolveGeneratorProvider gateway mode normalizes config schemas when inspect options are omitted', async () => {
+  const { calls, restore } = createGatewayFetchMock()
+
+  try {
+    const provider = resolveGeneratorProvider(
+      {
+        kind: 'postgres',
+        mode: 'gateway',
+        gatewayUrl: 'https://athena-db.com',
+        apiKey: 'secret',
+        database: 'app_db',
+        schemas: ' public, athena, public ',
+      },
+      {
+        postgresGatewayIntrospection: true,
+        scyllaProviderContracts: true,
+      },
+    )
+
+    await provider.inspect()
+    assert.equal(calls.some(call => call.body.query.includes("ARRAY['public', 'athena']::text[]")), true)
   } finally {
     restore()
   }

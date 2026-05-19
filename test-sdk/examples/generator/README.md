@@ -8,6 +8,7 @@ This folder demonstrates full usage of Athena JS typed schema generator features
 - Gateway-only PostgreSQL mode (`provider.mode = "gateway"`, Athena `/gateway/query`)
 - Config discovery and loading (`athena.config.ts`)
 - Config normalization and defaulting
+- Multi-schema sync for app data plus Athena-owned schemas
 - Dry-run generation vs file-writing generation
 - Placeholder and naming strategy behavior
 - Feature flags (`emitRelations`, `emitRegistry`)

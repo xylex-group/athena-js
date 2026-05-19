@@ -39,9 +39,12 @@ export {
   findGeneratorConfigPath,
   loadGeneratorConfig,
   normalizeGeneratorConfig,
+  DEFAULT_POSTGRES_SCHEMAS,
   generateArtifactsFromSnapshot,
+  normalizeSchemaSelection,
   resolvePostgresColumnType,
   resolveGeneratorProvider,
+  resolveProviderSchemas,
   runSchemaGenerator,
 } from './generator/index.ts'
 export type {
@@ -100,6 +103,7 @@ export type {
   GeneratorOutputConfig,
   GeneratorOutputTargets,
   GeneratorProviderConfig,
+  GeneratorSchemaSelection,
   LoadGeneratorConfigOptions,
   LoadedGeneratorConfig,
   NamingStyle,

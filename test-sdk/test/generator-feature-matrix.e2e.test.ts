@@ -202,7 +202,7 @@ test('generator matrix: full snapshot includes multi-schema and reserved identif
   const snapshot = createFullFeatureSnapshot()
   assert.equal(snapshot.schemas.public.tables.users.columns.table.name, 'table')
   assert.equal(snapshot.schemas.public.tables.profiles.columns.mood.typeKind, 'enum')
-  assert.equal(Boolean(snapshot.schemas.analytics.tables.users), true)
+  assert.equal(Boolean(snapshot.schemas.athena.tables.users), true)
 })
 
 test('generator matrix: writeGeneratorConfigFile writes athena.config.ts at workspace root', async () => {
@@ -385,7 +385,7 @@ test('generator matrix: gateway provider queries include schema array literal fi
   const gatewayMock = createGatewayFetchMock()
   try {
     await runGatewayProviderInspect('https://athena-db.com', 'secret')
-    assert.equal(gatewayMock.calls.some(call => call.query.includes("ARRAY['public']::text[]")), true)
+    assert.equal(gatewayMock.calls.some(call => call.query.includes("ARRAY['public', 'athena']::text[]")), true)
   } finally {
     gatewayMock.restore()
   }

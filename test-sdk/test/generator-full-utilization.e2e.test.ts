@@ -175,9 +175,9 @@ test('generator full-utilization example: dry-run and write mode cover placehold
     assert.equal(modelFile.includes("table: string"), true)
     assert.equal(modelFile.includes('relations:'), true)
 
-    const analyticsModelPath = join(workspace.cwd, 'src', 'generated', 'app-db', 'analytics', 'users.model.ts')
-    const analyticsModel = readFileSync(analyticsModelPath, 'utf8')
-    assert.equal(analyticsModel.includes('metrics?: Record<string, unknown> | null'), true)
+    const athenaModelPath = join(workspace.cwd, 'src', 'generated', 'app-db', 'athena', 'users.model.ts')
+    const athenaModel = readFileSync(athenaModelPath, 'utf8')
+    assert.equal(athenaModel.includes('metrics?: Record<string, unknown> | null'), true)
   } finally {
     rmSync(workspace.cwd, { recursive: true, force: true })
   }
@@ -262,7 +262,7 @@ test('generator full-utilization example: gateway-only provider path runs throug
     assert.deepEqual(snapshot.schemas.public.tables.users.primaryKey, ['id'])
     assert.equal(calls.length, 4)
     assert.equal(calls.every(call => call.url.endsWith('/gateway/query')), true)
-    assert.equal(calls.some(call => call.query.includes("ARRAY['public']::text[]")), true)
+    assert.equal(calls.some(call => call.query.includes("ARRAY['public', 'athena']::text[]")), true)
   } finally {
     restore()
   }

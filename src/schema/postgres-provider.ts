@@ -10,6 +10,7 @@ import {
   type ForeignKeyQueryRow,
   type PrimaryKeyQueryRow,
   POSTGRES_CATALOG_SQL,
+  normalizePostgresCatalogSchemas,
   PostgresCatalogSnapshotAssembler,
 } from './postgres-introspection-core.ts'
 
@@ -19,6 +20,7 @@ import {
 export interface PostgresIntrospectionProviderOptions {
   connectionString: string
   database?: string
+  schemas?: readonly string[]
 }
 
 class PgCatalogClient {
@@ -56,14 +58,18 @@ class PostgresIntrospectionProvider implements SchemaIntrospectionProvider {
 
   private readonly connectionString: string
   private readonly database: string
+  private readonly schemas: string[]
 
   constructor(options: PostgresIntrospectionProviderOptions) {
     this.connectionString = options.connectionString
     this.database = options.database ?? 'postgres'
+    this.schemas = normalizePostgresCatalogSchemas(options.schemas)
   }
 
   async inspect(options?: IntrospectionInspectOptions): Promise<IntrospectionSnapshot> {
-    const schemas = options?.schemas && options.schemas.length > 0 ? options.schemas : ['public']
+    const schemas = options?.schemas && options.schemas.length > 0
+      ? normalizePostgresCatalogSchemas(options.schemas)
+      : this.schemas
     const pool = new Pool({
       connectionString: this.connectionString,
     })

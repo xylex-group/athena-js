@@ -20,6 +20,7 @@ import type {
   PostgresGatewayProviderConfig,
   ScyllaDirectProviderConfig,
 } from './types.ts'
+import { normalizeSchemaSelection } from './schema-selection.ts'
 
 class AthenaGatewayCatalogClient {
   constructor(private readonly client: AthenaSdkClient) {}
@@ -60,6 +61,7 @@ class AthenaGatewayPostgresIntrospectionProvider implements SchemaIntrospectionP
   readonly backend = 'postgresql' as const
 
   private readonly client: AthenaSdkClient
+  private readonly schemas: string[]
 
   constructor(private readonly config: PostgresGatewayProviderConfig) {
     this.client = createClient(this.config.gatewayUrl, this.config.apiKey, {
@@ -67,15 +69,14 @@ class AthenaGatewayPostgresIntrospectionProvider implements SchemaIntrospectionP
         type: this.config.backend ?? 'postgresql',
       },
     })
+    this.schemas = normalizeSchemaSelection(this.config.schemas)
   }
 
   async inspect(options?: IntrospectionInspectOptions): Promise<IntrospectionSnapshot> {
     const schemas =
       options?.schemas && options.schemas.length > 0
-        ? options.schemas
-        : this.config.schemas && this.config.schemas.length > 0
-          ? this.config.schemas
-          : ['public']
+        ? normalizeSchemaSelection(options.schemas)
+        : this.schemas
 
     const catalogClient = new AthenaGatewayCatalogClient(this.client)
     const queries = buildGatewayCatalogQueries(schemas)
@@ -118,6 +119,7 @@ function createPostgresProvider(config: PostgresDirectProviderConfig): SchemaInt
   return createPostgresIntrospectionProvider({
     connectionString: config.connectionString,
     database: config.database,
+    schemas: normalizeSchemaSelection(config.schemas),
   })
 }
 

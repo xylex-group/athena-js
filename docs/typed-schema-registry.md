@@ -174,8 +174,8 @@ That means `generated registry artifacts` can be imported as-is with `createType
 
 By default, generator target templates are:
 
-- `athena/models/{model_kebab}.ts`
-- `athena/schema.ts`
+- `athena/models/{schema_kebab}/{model_kebab}.ts`
+- `athena/schemas/{schema_kebab}.ts`
 - `athena/relations.ts`
 - `athena/config.ts`
 

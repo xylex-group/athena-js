@@ -3,20 +3,13 @@ import { dirname, resolve } from 'path'
 import { generateArtifactsFromSnapshot } from './renderer.ts'
 import { loadGeneratorConfig } from './config.ts'
 import { resolveGeneratorProvider } from './providers.ts'
+import { resolveProviderSchemas } from './schema-selection.ts'
 import type {
   GeneratedArtifact,
-  GeneratorProviderConfig,
   LoadGeneratorConfigOptions,
   RunGeneratorOptions,
   RunGeneratorResult,
 } from './types.ts'
-
-function extractProviderSchemas(providerConfig: GeneratorProviderConfig): string[] | undefined {
-  if (!('schemas' in providerConfig) || !providerConfig.schemas || providerConfig.schemas.length === 0) {
-    return undefined
-  }
-  return providerConfig.schemas
-}
 
 async function writeArtifacts(
   files: GeneratedArtifact[],
@@ -48,7 +41,7 @@ export async function runSchemaGenerator(options: RunGeneratorOptions = {}): Pro
   const provider = options.provider ?? resolveGeneratorProvider(config.provider, config.experimental)
 
   const snapshot = await provider.inspect({
-    schemas: extractProviderSchemas(config.provider),
+    schemas: resolveProviderSchemas(config.provider),
   })
 
   const generated = generateArtifactsFromSnapshot(snapshot, config)

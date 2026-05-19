@@ -1,0 +1,50 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam rectangle {
+  FontColor #111111
+  BorderColor #111111
+}
+
+title Athena JS Generator Before Multi-Schema Sync
+
+rectangle "athena.config.ts" as Config #F7F7F7 {
+  rectangle "provider.schemas\noptional array" as Schemas #FFFFFF
+  rectangle "default targets\nathena/models/{model}.ts\nathena/schema.ts" as Targets #FFF0F0
+}
+
+rectangle "runSchemaGenerator" as Pipeline #F7F7F7 {
+  rectangle "extractProviderSchemas()\npasses array only" as Extract #FFFFFF
+}
+
+rectangle "Direct Postgres Provider" as Direct #F7F7F7 {
+  rectangle "inspect(options)\ndefaults to public" as DirectInspect #FFF0F0
+}
+
+rectangle "Gateway Provider" as Gateway #F7F7F7 {
+  rectangle "inspect(options)\ncan use config schemas" as GatewayInspect #FFFFFF
+}
+
+rectangle "Renderer" as Renderer #F7F7F7 {
+  rectangle "one schema artifact path\nfor every schema" as Collision #FFF0F0
+  rectangle "path collision error\nwithout remediation detail" as Error #FFF0F0
+}
+
+Config --> Pipeline
+Schemas --> Extract
+Extract --> DirectInspect
+Extract --> GatewayInspect
+DirectInspect --> Renderer
+GatewayInspect --> Renderer
+Targets --> Collision
+Collision --> Error
+
+note bottom of Error
+Multiple schemas such as public + athena
+could collide unless every project manually
+overrode model and schema targets.
+end note
+@enduml

@@ -7,6 +7,11 @@ export {
 export { generateArtifactsFromSnapshot } from './renderer.ts'
 export { resolvePostgresColumnType } from './postgres-type-mapping.ts'
 export { resolveGeneratorProvider } from './providers.ts'
+export {
+  DEFAULT_POSTGRES_SCHEMAS,
+  normalizeSchemaSelection,
+  resolveProviderSchemas,
+} from './schema-selection.ts'
 export { runSchemaGenerator } from './pipeline.ts'
 export type {
   AthenaGeneratorConfig,
@@ -19,6 +24,7 @@ export type {
   GeneratorOutputConfig,
   GeneratorOutputTargets,
   GeneratorProviderConfig,
+  GeneratorSchemaSelection,
   LoadGeneratorConfigOptions,
   LoadedGeneratorConfig,
   NamingStyle,

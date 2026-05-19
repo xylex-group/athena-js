@@ -62,6 +62,12 @@ export interface GeneratorOutputConfig {
 }
 
 /**
+ * Schemas selected for PostgreSQL introspection. Strings may be comma-separated
+ * to support env-driven configs such as `process.env.GENERATOR_SCHEMAS`.
+ */
+export type GeneratorSchemaSelection = string | readonly string[]
+
+/**
  * Direct PostgreSQL introspection mode (implemented).
  */
 export interface PostgresDirectProviderConfig {
@@ -69,7 +75,7 @@ export interface PostgresDirectProviderConfig {
   mode: 'direct'
   connectionString: string
   database?: string
-  schemas?: string[]
+  schemas?: GeneratorSchemaSelection
 }
 
 /**
@@ -81,7 +87,7 @@ export interface PostgresGatewayProviderConfig {
   gatewayUrl: string
   apiKey: string
   database: string
-  schemas?: string[]
+  schemas?: GeneratorSchemaSelection
   backend?: BackendType
 }
 

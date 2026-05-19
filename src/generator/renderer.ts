@@ -218,12 +218,19 @@ export const ${registryConstName} = defineRegistry({
 }
 
 function assertNoDuplicatePaths(files: GeneratedArtifact[]) {
-  const seen = new Set<string>()
+  const seen = new Map<string, GeneratedArtifact>()
   for (const file of files) {
-    if (seen.has(file.path)) {
-      throw new Error(`Generator output collision detected for path: ${file.path}`)
+    const existing = seen.get(file.path)
+    if (existing) {
+      throw new Error(
+        [
+          `Generator output collision detected for path: ${file.path}`,
+          `Collision: ${existing.kind} and ${file.kind}.`,
+          'When syncing multiple schemas, include a schema placeholder such as {schema} or {schema_kebab} in model/schema output targets.',
+        ].join(' '),
+      )
     }
-    seen.add(file.path)
+    seen.set(file.path, file)
   }
 }
 

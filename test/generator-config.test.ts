@@ -7,6 +7,7 @@ import {
   findGeneratorConfigPath,
   loadGeneratorConfig,
   defineGeneratorConfig,
+  normalizeSchemaSelection,
 } from '../src/generator/index.ts'
 
 test('findGeneratorConfigPath locates athena.config.ts in project root', () => {
@@ -76,10 +77,46 @@ test('loadGeneratorConfig applies athena folder defaults when output targets are
     )
 
     const loaded = await loadGeneratorConfig({ cwd: root })
-    assert.equal(loaded.config.output.targets.model, 'athena/models/{model_kebab}.ts')
-    assert.equal(loaded.config.output.targets.schema, 'athena/schema.ts')
+    assert.equal(loaded.config.output.targets.model, 'athena/models/{schema_kebab}/{model_kebab}.ts')
+    assert.equal(loaded.config.output.targets.schema, 'athena/schemas/{schema_kebab}.ts')
     assert.equal(loaded.config.output.targets.database, 'athena/relations.ts')
     assert.equal(loaded.config.output.targets.registry, 'athena/config.ts')
+    assert.deepEqual(loaded.config.provider.kind === 'postgres' ? loaded.config.provider.schemas : [], ['public'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('normalizeSchemaSelection trims comma-separated values and removes duplicates', () => {
+  assert.deepEqual(normalizeSchemaSelection(' public, athena, public, '), ['public', 'athena'])
+  assert.deepEqual(normalizeSchemaSelection([]), ['public'])
+})
+
+test('loadGeneratorConfig normalizes env-style multiple schemas', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-multi-schema-'))
+  try {
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+          database: 'app_db',
+          schemas: ' public, athena, public ',
+        },
+        output: {},
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.deepEqual(loaded.config.provider.kind === 'postgres' ? loaded.config.provider.schemas : [], [
+      'public',
+      'athena',
+    ])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

@@ -237,18 +237,34 @@ function coerceStringArray(value: unknown): string[] {
   return []
 }
 
-export function buildSchemaArrayLiteral(schemas: string[]): string {
-  const normalized = schemas.length > 0 ? schemas : ['public']
+export function normalizePostgresCatalogSchemas(schemas?: readonly string[]): string[] {
+  const normalized: string[] = []
+  const seen = new Set<string>()
+
+  for (const value of schemas ?? []) {
+    const schema = value.trim()
+    if (!schema || seen.has(schema)) {
+      continue
+    }
+    seen.add(schema)
+    normalized.push(schema)
+  }
+
+  return normalized.length > 0 ? normalized : ['public']
+}
+
+export function buildSchemaArrayLiteral(schemas: readonly string[]): string {
+  const normalized = normalizePostgresCatalogSchemas(schemas)
   const literals = normalized.map(schema => `'${escapeSqlLiteral(schema)}'`).join(', ')
   return `ARRAY[${literals}]`
 }
 
-function inlineSchemaLiteral(sql: string, schemas: string[]): string {
+function inlineSchemaLiteral(sql: string, schemas: readonly string[]): string {
   const schemaArray = `${buildSchemaArrayLiteral(schemas)}::text[]`
   return sql.replace(/\$1::text\[\]/g, schemaArray)
 }
 
-export function buildGatewayCatalogQueries(schemas: string[]): {
+export function buildGatewayCatalogQueries(schemas: readonly string[]): {
   columns: string
   enums: string
   primaryKeys: string

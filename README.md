@@ -101,6 +101,7 @@ Generator supports:
 
 - PostgreSQL direct introspection (`provider.mode = "direct"`, `provider.connectionString` from your `PG_URL`/`DATABASE_URL`)
 - PostgreSQL gateway-only introspection (`provider.mode = "gateway"` via Athena `POST /gateway/query`)
+- Multiple schema syncs such as `public` plus `athena`, with schema-safe default output paths
 - Placeholder-driven output paths
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 

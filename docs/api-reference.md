@@ -658,8 +658,8 @@ Use these after large API-level updates or generated contract changes.
 
 - `provider` has no runtime default and must be configured.
 - output targets:
-  - `model`: `athena/models/{model_kebab}.ts`
-  - `schema`: `athena/schema.ts`
+  - `model`: `athena/models/{schema_kebab}/{model_kebab}.ts`
+  - `schema`: `athena/schemas/{schema_kebab}.ts`
   - `database`: `athena/relations.ts`
   - `registry`: `athena/config.ts`
 - naming:
