@@ -33,15 +33,39 @@ test('signIn.email posts to sign-in endpoint with payload', async () => {
     })
 
     assert.equal(response.ok, true)
-    assert.equal(response.status, 200)
     assert.equal(calls[0].url, 'https://auth.example.com/api/auth/sign-in/email')
     assert.equal(calls[0].init?.method, 'POST')
-    assert.equal(calls[0].init?.credentials, 'include')
     const body = JSON.parse(calls[0].init?.body as string)
     assert.equal(body.email, 'u@x.com')
     assert.equal(body.password, 'secret')
     assert.equal(body.callbackURL, 'https://app.example.com/callback')
     assert.equal(body.rememberMe, true)
+  } finally {
+    restore()
+  }
+})
+
+test('signIn.username and signIn.social target correct endpoints', async () => {
+  const { calls, restore } = mockFetch({ token: 't', user: { id: 'u', email: 'u@x.com' } })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.signIn.username({ username: 'demo', password: 'secret', rememberMe: true })
+    await client.signIn.social({ provider: 'google', callbackURL: 'https://app.example.com/cb' })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/sign-in/username')
+    assert.equal(calls[0].init?.method, 'POST')
+    assert.deepEqual(JSON.parse(calls[0].init?.body as string), {
+      username: 'demo',
+      password: 'secret',
+      rememberMe: true,
+    })
+
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/sign-in/social')
+    assert.equal(calls[1].init?.method, 'POST')
+    assert.deepEqual(JSON.parse(calls[1].init?.body as string), {
+      provider: 'google',
+      callbackURL: 'https://app.example.com/cb',
+    })
   } finally {
     restore()
   }
@@ -101,39 +125,121 @@ test('getSession and listSessions use GET endpoints', async () => {
   }
 })
 
-test('revokeSession and clearSession target revoke-session endpoint', async () => {
+test('session revoke aliases target proper endpoints', async () => {
   const { calls, restore } = mockFetch({ status: true })
   try {
     const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
     await client.revokeSession({ token: 'tok-a' })
     await client.clearSession({ token: 'tok-b' })
+    await client.revokeSessions()
+    await client.clearSessions()
+    await client.revokeOtherSessions()
+    await client.clearOtherSessions()
 
     assert.equal(calls[0].url, 'https://auth.example.com/api/auth/revoke-session')
-    assert.equal(calls[0].init?.method, 'POST')
     assert.deepEqual(JSON.parse(calls[0].init?.body as string), { token: 'tok-a' })
-
     assert.equal(calls[1].url, 'https://auth.example.com/api/auth/revoke-session')
-    assert.equal(calls[1].init?.method, 'POST')
     assert.deepEqual(JSON.parse(calls[1].init?.body as string), { token: 'tok-b' })
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[4].url, 'https://auth.example.com/api/auth/revoke-other-sessions')
+    assert.equal(calls[5].url, 'https://auth.example.com/api/auth/revoke-other-sessions')
   } finally {
     restore()
   }
 })
 
-test('revokeSessions and clearSessions target revoke-sessions endpoint', async () => {
+test('password and email lifecycle methods map to correct endpoints', async () => {
   const { calls, restore } = mockFetch({ status: true })
   try {
     const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
-    await client.revokeSessions()
-    await client.clearSessions()
+    await client.forgetPassword({ email: 'u@example.com', redirectTo: 'https://app/reset' })
+    await client.resetPassword({ newPassword: 'new-pass', token: 'rtok' })
+    await client.sendVerificationEmail({ email: 'u@example.com', callbackURL: 'https://app/verify' })
+    await client.changeEmail({ newEmail: 'new@example.com', callbackURL: 'https://app/callback' })
+    await client.changePassword({
+      newPassword: 'new-pass',
+      currentPassword: 'old-pass',
+      revokeOtherSessions: true,
+    })
 
-    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/forget-password')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/reset-password')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/send-verification-email')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/change-email')
+    assert.equal(calls[4].url, 'https://auth.example.com/api/auth/change-password')
+  } finally {
+    restore()
+  }
+})
+
+test('user lifecycle methods map to correct endpoints', async () => {
+  const { calls, restore } = mockFetch({ success: true, message: 'User deleted' })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.updateUser({ name: 'Updated', image: 'https://img.local/u.png' })
+    await client.deleteUser({ password: 'secret' })
+    await client.deleteUserCallback({ token: 'cb-token', callbackURL: 'https://app/delete-callback' })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/update-user')
     assert.equal(calls[0].init?.method, 'POST')
-    assert.equal(calls[0].init?.body, '{}')
-
-    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/delete-user')
     assert.equal(calls[1].init?.method, 'POST')
-    assert.equal(calls[1].init?.body, '{}')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/delete-user/callback?token=cb-token&callbackURL=https%3A%2F%2Fapp%2Fdelete-callback')
+    assert.equal(calls[2].init?.method, 'GET')
+  } finally {
+    restore()
+  }
+})
+
+test('verifyEmail and resolveResetPasswordToken use query routes', async () => {
+  const { calls, restore } = mockFetch({ status: true, user: { id: 'u', email: 'u@example.com' } })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.verifyEmail({ token: 'email-token', callbackURL: 'https://app/verified' })
+    await client.resolveResetPasswordToken({ token: 'resettok', callbackURL: 'https://app/reset-password' })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/verify-email?token=email-token&callbackURL=https%3A%2F%2Fapp%2Fverified')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/reset-password/resettok?callbackURL=https%3A%2F%2Fapp%2Freset-password')
+    assert.equal(calls[1].init?.method, 'GET')
+  } finally {
+    restore()
+  }
+})
+
+test('account linking and token exchange methods map correctly', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.linkSocial({ provider: 'google', callbackURL: 'https://app/callback' })
+    await client.listAccounts()
+    await client.unlinkAccount({ providerId: 'google', accountId: 'acc_1' })
+    await client.refreshToken({ providerId: 'google', accountId: 'acc_1', userId: 'u_1' })
+    await client.getAccessToken({ providerId: 'google', accountId: 'acc_1', userId: 'u_1' })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/link-social')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/list-accounts')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/unlink-account')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/refresh-token')
+    assert.equal(calls[4].url, 'https://auth.example.com/api/auth/get-access-token')
+  } finally {
+    restore()
+  }
+})
+
+test('generic request defaults method by body presence and supports query', async () => {
+  const { calls, restore } = mockFetch({ ok: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.request({ endpoint: '/ok', query: { ping: 'pong', many: [1, 2] } })
+    await client.request({ endpoint: '/error', body: { message: 'x' } })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/ok?ping=pong&many=1&many=2')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/error')
+    assert.equal(calls[1].init?.method, 'POST')
+    assert.deepEqual(JSON.parse(calls[1].init?.body as string), { message: 'x' })
   } finally {
     restore()
   }

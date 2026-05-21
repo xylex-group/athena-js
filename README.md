@@ -71,6 +71,19 @@ await auth.revokeSession({ token: "session_token_here" });
 await auth.revokeSessions();
 
 await auth.signOut();
+
+// additional core flows
+await auth.forgetPassword({ email: "demo@example.com", redirectTo: "https://app/reset-password" });
+await auth.resetPassword({ newPassword: "new-secret", token: "reset_token" });
+await auth.verifyEmail({ token: "verify_token", callbackURL: "https://app/verified" });
+await auth.changePassword({ currentPassword: "old-secret", newPassword: "new-secret" });
+await auth.updateUser({ name: "Demo User" });
+
+// escape hatch for any endpoint on your Athena Auth instance
+await auth.request({
+  endpoint: "/ok",
+  query: { ping: "pong" },
+});
 ```
 
 Auth responses follow the same envelope style: `{ ok, status, data, error, errorDetails, raw }`.

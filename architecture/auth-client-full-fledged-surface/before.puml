@@ -1,0 +1,25 @@
+@startuml
+title Athena Auth Client Surface (Before Full-Fledged Expansion)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #FFF9C4
+skinparam noteBorderColor #000000
+
+actor "App / SDK Consumer" as Consumer #BBDEFB
+component "athena-js createAuthClient" as AuthClient #B2DFDB
+component "Core Auth Methods\nsignIn.email\nsignUp.email\nsignOut/getSession\nlist/revoke sessions" as CoreMethods #FFE082
+component "Athena Auth Server\n/api/auth/*" as AuthServer #C8E6C9
+
+Consumer --> AuthClient : use auth SDK
+AuthClient --> CoreMethods : fixed subset only
+CoreMethods --> AuthServer : direct endpoint calls
+
+note right of CoreMethods
+Only a narrow core subset exists.
+Advanced flows still need manual fetch
+or extra wrappers in app code.
+end note
+@enduml

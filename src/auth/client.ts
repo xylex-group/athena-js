@@ -6,16 +6,34 @@ import type {
   AthenaAuthErrorDetails,
   AthenaAuthFetchCompatibleInput,
   AthenaAuthMethod,
+  AthenaAuthQueryValue,
+  AthenaAuthRequestInput,
   AthenaAuthResult,
-  AthenaAuthRevokeSessionRequest,
-  AthenaAuthRevokeSessionResponse,
   AthenaAuthSdkClient,
   AthenaAuthSession,
   AthenaAuthSessionResponse,
   AthenaAuthSignInResponse,
   AthenaAuthSignOutResponse,
+  AthenaAuthSocialRedirectResponse,
+  AthenaAuthStatusResponse,
+  AthenaChangeEmailRequest,
+  AthenaChangePasswordRequest,
+  AthenaDeleteUserCallbackRequest,
+  AthenaDeleteUserRequest,
+  AthenaDeleteUserResponse,
   AthenaEmailSignInRequest,
   AthenaEmailSignUpRequest,
+  AthenaForgetPasswordRequest,
+  AthenaLinkSocialRequest,
+  AthenaOAuthAccountTokenRequest,
+  AthenaOAuthTokenBundle,
+  AthenaResetPasswordRequest,
+  AthenaSendVerificationEmailRequest,
+  AthenaSocialSignInRequest,
+  AthenaUnlinkAccountRequest,
+  AthenaUpdateUserRequest,
+  AthenaVerifyEmailRequest,
+  AthenaUsernameSignInRequest,
 } from './types.ts'
 
 const DEFAULT_AUTH_BASE_URL = 'http://localhost:3001/api/auth'
@@ -180,14 +198,39 @@ function buildHeaders(
   return headers
 }
 
+function appendQueryParam(searchParams: URLSearchParams, key: string, value: AthenaAuthQueryValue) {
+  if (value === undefined || value === null) return
+  if (Array.isArray(value)) {
+    value.forEach(item => {
+      searchParams.append(key, String(item))
+    })
+    return
+  }
+  searchParams.append(key, String(value))
+}
+
+function buildRequestUrl(
+  baseUrl: string,
+  endpoint: AthenaAuthEndpointPath,
+  query?: Record<string, AthenaAuthQueryValue>,
+) {
+  const url = `${baseUrl}${endpoint}`
+  if (!query || Object.keys(query).length === 0) return url
+  const searchParams = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => appendQueryParam(searchParams, key, value))
+  const queryText = searchParams.toString()
+  return queryText ? `${url}?${queryText}` : url
+}
+
 async function callAuthEndpoint<T>(
   config: AthenaAuthClientConfig,
   context: AuthRequestContext,
   body?: unknown,
+  query?: Record<string, AthenaAuthQueryValue>,
   options?: AthenaAuthCallOptions,
 ): Promise<AthenaAuthResult<T>> {
   const baseUrl = normalizeBaseUrl(options?.baseUrl ?? config.baseUrl)
-  const url = `${baseUrl}${context.endpoint}`
+  const url = buildRequestUrl(baseUrl, context.endpoint, query)
   const headers = buildHeaders(config, options)
   const credentials = options?.credentials ?? config.credentials ?? 'include'
   const requestInit: RequestInit = {
@@ -310,7 +353,18 @@ function executePostWithCompatibleInput<TPayload extends AthenaAuthFetchCompatib
 ) {
   const { payload, fetchOptions } = extractFetchOptions(input)
   const mergedOptions = mergeCallOptions(fetchOptions, options)
-  return callAuthEndpoint<TResult>(config, context, payload, mergedOptions)
+  return callAuthEndpoint<TResult>(config, context, payload ?? {}, undefined, mergedOptions)
+}
+
+function executePostWithOptionalInput<TResult>(
+  config: AthenaAuthClientConfig,
+  context: AuthRequestContext,
+  input?: AthenaAuthFetchCompatibleInput,
+  options?: AthenaAuthCallOptions,
+) {
+  const { fetchOptions } = extractFetchOptions(input)
+  const mergedOptions = mergeCallOptions(fetchOptions, options)
+  return callAuthEndpoint<TResult>(config, context, {}, undefined, mergedOptions)
 }
 
 function executeGetWithCompatibleInput<TResult>(
@@ -321,7 +375,7 @@ function executeGetWithCompatibleInput<TResult>(
 ) {
   const { fetchOptions } = extractFetchOptions(input)
   const mergedOptions = mergeCallOptions(fetchOptions, options)
-  return callAuthEndpoint<TResult>(config, context, undefined, mergedOptions)
+  return callAuthEndpoint<TResult>(config, context, undefined, undefined, mergedOptions)
 }
 
 export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAuthSdkClient {
@@ -331,47 +385,123 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     baseUrl: normalizedBaseUrl,
   }
 
-  const signOut = (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => {
-    const { fetchOptions } = extractFetchOptions(input)
-    const mergedOptions = mergeCallOptions(fetchOptions, options)
-    return callAuthEndpoint<AthenaAuthSignOutResponse>(
+  const request = <T = unknown>(
+    input: AthenaAuthRequestInput,
+    options?: AthenaAuthCallOptions,
+  ): Promise<AthenaAuthResult<T>> => {
+    const method = input.method ?? (input.body === undefined ? 'GET' : 'POST')
+    const mergedOptions = mergeCallOptions(input.fetchOptions, options)
+    return callAuthEndpoint<T>(
       resolvedConfig,
-      { endpoint: '/sign-out', method: 'POST' },
-      {},
+      { endpoint: input.endpoint, method },
+      input.body,
+      input.query,
       mergedOptions,
     )
   }
+
+  const signOut = (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) =>
+    executePostWithOptionalInput<AthenaAuthSignOutResponse>(
+      resolvedConfig,
+      { endpoint: '/sign-out', method: 'POST' },
+      input,
+      options,
+    )
 
   const revokeSessions = (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => {
-    const { fetchOptions } = extractFetchOptions(input)
-    const mergedOptions = mergeCallOptions(fetchOptions, options)
-    return callAuthEndpoint<AthenaAuthRevokeSessionResponse>(
+  ) =>
+    executePostWithOptionalInput<AthenaAuthStatusResponse>(
       resolvedConfig,
       { endpoint: '/revoke-sessions', method: 'POST' },
-      {},
-      mergedOptions,
+      input,
+      options,
     )
-  }
 
-  const revokeSession = (
-    input: AthenaAuthRevokeSessionRequest & AthenaAuthFetchCompatibleInput,
+  const revokeOtherSessions = (
+    input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) =>
-    executePostWithCompatibleInput<
-      AthenaAuthRevokeSessionRequest & AthenaAuthFetchCompatibleInput,
-      AthenaAuthRevokeSessionResponse
-    >(
+    executePostWithOptionalInput<AthenaAuthStatusResponse>(
+      resolvedConfig,
+      { endpoint: '/revoke-other-sessions', method: 'POST' },
+      input,
+      options,
+    )
+
+  const revokeSession = (
+    input: { token: string } & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) =>
+    executePostWithCompatibleInput<typeof input, AthenaAuthStatusResponse>(
       resolvedConfig,
       { endpoint: '/revoke-session', method: 'POST' },
       input,
       options,
     )
 
+  const deleteUser = (
+    input?: AthenaDeleteUserRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => {
+    const { payload, fetchOptions } = extractFetchOptions(input)
+    const mergedOptions = mergeCallOptions(fetchOptions, options)
+    return callAuthEndpoint<AthenaDeleteUserResponse>(
+      resolvedConfig,
+      { endpoint: '/delete-user', method: 'POST' },
+      payload ?? {},
+      undefined,
+      mergedOptions,
+    )
+  }
+
+  const deleteUserCallback = (
+    input?: AthenaDeleteUserCallbackRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => {
+    const { payload, fetchOptions } = extractFetchOptions(input)
+    const mergedOptions = mergeCallOptions(fetchOptions, options)
+    const query = (payload ?? {}) as AthenaDeleteUserCallbackRequest
+    return callAuthEndpoint<AthenaDeleteUserResponse>(
+      resolvedConfig,
+      { endpoint: '/delete-user/callback', method: 'GET' },
+      undefined,
+      {
+        token: query.token,
+        callbackURL: query.callbackURL,
+      },
+      mergedOptions,
+    )
+  }
+
+  const resolveResetPasswordToken = (
+    input: { token: string; callbackURL?: string } & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => {
+    const { payload, fetchOptions } = extractFetchOptions(input)
+    const mergedOptions = mergeCallOptions(fetchOptions, options)
+    const query = payload as { token?: string; callbackURL?: string } | undefined
+    const token = query?.token?.trim()
+    if (!token) {
+      throw new Error('resolveResetPasswordToken requires a non-empty token')
+    }
+    const endpoint = `/reset-password/${encodeURIComponent(token)}` as AthenaAuthEndpointPath
+    return callAuthEndpoint<{ token?: string }>(
+      resolvedConfig,
+      { endpoint, method: 'GET' },
+      undefined,
+      query?.callbackURL ? { callbackURL: query.callbackURL } : undefined,
+      mergedOptions,
+    )
+  }
+
   return {
     baseUrl: normalizedBaseUrl,
+    request,
     signIn: {
       email: (
         input: AthenaEmailSignInRequest & AthenaAuthFetchCompatibleInput,
@@ -383,6 +513,32 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         >(
           resolvedConfig,
           { endpoint: '/sign-in/email', method: 'POST' },
+          input,
+          options,
+        ),
+      username: (
+        input: AthenaUsernameSignInRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) =>
+        executePostWithCompatibleInput<
+          AthenaUsernameSignInRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthSignInResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/sign-in/username', method: 'POST' },
+          input,
+          options,
+        ),
+      social: (
+        input: AthenaSocialSignInRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) =>
+        executePostWithCompatibleInput<
+          AthenaSocialSignInRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthSocialRedirectResponse | AthenaAuthSignInResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/sign-in/social', method: 'POST' },
           input,
           options,
         ),
@@ -422,5 +578,174 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     clearSession: revokeSession,
     revokeSessions,
     clearSessions: revokeSessions,
+    revokeOtherSessions,
+    clearOtherSessions: revokeOtherSessions,
+    forgetPassword: (
+      input: AthenaForgetPasswordRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaForgetPasswordRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/forget-password', method: 'POST' },
+        input,
+        options,
+      ),
+    resetPassword: (
+      input: AthenaResetPasswordRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaResetPasswordRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/reset-password', method: 'POST' },
+        input,
+        options,
+      ),
+    resolveResetPasswordToken,
+    verifyEmail: (
+      input: AthenaVerifyEmailRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => {
+      const { payload, fetchOptions } = extractFetchOptions(input)
+      const mergedOptions = mergeCallOptions(fetchOptions, options)
+      const query = payload as AthenaVerifyEmailRequest | undefined
+      return callAuthEndpoint<{ user: AthenaAuthSignInResponse['user']; status: boolean }>(
+        resolvedConfig,
+        { endpoint: '/verify-email', method: 'GET' },
+        undefined,
+        query
+          ? {
+              token: query.token,
+              callbackURL: query.callbackURL,
+            }
+          : undefined,
+        mergedOptions,
+      )
+    },
+    sendVerificationEmail: (
+      input: AthenaSendVerificationEmailRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaSendVerificationEmailRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/send-verification-email', method: 'POST' },
+        input,
+        options,
+      ),
+    changeEmail: (
+      input: AthenaChangeEmailRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaChangeEmailRequest & AthenaAuthFetchCompatibleInput,
+        { status: boolean; message?: string | null }
+      >(
+        resolvedConfig,
+        { endpoint: '/change-email', method: 'POST' },
+        input,
+        options,
+      ),
+    changePassword: (
+      input: AthenaChangePasswordRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaChangePasswordRequest & AthenaAuthFetchCompatibleInput,
+        { token?: string | null; user: AthenaAuthSignInResponse['user'] }
+      >(
+        resolvedConfig,
+        { endpoint: '/change-password', method: 'POST' },
+        input,
+        options,
+      ),
+    updateUser: (
+      input: AthenaUpdateUserRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaUpdateUserRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/update-user', method: 'POST' },
+        input,
+        options,
+      ),
+    deleteUser,
+    deleteUserCallback,
+    linkSocial: (
+      input: AthenaLinkSocialRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaLinkSocialRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthSocialRedirectResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/link-social', method: 'POST' },
+        input,
+        options,
+      ),
+    listAccounts: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) =>
+      executeGetWithCompatibleInput<{
+        id: string
+        provider?: string
+        accountId?: string
+        scopes?: string[]
+        createdAt?: string
+        updatedAt?: string
+      }[]>(
+        resolvedConfig,
+        { endpoint: '/list-accounts', method: 'GET' },
+        input,
+        options,
+      ),
+    unlinkAccount: (
+      input: AthenaUnlinkAccountRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaUnlinkAccountRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/unlink-account', method: 'POST' },
+        input,
+        options,
+      ),
+    refreshToken: (
+      input: AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
+        AthenaOAuthTokenBundle
+      >(
+        resolvedConfig,
+        { endpoint: '/refresh-token', method: 'POST' },
+        input,
+        options,
+      ),
+    getAccessToken: (
+      input: AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
+        AthenaOAuthTokenBundle
+      >(
+        resolvedConfig,
+        { endpoint: '/get-access-token', method: 'POST' },
+        input,
+        options,
+      ),
   }
 }

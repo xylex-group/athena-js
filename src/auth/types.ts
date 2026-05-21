@@ -1,14 +1,40 @@
 export type AthenaAuthMethod = 'GET' | 'POST'
 export type AthenaAuthCredentials = 'omit' | 'same-origin' | 'include'
+export type AthenaAuthQueryPrimitive = string | number | boolean
+export type AthenaAuthQueryValue =
+  | AthenaAuthQueryPrimitive
+  | AthenaAuthQueryPrimitive[]
+  | null
+  | undefined
 
 export type AthenaAuthEndpointPath =
+  | '/sign-in/social'
   | '/sign-in/email'
+  | '/sign-in/username'
   | '/sign-up/email'
   | '/get-session'
   | '/sign-out'
+  | '/forget-password'
+  | '/reset-password'
+  | '/verify-email'
+  | '/send-verification-email'
+  | '/change-email'
+  | '/change-password'
+  | '/update-user'
+  | '/delete-user'
+  | '/delete-user/callback'
   | '/list-sessions'
   | '/revoke-session'
   | '/revoke-sessions'
+  | '/revoke-other-sessions'
+  | '/link-social'
+  | '/list-accounts'
+  | '/unlink-account'
+  | '/refresh-token'
+  | '/get-access-token'
+  | '/ok'
+  | '/error'
+  | `/reset-password/${string}`
 
 export type AthenaAuthErrorCode =
   | 'NETWORK_ERROR'
@@ -78,6 +104,24 @@ export interface AthenaEmailSignInRequest {
   rememberMe?: boolean
 }
 
+export interface AthenaUsernameSignInRequest {
+  username: string
+  password: string
+  rememberMe?: boolean
+}
+
+export interface AthenaSocialSignInRequest {
+  provider: string
+  callbackURL?: string
+  newUserCallbackURL?: string
+  errorCallbackURL?: string
+  disableRedirect?: boolean
+  idToken?: string
+  scopes?: string[] | string
+  requestSignUp?: boolean
+  loginHint?: string
+}
+
 export interface AthenaEmailSignUpRequest {
   name: string
   email: string
@@ -92,16 +136,121 @@ export interface AthenaAuthSignInResponse {
   user: AthenaAuthUser
 }
 
+export interface AthenaAuthSocialRedirectResponse {
+  url: string
+  redirect: boolean
+}
+
 export interface AthenaAuthSignOutResponse {
   success: boolean
+}
+
+export interface AthenaAuthStatusResponse {
+  status: boolean
 }
 
 export interface AthenaAuthRevokeSessionRequest {
   token: string
 }
 
-export interface AthenaAuthRevokeSessionResponse {
+export interface AthenaForgetPasswordRequest {
+  email: string
+  redirectTo?: string
+}
+
+export interface AthenaResetPasswordRequest {
+  newPassword: string
+  token?: string
+}
+
+export interface AthenaVerifyEmailRequest {
+  token: string
+  callbackURL?: string
+}
+
+export interface AthenaSendVerificationEmailRequest {
+  email: string
+  callbackURL?: string
+}
+
+export interface AthenaChangeEmailRequest {
+  newEmail: string
+  callbackURL?: string
+}
+
+export interface AthenaChangePasswordRequest {
+  newPassword: string
+  currentPassword: string
+  revokeOtherSessions?: boolean
+}
+
+export interface AthenaUpdateUserRequest {
+  name?: string
+  image?: string
+}
+
+export interface AthenaDeleteUserRequest {
+  callbackURL?: string
+  password?: string
+  token?: string
+}
+
+export interface AthenaDeleteUserCallbackRequest {
+  token?: string
+  callbackURL?: string
+}
+
+export interface AthenaDeleteUserResponse {
+  success: boolean
+  message?: string
+}
+
+export interface AthenaAuthEmailChangeResponse {
   status: boolean
+  message?: string | null
+}
+
+export interface AthenaLinkSocialRequest {
+  provider: string
+  callbackURL?: string
+  scopes?: string[] | string
+}
+
+export interface AthenaUnlinkAccountRequest {
+  providerId: string
+  accountId?: string
+}
+
+export interface AthenaOAuthAccountTokenRequest {
+  providerId: string
+  accountId?: string
+  userId?: string
+}
+
+export interface AthenaOAuthTokenBundle {
+  tokenType?: string
+  idToken?: string
+  accessToken?: string
+  refreshToken?: string
+  accessTokenExpiresAt?: string
+  refreshTokenExpiresAt?: string
+}
+
+export interface AthenaAuthLinkedAccount {
+  id: string
+  provider?: string
+  accountId?: string
+  scopes?: string[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AthenaAuthRequestInput {
+  endpoint: AthenaAuthEndpointPath
+  method?: AthenaAuthMethod
+  body?: unknown
+  query?: Record<string, AthenaAuthQueryValue>
+  fetchOptions?: AthenaAuthCallOptions
 }
 
 export interface AthenaAuthCallOptions {
@@ -123,11 +272,23 @@ export interface AthenaAuthClientConfig extends AthenaAuthCallOptions {
 
 export interface AthenaAuthSdkClient {
   baseUrl: string
+  request: <T = unknown>(
+    input: AthenaAuthRequestInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<T>>
   signIn: {
     email: (
       input: AthenaEmailSignInRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthSignInResponse>>
+    username: (
+      input: AthenaUsernameSignInRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthSignInResponse>>
+    social: (
+      input: AthenaSocialSignInRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthSocialRedirectResponse | AthenaAuthSignInResponse>>
   }
   signUp: {
     email: (
@@ -136,6 +297,10 @@ export interface AthenaAuthSdkClient {
     ) => Promise<AthenaAuthResult<AthenaAuthSignInResponse>>
   }
   signOut: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthSignOutResponse>>
+  logout: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthSignOutResponse>>
@@ -150,21 +315,85 @@ export interface AthenaAuthSdkClient {
   revokeSession: (
     input: AthenaAuthRevokeSessionRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthRevokeSessionResponse>>
-  revokeSessions: (
-    input?: AthenaAuthFetchCompatibleInput,
-    options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthRevokeSessionResponse>>
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
   clearSession: (
     input: AthenaAuthRevokeSessionRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthRevokeSessionResponse>>
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  revokeSessions: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
   clearSessions: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthRevokeSessionResponse>>
-  logout: (
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  revokeOtherSessions: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthSignOutResponse>>
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  clearOtherSessions: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  forgetPassword: (
+    input: AthenaForgetPasswordRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  resetPassword: (
+    input: AthenaResetPasswordRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  resolveResetPasswordToken: (
+    input: { token: string; callbackURL?: string } & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<{ token?: string }>>
+  verifyEmail: (
+    input: AthenaVerifyEmailRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<{ user: AthenaAuthUser; status: boolean }>>
+  sendVerificationEmail: (
+    input: AthenaSendVerificationEmailRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  changeEmail: (
+    input: AthenaChangeEmailRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthEmailChangeResponse>>
+  changePassword: (
+    input: AthenaChangePasswordRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<{ token?: string | null; user: AthenaAuthUser }>>
+  updateUser: (
+    input: AthenaUpdateUserRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  deleteUser: (
+    input?: AthenaDeleteUserRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaDeleteUserResponse>>
+  deleteUserCallback: (
+    input?: AthenaDeleteUserCallbackRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaDeleteUserResponse>>
+  linkSocial: (
+    input: AthenaLinkSocialRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthSocialRedirectResponse>>
+  listAccounts: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthLinkedAccount[]>>
+  unlinkAccount: (
+    input: AthenaUnlinkAccountRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  refreshToken: (
+    input: AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaOAuthTokenBundle>>
+  getAccessToken: (
+    input: AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaOAuthTokenBundle>>
 }
