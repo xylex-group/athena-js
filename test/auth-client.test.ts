@@ -228,18 +228,25 @@ test('account linking and token exchange methods map correctly', async () => {
   }
 })
 
-test('generic request defaults method by body presence and supports query', async () => {
+test('generic request infers methods safely and supports query', async () => {
   const { calls, restore } = mockFetch({ ok: true })
   try {
     const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
     await client.request({ endpoint: '/ok', query: { ping: 'pong', many: [1, 2] } })
+    await client.request({ endpoint: '/revoke-sessions' })
+    await client.request({ endpoint: '/reset-password/resettok' })
     await client.request({ endpoint: '/error', body: { message: 'x' } })
 
     assert.equal(calls[0].url, 'https://auth.example.com/api/auth/ok?ping=pong&many=1&many=2')
     assert.equal(calls[0].init?.method, 'GET')
-    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/error')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/revoke-sessions')
     assert.equal(calls[1].init?.method, 'POST')
-    assert.deepEqual(JSON.parse(calls[1].init?.body as string), { message: 'x' })
+    assert.equal(calls[1].init?.body, '{}')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/reset-password/resettok')
+    assert.equal(calls[2].init?.method, 'GET')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/error')
+    assert.equal(calls[3].init?.method, 'POST')
+    assert.deepEqual(JSON.parse(calls[3].init?.body as string), { message: 'x' })
   } finally {
     restore()
   }

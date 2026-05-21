@@ -5,6 +5,7 @@ import type {
   AthenaAuthErrorCode,
   AthenaAuthErrorDetails,
   AthenaAuthFetchCompatibleInput,
+  AthenaAuthLinkedAccount,
   AthenaAuthMethod,
   AthenaAuthQueryValue,
   AthenaAuthRequestInput,
@@ -16,6 +17,7 @@ import type {
   AthenaAuthSignOutResponse,
   AthenaAuthSocialRedirectResponse,
   AthenaAuthStatusResponse,
+  AthenaAuthUser,
   AthenaChangeEmailRequest,
   AthenaChangePasswordRequest,
   AthenaDeleteUserCallbackRequest,
@@ -222,6 +224,25 @@ function buildRequestUrl(
   return queryText ? `${url}?${queryText}` : url
 }
 
+function inferDefaultMethod(endpoint: AthenaAuthEndpointPath): AthenaAuthMethod {
+  if (endpoint.startsWith('/reset-password/')) {
+    return 'GET'
+  }
+
+  switch (endpoint) {
+    case '/get-session':
+    case '/list-sessions':
+    case '/verify-email':
+    case '/delete-user/callback':
+    case '/list-accounts':
+    case '/ok':
+    case '/error':
+      return 'GET'
+    default:
+      return 'POST'
+  }
+}
+
 async function callAuthEndpoint<T>(
   config: AthenaAuthClientConfig,
   context: AuthRequestContext,
@@ -389,7 +410,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     input: AthenaAuthRequestInput,
     options?: AthenaAuthCallOptions,
   ): Promise<AthenaAuthResult<T>> => {
-    const method = input.method ?? (input.body === undefined ? 'GET' : 'POST')
+    const method = input.method ?? (input.body !== undefined ? 'POST' : inferDefaultMethod(input.endpoint))
     const mergedOptions = mergeCallOptions(input.fetchOptions, options)
     return callAuthEndpoint<T>(
       resolvedConfig,
@@ -614,7 +635,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       const { payload, fetchOptions } = extractFetchOptions(input)
       const mergedOptions = mergeCallOptions(fetchOptions, options)
       const query = payload as AthenaVerifyEmailRequest | undefined
-      return callAuthEndpoint<{ user: AthenaAuthSignInResponse['user']; status: boolean }>(
+      return callAuthEndpoint<{ user: AthenaAuthUser; status: boolean }>(
         resolvedConfig,
         { endpoint: '/verify-email', method: 'GET' },
         undefined,
@@ -659,7 +680,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     ) =>
       executePostWithCompatibleInput<
         AthenaChangePasswordRequest & AthenaAuthFetchCompatibleInput,
-        { token?: string | null; user: AthenaAuthSignInResponse['user'] }
+        { token?: string | null; user: AthenaAuthUser }
       >(
         resolvedConfig,
         { endpoint: '/change-password', method: 'POST' },
@@ -695,14 +716,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         options,
       ),
     listAccounts: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) =>
-      executeGetWithCompatibleInput<{
-        id: string
-        provider?: string
-        accountId?: string
-        scopes?: string[]
-        createdAt?: string
-        updatedAt?: string
-      }[]>(
+      executeGetWithCompatibleInput<AthenaAuthLinkedAccount[]>(
         resolvedConfig,
         { endpoint: '/list-accounts', method: 'GET' },
         input,

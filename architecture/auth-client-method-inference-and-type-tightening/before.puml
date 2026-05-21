@@ -1,0 +1,25 @@
+@startuml
+title Auth Client Request Inference and Typing (Before)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #FFF9C4
+skinparam noteBorderColor #000000
+
+actor "SDK Consumer" as Consumer #BBDEFB
+component "auth.request(...)\nmethod inferred by body only" as RequestSurface #FFE082
+component "Known endpoint families\n(session/account/etc.)" as EndpointFamilies #C5E1A5
+component "Ad hoc inline response typing" as InlineTyping #FFCDD2
+
+Consumer --> RequestSurface : request({ endpoint, body?, query? })
+RequestSurface --> EndpointFamilies : GET when no body\nPOST when body exists
+RequestSurface --> InlineTyping : some repeated inline types
+
+note right of RequestSurface
+No endpoint-aware default method inference.
+POST endpoints without body can accidentally
+default to GET unless caller sets method manually.
+end note
+@enduml

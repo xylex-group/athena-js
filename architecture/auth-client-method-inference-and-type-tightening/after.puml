@@ -1,0 +1,27 @@
+@startuml
+title Auth Client Request Inference and Typing (After)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #E8F5E9
+skinparam noteBorderColor #000000
+
+actor "SDK Consumer" as Consumer #BBDEFB
+component "auth.request(...)\nmethod inference strategy" as RequestSurface #B2DFDB
+component "Inference Rules\n1 explicit method wins\n2 body => POST\n3 endpoint-aware defaults" as InferenceRules #FFF59D
+component "Endpoint-aware GET set\n(get-session/list/verify/etc.)" as EndpointGetSet #C5E1A5
+component "Shared auth types\nAthenaAuthUser + AthenaAuthLinkedAccount" as SharedTypes #D1C4E9
+
+Consumer --> RequestSurface : request({ endpoint, body?, query? })
+RequestSurface --> InferenceRules : safe defaults
+InferenceRules --> EndpointGetSet : avoid accidental GET/POST mismatch
+RequestSurface --> SharedTypes : reuse instead of inline ad hoc types
+
+note right of InferenceRules
+Known POST endpoints with empty payload now
+default to POST without requiring caller hints.
+Dynamic reset-password token route still defaults GET.
+end note
+@enduml
