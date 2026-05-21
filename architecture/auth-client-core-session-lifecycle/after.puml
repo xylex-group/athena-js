@@ -1,0 +1,28 @@
+@startuml
+title Athena Auth Client Core Session Lifecycle (After)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #E8F5E9
+skinparam noteBorderColor #000000
+
+actor "App / SDK Consumer" as Consumer #BBDEFB
+component "athena-js createAuthClient(...)" as AthenaJsAuthClient #B2DFDB
+component "Auth Transport Layer\n(header merge + error normalization)" as Transport #FFF59D
+component "Athena Auth Server\n(/api/auth/*)" as AthenaAuthServer #C8E6C9
+database "Session Store" as SessionStore #D1C4E9
+
+Consumer --> AthenaJsAuthClient : signIn.email()\nsignOut()/logout()\ngetSession()
+Consumer --> AthenaJsAuthClient : listSessions()\nrevokeSession()/clearSession()\nrevokeSessions()/clearSessions()
+AthenaJsAuthClient --> Transport : endpoint + payload + fetchOptions
+Transport --> AthenaAuthServer : direct /api/auth calls
+AthenaAuthServer --> SessionStore : session lifecycle operations
+
+note right of AthenaJsAuthClient
+Core auth/session flows are now first-class
+in athena-js and can replace Better Auth
+client usage for login/logout/session control.
+end note
+@enduml

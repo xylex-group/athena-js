@@ -43,6 +43,38 @@ if (error) {
 }
 ```
 
+### Auth client (Athena Auth server)
+
+If your auth backend is now Athena Auth, you can keep core login/session flows in this SDK:
+
+```ts
+import { createAuthClient } from "@xylex-group/athena";
+
+const auth = createAuthClient({
+  baseUrl: "http://localhost:3001/api/auth",
+  // optional: bearer token if you are not using cookie-based sessions
+  bearerToken: process.env.AUTH_BEARER_TOKEN,
+});
+
+const login = await auth.signIn.email({
+  email: "demo@example.com",
+  password: "super-secret",
+  rememberMe: true,
+});
+
+const session = await auth.getSession();
+const sessions = await auth.listSessions();
+
+// clear one session
+await auth.revokeSession({ token: "session_token_here" });
+// or clear all sessions
+await auth.revokeSessions();
+
+await auth.signOut();
+```
+
+Auth responses follow the same envelope style: `{ ok, status, data, error, errorDetails, raw }`.
+
 ### Typed schema registry (model-first)
 
 You can keep `createClient(...).from<T>(...)` as-is, or opt into a typed registry:

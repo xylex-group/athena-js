@@ -1,0 +1,21 @@
+export { createAuthClient } from './client.ts'
+export type {
+  AthenaAuthCredentials,
+  AthenaAuthCallOptions,
+  AthenaAuthClientConfig,
+  AthenaAuthEndpointPath,
+  AthenaAuthErrorCode,
+  AthenaAuthErrorDetails,
+  AthenaAuthMethod,
+  AthenaAuthResult,
+  AthenaAuthRevokeSessionRequest,
+  AthenaAuthRevokeSessionResponse,
+  AthenaAuthSdkClient,
+  AthenaAuthSession,
+  AthenaAuthSessionResponse,
+  AthenaAuthSignInResponse,
+  AthenaAuthSignOutResponse,
+  AthenaAuthUser,
+  AthenaEmailSignInRequest,
+  AthenaEmailSignUpRequest,
+} from './types.ts'

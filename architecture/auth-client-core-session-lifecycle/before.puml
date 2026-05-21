@@ -1,0 +1,28 @@
+@startuml
+title Athena Auth Client Core Session Lifecycle (Before)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #FFF9C4
+skinparam noteBorderColor #000000
+
+actor "App / SDK Consumer" as Consumer #BBDEFB
+component "better-auth JS SDK\n(external dependency)" as BetterAuthClient #FFE082
+component "Auth Proxy Wrapper\n(app-specific glue code)" as ProxyWrapper #FFCDD2
+component "Athena Auth Server\n(/api/auth/*)" as AthenaAuthServer #C8E6C9
+database "Session Store" as SessionStore #D1C4E9
+
+Consumer --> BetterAuthClient : signIn / signOut / getSession
+BetterAuthClient --> ProxyWrapper : library-specific adapters
+ProxyWrapper --> AthenaAuthServer : /sign-in/email\n/get-session\n/sign-out
+ProxyWrapper --> AthenaAuthServer : /list-sessions\n/revoke-session(s)
+AthenaAuthServer --> SessionStore : create/update/delete sessions
+
+note right of ProxyWrapper
+Core session lifecycle behavior
+is spread across external SDK semantics
+and custom wrappers.
+end note
+@enduml

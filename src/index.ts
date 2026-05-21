@@ -44,6 +44,7 @@ export {
   resolveGeneratorProvider,
   runSchemaGenerator,
 } from './generator/index.ts'
+export { createAuthClient } from './auth/index.ts'
 export type {
   RpcQueryBuilder,
   RpcOrderOptions,
@@ -107,6 +108,26 @@ export type {
   RunGeneratorOptions,
   RunGeneratorResult,
 } from './generator/index.ts'
+export type {
+  AthenaAuthCredentials,
+  AthenaAuthCallOptions,
+  AthenaAuthClientConfig,
+  AthenaAuthEndpointPath,
+  AthenaAuthErrorCode,
+  AthenaAuthErrorDetails,
+  AthenaAuthMethod,
+  AthenaAuthResult,
+  AthenaAuthRevokeSessionRequest,
+  AthenaAuthRevokeSessionResponse,
+  AthenaAuthSdkClient,
+  AthenaAuthSession,
+  AthenaAuthSessionResponse,
+  AthenaAuthSignInResponse,
+  AthenaAuthSignOutResponse,
+  AthenaAuthUser,
+  AthenaEmailSignInRequest,
+  AthenaEmailSignUpRequest,
+} from './auth/index.ts'
 export type {
   AthenaConditionCastType,
   AthenaRpcCallOptions,
