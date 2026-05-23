@@ -1,0 +1,40 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageBackgroundColor #F8F9FB
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam RectangleBackgroundColor #E8F5E9
+skinparam NoteBackgroundColor #FFFFFF
+skinparam NoteBorderColor #000000
+
+title Table Builder Schema Handling (After)
+
+package "Athena JS SDK" {
+  rectangle "TableQueryBuilder\nfrom(table)" as Builder #D9F2DC
+  rectangle "AthenaGatewayCallOptions\n(schema optional)" as Options #D9F2DC
+  rectangle "resolveTableNameForCall\n- qualifies unqualified names\n- guards schema conflicts" as Resolver #E8F7EA
+  rectangle "Payload Builder\ntable_name = resolved" as Payload #E8F7EA
+  rectangle "Gateway Client" as Gateway #E8F7EA
+}
+
+rectangle "Caller" as Caller #EAF3FF
+rectangle "Athena Gateway" as Api #EAF3FF
+
+Caller --> Builder : from("users")
+Caller --> Builder : select("id", { schema: "public" })
+Builder --> Options : merge select/mutation options
+Options --> Resolver : schema + table
+Resolver --> Payload : "public.users"
+Payload --> Gateway : POST /gateway/fetch\n{ table_name: "public.users" }
+Gateway --> Api : send request
+
+note right of Resolver
+If caller passes from("public.users")
+and schema: "athena", SDK throws a
+clear conflict error before request.
+end note
+
+@enduml

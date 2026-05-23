@@ -63,6 +63,10 @@ const users = await athena
   .eq("active", true)
   .order("created_at", { ascending: false })
   .limit(25);
+
+const usersInPublicSchema = await athena
+  .from<{ id: string; email: string }>("users")
+  .select("id, email", { schema: "public" });
 ```
 
 Common methods on read chains:

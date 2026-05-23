@@ -1,0 +1,38 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageBackgroundColor #F8F9FB
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam RectangleBackgroundColor #FFF5E6
+skinparam NoteBackgroundColor #FFFFFF
+skinparam NoteBorderColor #000000
+
+title Table Builder Schema Handling (Before)
+
+package "Athena JS SDK" {
+  rectangle "TableQueryBuilder\nfrom(table)" as Builder #FFE8C2
+  rectangle "AthenaGatewayCallOptions\n(no schema)" as Options #FFE8C2
+  rectangle "Payload Builder\ntable_name = table" as Payload #FFF1D6
+  rectangle "Gateway Client" as Gateway #FFF1D6
+}
+
+rectangle "Caller" as Caller #EAF3FF
+rectangle "Athena Gateway" as Api #EAF3FF
+
+Caller --> Builder : from("users")
+Caller --> Builder : select("id", options)
+Builder --> Options : merge select/mutation options
+Options --> Payload : schema unavailable
+Payload --> Gateway : POST /gateway/fetch\n{ table_name: "users" }
+Gateway --> Api : send request
+
+note right of Payload
+SDK cannot pass table schema
+unless caller pre-qualifies
+"public.users" manually.
+end note
+
+@enduml

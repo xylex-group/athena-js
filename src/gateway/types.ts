@@ -185,6 +185,7 @@ export interface AthenaGatewayBaseOptions {
 
 export type AthenaGatewayHookConfig = AthenaGatewayBaseOptions
 export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
+  schema?: string
   count?: AthenaCountOption
   head?: boolean
   defaultToNull?: boolean
@@ -194,7 +195,6 @@ export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
 }
 
 export interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
-  schema?: string
   count?: AthenaCountOption
   get?: boolean
 }

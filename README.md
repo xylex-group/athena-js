@@ -392,6 +392,18 @@ const { data: user } = await athena
 
 `maybeSingle` behaves identically — both return the first element of the result set.
 
+### Table schema targeting
+
+Use `schema` in table call options to qualify unqualified table names:
+
+```ts
+const { data } = await athena
+  .from("users")
+  .select("id,email", { schema: "public" });
+```
+
+This resolves the table target to `public.users`.
+
 ### RPC
 
 Use `athena.rpc(...)` for Postgres function calls. By default it calls `POST /gateway/rpc`, and with `{ get: true }` it uses the compatibility route `GET /rpc/{function_name}`.
@@ -430,6 +442,7 @@ Pass options as the second argument to `.select()`:
 
 | Option       | Type                                  | Description                                  |
 | ------------ | ------------------------------------- | -------------------------------------------- |
+| `schema`     | `string`                              | qualify unqualified table names for table calls |
 | `count`      | `"exact" \| "planned" \| "estimated"` | request a row count alongside the data       |
 | `head`       | `boolean`                             | return response headers only (no rows)       |
 | `stripNulls` | `boolean`                             | strip null values from rows (default `true`) |

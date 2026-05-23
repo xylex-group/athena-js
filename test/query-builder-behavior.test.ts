@@ -754,6 +754,67 @@ test('reset clears .order() state', async () => {
   }
 })
 
+test('table select options support schema qualification', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('users').select('id', { schema: 'auth' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'auth.users')
+  } finally {
+    restore()
+  }
+})
+
+test('table mutation select options support schema qualification', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('users')
+      .insert({ id: 'u-1' })
+      .select('id', { schema: 'auth' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'auth.users')
+  } finally {
+    restore()
+  }
+})
+
+test('table options keep pre-qualified table when schema matches', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('public.users').select('id', { schema: 'public' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'public.users')
+  } finally {
+    restore()
+  }
+})
+
+test('table options reject conflicting schema and schema-qualified table', async () => {
+  await assert.rejects(
+    async () => client.from('public.users').select('id', { schema: 'athena' }),
+    /schema option "athena" conflicts with schema-qualified table "public.users"/,
+  )
+})
+
+test('typed equality query fallback uses schema-qualified table name', async () => {
+  const { calls, restore } = mockFetch()
+  const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+  try {
+    await client
+      .from('form_sessions')
+      .eqUuid('session_id', sessionId)
+      .select('*', { schema: 'athena' })
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.ok(payload.query.includes('FROM "athena"."form_sessions"'))
+  } finally {
+    restore()
+  }
+})
+
 test('rpc is awaitable and executes once', async () => {
   const { calls, restore } = mockFetch()
   try {

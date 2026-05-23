@@ -313,6 +313,23 @@ function buildSelectColumnsClause(columns: string | string[]): string {
   return quoteSelectColumnsExpression(columns)
 }
 
+function resolveTableNameForCall(tableName: string, schema: string | undefined): string {
+  if (!schema) return tableName
+  const normalizedSchema = schema.trim()
+  if (!normalizedSchema) {
+    throw new Error('schema option must be a non-empty string')
+  }
+  if (tableName.includes('.')) {
+    if (tableName.startsWith(`${normalizedSchema}.`)) {
+      return tableName
+    }
+    throw new Error(
+      `schema option "${normalizedSchema}" conflicts with schema-qualified table "${tableName}"`,
+    )
+  }
+  return `${normalizedSchema}.${tableName}`
+}
+
 function conditionToSqlClause(condition: AthenaGatewayCondition): string | null {
   if (!condition.column) return null
   const column = withCast(quoteQualifiedIdentifier(condition.column), condition.column_cast)
@@ -752,6 +769,7 @@ function createTableBuilder<Row>(
     columns: string | string[] = DEFAULT_COLUMNS,
     options?: AthenaGatewayCallOptions,
   ) => {
+    const resolvedTableName = resolveTableNameForCall(tableName, options?.schema)
     const conditions = state.conditions.length
       ? state.conditions.map(condition => ({ ...condition }))
       : undefined
@@ -764,7 +782,7 @@ function createTableBuilder<Row>(
 
     if (hasTypedEqualityComparison && !options?.head && !options?.count && conditions) {
       const query = buildTypedSelectQuery({
-        tableName,
+        tableName: resolvedTableName,
         columns,
         conditions,
         limit: state.limit,
@@ -780,7 +798,7 @@ function createTableBuilder<Row>(
     }
 
     const payload = {
-      table_name: tableName,
+      table_name: resolvedTableName,
       columns,
       conditions,
       limit: state.limit,
@@ -848,8 +866,9 @@ function createTableBuilder<Row>(
           selectOptions?: AthenaGatewayCallOptions,
         ) => {
           const mergedOptions = mergeOptions(options, selectOptions)
+          const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
           const payload: AthenaInsertPayload = {
-            table_name: tableName,
+            table_name: resolvedTableName,
             insert_body: values as Record<string, unknown>[],
           }
           if (columns) payload.columns = columns
@@ -868,8 +887,9 @@ function createTableBuilder<Row>(
         selectOptions?: AthenaGatewayCallOptions,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
+        const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaInsertPayload = {
-          table_name: tableName,
+          table_name: resolvedTableName,
           insert_body: values as Record<string, unknown>,
         }
         if (columns) payload.columns = columns
@@ -893,8 +913,9 @@ function createTableBuilder<Row>(
           selectOptions?: AthenaGatewayCallOptions,
         ) => {
           const mergedOptions = mergeOptions(options, selectOptions)
+          const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
           const payload: AthenaInsertPayload = {
-            table_name: tableName,
+            table_name: resolvedTableName,
             insert_body: values as Record<string, unknown>[],
             update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
           }
@@ -915,8 +936,9 @@ function createTableBuilder<Row>(
         selectOptions?: AthenaGatewayCallOptions,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
+        const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaInsertPayload = {
-          table_name: tableName,
+          table_name: resolvedTableName,
           insert_body: values as Record<string, unknown>,
           update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
         }
@@ -939,8 +961,9 @@ function createTableBuilder<Row>(
       ) => {
         const filters = state.conditions.length ? [...state.conditions] : undefined
         const mergedOptions = mergeOptions(options, selectOptions)
+        const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaUpdatePayload = {
-          table_name: tableName,
+          table_name: resolvedTableName,
           set: values,
           conditions: filters,
           strip_nulls: mergedOptions?.stripNulls ?? true,
@@ -970,8 +993,9 @@ function createTableBuilder<Row>(
         selectOptions?: AthenaGatewayCallOptions,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
+        const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaDeletePayload = {
-          table_name: tableName,
+          table_name: resolvedTableName,
           resource_id: resourceId,
           conditions: filters,
         }

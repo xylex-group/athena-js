@@ -256,6 +256,7 @@ interface AthenaGatewayCallOptions {
   headers?: Record<string, string>
   userId?: string | null
   organizationId?: string | null
+  schema?: string
   count?: "exact" | "planned" | "estimated"
   head?: boolean
   stripNulls?: boolean
@@ -265,11 +266,13 @@ interface AthenaGatewayCallOptions {
 }
 ```
 
+For table builder calls (`from(...).select/insert/update/delete`), `schema` qualifies
+unqualified table names (for example `users` -> `public.users`).
+
 ### `AthenaRpcCallOptions`
 
 ```ts
 interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
-  schema?: string
   count?: "exact" | "planned" | "estimated"
   get?: boolean // call compatibility GET /rpc/{function}
 }
