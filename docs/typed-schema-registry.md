@@ -198,14 +198,46 @@ A practical rollout sequence for existing code:
 - Use `emitRegistry` when your app imports `registry` as the primary source-of-truth; disable in transitional branches if needed
 - Run `athena-js generate --dry-run` in CI to validate output deterministically before writing files
 
-## 10) Common pitfalls
+## 10) Model-to-form adapter (React Hook Form + Zod)
+
+When forms are driven from model contracts, nullable DB values (`null`) often need
+form-safe defaults (`""` / `undefined`) and submit payload normalization back to model shapes.
+
+Use the built-in helpers:
+
+```ts
+import { defineModel, createModelFormAdapter } from "@xylex-group/athena";
+
+const profiles = defineModel<{
+  id: string;
+  display_name: string | null;
+  age: number | null;
+}>({
+  meta: {
+    primaryKey: ["id"],
+    nullable: { id: false, display_name: true, age: true },
+  },
+});
+
+const formAdapter = createModelFormAdapter(profiles);
+
+// Edit defaults for RHF (null -> "")
+const defaultValues = formAdapter.toDefaults(existingRow);
+
+// Submit payload ("" -> null on nullable fields)
+const insertPayload = formAdapter.toInsert(formValues);
+```
+
+This keeps `model -> form -> insert/update` conversion rules centralized instead of re-implemented per form.
+
+## 11) Common pitfalls
 
 - Manual `defineModel` and generated model definitions with the same logical key but different metadata
 - Using raw DB table names in `fromModel` calls; prefer logical model names and set `tableName` only for legacy mapping
 - Assuming relation metadata automatically rewires queries (it is metadata only)
 - Skipping tenant header mapping and setting tenant headers manually in each call
 
-## 11) Next
+## 12) Next
 
 For concrete CLI/config examples, flags, and provider behavior, continue to:
 

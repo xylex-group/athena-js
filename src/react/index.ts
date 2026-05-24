@@ -11,6 +11,20 @@ export { AthenaQueryClient, createAthenaQueryClient, attachStateAdapter } from '
 export { AthenaQueryClientProvider, useAthenaQueryClient } from './provider.ts'
 export { useQuery } from './use-query.ts'
 export { useMutation } from './use-mutation.ts'
+export {
+  createModelFormAdapter,
+  toModelFormDefaults,
+  toModelPayload,
+} from '../schema/model-form.ts'
+
+export type {
+  ModelFormAdapter,
+  ModelFormDefaults,
+  ModelFormNullishMode,
+  ModelFormValues,
+  ToModelFormDefaultsOptions,
+  ToModelPayloadOptions,
+} from '../schema/model-form.ts'
 
 export type {
   AthenaGatewayHookConfig,
