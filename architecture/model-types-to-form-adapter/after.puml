@@ -1,0 +1,39 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam ArrowColor black
+skinparam PackageBorderColor black
+skinparam PackageFontColor black
+skinparam ComponentBorderColor black
+skinparam ComponentFontColor black
+skinparam Shadowing false
+title Athena Model Types -> Forms (After)
+
+package "Athena SDK" {
+  component "defineModel<Row, Insert, Update>\nmeta.nullable" as MODEL
+  component "createModelFormAdapter(model)" as ADAPTER
+  component "toModelFormDefaults()" as DEFAULTS
+  component "toModelPayload()" as PAYLOAD
+  component "ModelFormValues / ModelFormDefaults\n(type bridge)" as FORM_TYPES
+}
+
+package "App Form Layer" {
+  component "React Hook Form\nuseForm(defaultValues)" as RHF
+  component "Zod Schema\nvalidation" as ZOD
+}
+
+MODEL --> ADAPTER
+ADAPTER --> DEFAULTS
+ADAPTER --> PAYLOAD
+FORM_TYPES --> RHF : typed values/defaults
+DEFAULTS --> RHF : nullable null -> form nullish mode
+ZOD --> PAYLOAD : validated submit values
+PAYLOAD --> MODEL : normalized insert/update
+
+note right of ADAPTER
+Centralized model-aware behavior:
+- nullish mode per form
+- empty string -> null for nullable fields
+- undefined stripping for payloads
+end note
+@enduml
