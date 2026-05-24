@@ -9,8 +9,6 @@ import type {
   AthenaGatewayErrorDetails,
   AthenaGatewayResponse,
   AthenaInsertPayload,
-  AthenaJsonObject,
-  AthenaJsonValue,
   AthenaRpcCallOptions,
   AthenaRpcFilter,
   AthenaRpcFilterOperator,
@@ -47,9 +45,6 @@ type ConditionCastHints = {
 }
 
 type MutationSingleResult<Result> = Result extends Array<infer Item> ? Item | null : Result | null
-type AthenaRowShape = Record<string, AthenaJsonValue | undefined>
-type FilterColumnKey<Row> = Extract<keyof NonNullable<Row>, string>
-type ResolvedFilterColumnKey<Row> = [FilterColumnKey<Row>] extends [never] ? string : FilterColumnKey<Row>
 const DEFAULT_COLUMNS = '*'
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -105,14 +100,6 @@ function mergeOptions<T extends object>(...options: Array<T | undefined>): T | u
     if (!next) return acc
     return { ...acc, ...next }
   }, undefined)
-}
-
-function asAthenaJsonObject(value: unknown): AthenaJsonObject {
-  return value as unknown as AthenaJsonObject
-}
-
-function asAthenaJsonObjectArray(values: unknown[]): AthenaJsonObject[] {
-  return values as unknown as AthenaJsonObject[]
 }
 
 function createMutationQuery<Result>(
@@ -171,31 +158,31 @@ export interface OrderOptions {
 }
 
 /** Shared filter chain - supports eq, limit, etc. in any order relative to select/update */
-interface FilterChain<Self, Row> {
-  eq(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  eqCast(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue, cast: AthenaConditionCastType): Self
-  eqUuid(column: ResolvedFilterColumnKey<Row>, value: string): Self
-  match(filters: Partial<Record<ResolvedFilterColumnKey<Row>, AthenaConditionValue>>): Self
+interface FilterChain<Self> {
+  eq(column: string, value: AthenaConditionValue): Self
+  eqCast(column: string, value: AthenaConditionValue, cast: AthenaConditionCastType): Self
+  eqUuid(column: string, value: string): Self
+  match(filters: Record<string, AthenaConditionValue>): Self
   range(from: number, to: number): Self
   limit(count: number): Self
   offset(count: number): Self
   currentPage(value: number): Self
   pageSize(value: number): Self
   totalPages(value: number): Self
-  order(column: ResolvedFilterColumnKey<Row>, options?: OrderOptions): Self
-  gt(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  gte(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  lt(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  lte(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  neq(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  like(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  ilike(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  is(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue): Self
-  in(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue): Self
-  contains(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue): Self
-  containedBy(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue): Self
+  order(column: string, options?: OrderOptions): Self
+  gt(column: string, value: AthenaConditionValue): Self
+  gte(column: string, value: AthenaConditionValue): Self
+  lt(column: string, value: AthenaConditionValue): Self
+  lte(column: string, value: AthenaConditionValue): Self
+  neq(column: string, value: AthenaConditionValue): Self
+  like(column: string, value: AthenaConditionValue): Self
+  ilike(column: string, value: AthenaConditionValue): Self
+  is(column: string, value: AthenaConditionValue): Self
+  in(column: string, values: AthenaConditionArrayValue): Self
+  contains(column: string, values: AthenaConditionArrayValue): Self
+  containedBy(column: string, values: AthenaConditionArrayValue): Self
   not(
-    columnOrExpression: ResolvedFilterColumnKey<Row> | string,
+    columnOrExpression: string,
     operator?: AthenaConditionOperator,
     value?: AthenaConditionValue,
   ): Self
@@ -203,21 +190,13 @@ interface FilterChain<Self, Row> {
 }
 
 /** Chain returned by select() - supports filters and single/maybeSingle before execution */
-export interface SelectChain<Row, SelectedRow = Row>
-  extends FilterChain<SelectChain<Row, SelectedRow>, Row>, PromiseLike<AthenaResult<SelectedRow[]>> {
-  single<T = SelectedRow>(
-    columns?: string | string[],
-    options?: AthenaGatewayCallOptions,
-  ): Promise<AthenaResult<T | null>>
-  maybeSingle<T = SelectedRow>(
-    columns?: string | string[],
-    options?: AthenaGatewayCallOptions,
-  ): Promise<AthenaResult<T | null>>
+export interface SelectChain<Row> extends FilterChain<SelectChain<Row>>, PromiseLike<AthenaResult<Row[]>> {
+  single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
+  maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
 }
 
 /** Chain returned by update() - supports filters before execution, plus select/returning */
-export interface UpdateChain<Row>
-  extends FilterChain<UpdateChain<Row>, Row>, MutationQuery<Row[]> {}
+export interface UpdateChain<Row> extends FilterChain<UpdateChain<Row>>, MutationQuery<Row[]> {}
 
 interface RpcFilterChain<Self> {
   eq(column: string, value: AthenaConditionValue): Self
@@ -250,33 +229,29 @@ export interface RpcQueryBuilder<Row>
   range(from: number, to: number): RpcQueryBuilder<Row>
 }
 
-export interface TableQueryBuilder<
-  Row,
-  Insert = Partial<Row>,
-  Update = Partial<Insert>,
-> extends FilterChain<TableQueryBuilder<Row, Insert, Update>, Row> {
-  select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<Row, T>
-  insert(values: Insert, options?: AthenaGatewayCallOptions): MutationQuery<Row>
-  insert(values: Insert[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
+export interface TableQueryBuilder<Row> extends FilterChain<TableQueryBuilder<Row>> {
+  select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<T>
+  insert(values: Row, options?: AthenaGatewayCallOptions): MutationQuery<Row>
+  insert(values: Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
   upsert(
-    values: Insert,
+    values: Row,
     options?: AthenaGatewayCallOptions & {
-      updateBody?: Update
+      updateBody?: Partial<Row>
       onConflict?: string | string[]
     },
   ): MutationQuery<Row>
   upsert(
-    values: Insert[],
+    values: Row[],
     options?: AthenaGatewayCallOptions & {
-      updateBody?: Update
+      updateBody?: Partial<Row>
       onConflict?: string | string[]
     },
   ): MutationQuery<Row[]>
-  update(values: Update, options?: AthenaGatewayCallOptions): UpdateChain<Row>
+  update(values: Partial<Row>, options?: AthenaGatewayCallOptions): UpdateChain<Row>
   delete(options?: AthenaGatewayCallOptions & { resourceId?: string }): MutationQuery<Row | null>
   single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
   maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
-  reset(): TableQueryBuilder<Row, Insert, Update>
+  reset(): TableQueryBuilder<Row>
 }
 
 function getResourceId(state: TableBuilderState): string | undefined {
@@ -455,7 +430,7 @@ function buildTypedSelectQuery(input: {
   return `${sqlParts.join(' ')};`
 }
 
-function createFilterMethods<Self, Row>(
+function createFilterMethods<Self>(
   state: TableBuilderState,
   addCondition: (
     operator: AthenaConditionOperator,
@@ -464,30 +439,26 @@ function createFilterMethods<Self, Row>(
     hints?: ConditionCastHints,
   ) => void,
   self: Self,
-): FilterChain<Self, Row> {
+) {
   return {
-    eq(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      const columnName = String(column)
-      if (shouldUseUuidTextComparison(columnName, value)) {
-        addCondition('eq', columnName, value, { columnCast: 'text' })
+    eq(column: string, value: AthenaConditionValue) {
+      if (shouldUseUuidTextComparison(column, value)) {
+        addCondition('eq', column, value, { columnCast: 'text' })
       } else {
-        addCondition('eq', columnName, value)
+        addCondition('eq', column, value)
       }
       return self
     },
-    eqCast(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue, cast: AthenaConditionCastType) {
-      addCondition('eq', String(column), value, { valueCast: cast })
+    eqCast(column: string, value: AthenaConditionValue, cast: AthenaConditionCastType) {
+      addCondition('eq', column, value, { valueCast: cast })
       return self
     },
-    eqUuid(column: ResolvedFilterColumnKey<Row>, value: string) {
-      addCondition('eq', String(column), value, { valueCast: 'uuid' })
+    eqUuid(column: string, value: string) {
+      addCondition('eq', column, value, { valueCast: 'uuid' })
       return self
     },
-    match(filters: Partial<Record<ResolvedFilterColumnKey<Row>, AthenaConditionValue>>) {
-      Object.entries(filters as Record<string, AthenaConditionValue | undefined>).forEach(([column, value]) => {
-        if (value === undefined) {
-          return
-        }
+    match(filters: Record<string, AthenaConditionValue>) {
+      Object.entries(filters).forEach(([column, value]) => {
         if (shouldUseUuidTextComparison(column, value)) {
           addCondition('eq', column, value, { columnCast: 'text' })
         } else {
@@ -521,67 +492,62 @@ function createFilterMethods<Self, Row>(
       state.totalPages = value
       return self
     },
-    order(column: ResolvedFilterColumnKey<Row>, options?: OrderOptions) {
+    order(column: string, options?: OrderOptions) {
       state.order = {
-        field: String(column),
+        field: column,
         direction: options?.ascending === false ? 'descending' : 'ascending',
       }
       return self
     },
-    gt(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('gt', String(column), value)
+    gt(column: string, value: AthenaConditionValue) {
+      addCondition('gt', column, value)
       return self
     },
-    gte(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('gte', String(column), value)
+    gte(column: string, value: AthenaConditionValue) {
+      addCondition('gte', column, value)
       return self
     },
-    lt(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('lt', String(column), value)
+    lt(column: string, value: AthenaConditionValue) {
+      addCondition('lt', column, value)
       return self
     },
-    lte(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('lte', String(column), value)
+    lte(column: string, value: AthenaConditionValue) {
+      addCondition('lte', column, value)
       return self
     },
-    neq(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('neq', String(column), value)
+    neq(column: string, value: AthenaConditionValue) {
+      addCondition('neq', column, value)
       return self
     },
-    like(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('like', String(column), value)
+    like(column: string, value: AthenaConditionValue) {
+      addCondition('like', column, value)
       return self
     },
-    ilike(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('ilike', String(column), value)
+    ilike(column: string, value: AthenaConditionValue) {
+      addCondition('ilike', column, value)
       return self
     },
-    is(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) {
-      addCondition('is', String(column), value)
+    is(column: string, value: AthenaConditionValue) {
+      addCondition('is', column, value)
       return self
     },
-    in(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) {
-      addCondition('in', String(column), values)
+    in(column: string, values: AthenaConditionArrayValue) {
+      addCondition('in', column, values)
       return self
     },
-    contains(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) {
-      addCondition('contains', String(column), values)
+    contains(column: string, values: AthenaConditionArrayValue) {
+      addCondition('contains', column, values)
       return self
     },
-    containedBy(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) {
-      addCondition('containedBy', String(column), values)
+    containedBy(column: string, values: AthenaConditionArrayValue) {
+      addCondition('containedBy', column, values)
       return self
     },
-    not(
-      columnOrExpression: ResolvedFilterColumnKey<Row> | string,
-      operator?: AthenaConditionOperator,
-      value?: AthenaConditionValue,
-    ) {
-      const expression = String(columnOrExpression)
+    not(columnOrExpression: string, operator?: AthenaConditionOperator, value?: AthenaConditionValue) {
       if (operator != null && value !== undefined) {
-        addCondition('not', undefined, `${expression}.${operator}.${stringifyFilterValue(value)}`)
+        addCondition('not', undefined, `${columnOrExpression}.${operator}.${stringifyFilterValue(value)}`)
       } else {
-        addCondition('not', undefined, expression)
+        addCondition('not', undefined, columnOrExpression)
       }
       return self
     },
@@ -655,7 +621,7 @@ function createRpcFilterMethods<Self>(
 
 function createRpcBuilder<Row>(
   functionName: string,
-  args: AthenaJsonObject | undefined,
+  args: Record<string, unknown> | undefined,
   baseOptions: AthenaRpcCallOptions | undefined,
   client: ReturnType<typeof createAthenaGatewayClient>,
 ): RpcQueryBuilder<Row> {
@@ -752,14 +718,10 @@ function createRpcBuilder<Row>(
   return builder
 }
 
-function createTableBuilder<
-  Row,
-  Insert = Partial<Row>,
-  Update = Partial<Insert>,
->(
+function createTableBuilder<Row>(
   tableName: string,
   client: ReturnType<typeof createAthenaGatewayClient>,
-): TableQueryBuilder<Row, Insert, Update> {
+): TableQueryBuilder<Row> {
   const state: TableBuilderState = {
     conditions: [],
   }
@@ -799,13 +761,9 @@ function createTableBuilder<
     state.conditions.push(condition)
   }
 
-  const builder = {} as TableQueryBuilder<Row, Insert, Update>
+  const builder = {} as TableQueryBuilder<Row>
 
-  const filterMethods = createFilterMethods<TableQueryBuilder<Row, Insert, Update>, Row>(
-    state,
-    addCondition,
-    builder,
-  )
+  const filterMethods = createFilterMethods(state, addCondition, builder)
 
   const runSelect = async <T = Row>(
     columns: string | string[] = DEFAULT_COLUMNS,
@@ -860,9 +818,9 @@ function createTableBuilder<
   const createSelectChain = <SelectedRow>(
     columns: string | string[],
     options?: AthenaGatewayCallOptions,
-  ): SelectChain<Row, SelectedRow> => {
-    const chain = {} as SelectChain<Row, SelectedRow>
-    const filterMethods = createFilterMethods<SelectChain<Row, SelectedRow>, Row>(state, addCondition, chain)
+  ): SelectChain<SelectedRow> => {
+    const chain = {} as SelectChain<SelectedRow>
+    const filterMethods = createFilterMethods(state, addCondition, chain)
     Object.assign(chain, filterMethods, {
       async single<T = SelectedRow>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
         const r = await runSelect<T[]>(cols ?? columns, opts ?? options)
@@ -901,7 +859,7 @@ function createTableBuilder<
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
       return createSelectChain<T>(columns, options)
     },
-    insert(values: Insert | Insert[], options?: AthenaGatewayCallOptions) {
+    insert(values: Row | Row[], options?: AthenaGatewayCallOptions) {
       if (Array.isArray(values)) {
         const executeInsertMany = async (
           columns?: string | string[],
@@ -911,7 +869,7 @@ function createTableBuilder<
           const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
           const payload: AthenaInsertPayload = {
             table_name: resolvedTableName,
-            insert_body: asAthenaJsonObjectArray(values),
+            insert_body: values as Record<string, unknown>[],
           }
           if (columns) payload.columns = columns
           if (mergedOptions?.count) payload.count = mergedOptions.count
@@ -932,7 +890,7 @@ function createTableBuilder<
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaInsertPayload = {
           table_name: resolvedTableName,
-          insert_body: asAthenaJsonObject(values),
+          insert_body: values as Record<string, unknown>,
         }
         if (columns) payload.columns = columns
         if (mergedOptions?.count) payload.count = mergedOptions.count
@@ -946,8 +904,8 @@ function createTableBuilder<
       return createMutationQuery<Row>(executeInsertOne)
     },
     upsert(
-      values: Insert | Insert[],
-      options?: AthenaGatewayCallOptions & { updateBody?: Update; onConflict?: string | string[] },
+      values: Row | Row[],
+      options?: AthenaGatewayCallOptions & { updateBody?: Partial<Row>; onConflict?: string | string[] },
     ) {
       if (Array.isArray(values)) {
         const executeUpsertMany = async (
@@ -958,8 +916,8 @@ function createTableBuilder<
           const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
           const payload: AthenaInsertPayload = {
             table_name: resolvedTableName,
-            insert_body: asAthenaJsonObjectArray(values),
-            update_body: options?.updateBody ? asAthenaJsonObject(options.updateBody) : undefined,
+            insert_body: values as Record<string, unknown>[],
+            update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
           }
           if (columns) payload.columns = columns
           if (options?.onConflict) payload.on_conflict = options.onConflict
@@ -981,8 +939,8 @@ function createTableBuilder<
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaInsertPayload = {
           table_name: resolvedTableName,
-          insert_body: asAthenaJsonObject(values),
-          update_body: options?.updateBody ? asAthenaJsonObject(options.updateBody) : undefined,
+          insert_body: values as Record<string, unknown>,
+          update_body: options?.updateBody ? (options.updateBody as Record<string, unknown>) : undefined,
         }
         if (columns) payload.columns = columns
         if (options?.onConflict) payload.on_conflict = options.onConflict
@@ -996,7 +954,7 @@ function createTableBuilder<
       }
       return createMutationQuery<Row>(executeUpsertOne)
     },
-    update(values: Update, options?: AthenaGatewayCallOptions) {
+    update(values: Partial<Row>, options?: AthenaGatewayCallOptions) {
       const executeUpdate = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
@@ -1006,7 +964,7 @@ function createTableBuilder<
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaUpdatePayload = {
           table_name: resolvedTableName,
-          set: asAthenaJsonObject(values),
+          set: values,
           conditions: filters,
           strip_nulls: mergedOptions?.stripNulls ?? true,
         }
@@ -1020,7 +978,7 @@ function createTableBuilder<
       }
       const mutation = createMutationQuery<Row[]>(executeUpdate, null)
       const updateChain = {} as UpdateChain<Row>
-      const filterMethods = createFilterMethods<UpdateChain<Row>, Row>(state, addCondition, updateChain)
+      const filterMethods = createFilterMethods(state, addCondition, updateChain)
       Object.assign(updateChain, filterMethods, mutation)
       return updateChain
     },
@@ -1078,12 +1036,8 @@ function createQueryBuilder(client: ReturnType<typeof createAthenaGatewayClient>
 }
 
 export interface AthenaSdkClient {
-  from<
-    Row = AthenaRowShape,
-    Insert = Partial<Row>,
-    Update = Partial<Insert>,
-  >(table: string): TableQueryBuilder<Row, Insert, Update>
-  rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
+  from<Row = unknown>(table: string): TableQueryBuilder<Row>
+  rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, unknown>>(
     fn: string,
     args?: Args,
     options?: AthenaRpcCallOptions,
@@ -1110,14 +1064,10 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
     headers: config.headers,
   })
   return {
-    from<
-      Row = AthenaRowShape,
-      Insert = Partial<Row>,
-      Update = Partial<Insert>,
-    >(table: string) {
-      return createTableBuilder<Row, Insert, Update>(table, gateway)
+    from<Row = unknown>(table: string) {
+      return createTableBuilder<Row>(table, gateway)
     },
-    rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
+    rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, unknown>>(
       fn: string,
       args?: Args,
       options?: AthenaRpcCallOptions,
@@ -1128,7 +1078,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
       }
       return createRpcBuilder<Row>(
         normalizedFn,
-        args as AthenaJsonObject | undefined,
+        args as Record<string, unknown> | undefined,
         options,
         gateway,
       )

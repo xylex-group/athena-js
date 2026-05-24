@@ -32,9 +32,6 @@ export {
   defineModel,
   defineRegistry,
   defineSchema,
-  createModelFormAdapter,
-  toModelFormDefaults,
-  toModelPayload,
   createPostgresIntrospectionProvider,
 } from './schema/index.ts'
 export {
@@ -89,15 +86,9 @@ export type {
   RowOf,
   SchemaDef,
   SchemaIntrospectionProvider,
-  ModelFormAdapter,
-  ModelFormDefaults,
-  ModelFormNullishMode,
-  ModelFormValues,
   TenantContext,
   TenantContextValue,
   TenantKeyMap,
-  ToModelFormDefaultsOptions,
-  ToModelPayloadOptions,
   TypedAthenaClient,
   TypedClientOptions,
   UpdateOf,
@@ -164,10 +155,6 @@ export type {
   AthenaEmailSignUpRequest,
 } from './auth/index.ts'
 export type {
-  AthenaJsonPrimitive,
-  AthenaJsonValue,
-  AthenaJsonObject,
-  AthenaJsonArray,
   AthenaConditionCastType,
   AthenaRpcCallOptions,
   AthenaRpcFilter,

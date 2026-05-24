@@ -1,7 +1,6 @@
 import {
   createTypedClient,
   createClient,
-  createModelFormAdapter,
   defineGeneratorConfig,
   defineDatabase,
   defineModel,
@@ -10,15 +9,11 @@ import {
   isOk,
   requireAffected,
   requireSuccess,
-  toModelFormDefaults,
-  toModelPayload,
   unwrap,
   unwrapOne,
   unwrapRows,
   type RequireAffectedOptions,
   type AthenaResult,
-  type ModelFormDefaults,
-  type ModelFormValues,
 } from "../src/index.ts"
 import type {
   AthenaStateAdapter,
@@ -60,13 +55,6 @@ declare function acceptsUserArrayInsertMutation(
 
 const client = createClient("https://athena-db.com", "api-key")
 const users = client.from<UserRow>("users")
-
-users.eq('id', '1')
-users.order('name')
-users.select('id').eq('name', 'Alice')
-
-// @ts-expect-error unknown filter column should be rejected
-users.eq('missing_column', 'x')
 
 acceptsUserPromise(users.insert({ id: "1", name: "Alice" }).select())
 acceptsUserArrayPromise(users.insert([{ id: "1", name: "Alice" }]).select())
@@ -250,100 +238,11 @@ typedClient
     }
   })
 
-typedClient
-  .fromModel('primary', 'public', 'organizations')
-  .insert({ slug: 'org-slug', owner_user_id: 'user_1' })
-  .select()
-
-typedClient
-  .fromModel('primary', 'public', 'organizations')
-  .update({ owner_user_id: 'user_2' })
-  .eq('slug', 'org-slug')
-  .select('id,slug')
-
 // @ts-expect-error unknown model key should not type-check
 typedClient.fromModel('primary', 'public', 'missing_table').select()
 
 // @ts-expect-error unknown tenant key should not type-check
 typedClient.withTenantContext({ unknown: 'value' })
-
-// @ts-expect-error unknown model-filter column should not type-check
-typedClient.fromModel('primary', 'public', 'organizations').eq('missing_column', 'x')
-
-// @ts-expect-error insert payload should match model InsertOf type
-typedClient.fromModel('primary', 'public', 'organizations').insert({ slug: 'missing-owner' })
-interface ProfileFormRow {
-  id: string
-  display_name: string | null
-  age: number | null
-  active: boolean
-}
-
-const profileFormModel = defineModel<ProfileFormRow>({
-  meta: {
-    database: 'primary',
-    schema: 'public',
-    model: 'profiles',
-    primaryKey: ['id'],
-    nullable: {
-      id: false,
-      display_name: true,
-      age: true,
-      active: false,
-    },
-  },
-})
-
-type ProfileFormValues = ModelFormValues<typeof profileFormModel>
-type ProfileFormDefaults = ModelFormDefaults<typeof profileFormModel>
-
-declare function acceptsProfileFormValues(value: ProfileFormValues): void
-declare function acceptsProfileFormDefaults(value: ProfileFormDefaults): void
-declare function acceptsProfileInsert(value: Partial<ProfileFormRow>): void
-
-const profileDefaults = toModelFormDefaults(profileFormModel, {
-  id: 'p_1',
-  display_name: null,
-  age: null,
-  active: true,
-})
-acceptsProfileFormDefaults(profileDefaults)
-
-const explicitUndefinedDefaults = toModelFormDefaults(
-  profileFormModel,
-  { id: 'p_1', display_name: null, age: null, active: true },
-  { nullishMode: 'undefined' },
-)
-acceptsProfileFormDefaults(explicitUndefinedDefaults)
-
-const profilePayload = toModelPayload(profileFormModel, {
-  id: 'p_1',
-  display_name: '',
-  age: '',
-  active: true,
-})
-acceptsProfileInsert(profilePayload)
-
-const profileAdapter = createModelFormAdapter(profileFormModel)
-acceptsProfileFormDefaults(profileAdapter.toDefaults({ display_name: null, age: null }))
-acceptsProfileInsert(profileAdapter.toInsert({ display_name: '', age: '' }))
-acceptsProfileInsert(profileAdapter.toUpdate({ display_name: '', age: '' }))
-
-acceptsProfileFormValues({
-  id: 'p_1',
-  display_name: '',
-  age: '',
-  active: true,
-})
-
-const invalidProfileFormValues: ProfileFormValues = {
-  id: 'p_1',
-  display_name: '',
-  age: '',
-  // @ts-expect-error non-nullable boolean field cannot be a string
-  active: '',
-}
-acceptsProfileFormValues(invalidProfileFormValues)
 
 const generatorConfig = defineGeneratorConfig({
   provider: {

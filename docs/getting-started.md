@@ -1,32 +1,31 @@
 # Athena JS SDK - Getting Started
 
-This guide takes you from an untyped runtime client to a typed registry workflow with stable write contracts.
+This is the fastest path to a working runtime and then a typed, generated schema workflow.
 
-If you only need immediate runtime usage, complete sections 1 to 7.
-If you need team-wide type consistency, continue through sections 8 to 13.
+For quick setup and API-level details, follow the sections in order. If your schema is stable, you can skip ahead to the typed and generator sections.
 
-## 1) Prerequisites
+## Prerequisites
 
 - Node.js 18+
-- Athena gateway URL
-- Athena API key
+- An Athena gateway URL and API key
 
-Environment names recognized by `AthenaClient.fromEnvironment()`:
-
-- `ATHENA_URL` or `ATHENA_GATEWAY_URL`
-- `ATHENA_API_KEY` or `ATHENA_GATEWAY_API_KEY`
-
-## 2) Install
+## 1) Install
 
 ```bash
+npm install @xylex-group/athena
+# or
 pnpm add @xylex-group/athena
 ```
 
-React runtime support is optional and shipped from `@xylex-group/athena/react`.
+React is optional and only required for `@xylex-group/athena/react`.
 
-## 3) Create your first client
+```bash
+npm install react
+```
 
-### `createClient` (fastest)
+## 2) Create an Untyped Client
+
+Use `createClient` for direct string-based tables.
 
 ```ts
 import { createClient } from "@xylex-group/athena";
@@ -37,7 +36,7 @@ const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!
 });
 ```
 
-### `AthenaClient.builder()` (explicit configuration)
+Or use the builder for explicit construction and env-based defaults:
 
 ```ts
 import { AthenaClient, Backend } from "@xylex-group/athena";
@@ -47,88 +46,64 @@ const athena = AthenaClient.builder()
   .key(process.env.ATHENA_API_KEY!)
   .backend(Backend.Athena)
   .client("web-dashboard")
-  .headers({ "X-App-Region": "eu" })
   .build();
 ```
 
-### `AthenaClient.fromEnvironment()` (ops-friendly)
+`AthenaClient.fromEnvironment()` loads from:
+
+- `ATHENA_URL` or `ATHENA_GATEWAY_URL`
+- `ATHENA_API_KEY` or `ATHENA_GATEWAY_API_KEY`
+
+## 3) Query Basics
 
 ```ts
-import { AthenaClient } from "@xylex-group/athena";
-
-const athena = AthenaClient.fromEnvironment();
-```
-
-## 4) Read data with table builders
-
-```ts
-type UserRow = {
-  id: string;
-  email: string;
-  active: boolean;
-  created_at: string;
-};
-
-const result = await athena
-  .from<UserRow>("users")
-  .select("id, email, active")
+const users = await athena
+  .from<{ id: string; email: string }>("users")
+  .select("id, email")
   .eq("active", true)
   .order("created_at", { ascending: false })
   .limit(25);
-```
 
-### Important chain behavior
-
-- `.select(...)` returns a `SelectChain`, not a promise.
-- `await` on the chain triggers execution.
-- `.single(...)` and `.maybeSingle(...)` are read terminators.
-
-```ts
-const one = await athena.from<UserRow>("users").eq("id", "u-1").single("id, email");
-```
-
-## 5) Filter, paging, and schema-qualified calls
-
-```ts
-const page = await athena
-  .from<UserRow>("users")
-  .select("id, email")
-  .currentPage(2)
-  .pageSize(50)
-  .order("created_at", { ascending: false });
-
-const usersInPublic = await athena
-  .from<UserRow>("users")
+const usersInPublicSchema = await athena
+  .from<{ id: string; email: string }>("users")
   .select("id, email", { schema: "public" });
 ```
 
-Filter operators include:
+Common methods on read chains:
 
-- `eq`, `neq`, `gt`, `gte`, `lt`, `lte`
-- `like`, `ilike`, `is`, `in`
-- `contains`, `containedBy`
-- `or`, `not`, `match`
+- `.select()`
+- `.eq`, `.neq`, `.gt`, `.gte`, `.lt`, `.lte`
+- `.like`, `.ilike`, `.is`, `.in`
+- `.contains`, `.containedBy`, `.range`, `.offset`, `.currentPage`, `.pageSize`
+- `.order`
+- `.or`
+- `.single`, `.maybeSingle`
 
-`eq()` has UUID-aware behavior for identifier-like columns (`id`, `*_id`, `*uuid*`).
+Result shape is `AthenaResult<T>`:
 
-## 6) Writes and mutation contracts
+- `data`
+- `error`
+- `errorDetails` (when present)
+- `status`
+- `count` (optional)
+- `raw`
+
+## 4) Writes
 
 ### Insert
 
 ```ts
-await athena
-  .from<{ id: string; email: string }, { email: string }>("users")
-  .insert({ email: "user@example.com" })
-  .select("id, email");
+await athena.from<{ id: string; email: string }>("users").insert({ email: "a@b.com" }).select();
+await athena.from<{ id: string; email: string }>("users").insert([{ email: "a@b.com" }]).select();
 ```
 
 ### Update
 
 ```ts
 await athena
-  .from<{ id: string; email: string }, { email: string }, { email?: string }>("users")
-  .eq("id", "u-1")
-  .update({ email: "new@example.com" })
+  .from<{ id: string; email: string }>("users")
+  .eq("id", "u-123")
+  .update({ email: "new@b.com" })
   .select("id, email");
 ```
 
@@ -136,77 +111,95 @@ await athena
 
 ```ts
 await athena
-  .from<{ id: string; email: string }, { id: string; email: string }, { email?: string }>("users")
-  .upsert(
-    { id: "u-1", email: "user@example.com" },
-    {
-      onConflict: "id",
-      updateBody: { email: "user@example.com" },
-    },
-  )
+  .from<{ id: string; email: string }>("users")
+  .upsert({ id: "u-123", email: "a@b.com" }, { onConflict: "id", updateBody: { email: "a@b.com" } })
   .select("id, email");
 ```
 
-### Delete guardrail
+### Delete Guardrails
+
+```ts
+await athena.from("users").eq("id", "u-123").delete();
+await athena.from("users").delete({ resourceId: "rk-456" }).single("id, email");
+```
 
 Delete requires one of:
 
 - `eq("id", ...)`
 - `eq("resource_id", ...)`
-- `delete({ resourceId: ... })`
+- `delete({ resourceId })`
 
-If none is present, the SDK throws before network execution.
+If none is present, the SDK throws immediately before making the request.
 
-## 7) RPC and SQL query path
-
-### RPC
+## 5) RPC and Raw SQL
 
 ```ts
-const rpcResult = await athena
-  .rpc<{ count: number }, { active_only: boolean }>("list_users", { active_only: true })
-  .single("count");
+const result = await athena.rpc<{ count: number }>("list_users", { active_only: true }).single("count");
+const activeCount = result.data?.count ?? 0;
 ```
 
-### Raw query
+Use raw SQL when you need query shapes that are not ergonomic with the builder:
 
 ```ts
-const rows = await athena.query<{ id: string; email: string }>(
-  "select id, email from users where active = true",
+const rows = await athena.query<{ id: number; name: string }>(
+  "select id, name from users where active = true",
 );
 ```
 
-Use `query(...)` when the shape is hard to express through table/RPC builders.
+## 6) React Quick Start
 
-## 8) Handle responses safely
+```tsx
+"use client";
 
-Every operation resolves to `AthenaResult<T>`:
+import {
+  AthenaQueryClientProvider,
+  createAthenaQueryClient,
+  useQuery,
+} from "@xylex-group/athena/react";
+import { createClient } from "@xylex-group/athena";
 
-- `data`
-- `error`
-- `errorDetails`
-- `status`
-- optional `count`
-- `raw`
+const athena = createClient(process.env.NEXT_PUBLIC_ATHENA_URL!, process.env.NEXT_PUBLIC_ATHENA_API_KEY!);
+const queryClient = createAthenaQueryClient({
+  cache: { mode: "none" },
+});
 
-Use helpers for strict service-layer handling:
+function ProductList() {
+  const productsQuery = useQuery({
+    queryKey: ["products", { limit: 50 }],
+    queryFn: () => athena.from<{ id: string; name: string }>("products").select("id,name,price").limit(50),
+    select: (result) => result.data ?? [],
+  });
 
-```ts
-import { isOk, unwrapRows, unwrapOne, requireAffected } from "@xylex-group/athena";
+  if (productsQuery.isLoading) return <p>Loading...</p>;
+  if (productsQuery.error) return <p>{productsQuery.error.message}</p>;
 
-const list = await athena.from<{ id: string }>("users").select("id");
-if (!isOk(list)) throw new Error(list.error ?? "Unknown error");
-const rows = unwrapRows(list);
+  return (
+    <ul>
+      {(productsQuery.data ?? []).map((row) => (
+        <li key={row.id}>{row.name}</li>
+      ))}
+    </ul>
+  );
+}
 
-const single = await athena.from<{ id: string }>("users").eq("id", "u-1").single("id");
-const user = unwrapOne(single, { allowNull: true });
-
-const inserted = await athena.from<{ id: string }, { email: string }>("users").insert({ email: "a@b.com" });
-requireAffected(inserted, { min: 1 });
+export function ProductsPage() {
+  return (
+    <AthenaQueryClientProvider client={queryClient}>
+      <ProductList />
+    </AthenaQueryClientProvider>
+  );
+}
 ```
 
-## 9) Move to typed model registry
+The query runtime is intentionally lean:
 
-When runtime strings and payload types start drifting, define model contracts once and use `fromModel(...)`.
+- no persistent cache by default (`cache.mode = "none"`)
+- retry is off by default (`retry = 0`)
+- invalidation is typically handled with explicit `refetch()`
+
+## 7) Move to the Typed Type System
+
+When table contracts begin to stabilize, move stable domains to model-first types.
 
 ```ts
 import {
@@ -217,98 +210,45 @@ import {
   defineSchema,
 } from "@xylex-group/athena";
 
-const users = defineModel<
-  { id: string; email: string; created_at: string | null },
-  { email: string },
-  { email?: string }
->({
-  meta: {
-    primaryKey: ["id"],
-    nullable: { id: false, email: false, created_at: true },
-  },
-});
-
 const registry = defineRegistry({
   app: defineDatabase({
-    public: defineSchema({ users }),
+    public: defineSchema({
+      users: defineModel<{ id: string; email: string; createdAt: string | null }>(
+        {
+          meta: {
+            primaryKey: ["id"],
+            nullable: { id: false, email: false, createdAt: true },
+          },
+        },
+      ),
+    }),
   }),
 });
 
-const typed = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
-
-await typed
-  .fromModel("app", "public", "users")
-  .select("id, email")
-  .eq("email", "user@example.com");
-```
-
-What this gives you:
-
-- row typing on reads
-- insert typing on `insert/upsert`
-- update typing on `update/upsert({ updateBody })`
-- filter column keys tied to known row keys
-
-## 10) Tenant header propagation
-
-Use `tenantKeyMap` once, then apply tenant values per request context.
-
-```ts
-const scopedClient = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+const typed = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
   tenantKeyMap: {
     organizationId: "X-Organization-Id",
-    workspaceId: "X-Workspace-Id",
   },
 });
 
-const tenantBound = scopedClient.withTenantContext({ organizationId: "org-1", workspaceId: "ws-4" });
-
-await tenantBound.fromModel("app", "public", "users").select("id, email");
+await typed
+  .withTenantContext({ organizationId: "org-1" })
+  .fromModel("app", "public", "users")
+  .select("id, email")
+  .order("created_at", { ascending: false });
 ```
 
-`withTenantContext(...)` returns a new client and merges context values.
+At this point you get:
 
-## 11) Form contracts with Zod and React Hook Form
+- compile-time row/insert/update types from model declarations
+- stable logical model names while preserving physical `tableName`
+- one tenant-header mapping surface across all runtime calls
 
-This is the practical path to collapse form/model drift:
+See [`typed-schema-registry.md`](typed-schema-registry.md) for the full typed system model and migration path.
 
-1. keep `Insert` and `Update` types in your model contract
-2. derive form values from schema validation
-3. pass parsed values directly into typed builder methods
+## 8) Generate Registry Code From PostgreSQL
 
-```ts
-import { z } from "zod";
-import type { InsertOf, UpdateOf } from "@xylex-group/athena";
-
-const userCreateSchema = z.object({
-  email: z.string().email(),
-  active: z.boolean().default(true),
-});
-
-type UserModel = typeof registry.app.schemas.public.models.users;
-type UserInsert = InsertOf<UserModel>;
-type UserUpdate = UpdateOf<UserModel>;
-
-function toInsert(input: unknown): UserInsert {
-  return userCreateSchema.parse(input);
-}
-
-function toUpdate(input: unknown): UserUpdate {
-  return userCreateSchema.partial().parse(input);
-}
-```
-
-If you use React Hook Form:
-
-- validate with Zod at submit boundaries
-- map create form to `InsertOf<Model>`
-- map patch form to `UpdateOf<Model>`
-
-This keeps UI payloads aligned with model contracts instead of duplicating ad-hoc DTO interfaces.
-
-## 12) Generate registry code from PostgreSQL
-
-Use code generation when the database schema changes often.
+When the schema changes often, generate model files and registry code instead of hand-maintaining contracts.
 
 ```bash
 athena-js generate
@@ -317,12 +257,17 @@ athena-js generate --config ./athena.config.ts
 athena-js generate --help
 ```
 
-Minimal direct mode config:
+The full generator contract, provider modes, output tokens, and feature flags are documented in
+[`generator-config.md`](generator-config.md).
+The full CLI command/help/troubleshooting reference is documented in
+[`cli-command-reference.md`](cli-command-reference.md).
+
+A minimal direct mode config:
 
 ```ts
 import { defineGeneratorConfig } from "@xylex-group/athena";
 
-export default defineGeneratorConfig({
+const config = defineGeneratorConfig({
   provider: {
     kind: "postgres",
     mode: "direct",
@@ -339,22 +284,53 @@ export default defineGeneratorConfig({
     },
   },
 });
+
+export default config;
 ```
 
-Use `mode: "gateway"` when CI or runners cannot open direct PostgreSQL connections.
+Use gateway mode when the codegen process cannot access PostgreSQL directly.
 
-## 13) Production checklist
+```ts
+provider: {
+  kind: "postgres",
+  mode: "gateway",
+  gatewayUrl: process.env.ATHENA_URL!,
+  apiKey: process.env.ATHENA_API_KEY!,
+  database: "app_db",
+  schemas: ["public", "athena"],
+}
+```
 
-- Use typed `fromModel(...)` on domains with frequent schema changes.
-- Keep write contracts explicit (`Insert` and `Update`) for business-critical models.
-- Run `athena-js generate --dry-run` in CI before writing artifacts.
-- Keep generated file paths schema-aware to avoid collisions.
-- Guard all service-layer writes with `requireAffected(...)` when mutation cardinality matters.
-- Prefer helper-based error normalization for API boundary consistency.
+## 9) Error Handling Patterns
 
-## 14) Where to go next
+Use helper functions for branch-safe request handling:
 
-- [`typed-schema-registry.md`](typed-schema-registry.md)
-- [`type-safety-playbook.md`](type-safety-playbook.md)
-- [`generator-config.md`](generator-config.md)
-- [`api-reference.md`](api-reference.md)
+```ts
+import { isOk, requireAffected, unwrapRows, unwrapOne } from "@xylex-group/athena";
+
+const list = await athena.from<{ id: string }>("users").select("id");
+if (!isOk(list)) {
+  // route-specific error behavior
+  throw new Error(list.error!);
+}
+const rows = unwrapRows(list);
+
+const one = await athena.from<{ id: string }>("users").eq("id", "u-1").single("id");
+const user = unwrapOne(one, { allowNull: true });
+
+const inserted = await athena.from("users").insert({ email: "a@b.com" }).select("id");
+requireAffected(inserted, { min: 1 });
+```
+
+## 10) Learn More
+
+- [Typed schema and registry architecture](typed-schema-registry.md)
+- [Generator configuration and output behavior](generator-config.md)
+- [API reference](api-reference.md)
+- [`generator-codex-handoff-prompt-pack.md`](generator-codex-handoff-prompt-pack.md)
+
+The next decision point is straightforward:
+
+- keep table-string calls for legacy stability, or
+- adopt `fromModel` and optional generated contracts for team-wide consistency.
+

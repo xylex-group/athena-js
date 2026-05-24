@@ -16,14 +16,7 @@ export type AthenaGatewayEndpointPath =
 
 export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
 
-export type AthenaJsonPrimitive = string | number | boolean | null
-export type AthenaJsonValue = AthenaJsonPrimitive | AthenaJsonObject | AthenaJsonArray
-export interface AthenaJsonObject {
-  [key: string]: AthenaJsonValue
-}
-export type AthenaJsonArray = AthenaJsonValue[]
-
-export type AthenaConditionValue = AthenaJsonPrimitive
+export type AthenaConditionValue = string | number | boolean | null
 export type AthenaConditionArrayValue = Array<AthenaConditionValue>
 export type AthenaConditionCastType = string
 
@@ -92,13 +85,10 @@ export interface AthenaFetchPayload {
   sort_by?: AthenaSortBy
 }
 
-export interface AthenaInsertPayload<
-  TInsertBody = AthenaJsonObject,
-  TUpdateBody = AthenaJsonObject,
-> {
+export interface AthenaInsertPayload {
   table_name: string
-  insert_body: TInsertBody | TInsertBody[]
-  update_body?: TUpdateBody
+  insert_body: Record<string, unknown> | Record<string, unknown>[]
+  update_body?: Record<string, unknown>
   columns?: string[] | string
   count?: AthenaCountOption
   head?: boolean
@@ -117,10 +107,9 @@ export interface AthenaDeletePayload {
   total_pages?: number
 }
 
-export interface AthenaUpdatePayload<TUpdateBody = AthenaJsonObject>
-  extends AthenaFetchPayload {
-  set?: TUpdateBody
-  data?: TUpdateBody
+export interface AthenaUpdatePayload extends AthenaFetchPayload {
+  set?: Record<string, unknown>
+  data?: Record<string, unknown>
 }
 
 export type AthenaRpcFilterOperator =
@@ -146,11 +135,11 @@ export interface AthenaRpcOrder {
   ascending?: boolean
 }
 
-export interface AthenaRpcPayload<TArgs = AthenaJsonObject> {
+export interface AthenaRpcPayload {
   function: string
   function_name?: string
   schema?: string
-  args?: TArgs
+  args?: Record<string, unknown>
   select?: string
   filters?: AthenaRpcFilter[]
   count?: AthenaCountOption
@@ -170,7 +159,7 @@ export type BackendType = 'athena' | 'postgrest' | 'postgresql' | 'scylladb'
 /** Backend config: type from SDK + backend-scoped options */
 export interface BackendConfig {
   type: BackendType
-  options?: AthenaJsonObject
+  options?: Record<string, unknown>
 }
 
 /** Pre-defined backends for lean usage: backend: Backend.Athena */
@@ -202,7 +191,7 @@ export interface AthenaGatewayCallOptions extends AthenaGatewayBaseOptions {
   defaultToNull?: boolean
   stripNulls?: boolean
   onConflict?: string | string[]
-  updateBody?: AthenaJsonObject
+  updateBody?: Record<string, unknown>
 }
 
 export interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
