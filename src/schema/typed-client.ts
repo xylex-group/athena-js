@@ -5,16 +5,18 @@ import {
   type RpcQueryBuilder,
   type TableQueryBuilder,
 } from '../client.ts'
-import type { AthenaGatewayCallOptions, AthenaRpcCallOptions } from '../gateway/types.ts'
+import type { AthenaGatewayCallOptions, AthenaJsonObject, AthenaRpcCallOptions } from '../gateway/types.ts'
 import type {
   AnyModelDef,
   DatabaseDef,
+  InsertOf,
   ModelAt,
   RegistryDef,
   RowOf,
   SchemaDef,
   TenantContext,
   TenantKeyMap,
+  UpdateOf,
 } from './types.ts'
 
 type RegistryConstraint = RegistryDef<
@@ -49,7 +51,11 @@ export interface TypedAthenaClient<
     database: TDatabase,
     schema: TSchema,
     model: TModel,
-  ): TableQueryBuilder<RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>>
+  ): TableQueryBuilder<
+    RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
+  >
 }
 
 type BaseClientOptions = Pick<AthenaGatewayCallOptions, 'backend' | 'client' | 'headers'>
@@ -167,11 +173,15 @@ class TypedAthenaClientImpl<
     })
   }
 
-  from<Row = unknown>(table: string): TableQueryBuilder<Row> {
-    return this.baseClient.from<Row>(table)
+  from<
+    Row = Record<string, unknown>,
+    Insert = Partial<Row>,
+    Update = Partial<Insert>,
+  >(table: string): TableQueryBuilder<Row, Insert, Update> {
+    return this.baseClient.from<Row, Insert, Update>(table)
   }
 
-  rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, unknown>>(
+  rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
     args?: Args,
     options?: AthenaRpcCallOptions,
@@ -210,10 +220,18 @@ class TypedAthenaClientImpl<
     database: TDatabase,
     schema: TSchema,
     model: TModel,
-  ): TableQueryBuilder<RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>> {
+  ): TableQueryBuilder<
+    RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
+  > {
     const modelDef = this.registryNavigator.resolveModel(database, schema, model)
     const tableName = this.registryNavigator.resolveTableName(schema, model, modelDef as AnyModelDef)
-    return this.baseClient.from<RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>>(tableName)
+    return this.baseClient.from<
+      RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+      InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+      UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
+    >(tableName)
   }
 }
 

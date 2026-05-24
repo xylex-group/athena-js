@@ -1,0 +1,45 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam ArrowColor black
+skinparam PackageBorderColor black
+skinparam PackageFontColor black
+skinparam ComponentBorderColor black
+skinparam ComponentFontColor black
+skinparam Shadowing false
+title Athena JS Type Model Surface (After)
+
+package "Client Builder" {
+  component "TableQueryBuilder<Row, Insert, Update>" as QB
+  component "FilterChain\ncolumn: keyof Row\n(fallback string for untyped rows)" as FC
+  component "insert/upsert/update\nuse Insert/Update contracts" as WRITES
+}
+
+package "Gateway Types" {
+  component "AthenaJsonValue / AthenaJsonObject" as JSON
+  component "AthenaInsertPayload<TInsert, TUpdate>" as GP1
+  component "AthenaUpdatePayload<TUpdate>" as GP2
+  component "AthenaRpcPayload<TArgs>" as GP3
+}
+
+package "Typed Registry" {
+  component "fromModel(...):\nTableQueryBuilder<RowOf, InsertOf, UpdateOf>" as TM
+}
+
+TM --> QB
+QB --> FC
+QB --> WRITES
+WRITES --> GP1
+WRITES --> GP2
+QB --> GP3
+GP1 --> JSON
+GP2 --> JSON
+GP3 --> JSON
+
+note right of TM
+Model contracts now flow
+through read + write paths
+with stricter compile-time
+checks.
+end note
+@enduml

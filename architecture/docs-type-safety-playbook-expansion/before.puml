@@ -1,0 +1,50 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam ArrowColor black
+skinparam PackageBorderColor black
+skinparam PackageFontColor black
+skinparam ComponentBorderColor black
+skinparam ComponentFontColor black
+skinparam NoteBorderColor black
+skinparam NoteFontColor black
+skinparam Shadowing false
+
+title Athena JS Docs Topology (Before Expansion)
+
+package "Existing Docs" {
+  component "getting-started.md\n(runtime walkthrough only)" as GS #FFF8DC
+  component "typed-schema-registry.md\ncore concepts" as TSR #FFF8DC
+  component "api-reference.md\npartially stale signatures" as API #FFF8DC
+  component "generator-config.md\ngenerator details" as GEN #FFF8DC
+}
+
+package "Type Contracts" {
+  component "TableQueryBuilder<Row, Insert, Update>\nrecently tightened" as QB #E6F2FF
+  component "fromModel(...)-> typed builder" as FM #E6F2FF
+  component "AthenaJsonValue payload family" as JSON #E6F2FF
+}
+
+package "Consumer Layers" {
+  component "Service methods" as SVC #F4FFEE
+  component "Forms / validation\n(Zod + RHF alignment undocumented)" as FORMS #FDEEF4
+}
+
+GS --> SVC
+TSR --> FM
+API --> QB
+API --> JSON
+GEN --> FM
+SVC --> FORMS
+
+note right of API
+Signatures lagged behind
+tri-generic and JSON-safe
+payload contract updates.
+end note
+
+note right of FORMS
+No dedicated playbook for
+collapsing model-to-form drift.
+end note
+@enduml

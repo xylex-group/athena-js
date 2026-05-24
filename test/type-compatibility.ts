@@ -61,6 +61,13 @@ declare function acceptsUserArrayInsertMutation(
 const client = createClient("https://athena-db.com", "api-key")
 const users = client.from<UserRow>("users")
 
+users.eq('id', '1')
+users.order('name')
+users.select('id').eq('name', 'Alice')
+
+// @ts-expect-error unknown filter column should be rejected
+users.eq('missing_column', 'x')
+
 acceptsUserPromise(users.insert({ id: "1", name: "Alice" }).select())
 acceptsUserArrayPromise(users.insert([{ id: "1", name: "Alice" }]).select())
 
@@ -243,12 +250,28 @@ typedClient
     }
   })
 
+typedClient
+  .fromModel('primary', 'public', 'organizations')
+  .insert({ slug: 'org-slug', owner_user_id: 'user_1' })
+  .select()
+
+typedClient
+  .fromModel('primary', 'public', 'organizations')
+  .update({ owner_user_id: 'user_2' })
+  .eq('slug', 'org-slug')
+  .select('id,slug')
+
 // @ts-expect-error unknown model key should not type-check
 typedClient.fromModel('primary', 'public', 'missing_table').select()
 
 // @ts-expect-error unknown tenant key should not type-check
 typedClient.withTenantContext({ unknown: 'value' })
 
+// @ts-expect-error unknown model-filter column should not type-check
+typedClient.fromModel('primary', 'public', 'organizations').eq('missing_column', 'x')
+
+// @ts-expect-error insert payload should match model InsertOf type
+typedClient.fromModel('primary', 'public', 'organizations').insert({ slug: 'missing-owner' })
 interface ProfileFormRow {
   id: string
   display_name: string | null

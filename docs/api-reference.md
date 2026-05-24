@@ -1,29 +1,28 @@
 # API Reference
 
-This is the contract-level reference for the Athena JS SDK exports.
-The docs are split by API surface area to avoid overlap.
+This page documents the exported contract surfaces of `@xylex-group/athena` and `@xylex-group/athena/react`.
 
-## Exports at a glance
+For workflow-first onboarding, start with [`getting-started.md`](getting-started.md).
+For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
 
-Package entrypoint `@xylex-group/athena` exports:
+## Export surfaces
 
-- Client/runtime constructors
-- Query-builder types and operations
-- Error helpers
-- Typed schema helpers (`defineModel` etc.)
-- Generator configuration and rendering helpers
-- Gateway-related hooks/types via `@xylex-group/athena/react` and direct re-exports
+Main package exports include:
 
-For a high-level workflow, see:
+- runtime client constructors (`createClient`, `AthenaClient`)
+- query builder contracts (`AthenaSdkClient`, `TableQueryBuilder`, `RpcQueryBuilder`)
+- typed registry builders (`defineModel`, `defineSchema`, `defineDatabase`, `defineRegistry`, `createTypedClient`)
+- generator config/pipeline helpers
+- result and error helpers
 
-- [`getting-started.md`](getting-started.md)
-- [`cli-command-reference.md`](cli-command-reference.md)
-- [`typed-schema-registry.md`](typed-schema-registry.md)
-- [`generator-config.md`](generator-config.md)
+React package exports include:
 
-## Core result type
+- low-level gateway hook (`useAthenaGateway`)
+- query runtime (`createAthenaQueryClient`, provider, `useQuery`, `useMutation`)
 
-Most runtime operations resolve to:
+## Core result contract
+
+Most SDK operations return:
 
 ```ts
 interface AthenaResult<T> {
@@ -36,40 +35,28 @@ interface AthenaResult<T> {
 }
 ```
 
-`data` is `null` on failure; `error` is `null` on success.
+## Runtime client construction
 
-## Client construction
-
-### `createClient`
+### `createClient(url, apiKey, options?)`
 
 ```ts
-import { createClient } from "@xylex-group/athena";
-
-const athena = createClient(
+function createClient(
   url: string,
   apiKey: string,
-  options?: {
-    client?: string
-    headers?: Record<string, string>
-    backend?: BackendConfig | BackendType
-  },
+  options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend">,
 ): AthenaSdkClient
 ```
 
-### `AthenaClient`
+### `AthenaClient.fromEnvironment()`
 
-```ts
-import { AthenaClient } from "@xylex-group/athena";
+Reads:
 
-const athena = AthenaClient.fromEnvironment();
-```
+- `ATHENA_URL` or `ATHENA_GATEWAY_URL`
+- `ATHENA_API_KEY` or `ATHENA_GATEWAY_API_KEY`
 
-- `fromEnvironment()` reads:
-  - `ATHENA_URL` or `ATHENA_GATEWAY_URL`
-  - `ATHENA_API_KEY` or `ATHENA_GATEWAY_API_KEY`
-- throws if url/key are missing.
+Throws when URL or key is missing.
 
-### Builder API (`AthenaClient.builder()`)
+### `AthenaClient.builder()`
 
 ```ts
 interface AthenaClientBuilder {
@@ -83,13 +70,9 @@ interface AthenaClientBuilder {
 }
 ```
 
-`build()` requires both `url` and `key`; backend defaults to `athena`.
+`build()` requires both URL and key.
 
-`healthTracking(enabled)` exists on the builder for forward-compatible API compatibility.
-
-### Backend constants and type
-
-`Backend` export:
+### Backend constants
 
 ```ts
 const Backend = {
@@ -97,10 +80,14 @@ const Backend = {
   Postgrest: { type: "postgrest" },
   PostgreSQL: { type: "postgresql" },
   ScyllaDB: { type: "scylladb" },
-} as const
+} as const;
 ```
 
-`BackendType` is `"athena" | "postgrest" | "postgresql" | "scylladb"`.
+`BackendType`:
+
+```ts
+type BackendType = "athena" | "postgrest" | "postgresql" | "scylladb"
+```
 
 ## Query runtime API
 
@@ -108,113 +95,129 @@ const Backend = {
 
 ```ts
 interface AthenaSdkClient {
-  from<Row = unknown>(table: string): TableQueryBuilder<Row>
-  rpc<Row = unknown, Args extends Record<string, unknown> = Record<string, unknown>>(
+  from<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
+    table: string,
+  ): TableQueryBuilder<Row, Insert, Update>
+
+  rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
     args?: Args,
     options?: AthenaRpcCallOptions,
   ): RpcQueryBuilder<Row>
-  query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
+
+  query<Row = unknown>(
+    query: string,
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<Row[]>>
 }
 ```
 
-### Filter and modifier chain methods
+## Builder contracts
 
-`FilterChain<T>` is implemented by `TableQueryBuilder`, `SelectChain`, `UpdateChain`:
+### Shared filter chain (typed-column behavior)
 
-```ts
-interface FilterChain<Self> {
-  eq(column: string, value: AthenaConditionValue): Self
-  eqCast(column: string, value: AthenaConditionValue, cast: string): Self
-  eqUuid(column: string, value: string): Self
-  match(filters: Record<string, AthenaConditionValue>): Self
-  range(from: number, to: number): Self
-  limit(count: number): Self
-  offset(count: number): Self
-  currentPage(value: number): Self
-  pageSize(value: number): Self
-  totalPages(value: number): Self
-  order(column: string, options?: { ascending?: boolean }): Self
-  gt(column: string, value: AthenaConditionValue): Self
-  gte(column: string, value: AthenaConditionValue): Self
-  lt(column: string, value: AthenaConditionValue): Self
-  lte(column: string, value: AthenaConditionValue): Self
-  neq(column: string, value: AthenaConditionValue): Self
-  like(column: string, value: AthenaConditionValue): Self
-  ilike(column: string, value: AthenaConditionValue): Self
-  is(column: string, value: AthenaConditionValue): Self
-  in(column: string, values: AthenaConditionArrayValue): Self
-  contains(column: string, values: AthenaConditionArrayValue): Self
-  containedBy(column: string, values: AthenaConditionArrayValue): Self
-  not(columnOrExpression: string, operator?: AthenaConditionOperator, value?: AthenaConditionValue): Self
-  or(expression: string): Self
-}
-```
+`TableQueryBuilder`, `SelectChain`, and `UpdateChain` implement a shared filter contract.
 
-`eq()` auto-switches to text-aware typed comparison when values look like UUIDs and
-column name matches identifier patterns (`id`, `*_id`, `*uuid*`).
+On typed paths, column params are keyed to row fields when keys are known.
+On untyped paths, column params fall back to `string`.
 
-### `TableQueryBuilder`
+Methods include:
+
+- `eq`, `eqCast`, `eqUuid`, `match`
+- `range`, `limit`, `offset`, `currentPage`, `pageSize`, `totalPages`
+- `order`
+- `gt`, `gte`, `lt`, `lte`, `neq`, `like`, `ilike`, `is`, `in`, `contains`, `containedBy`
+- `not`, `or`
+
+`eq()` applies UUID-aware behavior for identifier-like columns.
+
+### `TableQueryBuilder<Row, Insert, Update>`
 
 ```ts
-interface TableQueryBuilder<Row> extends FilterChain<TableQueryBuilder<Row>> {
-  select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<T>
-  insert(values: Row, options?: AthenaGatewayCallOptions): MutationQuery<Row>
-  insert(values: Row[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
+interface TableQueryBuilder<Row, Insert = Partial<Row>, Update = Partial<Insert>> {
+  select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<Row, T>
+
+  insert(values: Insert, options?: AthenaGatewayCallOptions): MutationQuery<Row>
+  insert(values: Insert[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
+
   upsert(
-    values: Row,
-    options?: AthenaGatewayCallOptions & { updateBody?: Partial<Row>; onConflict?: string | string[] },
+    values: Insert,
+    options?: AthenaGatewayCallOptions & {
+      updateBody?: Update
+      onConflict?: string | string[]
+    },
   ): MutationQuery<Row>
+
   upsert(
-    values: Row[],
-    options?: AthenaGatewayCallOptions & { updateBody?: Partial<Row>; onConflict?: string | string[] },
+    values: Insert[],
+    options?: AthenaGatewayCallOptions & {
+      updateBody?: Update
+      onConflict?: string | string[]
+    },
   ): MutationQuery<Row[]>
-  update(values: Partial<Row>, options?: AthenaGatewayCallOptions): UpdateChain<Row>
+
+  update(values: Update, options?: AthenaGatewayCallOptions): UpdateChain<Row>
+
   delete(options?: AthenaGatewayCallOptions & { resourceId?: string }): MutationQuery<Row | null>
+
   single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
   maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
-  reset(): TableQueryBuilder<Row>
+
+  reset(): TableQueryBuilder<Row, Insert, Update>
 }
 ```
 
 Notes:
 
-- `.select()` returns a `SelectChain`, not a promise.
-- `.single()` / `.maybeSingle()` are convenience read terminators.
-- `.delete()` throws if no `id`/`resource_id` filter and no `resourceId` option are present.
-- `.reset()` clears accumulated filters/modifiers only.
+- `.select(...)` returns a chain, not an eager promise.
+- `.delete(...)` throws if neither `id` nor `resource_id` condition is present and no `resourceId` option is supplied.
+- `.reset()` clears builder state (filters/modifiers) and reuses same table target.
 
-### `SelectChain`
+### `SelectChain<Row, SelectedRow = Row>`
 
 ```ts
-interface SelectChain<Row> extends FilterChain<SelectChain<Row>>, PromiseLike<AthenaResult<Row[]>> {
-  single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
-  maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
+interface SelectChain<Row, SelectedRow = Row>
+  extends PromiseLike<AthenaResult<SelectedRow[]>> {
+  single<T = SelectedRow>(
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<T | null>>
+
+  maybeSingle<T = SelectedRow>(
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<T | null>>
 }
 ```
 
-`then/await` executes the read immediately.
+`await`/`.then(...)` executes the read.
 
-### `MutationQuery`
+### `MutationQuery<Result>`
 
 ```ts
 interface MutationQuery<Result> extends PromiseLike<AthenaResult<Result>> {
   select(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<Result>>
   returning(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<Result>>
-  single<T = Result>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<MutationSingleResult<Result>>>
-  maybeSingle<T = Result>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<MutationSingleResult<Result>>>
+
+  single(
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<Result extends Array<infer Item> ? Item | null : Result | null>>
+
+  maybeSingle(
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): Promise<AthenaResult<Result extends Array<infer Item> ? Item | null : Result | null>>
 }
 ```
 
-`MutationSingleResult<Result>` resolves to `Result | null` for non-array and array payloads.
-
-### `UpdateChain`
+### `UpdateChain<Row>`
 
 ```ts
-interface UpdateChain<Row> extends FilterChain<UpdateChain<Row>>, MutationQuery<Row[]> {}
+interface UpdateChain<Row> extends MutationQuery<Row[]> {}
 ```
 
-### `RpcQueryBuilder`
+### `RpcQueryBuilder<Row>`
 
 ```ts
 interface RpcQueryBuilder<Row> extends PromiseLike<AthenaResult<Row[]>> {
@@ -232,19 +235,40 @@ interface RpcQueryBuilder<Row> extends PromiseLike<AthenaResult<Row[]>> {
   limit(count: number): RpcQueryBuilder<Row>
   offset(count: number): RpcQueryBuilder<Row>
   range(from: number, to: number): RpcQueryBuilder<Row>
+
   select(columns?: string | string[], options?: AthenaRpcCallOptions): Promise<AthenaResult<Row[]>>
   single<T = Row>(columns?: string | string[], options?: AthenaRpcCallOptions): Promise<AthenaResult<T | null>>
   maybeSingle<T = Row>(columns?: string | string[], options?: AthenaRpcCallOptions): Promise<AthenaResult<T | null>>
 }
 ```
 
-`athena.rpc(fn, args, options)` requires non-empty `fn`.
+`rpc(fn, ...)` requires a non-empty function name.
 
-## Gateway-level options and payloads
+## Gateway types and payloads
+
+### JSON-safe primitives
+
+```ts
+type AthenaJsonPrimitive = string | number | boolean | null
+
+type AthenaJsonValue = AthenaJsonPrimitive | AthenaJsonObject | AthenaJsonArray
+
+interface AthenaJsonObject {
+  [key: string]: AthenaJsonValue
+}
+
+type AthenaJsonArray = AthenaJsonValue[]
+```
+
+### Condition primitives
+
+```ts
+type AthenaConditionValue = AthenaJsonPrimitive
+type AthenaConditionArrayValue = Array<AthenaConditionValue>
+type AthenaConditionCastType = string
+```
 
 ### `AthenaGatewayCallOptions`
-
-Used by builder `.select/.insert/.update/.delete` payloads and query methods.
 
 ```ts
 interface AthenaGatewayCallOptions {
@@ -256,41 +280,27 @@ interface AthenaGatewayCallOptions {
   headers?: Record<string, string>
   userId?: string | null
   organizationId?: string | null
+
   schema?: string
   count?: "exact" | "planned" | "estimated"
   head?: boolean
-  stripNulls?: boolean
   defaultToNull?: boolean
+  stripNulls?: boolean
   onConflict?: string | string[]
-  updateBody?: Record<string, unknown>
+  updateBody?: AthenaJsonObject
 }
 ```
-
-For table builder calls (`from(...).select/insert/update/delete`), `schema` qualifies
-unqualified table names (for example `users` -> `public.users`).
 
 ### `AthenaRpcCallOptions`
 
 ```ts
 interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
   count?: "exact" | "planned" | "estimated"
-  get?: boolean // call compatibility GET /rpc/{function}
+  get?: boolean
 }
 ```
 
-### Condition and sort shapes
-
-```ts
-type AthenaConditionValue = string | number | boolean | null
-type AthenaConditionArrayValue = Array<AthenaConditionValue>
-type AthenaConditionOperator =
-  | "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "like" | "ilike" | "is"
-  | "in" | "contains" | "containedBy" | "not" | "or"
-```
-
-`AthenaGatewayCondition` stores query filter objects sent by builder methods.
-
-### `AthenaFetchPayload`
+### Fetch payload
 
 ```ts
 interface AthenaFetchPayload {
@@ -309,17 +319,17 @@ interface AthenaFetchPayload {
   aggregation_column?: string
   aggregation_strategy?: "cumulative_sum"
   aggregation_dedup?: boolean
-  sort_by?: { field: string; direction: "ascending" | "descending" }
+  sort_by?: AthenaSortBy
 }
 ```
 
-### `AthenaInsertPayload`
+### Insert payload
 
 ```ts
-interface AthenaInsertPayload {
+interface AthenaInsertPayload<TInsertBody = AthenaJsonObject, TUpdateBody = AthenaJsonObject> {
   table_name: string
-  insert_body: Record<string, unknown> | Record<string, unknown>[]
-  update_body?: Record<string, unknown>
+  insert_body: TInsertBody | TInsertBody[]
+  update_body?: TUpdateBody
   columns?: string[] | string
   count?: "exact" | "planned" | "estimated"
   head?: boolean
@@ -328,17 +338,16 @@ interface AthenaInsertPayload {
 }
 ```
 
-### `AthenaUpdatePayload`
+### Update payload
 
 ```ts
-interface AthenaUpdatePayload extends AthenaFetchPayload {
-  set?: Record<string, unknown>
-  data?: Record<string, unknown> // compatibility alias
+interface AthenaUpdatePayload<TUpdateBody = AthenaJsonObject> extends AthenaFetchPayload {
+  set?: TUpdateBody
+  data?: TUpdateBody
 }
-
 ```
 
-### `AthenaDeletePayload`
+### Delete payload
 
 ```ts
 interface AthenaDeletePayload {
@@ -346,34 +355,32 @@ interface AthenaDeletePayload {
   resource_id?: string
   columns?: string[] | string
   conditions?: AthenaGatewayCondition[]
-  sort_by?: { field: string; direction: "ascending" | "descending" }
+  sort_by?: AthenaSortBy
   current_page?: number
   page_size?: number
   total_pages?: number
 }
 ```
 
-`resource_id` is required by `useAthenaGateway.deleteGateway` and by typed path constraints used in `from(...).delete(...)` when not resolved from filters.
-
-### `AthenaRpcPayload`
+### RPC payload
 
 ```ts
-interface AthenaRpcPayload {
+interface AthenaRpcPayload<TArgs = AthenaJsonObject> {
   function: string
   function_name?: string
   schema?: string
-  args?: Record<string, unknown>
+  args?: TArgs
   select?: string
   filters?: AthenaRpcFilter[]
   count?: "exact" | "planned" | "estimated"
   head?: boolean
   limit?: number
   offset?: number
-  order?: { column: string; ascending?: boolean }
+  order?: AthenaRpcOrder
 }
 ```
 
-### `AthenaQueryPayload`
+### Query payload
 
 ```ts
 interface AthenaQueryPayload {
@@ -381,7 +388,7 @@ interface AthenaQueryPayload {
 }
 ```
 
-### Gateway response/error types
+## Gateway response/error contracts
 
 ```ts
 interface AthenaGatewayResponse<T = unknown> {
@@ -393,8 +400,15 @@ interface AthenaGatewayResponse<T = unknown> {
   errorDetails?: AthenaGatewayErrorDetails | null
   raw: unknown
 }
+
+type AthenaGatewayErrorCode =
+  | "NETWORK_ERROR"
+  | "HTTP_ERROR"
+  | "INVALID_JSON"
+  | "UNKNOWN_ERROR"
+
 interface AthenaGatewayErrorDetails {
-  code: "NETWORK_ERROR" | "HTTP_ERROR" | "INVALID_JSON" | "UNKNOWN_ERROR"
+  code: AthenaGatewayErrorCode
   message: string
   status: number
   endpoint?: "/gateway/fetch" | "/gateway/insert" | "/gateway/update" | "/gateway/delete" | "/gateway/rpc" | "/gateway/query" | `/rpc/${string}`
@@ -405,111 +419,122 @@ interface AthenaGatewayErrorDetails {
 }
 ```
 
-`AthenaGatewayError` is exported and can be detected with `isAthenaGatewayError(...)`.
+Gateway error utilities:
 
-## Runtime error helpers
+- `AthenaGatewayError`
+- `isAthenaGatewayError(error)`
 
-### `normalizeAthenaError` and classification
+## Error and result helpers (`auxiliaries`)
+
+### Error classification primitives
 
 ```ts
 type AthenaErrorKind = "unique_violation" | "not_found" | "validation" | "auth" | "rate_limit" | "transient" | "unknown"
-type AthenaErrorCode = "UNIQUE_VIOLATION" | "NOT_FOUND" | "VALIDATION_FAILED" | "AUTH_UNAUTHORIZED" | "AUTH_FORBIDDEN" | "RATE_LIMITED" | "NETWORK_UNAVAILABLE" | "TRANSIENT_FAILURE" | "HTTP_FAILURE" | "UNKNOWN"
+
+type AthenaErrorCode =
+  | "UNIQUE_VIOLATION"
+  | "NOT_FOUND"
+  | "VALIDATION_FAILED"
+  | "AUTH_UNAUTHORIZED"
+  | "AUTH_FORBIDDEN"
+  | "RATE_LIMITED"
+  | "NETWORK_UNAVAILABLE"
+  | "TRANSIENT_FAILURE"
+  | "HTTP_FAILURE"
+  | "UNKNOWN"
+
 type AthenaErrorCategory = "transport" | "client" | "server" | "database" | "unknown"
-
-interface AthenaOperationContext {
-  table?: string
-  operation?: string
-  identity?: string | Record<string, unknown>
-}
-
-interface NormalizedAthenaError {
-  kind: AthenaErrorKind
-  code: AthenaErrorCode
-  category: AthenaErrorCategory
-  retryable: boolean
-  status?: number
-  constraint?: string
-  table?: string
-  operation?: string
-  message: string
-  raw: unknown
-}
 ```
 
-### Helpers
+### Main helpers
 
-- `isOk(result): boolean`
-- `unwrapRows(result, {context?, allowNull?})`
-- `unwrap(result, {allowNull?})`
-- `unwrapOne(result, { allowNull?, requireExactlyOne? })`
+- `isOk(result)`
+- `normalizeAthenaError(input, context?)`
+- `unwrapRows(result, options?)`
+- `unwrap(result, options?)`
+- `unwrapOne(result, options?)`
 - `requireSuccess(result, context?)`
 - `requireAffected(result, { min? }, context?)`
-- `normalizeAthenaError(input, context?)`
 - `coerceInt(value, options?)`
 - `assertInt(value, label?, options?)`
-- `withRetry({ retries, baseDelayMs?, maxDelayMs?, backoff?, jitter?, shouldRetry? }, fn)`
-- `AthenaError` class with `kind`, `code`, `category`, `status`, etc.
+- `withRetry(config, fn)`
+- `AthenaError` class
 
-## Typed system API
+## Typed schema and registry API
 
-### Schema declaration exports
+### Model declarations
 
-- `defineModel<Row, Insert = Partial<Row>, Update = Partial<Insert>, Meta>(input)`
-- `defineSchema<Models>(models)`
-- `defineDatabase<Schemas>(schemas)`
-- `defineRegistry<Databases>(databases)`
+```ts
+function defineModel<Row, Insert = Partial<Row>, Update = Partial<Insert>, Meta extends ModelMetadata<Row> = ModelMetadata<Row>>(
+  input: { meta: Meta },
+): ModelDef<Row, Insert, Update, Meta>
+
+function defineSchema<Models extends Record<string, AnyModelDef>>(models: Models): SchemaDef<Models>
+function defineDatabase<Schemas extends Record<string, SchemaDef<Record<string, AnyModelDef>>>>(schemas: Schemas): DatabaseDef<Schemas>
+function defineRegistry<Databases extends Record<string, DatabaseDef<Record<string, SchemaDef<Record<string, AnyModelDef>>>>>>(databases: Databases): RegistryDef<Databases>
+```
 
 ### Typed client
 
 ```ts
-type TenantContextValue = string | number | boolean | null | undefined
-type TenantKeyMap = Record<string, string>
-type TenantContext<TMap extends TenantKeyMap = TenantKeyMap> = Partial<Record<keyof TMap, TenantContextValue>>
-
-interface TypedClientOptions {
-  tenantKeyMap?: TenantKeyMap
-  tenantContext?: TenantContext
-  backend?: BackendConfig | BackendType
-  client?: string
-  headers?: Record<string, string>
+interface TypedClientOptions<TMap extends TenantKeyMap = TenantKeyMap>
+  extends Pick<AthenaGatewayCallOptions, "backend" | "client" | "headers"> {
+  tenantKeyMap?: TMap
+  tenantContext?: TenantContext<TMap>
 }
 
-interface TypedAthenaClient<...> extends AthenaSdkClient {
-  readonly registry: RegistryDef
-  readonly tenantKeyMap: Readonly<Record<string, string>>
-  readonly tenantContext: TenantContext
-  withTenantContext(context: TenantContext): TypedAthenaClient
-  fromModel(database: string, schema: string, model: string): TableQueryBuilder
+interface TypedAthenaClient<TRegistry, TTenantMap> extends AthenaSdkClient {
+  readonly registry: TRegistry
+  readonly tenantKeyMap: Readonly<TTenantMap>
+  readonly tenantContext: TenantContext<TTenantMap>
+
+  withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap>
+
+  fromModel<
+    TDatabase extends keyof TRegistry & string,
+    TSchema extends keyof TRegistry[TDatabase]["schemas"] & string,
+    TModel extends keyof TRegistry[TDatabase]["schemas"][TSchema]["models"] & string,
+  >(
+    database: TDatabase,
+    schema: TSchema,
+    model: TModel,
+  ): TableQueryBuilder<
+    RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
+  >
 }
 
 function createTypedClient(registry, url, apiKey, options?): TypedAthenaClient
 ```
 
-### Provider helpers
-
-- `createPostgresIntrospectionProvider(...)` for direct provider mode.
-
 ### Utility types
 
-- `RegistryDef`, `DatabaseDef`, `SchemaDef`, `ModelDef`
-- `RowOf`, `InsertOf`, `UpdateOf`, `ModelAt`
-- `IntrospectionSnapshot`, `SchemaIntrospectionProvider`
+- `ModelDef`, `SchemaDef`, `DatabaseDef`, `RegistryDef`
+- `RowOf<TModel>`
+- `InsertOf<TModel>`
+- `UpdateOf<TModel>`
+- `ModelAt<TRegistry, TDatabase, TSchema, TModel>`
+- `TenantKeyMap`, `TenantContext`, `TenantContextValue`
+- introspection types (`IntrospectionSnapshot`, `IntrospectionTable`, etc.)
 
 ## Generator API
 
-Exports (core):
+Runtime exports:
 
-- `defineGeneratorConfig(config)`
-- `findGeneratorConfigPath(cwd?)`
-- `loadGeneratorConfig(options?)`
-- `normalizeGeneratorConfig(config)`
-- `resolveGeneratorProvider(providerConfig, experimentalFlags)`
-- `generateArtifactsFromSnapshot(snapshot, config)`
-- `runSchemaGenerator(options?)`
+- `defineGeneratorConfig`
+- `findGeneratorConfigPath`
+- `loadGeneratorConfig`
+- `normalizeGeneratorConfig`
 - `resolveGeneratorProvider`
+- `generateArtifactsFromSnapshot`
+- `runSchemaGenerator`
 - `resolvePostgresColumnType`
+- `normalizeSchemaSelection`
+- `resolveProviderSchemas`
+- `DEFAULT_POSTGRES_SCHEMAS`
 
-### Config helpers
+Config root type:
 
 ```ts
 interface AthenaGeneratorConfig {
@@ -521,180 +546,59 @@ interface AthenaGeneratorConfig {
 }
 ```
 
-`runSchemaGenerator` return:
-
-- `snapshot`
-- `files`
-- `writtenFiles` (empty when dry run)
-- `configPath`
+`runSchemaGenerator(...)` returns snapshot + generated files + written files (unless dry-run).
 
 ## React integration (`@xylex-group/athena/react`)
 
-### `useAthenaGateway`
+### Gateway hook
 
 ```ts
-import { useAthenaGateway } from "@xylex-group/athena/react";
+useAthenaGateway(config?: AthenaGatewayHookConfig): AthenaGatewayHookResult
 ```
 
-```ts
-interface AthenaGatewayHookConfig {
-  baseUrl?: string
-  apiKey?: string
-  headers?: Record<string, string>
-  backend?: BackendConfig | BackendType
-  client?: string
-  userId?: string | null
-  organizationId?: string | null
-  publishEvent?: string
-}
+Hook result methods:
 
-interface AthenaGatewayHookResult {
-  fetchGateway<T>(payload: AthenaFetchPayload, options?: AthenaGatewayCallOptions): Promise<AthenaGatewayResponse<T>>
-  insertGateway<T>(payload: AthenaInsertPayload, options?: AthenaGatewayCallOptions): Promise<AthenaGatewayResponse<T>>
-  updateGateway<T>(payload: AthenaUpdatePayload, options?: AthenaGatewayCallOptions): Promise<AthenaGatewayResponse<T>>
-  deleteGateway<T>(payload: AthenaDeletePayload, options?: AthenaGatewayCallOptions): Promise<AthenaGatewayResponse<T>>
-  rpcGateway<T>(payload: AthenaRpcPayload, options?: AthenaRpcCallOptions): Promise<AthenaGatewayResponse<T>>
-  isLoading: boolean
-  error: string | null
-  lastRequest: AthenaGatewayCallLog | null
-  lastResponse: AthenaGatewayResponseLog | null
-  baseUrl: string
-}
-```
+- `fetchGateway`
+- `insertGateway`
+- `updateGateway`
+- `deleteGateway`
+- `rpcGateway`
 
-`deleteGateway` throws if `resource_id` is missing in payload.
+State fields:
 
-### Query runtime
+- `isLoading`
+- `error`
+- `lastRequest`
+- `lastResponse`
+- `baseUrl`
 
-- `createAthenaQueryClient(config?)`
+### Query runtime exports
+
+- `AthenaQueryClient`
+- `createAthenaQueryClient`
+- `attachStateAdapter`
 - `AthenaQueryClientProvider`
 - `useAthenaQueryClient`
-- `useQuery(options)`
-- `useMutation(options)`
-- `attachStateAdapter(client, adapter)`
+- `useQuery`
+- `useMutation`
 
-Runtime defaults:
+Default runtime stance is intentionally conservative:
 
-- `cache.mode = "none"` by default.
-- `defaultQueryOptions.retry = 0`, default refetch:
-  - on mount: `true`
-  - on window focus: `false`
-  - on reconnect: `false`
-- `defaultMutationOptions.retry = 0`.
-
-Default query behavior performs inflight dedupe for identical keys.
-
-### `UseQueryOptions` shape (minimum)
-
-```ts
-interface UseQueryOptions<TQueryFnData, TData = TQueryFnData> {
-  queryKey: readonly unknown[] | string
-  queryFn: () => Promise<TQueryFnData>
-  enabled?: boolean
-  initialData?: TData
-  retry?: number | false
-  retryDelay?: number | ((attempt: number) => number)
-}
-```
-
-Result includes:
-
-- `data`, `error`, `isLoading`, `isFetching`, `isSuccess`, `isError`, `status`
-- `refetch()`, `reset()`
-- `lastRequest`, `lastResponse`
-
-### `UseMutationOptions` shape (minimum)
-
-```ts
-interface UseMutationOptions<TVariables, TMutationFnData, TData = TMutationFnData> {
-  mutationFn: (variables: TVariables) => Promise<TMutationFnData>
-  mutationKey?: readonly unknown[] | string
-  onMutate?: (variables: TVariables) => void | Promise<void>
-  onSuccess?: (data: TData, variables: TVariables) => void
-  onError?: (error: AthenaQueryError, variables: TVariables) => void
-  onSettled?: (data: TData | undefined, error: AthenaQueryError | null, variables: TVariables) => void
-  select?: (data: TMutationFnData) => TData
-  retry?: number | false
-  retryDelay?: number | ((attempt: number) => number)
-}
-```
-
-Result includes:
-
-- `mutate`, `mutateAsync`
-- `data`, `error`, `isLoading`, `isSuccess`, `isError`, `status`
-- `reset()`, `lastResponse`, `lastVariables`, `lastRequest`
-
-## Error and result patterns
-
-### Request envelope
-
-Use `if (result.error)` before reading `data` in service code, or helpers like:
-
-- `requireSuccess`
-- `requireAffected`
-- `unwrap/unwrapRows/unwrapOne`
-- React hooks which expose normalized errors.
-
-### Header behavior to remember
-
-- SDK adds `X-Athena-Sdk` automatically (`xylex-group/athena <version>`).
-- Standard header keys are forwarded:
-  - `apikey`, `x-api-key`
-  - `X-User-Id`
-  - `X-Organization-Id`
-  - `X-Backend-Type` from `backend`
-  - `X-Strip-Nulls`
-  - `X-Athena-Client`, `X-Publish-Event`
+- cache mode defaults to `none`
+- retries default to `0`
+- focus/refetch behavior is restrained by default
 
 ## Validation commands
+
+Use these after API surface or typed-contract updates:
 
 ```bash
 pnpm typecheck
 pnpm check:all
 ```
 
-Use these after large API-level updates or generated contract changes.
-## Generator configuration quick reference (from docs/generator-config.md)
+For generator-related changes also run:
 
-### Defaults recap
-
-- `provider` has no runtime default and must be configured.
-- output targets:
-  - `model`: `athena/models/{schema_kebab}/{model_kebab}.ts`
-  - `schema`: `athena/schemas/{schema_kebab}.ts`
-  - `database`: `athena/relations.ts`
-  - `registry`: `athena/config.ts`
-- naming:
-  - `modelType: "pascal"`
-  - `modelConst: "camel"`
-  - `schemaConst: "camel"`
-  - `databaseConst: "camel"`
-  - `registryConst: "camel"`
-- feature flags:
-  - `emitRelations: true`
-  - `emitRegistry: true`
-- experimental:
-  - `postgresGatewayIntrospection: false`
-  - `scyllaProviderContracts: true`
-
-### Config discovery
-
-Generator config discovery checks in order:
-
-1. `athena.config.ts`
-2. `athena.config.js`
-3. `athena-js.config.ts`
-4. `athena-js.config.js`
-5. `.athena.config.ts`
-6. `.athena.config.js`
-
-### Command line usage
-
-- `athena-js generate`
-- `athena-js generate --dry-run`
-- `athena-js generate --config ./path/to/config`
-
-If you need concrete examples and troubleshooting scenarios, use the full
-[`generator-config.md`](generator-config.md) page.
-
+```bash
+athena-js generate --dry-run
+```

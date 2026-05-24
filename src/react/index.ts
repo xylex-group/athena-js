@@ -27,6 +27,10 @@ export type {
 } from '../schema/model-form.ts'
 
 export type {
+  AthenaJsonPrimitive,
+  AthenaJsonValue,
+  AthenaJsonObject,
+  AthenaJsonArray,
   AthenaGatewayHookConfig,
   AthenaGatewayHookResult,
   AthenaGatewayCallOptions,

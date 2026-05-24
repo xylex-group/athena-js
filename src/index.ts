@@ -164,6 +164,10 @@ export type {
   AthenaEmailSignUpRequest,
 } from './auth/index.ts'
 export type {
+  AthenaJsonPrimitive,
+  AthenaJsonValue,
+  AthenaJsonObject,
+  AthenaJsonArray,
   AthenaConditionCastType,
   AthenaRpcCallOptions,
   AthenaRpcFilter,

@@ -1,0 +1,62 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam ArrowColor black
+skinparam PackageBorderColor black
+skinparam PackageFontColor black
+skinparam ComponentBorderColor black
+skinparam ComponentFontColor black
+skinparam NoteBorderColor black
+skinparam NoteFontColor black
+skinparam Shadowing false
+
+title Athena JS Docs Topology (After Expansion)
+
+package "Documentation Tracks" {
+  component "index.md\nrole-based reading tracks" as IDX #E8F5E9
+  component "getting-started.md\nruntime -> typed migration" as GS #E8F5E9
+  component "typed-schema-registry.md\nmetadata + tenant + anti-patterns" as TSR #E8F5E9
+  component "type-safety-playbook.md\ncontract hardening recipes" as PLAY #E8F5E9
+  component "api-reference.md\nsource-accurate signatures" as API #E8F5E9
+}
+
+package "Type Surfaces" {
+  component "TableQueryBuilder<Row, Insert, Update>" as QB #E3F2FD
+  component "Filter columns keyed to Row" as KEYED #E3F2FD
+  component "AthenaJsonObject / AthenaJsonValue\npayload contracts" as JSON #E3F2FD
+  component "Typed fromModel(...):\nRowOf + InsertOf + UpdateOf" as FM #E3F2FD
+}
+
+package "App Integration" {
+  component "Service boundaries\nunwrap/require helpers" as SVC #FFF3E0
+  component "Validation boundaries\nZod parsers" as ZOD #FFF3E0
+  component "Form runtime\nReact Hook Form" as RHF #FFF3E0
+}
+
+IDX --> GS
+IDX --> TSR
+IDX --> PLAY
+IDX --> API
+
+API --> QB
+API --> KEYED
+API --> JSON
+TSR --> FM
+PLAY --> FM
+PLAY --> ZOD
+PLAY --> RHF
+GS --> SVC
+SVC --> ZOD
+ZOD --> QB
+
+note right of PLAY
+Dedicated migration and
+anti-pattern guidance now
+covers model-to-form collapse.
+end note
+
+note right of API
+Signatures and payload generics
+aligned with current source.
+end note
+@enduml
