@@ -79,6 +79,14 @@ or cross-namespace.
 `fromModel()` uses registry lookup and then delegates to the same runtime query builder
 so chain methods behave exactly like `from()`.
 
+The returned builder now carries all three model contracts:
+
+- `Row` for read/select result typing
+- `Insert` for `insert` / `upsert` payload typing
+- `Update` for `update` payload typing
+
+Filter methods (`eq`, `gte`, `order`, etc.) are keyed to model row fields in typed paths.
+
 ```ts
 const typed = createTypedClient(registry, "https://athena-db.com", "secret", {
   tenantKeyMap: {

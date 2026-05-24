@@ -13,6 +13,10 @@ export { useQuery } from './use-query.ts'
 export { useMutation } from './use-mutation.ts'
 
 export type {
+  AthenaJsonPrimitive,
+  AthenaJsonValue,
+  AthenaJsonObject,
+  AthenaJsonArray,
   AthenaGatewayHookConfig,
   AthenaGatewayHookResult,
   AthenaGatewayCallOptions,

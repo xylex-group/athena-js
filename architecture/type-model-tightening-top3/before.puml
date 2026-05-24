@@ -1,0 +1,43 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultFontColor black
+skinparam ArrowColor black
+skinparam PackageBorderColor black
+skinparam PackageFontColor black
+skinparam ComponentBorderColor black
+skinparam ComponentFontColor black
+skinparam Shadowing false
+title Athena JS Type Model Surface (Before)
+
+package "Client Builder" {
+  component "TableQueryBuilder<Row>" as QB
+  component "FilterChain\ncolumn: string" as FC
+  component "insert/upsert/update\npayload casts via Record<string, unknown>" as WRITES
+}
+
+package "Gateway Types" {
+  component "AthenaInsertPayload\ninsert_body: Record<string, unknown>" as GP1
+  component "AthenaUpdatePayload\nset/data: Record<string, unknown>" as GP2
+  component "AthenaRpcPayload\nargs: Record<string, unknown>" as GP3
+}
+
+package "Typed Registry" {
+  component "fromModel(...):\nTableQueryBuilder<Row>" as TM
+  component "InsertOf/UpdateOf\nnot propagated to builder" as LOST
+}
+
+TM --> QB
+QB --> FC
+QB --> WRITES
+WRITES --> GP1
+WRITES --> GP2
+WRITES --> GP3
+LOST .. TM
+
+note right of FC
+Typed rows still accept
+unknown filter columns
+because filter keys are
+plain strings.
+end note
+@enduml
