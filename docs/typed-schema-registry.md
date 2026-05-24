@@ -209,7 +209,39 @@ For stable long-term maintenance:
 - keep `primaryKey` and `nullable` accurate and reviewed with schema changes
 - run generator dry-runs in CI to detect schema drift early
 
-## 12) Next documents
+## 12) Model-to-form adapter (React Hook Form + Zod)
+
+When forms are driven from model contracts, nullable DB values (`null`) often need
+form-safe defaults (`""` / `undefined`) and submit payload normalization back to model shapes.
+
+Use the built-in helpers:
+
+```ts
+import { defineModel, createModelFormAdapter } from "@xylex-group/athena";
+
+const profiles = defineModel<{
+  id: string;
+  display_name: string | null;
+  age: number | null;
+}>({
+  meta: {
+    primaryKey: ["id"],
+    nullable: { id: false, display_name: true, age: true },
+  },
+});
+
+const formAdapter = createModelFormAdapter(profiles);
+
+// Edit defaults for RHF (null -> "")
+const defaultValues = formAdapter.toDefaults(existingRow);
+
+// Submit payload ("" -> null on nullable fields)
+const insertPayload = formAdapter.toInsert(formValues);
+```
+
+This keeps `model -> form -> insert/update` conversion rules centralized instead of re-implemented per form.
+
+## 13) Next documents
 
 - [`type-safety-playbook.md`](type-safety-playbook.md)
 - [`generator-config.md`](generator-config.md)

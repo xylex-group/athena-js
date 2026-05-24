@@ -6,6 +6,11 @@ export {
 } from './definitions.ts'
 export { createTypedClient } from './typed-client.ts'
 export { createPostgresIntrospectionProvider } from './postgres-provider.ts'
+export {
+  createModelFormAdapter,
+  toModelFormDefaults,
+  toModelPayload,
+} from './model-form.ts'
 export type {
   DatabaseDef,
   InsertOf,
@@ -32,4 +37,12 @@ export type {
 } from './types.ts'
 export type { TypedAthenaClient, TypedClientOptions } from './typed-client.ts'
 export type { PostgresIntrospectionProviderOptions } from './postgres-provider.ts'
+export type {
+  ModelFormAdapter,
+  ModelFormDefaults,
+  ModelFormNullishMode,
+  ModelFormValues,
+  ToModelFormDefaultsOptions,
+  ToModelPayloadOptions,
+} from './model-form.ts'
 
