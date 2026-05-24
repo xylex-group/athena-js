@@ -344,6 +344,16 @@ export default defineGeneratorConfig({
 Use `mode: "gateway"` when CI or runners cannot open direct PostgreSQL connections.
 
 ## 13) Production checklist
+```ts
+provider: {
+  kind: "postgres",
+  mode: "gateway",
+  gatewayUrl: process.env.ATHENA_URL!,
+  apiKey: process.env.ATHENA_API_KEY!,
+  database: "app_db",
+  schemas: ["public", "athena"],
+}
+```
 
 - Use typed `fromModel(...)` on domains with frequent schema changes.
 - Keep write contracts explicit (`Insert` and `Update`) for business-critical models.

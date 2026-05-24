@@ -1,213 +1,185 @@
 # Typed schema registry and model contracts
 
-The typed registry layer is the contract backbone of Athena JS.
+The typed layer is the SDK's schema contract system. It keeps model metadata in TypeScript,
+ensures runtime calls line up with table names, and lets the generator emit those same contracts for you.
 
-It lets you define row, insert, and update types once, bind them to model metadata,
-and route runtime queries through stable logical model names.
+## Why it exists
 
-## Why this exists
+Use registry models when two things start to become expensive:
 
-Use the typed registry when these problems appear:
+- duplicated row types across call sites
+- schema changes causing drift between runtime strings and typed assumptions
 
-- repeated row interfaces across service code
-- write payload drift between forms/services and DB contracts
-- table renames forcing broad runtime string refactors
-- cross-team uncertainty about nullable/primary-key semantics
+The model system reduces both by introducing a source-of-truth object graph:
+`registry -> database -> schema -> model -> metadata/metadata types`.
 
-`from("table")` remains supported. The typed system is additive.
+`createClient(...).from<Table>("table")` remains valid and fully supported. The typed path is additive.
 
-## 1) Core primitives
+## 1) Core contracts
 
-The registry graph is:
-
-```text
-defineModel -> defineSchema -> defineDatabase -> defineRegistry -> createTypedClient
-```
+`defineModel`, `defineSchema`, `defineDatabase`, and `defineRegistry` are lightweight identity builders with explicit type signatures.
 
 ```ts
 import {
-  createTypedClient,
-  defineDatabase,
   defineModel,
-  defineRegistry,
   defineSchema,
+  defineDatabase,
+  defineRegistry,
+  createTypedClient,
 } from "@xylex-group/athena";
 
 const users = defineModel<
-  { id: string; email: string; created_at: string | null; active: boolean },
-  { email: string; active?: boolean },
-  { email?: string; active?: boolean }
+  { id: string; email: string; createdAt: string | null },
+  { id?: string; email: string },
+  { email?: string }
 >({
   meta: {
     primaryKey: ["id"],
-    nullable: {
-      id: false,
-      email: false,
-      created_at: true,
-      active: false,
-    },
+    nullable: { id: false, email: false, createdAt: true },
   },
 });
 
-const registry = defineRegistry({
-  app: defineDatabase({
-    public: defineSchema({ users }),
-  }),
-});
+const primarySchema = defineSchema({ users });
+const primaryDb = defineDatabase({ public: primarySchema });
+const registry = defineRegistry({ app: primaryDb });
 
-const typed = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
+const client = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
 ```
 
 ## 2) Model metadata contract
 
-`defineModel` accepts `{ meta }` and preserves metadata for runtime resolution and tooling.
+`meta` is where runtime behavior and typed metadata are stored.
 
-### Required
+- `primaryKey: string[]` (required)
+- `database`, `schema`, `model`: logical naming hints
+- `tableName`: explicit SQL table target; overrides `schema.model`
+- `nullable`: map used to shape insert/update inference and nullability
+- `relations`: optional relation graph metadata emitted by generator
 
-- `primaryKey: string[]`
+### `tableName` resolution order
 
-### Optional
+`fromModel(database, schema, model)` resolves to:
 
-- `database`
-- `schema`
-- `model`
-- `tableName`
-- `nullable`
-- `relations`
+1. `meta.tableName` when provided
+2. `${meta.schema}.${meta.model}` when missing (defaults from registry path)
 
-### Table name resolution
+This means you can keep model names stable even when DB objects are renamed
+or cross-namespace.
 
-`fromModel(database, schema, model)` resolves SQL target in this order:
+## 3) Client behavior and type coupling
 
-1. `meta.tableName`
-2. `${meta.schema ?? schema}.${meta.model ?? model}`
+`createTypedClient(registry, url, apiKey, options?)` returns an `AthenaSdkClient` with registry helpers:
 
-This lets you keep logical names stable while mapping to legacy physical tables.
+- `.registry`
+- `.tenantKeyMap`
+- `.tenantContext`
+- `.withTenantContext(context)`
+- `.fromModel(database, schema, model)`
 
-## 3) Tri-generic write contracts
-
-`TableQueryBuilder` carries 3 independent contracts:
-
-- `Row` for read result typing
-- `Insert` for `insert` and `upsert(values)`
-- `Update` for `update(values)` and `upsert({ updateBody })`
-
-`defineModel<Row, Insert, Update>` feeds all 3 through `fromModel(...)` automatically.
-
-## 4) Filter column typing behavior
-
-On typed paths, filter methods are keyed to row fields when row keys are known.
+`fromModel()` uses registry lookup and then delegates to the same runtime query builder
+so chain methods behave exactly like `from()`.
 
 ```ts
-await typed
-  .fromModel("app", "public", "users")
-  .eq("email", "user@example.com")
-  .order("created_at", { ascending: false })
-  .limit(25)
-  .select("id, email");
-```
-
-This applies to methods like `eq`, `gt`, `order`, `contains`, `not`, and `match`.
-
-When row keys are not inferable, signatures gracefully fall back to `string` columns.
-
-## 5) Utility types for service boundaries
-
-Use utility types when you need contract-safe helper functions:
-
-- `RowOf<Model>`
-- `InsertOf<Model>`
-- `UpdateOf<Model>`
-- `ModelAt<Registry, Database, Schema, Model>`
-
-```ts
-import type { InsertOf, ModelAt, UpdateOf } from "@xylex-group/athena";
-
-type UserModel = ModelAt<typeof registry, "app", "public", "users">;
-type UserInsert = InsertOf<UserModel>;
-type UserUpdate = UpdateOf<UserModel>;
-```
-
-This is ideal for request parsing helpers, mapper layers, and UI-to-service DTO boundaries.
-
-## 6) Tenant context and header mapping
-
-Typed clients can map logical tenant keys to concrete headers.
-
-```ts
-const tenantAware = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+const typed = createTypedClient(registry, "https://athena-db.com", "secret", {
   tenantKeyMap: {
     organizationId: "X-Organization-Id",
     workspaceId: "X-Workspace-Id",
   },
 });
 
-const scoped = tenantAware.withTenantContext({
-  organizationId: "org-1",
-  workspaceId: "ws-2",
-});
+await typed
+  .withTenantContext({ organizationId: "org-1" })
+  .fromModel("app", "public", "users")
+  .select("id, email")
+  .eq("active", true);
 ```
 
-Behavior:
+### Tenant context behavior
 
-- `withTenantContext(...)` returns a new client
-- context values are merged
-- `null` and `undefined` values are skipped
-- resulting headers are merged with any base headers
-
-## 7) Relation metadata semantics
-
-`meta.relations` can capture structural relations for tooling and generated artifacts.
+- returns a new client
+- merges new keys into existing context
+- maps keys to headers using `tenantKeyMap`
+- drops `null` / `undefined` values instead of serializing them
 
 ```ts
+const scoped = typed.withTenantContext({ organizationId: "org-1" });
+const scopedAgain = scoped.withTenantContext({ workspaceId: "ws-2" });
+// scopedAgain sends both tenant headers
+```
+
+## 4) Types generated from model metadata
+
+`defineModel<Row, Insert, Update>(...)` influences type extraction:
+
+- `Row` drives read results (`select` payloads)
+- `Insert` defaults to `Partial<Row>`
+- `Update` defaults to `Partial<Insert>`
+
+The helper types available at runtime:
+
+- `RowOf<Model>`
+- `InsertOf<Model>`
+- `UpdateOf<Model>`
+- `ModelAt<Registry, DB, Schema, Model>`
+
+If you need explicit override typing for insert/update payloads while still sharing fields, pass the generics directly.
+
+## 5) Relation metadata
+
+Generated models can include relation metadata for tooling that reads it.
+
+```ts
+type Kind = "one-to-one" | "many-to-one" | "one-to-many" | "many-to-many";
+
 {
-  kind: "many-to-one",
-  sourceColumns: ["organization_id"],
-  targetSchema: "public",
-  targetModel: "organizations",
-  targetColumns: ["id"],
+  kind: Kind;
+  sourceColumns: string[];
+  targetSchema: string;
+  targetModel: string;
+  targetColumns: string[];
+  targetDatabase?: string;
+  through?: {
+    schema: string;
+    model: string;
+    sourceColumns: string[];
+    targetColumns: string[];
+  };
 }
 ```
 
-Current query builders do not auto-generate joins from this metadata.
-Treat it as contract metadata for generation, inspection, and higher-level tooling.
+The SDK preserves this metadata and forwards it in generated model files. It does not perform automatic join expansion in current query builders.
 
-## 8) Registry navigation errors
+## 6) Error behavior and guardrails
 
-`fromModel(...)` fails fast for invalid paths:
+`fromModel` throws early when registry paths are invalid:
 
-- unknown database -> `Unknown database "..."`
-- unknown schema -> `Unknown schema "..." in database "..."`
-- unknown model -> `Unknown model "..." in schema "..."`
+- missing database -> `Unknown database "..."`
+- missing schema -> `Unknown schema "..." in database "..."`
+- missing model -> `Unknown model "..." in schema "..."`
 
-These checks run before HTTP calls, which keeps invalid path errors local and deterministic.
+You can rely on constructor-time errors before making HTTP calls.
 
-## 9) Migration strategy (incremental)
+## 7) Generator interoperability
 
-1. Keep existing `from("table")` calls running.
-2. Introduce model contracts for the most unstable domains first.
-3. Migrate those call sites to `fromModel(...)`.
-4. Add generator output once config and CI behavior are deterministic.
-5. Use utility types (`InsertOf`/`UpdateOf`) in form and service layers.
+The generator outputs directly in the same shape:
 
-This avoids a high-risk flag day migration.
+- model files: `defineModel<...>` with row/insert/update types + metadata
+- schema files: `defineSchema({ ... })`
+- database files: `defineDatabase({ ... })`
+- optional registry file: `defineRegistry({ ... })`
 
-## 10) Common anti-patterns
+That means `generated registry artifacts` can be imported as-is with `createTypedClient(...)`.
 
-- defining `Row` only and relying on `Partial<Row>` for business-critical writes
-- mixing logical model names and physical table names without explicit `tableName`
-- manually rebuilding tenant headers in every call instead of `tenantKeyMap`
-- treating relation metadata as runtime join logic
-- duplicating form DTO types instead of deriving from model contracts
+### File template defaults
 
-## 11) Recommended contract shape for teams
+By default, generator target templates are:
 
-For stable long-term maintenance:
+- `athena/models/{schema_kebab}/{model_kebab}.ts`
+- `athena/schemas/{schema_kebab}.ts`
+- `athena/relations.ts`
+- `athena/config.ts`
 
-- keep each domain model explicit with `Row`, `Insert`, and `Update`
-- set `tableName` only when physical names diverge from logical names
-- keep `primaryKey` and `nullable` accurate and reviewed with schema changes
-- run generator dry-runs in CI to detect schema drift early
+These can be changed via `output.targets`.
 
 ## 8) Migration strategy: untyped -> model-first
 
@@ -236,40 +208,7 @@ A practical rollout sequence for existing code:
 ## 11) Next
 
 For concrete CLI/config examples, flags, and provider behavior, continue to:
-## 12) Model-to-form adapter (React Hook Form + Zod)
 
-When forms are driven from model contracts, nullable DB values (`null`) often need
-form-safe defaults (`""` / `undefined`) and submit payload normalization back to model shapes.
-
-Use the built-in helpers:
-
-```ts
-import { defineModel, createModelFormAdapter } from "@xylex-group/athena";
-
-const profiles = defineModel<{
-  id: string;
-  display_name: string | null;
-  age: number | null;
-}>({
-  meta: {
-    primaryKey: ["id"],
-    nullable: { id: false, display_name: true, age: true },
-  },
-});
-
-const formAdapter = createModelFormAdapter(profiles);
-
-// Edit defaults for RHF (null -> "")
-const defaultValues = formAdapter.toDefaults(existingRow);
-
-// Submit payload ("" -> null on nullable fields)
-const insertPayload = formAdapter.toInsert(formValues);
-```
-
-This keeps `model -> form -> insert/update` conversion rules centralized instead of re-implemented per form.
-
-## 13) Next documents
-
-- [`type-safety-playbook.md`](type-safety-playbook.md)
 - [`generator-config.md`](generator-config.md)
 - [`api-reference.md`](api-reference.md)
+
