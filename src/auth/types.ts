@@ -32,6 +32,41 @@ export type AthenaAuthEndpointPath =
   | '/unlink-account'
   | '/refresh-token'
   | '/get-access-token'
+  | '/organization/create'
+  | '/organization/check-slug'
+  | '/organization/list'
+  | '/organization/set-active'
+  | '/organization/get-full-organization'
+  | '/organization/update'
+  | '/organization/delete'
+  | '/organization/invite-member'
+  | '/organization/accept-invitation'
+  | '/organization/cancel-invitation'
+  | '/organization/reject-invitation'
+  | '/organization/get-invitation'
+  | '/organization/list-invitations'
+  | '/organization/list-user-invitations'
+  | '/organization/list-members'
+  | '/organization/remove-member'
+  | '/organization/update-member-role'
+  | '/organization/get-active-member'
+  | '/organization/get-active-member-role'
+  | '/organization/add-member'
+  | '/organization/leave'
+  | '/organization/create-role'
+  | '/organization/delete-role'
+  | '/organization/list-roles'
+  | '/organization/get-role'
+  | '/organization/update-role'
+  | '/organization/create-team'
+  | '/organization/list-teams'
+  | '/organization/update-team'
+  | '/organization/remove-team'
+  | '/organization/set-active-team'
+  | '/organization/list-user-teams'
+  | '/organization/list-team-members'
+  | '/organization/add-team-member'
+  | '/organization/remove-team-member'
   | '/ok'
   | '/error'
   | `/reset-password/${string}`
@@ -95,6 +130,57 @@ export interface AthenaAuthSession {
 export interface AthenaAuthSessionResponse {
   session: AthenaAuthSession
   user: AthenaAuthUser
+}
+
+export interface AthenaAuthOrganization {
+  id: string
+  name: string
+  slug: string
+  logo?: string | null
+  metadata?: Record<string, unknown> | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AthenaAuthOrganizationMember {
+  id: string
+  organizationId?: string
+  userId?: string
+  role?: string | string[] | null
+  createdAt?: string
+  updatedAt?: string
+  user?: AthenaAuthUser
+}
+
+export interface AthenaAuthOrganizationInvitation {
+  id: string
+  email?: string
+  role?: string | string[] | null
+  organizationId?: string
+  inviterId?: string
+  teamId?: string | null
+  status?: string
+  expiresAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AthenaAuthOrganizationRole {
+  id?: string
+  role?: string
+  roleName?: string
+  permission?: Record<string, string[]>
+  organizationId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AthenaAuthOrganizationTeam {
+  id: string
+  name: string
+  organizationId?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface AthenaEmailSignInRequest {
@@ -243,6 +329,174 @@ export interface AthenaAuthLinkedAccount {
   scopes?: string[]
   createdAt?: string
   updatedAt?: string
+}
+
+export interface AthenaAuthOrganizationCreateRequest {
+  name: string
+  slug: string
+  logo?: string
+  metadata?: Record<string, unknown>
+  userId?: string
+  keepCurrentActiveOrganization?: boolean
+}
+
+export interface AthenaAuthOrganizationCheckSlugRequest {
+  slug: string
+}
+
+export interface AthenaAuthOrganizationSetActiveRequest {
+  organizationId?: string | null
+  organizationSlug?: string | null
+}
+
+export interface AthenaAuthOrganizationGetFullQuery {
+  organizationId?: string
+  organizationSlug?: string
+  membersLimit?: number
+}
+
+export interface AthenaAuthOrganizationUpdateRequest {
+  data: {
+    name?: string
+    slug?: string
+    logo?: string
+    metadata?: Record<string, unknown> | null
+  }
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationDeleteRequest {
+  organizationId: string
+}
+
+export interface AthenaAuthOrganizationInviteMemberRequest {
+  email: string
+  role: string | string[]
+  organizationId?: string
+  resend?: boolean
+  teamId?: string
+}
+
+export interface AthenaAuthOrganizationInvitationActionRequest {
+  invitationId: string
+}
+
+export interface AthenaAuthOrganizationGetInvitationQuery {
+  id: string
+}
+
+export interface AthenaAuthOrganizationListInvitationsQuery {
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationListUserInvitationsQuery {
+  email?: string
+}
+
+export type AthenaAuthOrganizationListMembersFilterOperator =
+  | 'eq'
+  | 'ne'
+  | 'lt'
+  | 'lte'
+  | 'gt'
+  | 'gte'
+  | 'in'
+  | 'not_in'
+  | 'contains'
+  | 'starts_with'
+  | 'ends_with'
+
+export interface AthenaAuthOrganizationListMembersQuery {
+  organizationId?: string
+  limit?: number
+  offset?: number
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+  filterField?: string
+  filterOperator?: AthenaAuthOrganizationListMembersFilterOperator
+  filterValue?: string | number | boolean | string[] | number[]
+}
+
+export interface AthenaAuthOrganizationRemoveMemberRequest {
+  memberIdOrEmail: string
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationUpdateMemberRoleRequest {
+  role: string | string[]
+  memberId: string
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationAddMemberRequest {
+  userId?: string | null
+  role: string | string[]
+  organizationId?: string
+  teamId?: string
+}
+
+export interface AthenaAuthOrganizationLeaveRequest {
+  organizationId: string
+}
+
+export interface AthenaAuthOrganizationCreateRoleRequest {
+  role: string
+  permission: Record<string, string[]>
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationRoleSelector {
+  roleName?: string
+  roleId?: string
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationListRolesQuery {
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationUpdateRoleRequest extends AthenaAuthOrganizationRoleSelector {
+  data: {
+    permission?: Record<string, string[]>
+    roleName?: string
+  }
+}
+
+export interface AthenaAuthOrganizationCreateTeamRequest {
+  name: string
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationListTeamsQuery {
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationUpdateTeamRequest {
+  teamId: string
+  data: {
+    name?: string
+    organizationId?: string
+    createdAt?: string | Date
+    updatedAt?: string | Date
+  }
+}
+
+export interface AthenaAuthOrganizationRemoveTeamRequest {
+  teamId: string
+  organizationId?: string
+}
+
+export interface AthenaAuthOrganizationSetActiveTeamRequest {
+  teamId: string
+}
+
+export interface AthenaAuthOrganizationListTeamMembersQuery {
+  teamId?: string
+}
+
+export interface AthenaAuthOrganizationTeamMemberRequest {
+  teamId: string
+  userId: string
 }
 
 export interface AthenaAuthRequestInput {
@@ -396,4 +650,151 @@ export interface AthenaAuthSdkClient {
     input: AthenaOAuthAccountTokenRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaOAuthTokenBundle>>
+  organization: {
+    create: (
+      input: AthenaAuthOrganizationCreateRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganization>>
+    checkSlug: (
+      input: AthenaAuthOrganizationCheckSlugRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<{ available: boolean }>>
+    list: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganization[]>>
+    setActive: (
+      input: AthenaAuthOrganizationSetActiveRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    getFullOrganization: (
+      input?: { query?: AthenaAuthOrganizationGetFullQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<{
+      organization: AthenaAuthOrganization
+      members?: AthenaAuthOrganizationMember[]
+      invitations?: AthenaAuthOrganizationInvitation[]
+      teams?: AthenaAuthOrganizationTeam[]
+    }>>
+    update: (
+      input: AthenaAuthOrganizationUpdateRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganization>>
+    delete: (
+      input: AthenaAuthOrganizationDeleteRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    inviteMember: (
+      input: AthenaAuthOrganizationInviteMemberRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation>>
+    acceptInvitation: (
+      input: AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    cancelInvitation: (
+      input: AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    rejectInvitation: (
+      input: AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    getInvitation: (
+      input: { query: AthenaAuthOrganizationGetInvitationQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation>>
+    listInvitations: (
+      input?: { query?: AthenaAuthOrganizationListInvitationsQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation[]>>
+    listUserInvitations: (
+      input?: { query?: AthenaAuthOrganizationListUserInvitationsQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation[]>>
+    listMembers: (
+      input?: { query?: AthenaAuthOrganizationListMembersQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationMember[]>>
+    removeMember: (
+      input: AthenaAuthOrganizationRemoveMemberRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    updateMemberRole: (
+      input: AthenaAuthOrganizationUpdateMemberRoleRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    getActiveMember: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationMember>>
+    getActiveMemberRole: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<{ role: string | string[] }>>
+    addMember: (
+      input: AthenaAuthOrganizationAddMemberRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationMember>>
+    leave: (
+      input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    createRole: (
+      input: AthenaAuthOrganizationCreateRoleRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationRole>>
+    deleteRole: (
+      input: AthenaAuthOrganizationRoleSelector & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    listRoles: (
+      input?: { query?: AthenaAuthOrganizationListRolesQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationRole[]>>
+    getRole: (
+      input: { query: AthenaAuthOrganizationRoleSelector } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationRole>>
+    updateRole: (
+      input: AthenaAuthOrganizationUpdateRoleRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationRole>>
+    createTeam: (
+      input: AthenaAuthOrganizationCreateTeamRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationTeam>>
+    listTeams: (
+      input?: { query?: AthenaAuthOrganizationListTeamsQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationTeam[]>>
+    updateTeam: (
+      input: AthenaAuthOrganizationUpdateTeamRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationTeam>>
+    removeTeam: (
+      input: AthenaAuthOrganizationRemoveTeamRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    setActiveTeam: (
+      input: AthenaAuthOrganizationSetActiveTeamRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    listUserTeams: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationTeam[]>>
+    listTeamMembers: (
+      input?: { query?: AthenaAuthOrganizationListTeamMembersQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthOrganizationMember[]>>
+    addTeamMember: (
+      input: AthenaAuthOrganizationTeamMemberRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    removeTeamMember: (
+      input: AthenaAuthOrganizationTeamMemberRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  }
 }

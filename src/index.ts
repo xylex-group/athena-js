@@ -16,6 +16,7 @@ export {
   unwrapOne,
   requireSuccess,
   requireAffected,
+  parseBooleanFlag,
   normalizeAthenaError,
   coerceInt,
   assertInt,

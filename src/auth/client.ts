@@ -6,6 +6,37 @@ import type {
   AthenaAuthErrorDetails,
   AthenaAuthFetchCompatibleInput,
   AthenaAuthLinkedAccount,
+  AthenaAuthOrganization,
+  AthenaAuthOrganizationAddMemberRequest,
+  AthenaAuthOrganizationCreateRequest,
+  AthenaAuthOrganizationCreateRoleRequest,
+  AthenaAuthOrganizationCreateTeamRequest,
+  AthenaAuthOrganizationDeleteRequest,
+  AthenaAuthOrganizationGetFullQuery,
+  AthenaAuthOrganizationGetInvitationQuery,
+  AthenaAuthOrganizationInvitation,
+  AthenaAuthOrganizationInvitationActionRequest,
+  AthenaAuthOrganizationInviteMemberRequest,
+  AthenaAuthOrganizationLeaveRequest,
+  AthenaAuthOrganizationListInvitationsQuery,
+  AthenaAuthOrganizationListMembersQuery,
+  AthenaAuthOrganizationListRolesQuery,
+  AthenaAuthOrganizationListTeamMembersQuery,
+  AthenaAuthOrganizationListTeamsQuery,
+  AthenaAuthOrganizationListUserInvitationsQuery,
+  AthenaAuthOrganizationMember,
+  AthenaAuthOrganizationRemoveMemberRequest,
+  AthenaAuthOrganizationRemoveTeamRequest,
+  AthenaAuthOrganizationRole,
+  AthenaAuthOrganizationRoleSelector,
+  AthenaAuthOrganizationSetActiveRequest,
+  AthenaAuthOrganizationSetActiveTeamRequest,
+  AthenaAuthOrganizationTeam,
+  AthenaAuthOrganizationTeamMemberRequest,
+  AthenaAuthOrganizationUpdateMemberRoleRequest,
+  AthenaAuthOrganizationUpdateRequest,
+  AthenaAuthOrganizationUpdateRoleRequest,
+  AthenaAuthOrganizationUpdateTeamRequest,
   AthenaAuthMethod,
   AthenaAuthQueryValue,
   AthenaAuthRequestInput,
@@ -397,6 +428,48 @@ function executeGetWithCompatibleInput<TResult>(
   const { fetchOptions } = extractFetchOptions(input)
   const mergedOptions = mergeCallOptions(fetchOptions, options)
   return callAuthEndpoint<TResult>(config, context, undefined, undefined, mergedOptions)
+}
+
+function executeGetWithQueryCompatibleInput<
+  TQuery extends Record<string, AthenaAuthQueryValue>,
+  TResult,
+>(
+  config: AthenaAuthClientConfig,
+  context: AuthRequestContext,
+  input?: { query?: TQuery } & AthenaAuthFetchCompatibleInput,
+  options?: AthenaAuthCallOptions,
+) {
+  const { payload, fetchOptions } = extractFetchOptions(input)
+  const mergedOptions = mergeCallOptions(fetchOptions, options)
+  const query = (payload as { query?: TQuery } | undefined)?.query
+  return callAuthEndpoint<TResult>(
+    config,
+    context,
+    undefined,
+    query,
+    mergedOptions,
+  )
+}
+
+function executePostWithQueryCompatibleInput<
+  TQuery extends Record<string, AthenaAuthQueryValue>,
+  TResult,
+>(
+  config: AthenaAuthClientConfig,
+  context: AuthRequestContext,
+  input?: { query?: TQuery } & AthenaAuthFetchCompatibleInput,
+  options?: AthenaAuthCallOptions,
+) {
+  const { payload, fetchOptions } = extractFetchOptions(input)
+  const mergedOptions = mergeCallOptions(fetchOptions, options)
+  const query = (payload as { query?: TQuery } | undefined)?.query
+  return callAuthEndpoint<TResult>(
+    config,
+    context,
+    {},
+    query,
+    mergedOptions,
+  )
 }
 
 export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAuthSdkClient {

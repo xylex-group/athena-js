@@ -1,0 +1,30 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam ArrowFontColor #000000
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam rectangle {
+  FontColor #000000
+  BorderColor #000000
+}
+title SDK Utils After parseBooleanFlag Export
+
+package "athena-js SDK" {
+  rectangle "src/index.ts\n(public export surface)" as Index #F5F5F5
+  rectangle "src/auxiliaries.ts\nerror/result/int/retry helpers\n+ parseBooleanFlag(rawValue, fallback)" as Aux #D8F9E4
+}
+
+rectangle "Consumers\n(apps, scripts, test-sdk)" as Consumers #FFF7E8
+
+Index --> Aux : re-exports existing helpers + parseBooleanFlag
+Consumers --> Index : import { parseBooleanFlag } from SDK
+
+note bottom of Aux
+Single canonical parser for
+1/0 true/false yes/no on/off
+with fallback behavior.
+end note
+@enduml

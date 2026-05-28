@@ -1,0 +1,29 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam ArrowFontColor #000000
+skinparam packageStyle rectangle
+skinparam rectangle {
+  FontColor #000000
+  BorderColor #000000
+}
+title Generator Config Boolean Flag Normalization (Before)
+
+rectangle "athena.config.*\n(runtime-loaded object)" as ConfigFile #FFF7E8
+rectangle "loadGeneratorConfig()" as Loader #F5F5F5
+rectangle "normalizeGeneratorConfig()" as Normalize #E8F4FF
+rectangle "DEFAULT_FEATURES + DEFAULT_EXPERIMENTAL_FLAGS" as Defaults #E8F4FF
+rectangle "String flags\n('yes' / 'off' / '1' / '0')" as StringFlags #FFD9D9
+
+ConfigFile --> Loader
+Loader --> Normalize
+Defaults --> Normalize : spread defaults
+StringFlags ..> Normalize : merged as-is (type drift risk)
+
+note bottom of Normalize
+Only object spread merge for features/experimental.
+No canonical string-to-boolean parsing.
+end note
+@enduml

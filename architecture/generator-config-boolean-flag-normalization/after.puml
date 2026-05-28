@@ -1,0 +1,33 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam ArrowFontColor #000000
+skinparam packageStyle rectangle
+skinparam rectangle {
+  FontColor #000000
+  BorderColor #000000
+}
+title Generator Config Boolean Flag Normalization (After)
+
+rectangle "athena.config.*\n(runtime-loaded object)" as ConfigFile #FFF7E8
+rectangle "loadGeneratorConfig()" as Loader #F5F5F5
+rectangle "normalizeGeneratorConfig()" as Normalize #D8F9E4
+rectangle "normalizeFeatureFlags()\nnormalizeExperimentalFlags()" as Normalizers #D8F9E4
+rectangle "parseBooleanFlag(rawValue, fallback)\nfrom SDK auxiliaries" as Parser #E8F4FF
+rectangle "DEFAULT_FEATURES + DEFAULT_EXPERIMENTAL_FLAGS" as Defaults #E8F4FF
+rectangle "Normalized boolean flags" as Result #D8F9E4
+
+ConfigFile --> Loader
+Loader --> Normalize
+Normalize --> Normalizers
+Defaults --> Normalizers
+Normalizers --> Parser : string token parsing
+Normalizers --> Result : strict boolean output
+
+note bottom of Normalizers
+Supports: 1/0 true/false yes/no on/off.
+Unknown values fall back to defaults.
+end note
+@enduml
