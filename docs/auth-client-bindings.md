@@ -48,7 +48,7 @@ const client = createClient("http://localhost:3001", "gateway_api_key", {
 - `client.auth.changePassword()` -> `POST /change-password`
 - `client.auth.user.update()` -> `POST /update-user`
 - `client.auth.user.delete()` -> `POST /delete-user`
-- `client.auth.user.email.list()` -> `GET /email-list`
+- `client.auth.user.email.list()` -> `GET /email/list` (fallback to `GET /email-list` on `404`)
 
 ### Session bindings
 
@@ -66,7 +66,7 @@ const client = createClient("http://localhost:3001", "gateway_api_key", {
 - `client.auth.deleteUser.callback()` -> `GET /delete-user/callback`
 - `client.auth.refreshToken()` -> `POST /refresh-token`
 - `client.auth.getAccessToken()` -> `POST /get-access-token`
-- `client.auth.health()` -> `GET /health`
+- `client.auth.health()` -> `GET /health` (fallback to `GET /ok` on `404`)
 - `client.auth.ok()` -> `GET /ok`
 - `client.auth.error()` -> `GET /error`
 
@@ -106,7 +106,7 @@ All admin endpoints are server-authorized; the server enforces role/permission c
 - `client.auth.admin.user.stopImpersonating()` -> `POST /admin/stop-impersonating`
 - `client.auth.admin.user.session.revoke()` collapses by payload shape:
   - single payload (or array length `1`) -> `POST /admin/revoke-user-session`
-  - multiple payloads -> `POST /admin/revoke-user-sessions`
+  - multiple payloads -> `POST /admin/revoke-user-sessions` (requires one shared `userId`)
 - `client.auth.admin.user.remove()` -> `POST /admin/remove-user`
 - `client.auth.admin.user.setPassword()` -> `POST /admin/set-user-password`
 - `client.auth.admin.hasPermission()` -> `POST /admin/has-permission`
@@ -125,10 +125,12 @@ All admin endpoints are server-authorized; the server enforces role/permission c
 - `client.auth.admin.email.failure.update()` -> `POST /admin/email-failure/update`
 - `client.auth.admin.email.failure.delete()` -> `POST /admin/email-failure/delete`
 - `client.auth.admin.email.template.list()` -> `GET /admin/email-template/list`
+- `client.auth.admin.email.template.get()` -> `GET /admin/email-template/get`
 - `client.auth.admin.email.template.create()` -> `POST /admin/email-template/create`
 - `client.auth.admin.email.template.update()` -> `POST /admin/email-template/update`
 - `client.auth.admin.email.template.delete()` -> `POST /admin/email-template/delete`
 - `client.auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list` (legacy alias)
+- `client.auth.admin.emailTemplate.get()` -> `GET /admin/email-template/get` (legacy alias)
 - `client.auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create` (legacy alias)
 - `client.auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
 - `client.auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)

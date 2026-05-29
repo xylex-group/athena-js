@@ -1,0 +1,35 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment left
+skinparam ArrowColor #1F2937
+skinparam NoteBackgroundColor #FEF3C7
+skinparam NoteBorderColor #D97706
+skinparam rectangle {
+  FontColor #111827
+  BorderColor #1F2937
+}
+
+title Auth Client Before: Email List + Admin Session Revoke
+
+rectangle "createClient().auth.user.email.list()" as UserEmail #DBEAFE
+rectangle "Auth Server Routes" as Routes #E5E7EB
+
+UserEmail --> Routes : GET /email-list
+note right of UserEmail
+Single hard-coded route.
+No contract-aware fallback to /email/list.
+end note
+
+rectangle "createClient().auth.admin.user.session.revoke(input)" as Revoke #FEE2E2
+rectangle "Plural route payload builder" as Builder #FECACA
+rectangle "/admin/revoke-user-sessions" as Plural #E5E7EB
+
+Revoke --> Builder : list input
+Builder --> Plural : POST { userId } OR { sessions: [...] }
+
+note right of Builder
+When multiple items had mixed userId values,
+builder could emit { sessions: [...] }.
+Server expects only { userId }.
+end note
+@enduml

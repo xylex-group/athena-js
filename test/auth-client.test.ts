@@ -404,7 +404,7 @@ test('auth namespace user/session/oauth bindings map to expected endpoints', asy
     assert.equal(calls[2].url, 'https://auth.example.com/api/auth/delete-user/verify?token=delete-token')
     assert.equal(calls[3].url, 'https://auth.example.com/api/auth/update-user')
     assert.equal(calls[4].url, 'https://auth.example.com/api/auth/delete-user')
-    assert.equal(calls[5].url, 'https://auth.example.com/api/auth/email-list')
+    assert.equal(calls[5].url, 'https://auth.example.com/api/auth/email/list')
     assert.equal(calls[6].url, 'https://auth.example.com/api/auth/link-social')
     assert.equal(calls[7].url, 'https://auth.example.com/api/auth/list-accounts')
     assert.equal(calls[8].url, 'https://auth.example.com/api/auth/unlink-account')
@@ -416,6 +416,71 @@ test('auth namespace user/session/oauth bindings map to expected endpoints', asy
     assert.equal(calls[14].url, 'https://auth.example.com/api/auth/error')
   } finally {
     restore()
+  }
+})
+
+test('auth.user.email.list falls back to legacy route on 404', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (calls.length === 1) {
+      return new Response(JSON.stringify({ message: 'Not found' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    return new Response(JSON.stringify({ emails: [{ id: 'email_1' }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const response = await client.auth.user.email.list()
+
+    assert.equal(response.ok, true)
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/email/list')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/email-list')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].init?.method, 'GET')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('auth.health falls back to ok route on 404', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (calls.length === 1) {
+      return new Response(JSON.stringify({ message: 'Not found' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const response = await client.auth.health()
+
+    assert.equal(response.ok, true)
+    assert.equal(response.data?.status, 'ok')
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/health')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/ok')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].init?.method, 'GET')
+  } finally {
+    globalThis.fetch = original
   }
 })
 
@@ -523,11 +588,13 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     await client.auth.admin.email.failure.update({ id: 'failure_1', resolved: true })
     await client.auth.admin.email.failure.delete({ id: 'failure_1' })
     await client.auth.admin.email.template.create({ templateKey: 'welcome', subjectTemplate: 'Welcome' })
+    await client.auth.admin.email.template.get({ query: { id: 'tmpl_1' } })
     await client.auth.admin.email.template.delete({ id: 'tmpl_1' })
     await client.auth.admin.email.template.list()
     await client.auth.admin.email.template.update({ id: 'tmpl_1', subjectTemplate: 'Welcome 2' })
     await client.auth.admin.email.list()
     await client.auth.admin.emailTemplate.create({ templateKey: 'legacy', subjectTemplate: 'Legacy' })
+    await client.auth.admin.emailTemplate.get({ query: { id: 'legacy_tmpl_1' } })
     await client.auth.admin.emailTemplate.delete({ id: 'legacy_tmpl_1' })
     await client.auth.admin.emailTemplate.list()
     await client.auth.admin.emailTemplate.update({ id: 'legacy_tmpl_1', subjectTemplate: 'Legacy 2' })
@@ -562,6 +629,8 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/create'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/update'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/delete'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-template/get?id=tmpl_1'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-template/get?id=legacy_tmpl_1'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-template/update'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/api-key/create'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/api-key/delete-all-expired-api-keys'))
@@ -575,10 +644,39 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/create')?.init?.method, 'POST')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/update')?.init?.method, 'POST')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/delete')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/get?id=tmpl_1')?.init?.method, 'GET')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/list')?.init?.method, 'GET')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/create')?.init?.method, 'POST')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/update')?.init?.method, 'POST')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/delete')?.init?.method, 'POST')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.admin.user.session.revoke enforces non-empty userId and a single plural userId', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    assert.throws(
+      () =>
+        client.auth.admin.user.session.revoke([
+          { userId: 'u_1', sessionToken: 's_1' },
+          { userId: 'u_2', sessionToken: 's_2' },
+        ]),
+      /same userId across plural payloads/,
+    )
+
+    assert.throws(
+      () =>
+        client.auth.admin.user.session.revoke({
+          sessionToken: 's_1',
+        } as unknown as Parameters<typeof client.auth.admin.user.session.revoke>[0]),
+      /non-empty userId/,
+    )
+
+    assert.equal(calls.length, 0)
   } finally {
     restore()
   }

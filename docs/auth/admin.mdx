@@ -10,7 +10,7 @@
 - `auth.admin.user.ban()` -> `POST /admin/ban-user`
 - `auth.admin.user.impersonate()` -> `POST /admin/impersonate-user`
 - `auth.admin.user.stopImpersonating()` -> `POST /admin/stop-impersonating`
-- `auth.admin.user.session.revoke()` -> `POST /admin/revoke-user-session` or `POST /admin/revoke-user-sessions` (payload-shape dependent)
+- `auth.admin.user.session.revoke()` -> `POST /admin/revoke-user-session` or `POST /admin/revoke-user-sessions` (payload-shape dependent; requires `userId`)
 - `auth.admin.user.remove()` -> `POST /admin/remove-user`
 - `auth.admin.user.setPassword()` -> `POST /admin/set-user-password`
 - `auth.admin.hasPermission()` -> `POST /admin/has-permission`
@@ -29,10 +29,12 @@
 - `auth.admin.email.failure.update()` -> `POST /admin/email-failure/update`
 - `auth.admin.email.failure.delete()` -> `POST /admin/email-failure/delete`
 - `auth.admin.email.template.list()` -> `GET /admin/email-template/list`
+- `auth.admin.email.template.get()` -> `GET /admin/email-template/get`
 - `auth.admin.email.template.create()` -> `POST /admin/email-template/create`
 - `auth.admin.email.template.update()` -> `POST /admin/email-template/update`
 - `auth.admin.email.template.delete()` -> `POST /admin/email-template/delete`
 - `auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list` (legacy alias)
+- `auth.admin.emailTemplate.get()` -> `GET /admin/email-template/get` (legacy alias)
 - `auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create` (legacy alias)
 - `auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
 - `auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
@@ -143,6 +145,9 @@ await client.auth.admin.email.template.create({
   templateKey: "welcome",
   subjectTemplate: "Welcome",
 })
+await client.auth.admin.email.template.get({
+  query: { id: "tmpl_1" },
+})
 await client.auth.admin.email.template.list()
 await client.auth.admin.email.template.update({
   id: "tmpl_1",
@@ -154,6 +159,9 @@ await client.auth.admin.email.template.delete({ id: "tmpl_1" })
 await client.auth.admin.emailTemplate.create({
   templateKey: "legacy",
   subjectTemplate: "Legacy",
+})
+await client.auth.admin.emailTemplate.get({
+  query: { id: "legacy_tmpl_1" },
 })
 await client.auth.admin.emailTemplate.list()
 await client.auth.admin.emailTemplate.update({

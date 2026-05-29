@@ -1,0 +1,40 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment left
+skinparam ArrowColor #1F2937
+skinparam NoteBackgroundColor #DCFCE7
+skinparam NoteBorderColor #16A34A
+skinparam rectangle {
+  FontColor #111827
+  BorderColor #1F2937
+}
+
+title Auth Client After: Email List Fallback + Strict Admin Revoke Contract
+
+rectangle "createClient().auth.user.email.list()" as UserEmail #DBEAFE
+rectangle "Primary route" as PrimaryRoute #D1FAE5
+rectangle "Legacy fallback route" as LegacyRoute #E0E7FF
+
+UserEmail --> PrimaryRoute : GET /email/list
+PrimaryRoute --> LegacyRoute : fallback only on HTTP 404\nGET /email-list
+
+note right of UserEmail
+Modern route first for server v1.6.0+.
+Compatibility fallback keeps older installs working.
+end note
+
+rectangle "createClient().auth.admin.user.session.revoke(input)" as Revoke #D1FAE5
+rectangle "Validation gate" as Gate #BBF7D0
+rectangle "/admin/revoke-user-session" as Single #E5E7EB
+rectangle "/admin/revoke-user-sessions" as Plural #E5E7EB
+
+Revoke --> Gate : normalize payload
+Gate --> Single : single payload -> POST { userId, sessionToken }
+Gate --> Plural : plural payload -> POST { userId }
+
+note right of Gate
+Requires non-empty userId.
+Plural inputs must share one userId.
+Mixed-user lists are rejected client-side.
+end note
+@enduml

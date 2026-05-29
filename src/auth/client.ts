@@ -13,6 +13,10 @@ import type {
   AthenaAuthGenericInput,
   AthenaAuthGenericQueryInput,
   AthenaAuthBindings,
+  AthenaAuthEmailListQuery,
+  AthenaAuthEmailListResponse,
+  AthenaAuthHealthResponse,
+  AthenaAuthOkResponse,
   AthenaAuthLinkedAccount,
   AthenaAuthOrganizationBindings,
   AthenaAuthOrganization,
@@ -277,6 +281,7 @@ function inferDefaultMethod(endpoint: AthenaAuthEndpointPath): AthenaAuthMethod 
     case '/admin/email/get':
     case '/admin/email-failure/list':
     case '/admin/email-failure/get':
+    case '/admin/email-template/get':
     case '/admin/email-template/list':
     case '/admin/email/list':
     case '/api-key/get':
@@ -555,6 +560,49 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       },
       options,
     )
+  }
+
+  const listUserEmailsWithFallback: AthenaAuthBindings['user']['email']['list'] = async (input, options) => {
+    const primary = await getWithQuery<AthenaAuthEmailListResponse, AthenaAuthEmailListQuery>(
+      '/email/list',
+      input,
+      options,
+    )
+    if (primary.ok || primary.status !== 404 || primary.errorDetails?.code !== 'HTTP_ERROR') {
+      return primary
+    }
+    return getWithQuery<AthenaAuthEmailListResponse, AthenaAuthEmailListQuery>(
+      '/email-list',
+      input,
+      options,
+    )
+  }
+
+  const healthWithFallback: AthenaAuthBindings['health'] = async (input, options) => {
+    const primary = await getGeneric<AthenaAuthHealthResponse>('/health', input, options)
+    if (primary.ok || primary.status !== 404 || primary.errorDetails?.code !== 'HTTP_ERROR') {
+      return primary
+    }
+
+    const fallback = await getGeneric<AthenaAuthOkResponse>('/ok', input, options)
+    if (!fallback.ok) {
+      return {
+        ...fallback,
+        data: null,
+      }
+    }
+
+    const fallbackStatus =
+      isRecord(fallback.data) && typeof fallback.data.ok === 'boolean'
+        ? (fallback.data.ok ? 'ok' : 'error')
+        : 'ok'
+
+    return {
+      ...fallback,
+      data: {
+        status: fallbackStatus,
+      },
+    }
   }
 
   const signOut = (
@@ -926,17 +974,22 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     input,
     options,
   ) => {
-    const collapseToPluralPayload = (
-      sessions: AthenaAdminRevokeUserSessionRequest[],
-    ): AthenaAdminRevokeUserSessionsRequest | { sessions: AthenaAdminRevokeUserSessionRequest[] } => {
-      const userIds = sessions
-        .map(session => session.userId?.trim())
-        .filter((userId): userId is string => Boolean(userId))
-      const uniqueUserIds = [...new Set(userIds)]
-      if (uniqueUserIds.length === 1) {
-        return { userId: uniqueUserIds[0] }
+    const requireUserId = (userId: string | undefined): string => {
+      const trimmed = String(userId ?? '').trim()
+      if (!trimmed) {
+        throw new Error('admin.user.session.revoke requires a non-empty userId')
       }
-      return { sessions }
+      return trimmed
+    }
+
+    const requireSinglePluralUserId = (
+      sessions: AthenaAdminRevokeUserSessionRequest[],
+    ): AthenaAdminRevokeUserSessionsRequest => {
+      const uniqueUserIds = [...new Set(sessions.map(session => requireUserId(session.userId)))]
+      if (uniqueUserIds.length !== 1) {
+        throw new Error('admin.user.session.revoke requires the same userId across plural payloads')
+      }
+      return { userId: uniqueUserIds[0] }
     }
 
     if (Array.isArray(input)) {
@@ -944,11 +997,18 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         throw new Error('admin.user.session.revoke requires at least one payload item')
       }
       if (input.length === 1) {
-        return postGeneric<AthenaAdminSuccessResponse>('/admin/revoke-user-session', input[0], options)
+        return postGeneric<AthenaAdminSuccessResponse>(
+          '/admin/revoke-user-session',
+          {
+            ...input[0],
+            userId: requireUserId(input[0].userId),
+          } as AthenaAuthGenericInput,
+          options,
+        )
       }
       return postGeneric<AthenaAdminSuccessResponse>(
         '/admin/revoke-user-sessions',
-        collapseToPluralPayload(input),
+        requireSinglePluralUserId(input),
         options,
       )
     }
@@ -969,6 +1029,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         '/admin/revoke-user-session',
         {
           ...sessions[0],
+          userId: requireUserId(sessions[0].userId),
           fetchOptions: parsed.fetchOptions,
         } as AthenaAuthGenericInput,
         options,
@@ -979,25 +1040,33 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       return postGeneric<AthenaAdminSuccessResponse>(
         '/admin/revoke-user-sessions',
         {
-          ...collapseToPluralPayload(sessions),
+          ...requireSinglePluralUserId(sessions),
           fetchOptions: parsed.fetchOptions,
         } as AthenaAuthGenericInput,
         options,
       )
     }
 
-    if (parsed.userId && !parsed.sessionToken) {
+    const normalizedUserId = requireUserId(parsed.userId)
+
+    if (!parsed.sessionToken) {
       return postGeneric<AthenaAdminSuccessResponse>(
         '/admin/revoke-user-sessions',
         {
-          userId: parsed.userId,
+          userId: normalizedUserId,
           fetchOptions: parsed.fetchOptions,
         } as AthenaAuthGenericInput,
         options,
       )
     }
-
-    return postGeneric<AthenaAdminSuccessResponse>('/admin/revoke-user-session', parsed, options)
+    return postGeneric<AthenaAdminSuccessResponse>(
+      '/admin/revoke-user-session',
+      {
+        ...parsed,
+        userId: normalizedUserId,
+      } as AthenaAuthGenericInput,
+      options,
+    )
   }
 
   const auth: AthenaAuthBindings = {
@@ -1029,7 +1098,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       update: (input, options) => postGeneric('/update-user', input, options),
       delete: (input, options) => postGeneric('/delete-user', input, options),
       email: {
-        list: (input, options) => getWithQuery('/email-list', input, options),
+        list: listUserEmailsWithFallback,
       },
     },
     session: {
@@ -1049,7 +1118,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     },
     refreshToken: (input, options) => postGeneric('/refresh-token', input, options),
     getAccessToken: (input, options) => postGeneric('/get-access-token', input, options),
-    health: (input, options) => getGeneric('/health', input, options),
+    health: healthWithFallback,
     ok: (input, options) => getGeneric('/ok', input, options),
     error: (input, options) => getGeneric('/error', input, options),
     twoFactor: {
@@ -1130,12 +1199,14 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         },
         template: {
           list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
+          get: (input, options) => getWithQuery('/admin/email-template/get', input, options),
           create: (input, options) => postGeneric('/admin/email-template/create', input, options),
           update: (input, options) => postGeneric('/admin/email-template/update', input, options),
           delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
         },
       },
       emailTemplate: {
+        get: (input, options) => getWithQuery('/admin/email-template/get', input, options),
         create: (input, options) => postGeneric('/admin/email-template/create', input, options),
         delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
         list: (input, options) => getWithQuery('/admin/email-template/list', input, options),

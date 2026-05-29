@@ -79,6 +79,7 @@ export type AthenaAuthEndpointPath =
   | '/admin/email-failure/create'
   | '/admin/email-failure/update'
   | '/admin/email-failure/delete'
+  | '/admin/email-template/get'
   | '/admin/email-template/create'
   | '/admin/email-template/delete'
   | '/admin/email-template/list'
@@ -649,7 +650,7 @@ export interface AthenaAdminStopImpersonatingRequest {
 
 export interface AthenaAdminRevokeUserSessionRequest {
   sessionToken: string
-  userId?: string
+  userId: string
   sessionId?: string
 }
 
@@ -1337,7 +1338,10 @@ export interface AthenaAuthBindings {
     /** Delete current user. Route: `POST /delete-user`. */
     delete: AthenaAuthSdkClient['deleteUser']
     email: {
-      /** List email identities for current user. Route: `GET /email-list`. */
+      /**
+       * List email identities for current user.
+       * Routes: primary `GET /email/list`; falls back to `GET /email-list` on `404`.
+       */
       list: (
         input?: { query?: AthenaAuthEmailListQuery } & AthenaAuthFetchCompatibleInput,
         options?: AthenaAuthCallOptions,
@@ -1370,7 +1374,7 @@ export interface AthenaAuthBindings {
   refreshToken: AthenaAuthSdkClient['refreshToken']
   /** Get provider access token. Route: `POST /get-access-token`. */
   getAccessToken: AthenaAuthSdkClient['getAccessToken']
-  /** Auth health route passthrough. Route: `GET /health`. */
+  /** Auth health route. Primary `GET /health`; falls back to `GET /ok` on `404`. */
   health: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
@@ -1524,7 +1528,10 @@ export interface AthenaAuthBindings {
           input: AthenaAdminListUserSessionsRequest & AthenaAuthFetchCompatibleInput,
           options?: AthenaAuthCallOptions,
         ) => Promise<AthenaAuthResult<AthenaAdminListUserSessionsResponse>>
-        /** Revoke one or multiple sessions; collapses to `/admin/revoke-user-session` or `/admin/revoke-user-sessions`. */
+        /**
+         * Revoke one or multiple sessions; collapses to `/admin/revoke-user-session` or
+         * `/admin/revoke-user-sessions`. `userId` is required and plural payloads must share one `userId`.
+         */
         revoke: AthenaAuthAdminUserSessionRevokeBinding
       }
     }
@@ -1618,6 +1625,11 @@ export interface AthenaAuthBindings {
           input?: { query?: AthenaAdminEmailTemplateListQuery } & AthenaAuthFetchCompatibleInput,
           options?: AthenaAuthCallOptions,
         ) => Promise<AthenaAuthResult<AthenaAdminEmailTemplateListResponse>>
+        /** Get email template by ID. Route: `GET /admin/email-template/get`. */
+        get: (
+          input: { query: AthenaAdminEmailTemplateGetQuery } & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminEmailTemplateGetResponse>>
         /** Create email template. Route: `POST /admin/email-template/create`. */
         create: (
           input: AthenaAdminEmailTemplateCreateRequest & AthenaAuthFetchCompatibleInput,
@@ -1636,6 +1648,11 @@ export interface AthenaAuthBindings {
       }
     }
     emailTemplate: {
+      /** Get email template by ID. Route: `GET /admin/email-template/get`. */
+      get: (
+        input: { query: AthenaAdminEmailTemplateGetQuery } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminEmailTemplateGetResponse>>
       /** Create email template. Route: `POST /admin/email-template/create`. */
       create: (
         input: AthenaAdminEmailTemplateCreateRequest & AthenaAuthFetchCompatibleInput,

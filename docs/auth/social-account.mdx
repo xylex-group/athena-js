@@ -8,7 +8,7 @@
 - `auth.deleteUser.callback()` -> `GET /delete-user/callback`
 - `auth.refreshToken()` -> `POST /refresh-token`
 - `auth.getAccessToken()` -> `POST /get-access-token`
-- `auth.health()` -> `GET /health`
+- `auth.health()` -> `GET /health` (fallback to `GET /ok` on `404`)
 - `auth.ok()` -> `GET /ok`
 - `auth.error()` -> `GET /error`
 
