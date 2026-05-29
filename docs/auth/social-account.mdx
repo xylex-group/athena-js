@@ -15,38 +15,38 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.social.link({
+await client.auth.social.link({
   provider: "google",
   callbackURL: "https://app.example.com/auth/callback",
 })
 
-await auth.auth.account.list()
+await client.auth.account.list()
 
-await auth.auth.account.unlink({
+await client.auth.account.unlink({
   providerId: "google",
   accountId: "acc_123",
 })
 
-await auth.auth.deleteUser.callback({
+await client.auth.deleteUser.callback({
   token: "delete_callback_token",
   callbackURL: "https://app.example.com/delete-callback",
 })
 
-await auth.auth.refreshToken({
+await client.auth.refreshToken({
   providerId: "google",
   accountId: "acc_123",
   userId: "usr_123",
 })
 
-await auth.auth.getAccessToken({
+await client.auth.getAccessToken({
   providerId: "google",
   accountId: "acc_123",
   userId: "usr_123",
 })
 
-await auth.auth.health()
-await auth.auth.ok()
-await auth.auth.error()
+await client.auth.health()
+await client.auth.ok()
+await client.auth.error()
 ```

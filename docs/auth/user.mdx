@@ -19,62 +19,62 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.forgetPassword({
+await client.auth.forgetPassword({
   email: "user@example.com",
   redirectTo: "https://app.example.com/reset-password",
 })
 
-await auth.auth.resetPassword({
+await client.auth.resetPassword({
   newPassword: "new-strong-password",
   token: "reset_token",
 })
 
-await auth.auth.resetPassword.token({
+await client.auth.resetPassword.token({
   token: "reset_token",
   callbackURL: "https://app.example.com/reset-password",
 })
 
-await auth.auth.setPassword({ newPassword: "new-strong-password" })
+await client.auth.setPassword({ newPassword: "new-strong-password" })
 
-await auth.auth.verifyEmail({
+await client.auth.verifyEmail({
   token: "verify_token",
   callbackURL: "https://app.example.com/verified",
 })
 
-await auth.auth.sendVerificationEmail({
+await client.auth.sendVerificationEmail({
   email: "user@example.com",
   callbackURL: "https://app.example.com/verify",
 })
 
-await auth.auth.changeEmail({
+await client.auth.changeEmail({
   newEmail: "new-user@example.com",
   callbackURL: "https://app.example.com/change-email",
 })
 
-await auth.auth.changeEmailVerify({
+await client.auth.changeEmailVerify({
   query: { token: "change_email_token" },
 })
 
-await auth.auth.deleteUserVerify({
+await client.auth.deleteUserVerify({
   query: { token: "delete_user_token" },
 })
 
-await auth.auth.changePassword({
+await client.auth.changePassword({
   currentPassword: "old-password",
   newPassword: "new-password",
   revokeOtherSessions: true,
 })
 
-await auth.auth.user.update({
+await client.auth.user.update({
   name: "Updated Name",
   image: "https://cdn.example.com/avatar.png",
 })
 
-await auth.auth.user.delete({
+await client.auth.user.delete({
   password: "current-password",
 })
 
-await auth.auth.user.email.list()
+await client.auth.user.email.list()
 ```

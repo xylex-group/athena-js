@@ -10,26 +10,26 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.signIn.social({
+await client.auth.signIn.social({
   provider: "google",
   callbackURL: "https://app.example.com/auth/callback",
 })
 
-await auth.auth.signIn.email({
+await client.auth.signIn.email({
   email: "user@example.com",
   password: "password",
   rememberMe: true,
 })
 
-await auth.auth.signIn.username({
+await client.auth.signIn.username({
   username: "user1",
   password: "password",
   rememberMe: true,
 })
 
-await auth.auth.signUp.email({
+await client.auth.signUp.email({
   name: "New User",
   email: "new-user@example.com",
   password: "password",

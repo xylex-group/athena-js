@@ -40,117 +40,125 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.admin.role.set({
+await client.auth.admin.role.set({
   userId: "usr_1",
   role: "admin",
 })
 
-await auth.auth.admin.user.list()
-await auth.auth.admin.user.session.list({ userId: "usr_1" })
+await client.auth.admin.user.list()
+await client.auth.admin.user.session.list({ userId: "usr_1" })
 
-await auth.auth.admin.user.create({
+await client.auth.admin.user.create({
   email: "new-user@example.com",
   password: "temporary-password",
 })
 
-await auth.auth.admin.user.unban({ userId: "usr_1" })
-await auth.auth.admin.user.ban({ userId: "usr_2", reason: "policy violation" })
+await client.auth.admin.user.unban({ userId: "usr_1" })
+await client.auth.admin.user.ban({ userId: "usr_2", banReason: "policy violation" })
 
-await auth.auth.admin.user.impersonate({ userId: "usr_3" })
-await auth.auth.admin.user.stopImpersonating({ userId: "usr_3" })
+await client.auth.admin.user.impersonate({ userId: "usr_3" })
+await client.auth.admin.user.stopImpersonating({ userId: "usr_3" })
 
 // single payload -> /admin/revoke-user-session
-await auth.auth.admin.user.session.revoke({
+await client.auth.admin.user.session.revoke({
   userId: "usr_3",
   sessionToken: "sess_token_1",
 })
 
 // multiple payloads -> /admin/revoke-user-sessions
-await auth.auth.admin.user.session.revoke([
+await client.auth.admin.user.session.revoke([
   { userId: "usr_3", sessionToken: "sess_token_2" },
   { userId: "usr_3", sessionToken: "sess_token_3" },
 ])
 
-await auth.auth.admin.user.remove({ userId: "usr_4" })
-await auth.auth.admin.user.setPassword({
+// direct plural payload -> /admin/revoke-user-sessions
+await client.auth.admin.user.session.revoke({
+  userId: "usr_3",
+})
+
+await client.auth.admin.user.remove({ userId: "usr_4" })
+await client.auth.admin.user.setPassword({
   userId: "usr_4",
-  password: "new-password",
+  newPassword: "new-password",
 })
 
-await auth.auth.admin.hasPermission({
-  permissions: ["manage:users"],
+await client.auth.admin.hasPermission({
+  permissions: { users: ["manage"] },
 })
 
-await auth.auth.admin.apiKey.create({
-  userId: "usr_1",
+await client.auth.admin.apiKey.create({
   name: "admin-key",
+  expiresIn: 3600,
 })
 
-await auth.auth.admin.athenaClient.create({
-  name: "dashboard-client",
+await client.auth.admin.athenaClient.create({
+  clientName: "dashboard-client",
 })
-await auth.auth.admin.athenaClient.list()
+await client.auth.admin.athenaClient.list()
 
-await auth.auth.admin.auditLog.list()
+await client.auth.admin.auditLog.list()
 
-await auth.auth.admin.email.get({
+await client.auth.admin.email.get({
   query: { id: "email_1" },
 })
 
-await auth.auth.admin.email.create({
-  to: "to@example.com",
+await client.auth.admin.email.create({
+  recipientEmail: "to@example.com",
   subject: "Welcome",
+  fromAddress: "no-reply@example.com",
+  provider: "resend",
 })
 
-await auth.auth.admin.email.update({
+await client.auth.admin.email.update({
   id: "email_1",
-  status: "delivered",
-})
-
-await auth.auth.admin.email.delete({
-  id: "email_1",
-})
-
-await auth.auth.admin.email.failure.list()
-await auth.auth.admin.email.failure.get({
-  query: { id: "failure_1" },
-})
-await auth.auth.admin.email.failure.create({
-  emailId: "email_1",
-  reason: "bounce",
-})
-await auth.auth.admin.email.failure.update({
-  id: "failure_1",
-  status: "reviewed",
-})
-await auth.auth.admin.email.failure.delete({
-  id: "failure_1",
-})
-
-await auth.auth.admin.email.list()
-
-await auth.auth.admin.email.template.create({
-  key: "welcome",
-  subject: "Welcome",
-})
-await auth.auth.admin.email.template.list()
-await auth.auth.admin.email.template.update({
-  key: "welcome",
   subject: "Welcome Updated",
 })
-await auth.auth.admin.email.template.delete({ key: "welcome" })
+
+await client.auth.admin.email.delete({
+  id: "email_1",
+})
+
+await client.auth.admin.email.failure.list()
+await client.auth.admin.email.failure.get({
+  query: { id: "failure_1" },
+})
+await client.auth.admin.email.failure.create({
+  recipientEmail: "to@example.com",
+  flow: "transactional",
+  errorMessage: "bounce",
+})
+await client.auth.admin.email.failure.update({
+  id: "failure_1",
+  resolved: true,
+})
+await client.auth.admin.email.failure.delete({
+  id: "failure_1",
+})
+
+await client.auth.admin.email.list()
+
+await client.auth.admin.email.template.create({
+  templateKey: "welcome",
+  subjectTemplate: "Welcome",
+})
+await client.auth.admin.email.template.list()
+await client.auth.admin.email.template.update({
+  id: "tmpl_1",
+  subjectTemplate: "Welcome Updated",
+})
+await client.auth.admin.email.template.delete({ id: "tmpl_1" })
 
 // legacy alias
-await auth.auth.admin.emailTemplate.create({
-  key: "legacy",
-  subject: "Legacy",
+await client.auth.admin.emailTemplate.create({
+  templateKey: "legacy",
+  subjectTemplate: "Legacy",
 })
-await auth.auth.admin.emailTemplate.list()
-await auth.auth.admin.emailTemplate.update({
-  key: "legacy",
-  subject: "Legacy Updated",
+await client.auth.admin.emailTemplate.list()
+await client.auth.admin.emailTemplate.update({
+  id: "legacy_tmpl_1",
+  subjectTemplate: "Legacy Updated",
 })
-await auth.auth.admin.emailTemplate.delete({ key: "legacy" })
+await client.auth.admin.emailTemplate.delete({ id: "legacy_tmpl_1" })
 ```

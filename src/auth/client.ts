@@ -1,4 +1,9 @@
 import type {
+  AthenaAdminRevokeUserSessionRequest,
+  AthenaAdminRevokeUserSessionsRequest,
+  AthenaAdminSuccessResponse,
+  AthenaAdminHasPermissionResponse,
+  AthenaApiKeyDeleteAllExpiredResponse,
   AthenaAuthCallOptions,
   AthenaAuthClientConfig,
   AthenaAuthEndpointPath,
@@ -54,6 +59,8 @@ import type {
   AthenaResetPasswordRequest,
   AthenaSendVerificationEmailRequest,
   AthenaSocialSignInRequest,
+  AthenaTwoFactorGenerateBackupCodesRequest,
+  AthenaTwoFactorGenerateBackupCodesResponse,
   AthenaUnlinkAccountRequest,
   AthenaUpdateUserRequest,
   AthenaVerifyEmailRequest,
@@ -320,7 +327,7 @@ async function callAuthEndpoint<T>(
       status: 0,
       endpoint: context.endpoint,
       method: context.method,
-      hint: 'Use Node 18+ or provide `fetch` in createAuthClient({ fetch })',
+      hint: 'Use Node 18+ or provide `fetch` via createClient(..., { auth: { fetch } }) or createAuthClient({ fetch })',
     })
     return {
       ok: false,
@@ -467,6 +474,9 @@ function executeGetWithQueryCompatibleInput<
   )
 }
 
+/**
+ * @deprecated Prefer `createClient(...).auth` from `@xylex-group/athena`.
+ */
 export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAuthSdkClient {
   const normalizedBaseUrl = normalizeBaseUrl(config.baseUrl)
   const resolvedConfig: AthenaAuthClientConfig = {
@@ -522,15 +532,20 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     )
   }
 
-  const getWithQuery = <T = unknown>(
+  const getWithQuery = <
+    T = unknown,
+    TQuery extends object = Record<string, AthenaAuthQueryValue>,
+  >(
     endpoint: AthenaAuthEndpointPath,
     input?: AthenaAuthFetchCompatibleInput & {
-      query?: Record<string, AthenaAuthQueryValue>
+      query?: TQuery
     },
     options?: AthenaAuthCallOptions,
   ) => {
     const { payload, fetchOptions } = extractFetchOptions(input)
-    const query = (payload as { query?: Record<string, AthenaAuthQueryValue> } | undefined)?.query
+    const query = (payload as { query?: TQuery } | undefined)?.query as
+      | Record<string, AthenaAuthQueryValue>
+      | undefined
     return request<T>(
       {
         endpoint,
@@ -730,7 +745,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         options,
       ),
     hasPermission: (input, options) =>
-      postGeneric<{ success?: boolean; error?: string }>(
+      postGeneric<AthenaAdminHasPermissionResponse>(
         '/organization/has-permission',
         input,
         options,
@@ -868,13 +883,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       if (input.length === 1) {
         return revokeSession(input[0], options)
       }
-      return callAuthEndpoint<AthenaAuthStatusResponse>(
-        resolvedConfig,
-        { endpoint: '/revoke-sessions', method: 'POST' },
-        input,
-        undefined,
-        options,
-      )
+      return revokeSessions(undefined, options)
     }
 
     const parsed = input as AthenaAuthGenericInput & {
@@ -886,9 +895,8 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       : undefined
 
     if (tokens && tokens.length > 1) {
-      return postGeneric<AthenaAuthStatusResponse>(
-        '/revoke-sessions',
-        { tokens, fetchOptions: parsed.fetchOptions } as AthenaAuthGenericInput,
+      return revokeSessions(
+        parsed.fetchOptions ? { fetchOptions: parsed.fetchOptions } : undefined,
         options,
       )
     }
@@ -918,30 +926,78 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     input,
     options,
   ) => {
+    const collapseToPluralPayload = (
+      sessions: AthenaAdminRevokeUserSessionRequest[],
+    ): AthenaAdminRevokeUserSessionsRequest | { sessions: AthenaAdminRevokeUserSessionRequest[] } => {
+      const userIds = sessions
+        .map(session => session.userId?.trim())
+        .filter((userId): userId is string => Boolean(userId))
+      const uniqueUserIds = [...new Set(userIds)]
+      if (uniqueUserIds.length === 1) {
+        return { userId: uniqueUserIds[0] }
+      }
+      return { sessions }
+    }
+
     if (Array.isArray(input)) {
       if (input.length === 0) {
         throw new Error('admin.user.session.revoke requires at least one payload item')
       }
       if (input.length === 1) {
-        return postGeneric('/admin/revoke-user-session', input[0], options)
+        return postGeneric<AthenaAdminSuccessResponse>('/admin/revoke-user-session', input[0], options)
       }
-      return postGeneric('/admin/revoke-user-sessions', { sessions: input } as AthenaAuthGenericInput, options)
-    }
-
-    const parsed = input as AthenaAuthGenericInput & {
-      sessions?: unknown[]
-    }
-    const sessions = Array.isArray(parsed.sessions) ? parsed.sessions : undefined
-
-    if (sessions && sessions.length > 1) {
-      return postGeneric(
+      return postGeneric<AthenaAdminSuccessResponse>(
         '/admin/revoke-user-sessions',
-        { sessions, fetchOptions: parsed.fetchOptions } as AthenaAuthGenericInput,
+        collapseToPluralPayload(input),
         options,
       )
     }
 
-    return postGeneric('/admin/revoke-user-session', parsed, options)
+    const parsed = input as AthenaAuthGenericInput & {
+      sessions?: AthenaAdminRevokeUserSessionRequest[]
+      sessionToken?: string
+      userId?: string
+    }
+    const sessions = parsed.sessions
+
+    if (sessions && sessions.length === 0) {
+      throw new Error('admin.user.session.revoke requires at least one payload item')
+    }
+
+    if (sessions && sessions.length === 1) {
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-session',
+        {
+          ...sessions[0],
+          fetchOptions: parsed.fetchOptions,
+        } as AthenaAuthGenericInput,
+        options,
+      )
+    }
+
+    if (sessions && sessions.length > 1) {
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-sessions',
+        {
+          ...collapseToPluralPayload(sessions),
+          fetchOptions: parsed.fetchOptions,
+        } as AthenaAuthGenericInput,
+        options,
+      )
+    }
+
+    if (parsed.userId && !parsed.sessionToken) {
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-sessions',
+        {
+          userId: parsed.userId,
+          fetchOptions: parsed.fetchOptions,
+        } as AthenaAuthGenericInput,
+        options,
+      )
+    }
+
+    return postGeneric<AthenaAdminSuccessResponse>('/admin/revoke-user-session', parsed, options)
   }
 
   const auth: AthenaAuthBindings = {
@@ -973,13 +1029,13 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       update: (input, options) => postGeneric('/update-user', input, options),
       delete: (input, options) => postGeneric('/delete-user', input, options),
       email: {
-        list: (input, options) => getGeneric('/email-list', input, options),
+        list: (input, options) => getWithQuery('/email-list', input, options),
       },
     },
     session: {
       list: (input, options) => getGeneric('/list-sessions', input, options),
       revoke: sessionRevokeBinding,
-      revokeOther: (input, options) => postGeneric('/revoke-other-sessions', input as AthenaAuthGenericInput, options),
+      revokeOther: revokeOtherSessions,
     },
     social: {
       link: (input, options) => postGeneric('/link-social', input, options),
@@ -1003,7 +1059,15 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       verifyOtp: (input, options) => postGeneric('/two-factor/verify-otp', input, options),
       verifyBackupCode: (input, options) => postGeneric('/two-factor/verify-backup-code', input, options),
       generateBackupCodes: (input, options) =>
-        postGeneric('/two-factor/generate-backup-codes', input as AthenaAuthGenericInput, options),
+        executePostWithCompatibleInput<
+          AthenaTwoFactorGenerateBackupCodesRequest & AthenaAuthFetchCompatibleInput,
+          AthenaTwoFactorGenerateBackupCodesResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/two-factor/generate-backup-codes', method: 'POST' },
+          input,
+          options,
+        ),
       enable: (input, options) => postGeneric('/two-factor/enable', input, options),
       disable: (input, options) => postGeneric('/two-factor/disable', input, options),
     },
@@ -1039,7 +1103,8 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
           revoke: adminUserSessionRevokeBinding,
         },
       },
-      hasPermission: (input, options) => postGeneric('/admin/has-permission', input, options),
+      hasPermission: (input, options) =>
+        postGeneric<AthenaAdminHasPermissionResponse>('/admin/has-permission', input, options),
       apiKey: {
         create: (input, options) => postGeneric('/admin/api-key/create', input, options),
       },
@@ -1085,7 +1150,12 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       list: (input, options) => getWithQuery('/api-key/list', input, options),
       verify: (input, options) => postGeneric('/api-key/verify', input, options),
       deleteAllExpired: (input, options) =>
-        postGeneric('/api-key/delete-all-expired-api-keys', input as AthenaAuthGenericInput, options),
+        executePostWithOptionalInput<AthenaApiKeyDeleteAllExpiredResponse>(
+          resolvedConfig,
+          { endpoint: '/api-key/delete-all-expired-api-keys', method: 'POST' },
+          input,
+          options,
+        ),
     },
     signIn: {
       email: (input, options) => postGeneric('/sign-in/email', input, options),
@@ -1099,14 +1169,28 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     callback: {
       provider: (input, options) => {
         const { payload, fetchOptions } = extractFetchOptions(input)
-        const provider = String((payload as { provider?: string } | undefined)?.provider ?? '').trim()
+        const parsed = payload as {
+          provider?: string
+          code?: string
+          state?: string
+        } | undefined
+        const provider = String(parsed?.provider ?? '').trim()
         if (!provider) {
           throw new Error('callback.provider requires a non-empty provider value')
+        }
+        const code = String(parsed?.code ?? '').trim()
+        const state = String(parsed?.state ?? '').trim()
+        if (!code || !state) {
+          throw new Error('callback.provider requires non-empty code and state values')
         }
         const endpoint = `/callback/${encodeURIComponent(provider)}` as AthenaAuthEndpointPath
         return request({
           endpoint,
           method: 'GET',
+          query: {
+            code,
+            state,
+          },
           fetchOptions,
         }, options)
       },

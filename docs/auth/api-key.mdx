@@ -13,28 +13,32 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.apiKey.create({
+await client.auth.apiKey.create({
   name: "mobile-client-key",
+  expiresIn: "3600",
+  remaining: "1000",
 })
 
-await auth.auth.apiKey.get({
+await client.auth.apiKey.get({
   query: { id: "api_key_id" },
 })
 
-await auth.auth.apiKey.update({
-  id: "api_key_id",
+await client.auth.apiKey.update({
+  keyId: "api_key_id",
   name: "mobile-client-key-updated",
+  expiresIn: "3600",
+  permissions: "{}",
 })
 
-await auth.auth.apiKey.delete({ id: "api_key_id" })
+await client.auth.apiKey.delete({ keyId: "api_key_id" })
 
-await auth.auth.apiKey.list()
+await client.auth.apiKey.list()
 
-await auth.auth.apiKey.verify({
+await client.auth.apiKey.verify({
   key: "prefix.secret",
 })
 
-await auth.auth.apiKey.deleteAllExpired()
+await client.auth.apiKey.deleteAllExpired()
 ```

@@ -11,27 +11,27 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-const session = await auth.auth.getSession()
-const signOut = await auth.auth.signOut()
+const session = await client.auth.getSession()
+const signOut = await client.auth.signOut()
 
-const sessions = await auth.auth.session.list()
+const sessions = await client.auth.session.list()
 
 // single -> /revoke-session
-await auth.auth.session.revoke({ token: "session_token_1" })
+await client.auth.session.revoke({ token: "session_token_1" })
 
 // array length 1 -> /revoke-session
-await auth.auth.session.revoke([{ token: "session_token_2" }])
+await client.auth.session.revoke([{ token: "session_token_2" }])
 
 // array length > 1 -> /revoke-sessions
-await auth.auth.session.revoke([
+await client.auth.session.revoke([
   { token: "session_token_3" },
   { token: "session_token_4" },
 ])
 
 // tokens list length > 1 -> /revoke-sessions
-await auth.auth.session.revoke({ tokens: ["session_token_5", "session_token_6"] })
+await client.auth.session.revoke({ tokens: ["session_token_5", "session_token_6"] })
 
-const revokeOther = await auth.auth.session.revokeOther()
+const revokeOther = await client.auth.session.revokeOther()
 ```

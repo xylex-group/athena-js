@@ -509,6 +509,45 @@ test('useSession returns data and refetch parity fields', async () => {
   assert.equal(calls.length, 2)
 })
 
+test('useSession accepts createClient-style auth namespace input', async () => {
+  const calls: string[] = []
+  const client = {
+    auth: {
+      getSession: async () => {
+        calls.push('getSession')
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            session: { id: 's_2' },
+            user: { id: 'u_2', email: 'u2@example.com' },
+          },
+          error: null,
+          errorDetails: null,
+          raw: null,
+        }
+      },
+    },
+  }
+
+  let latest: UseSessionResult | undefined
+  await act(async () => {
+    create(
+      createElement(SessionProbe, {
+        onChange: value => {
+          latest = value
+        },
+        hook: () => useSession(client),
+      }),
+    )
+    await flush()
+  })
+
+  assert.equal(calls.length, 1)
+  assert(latest)
+  assert.equal(latest.data?.session.id, 's_2')
+})
+
 test('useSession surfaces error details on failed session request', async () => {
   const authClient = {
     getSession: async () => ({

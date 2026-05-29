@@ -1,0 +1,37 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageFontColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam NoteBorderColor #000000
+skinparam NoteFontColor #000000
+skinparam NoteBackgroundColor #FDEDEC
+
+title SDK Auth Surface (Before)
+
+package "Gateway Client" {
+  rectangle "createClient(url, key)\n-> AthenaSdkClient" as client #EAF2F8
+  rectangle "from/rpc/query only" as clientOps #D6EAF8
+  client --> clientOps
+}
+
+package "Auth Client" {
+  rectangle "createAuthClient(config)\n-> AthenaAuthSdkClient" as authClient #F9EBEA
+  rectangle "auth.* namespace\n+ legacy flat auth methods" as authOps #F5CBA7
+  authClient --> authOps
+}
+
+package "React Hook" {
+  rectangle "useSession(authClient)" as useSession #FCF3CF
+}
+
+useSession --> authClient : requires
+
+note bottom of client
+Main SDK client and auth client are separate constructs.
+end note
+
+@enduml

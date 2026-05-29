@@ -48,42 +48,39 @@ if (error) {
 If your auth backend is now Athena Auth, you can keep core login/session flows in this SDK:
 
 ```ts
-import { createAuthClient } from "@xylex-group/athena";
+import { createClient } from "@xylex-group/athena";
 
-const auth = createAuthClient({
-  baseUrl: "http://localhost:3001/api/auth",
-  // optional: bearer token if you are not using cookie-based sessions
-  bearerToken: process.env.AUTH_BEARER_TOKEN,
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  client: "CLIENT_NAME",
+  auth: {
+    baseUrl: "http://localhost:3001/api/auth",
+    // optional: bearer token if you are not using cookie-based sessions
+    bearerToken: process.env.AUTH_BEARER_TOKEN,
+  },
 });
 
-const login = await auth.signIn.email({
+const login = await athena.auth.signIn.email({
   email: "demo@example.com",
   password: "super-secret",
   rememberMe: true,
 });
 
-const session = await auth.getSession();
-const sessions = await auth.listSessions();
+const session = await athena.auth.getSession();
+const sessions = await athena.auth.session.list();
 
 // clear one session
-await auth.revokeSession({ token: "session_token_here" });
+await athena.auth.session.revoke({ token: "session_token_here" });
 // or clear all sessions
-await auth.revokeSessions();
+await athena.auth.session.revoke([{ token: "session_token_here" }, { token: "session_token_2" }]);
 
-await auth.signOut();
+await athena.auth.signOut();
 
 // additional core flows
-await auth.forgetPassword({ email: "demo@example.com", redirectTo: "https://app/reset-password" });
-await auth.resetPassword({ newPassword: "new-secret", token: "reset_token" });
-await auth.verifyEmail({ token: "verify_token", callbackURL: "https://app/verified" });
-await auth.changePassword({ currentPassword: "old-secret", newPassword: "new-secret" });
-await auth.updateUser({ name: "Demo User" });
-
-// escape hatch for any endpoint on your Athena Auth instance
-await auth.request({
-  endpoint: "/ok",
-  query: { ping: "pong" },
-});
+await athena.auth.forgetPassword({ email: "demo@example.com", redirectTo: "https://app/reset-password" });
+await athena.auth.resetPassword({ newPassword: "new-secret", token: "reset_token" });
+await athena.auth.verifyEmail({ token: "verify_token", callbackURL: "https://app/verified" });
+await athena.auth.changePassword({ currentPassword: "old-secret", newPassword: "new-secret" });
+await athena.auth.user.update({ name: "Demo User" });
 ```
 
 Auth responses follow the same envelope style: `{ ok, status, data, error, errorDetails, raw }`.

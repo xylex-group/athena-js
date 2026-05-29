@@ -55,7 +55,9 @@ export { createAuthClient } from './auth/index.ts'
 export type {
   RpcQueryBuilder,
   RpcOrderOptions,
+  AthenaCreateClientOptions,
   AthenaSdkClient,
+  AthenaSdkClientWithAuth,
   TableQueryBuilder,
   AthenaResult,
 } from "./client.js";

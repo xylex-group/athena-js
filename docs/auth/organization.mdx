@@ -21,43 +21,43 @@ Top-level organization operations are documented here. Invitation and member sub
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.organization.create({
+await client.auth.organization.create({
   name: "Acme",
   slug: "acme",
 })
 
-await auth.auth.organization.update({
+await client.auth.organization.update({
   organizationId: "org_1",
   data: { name: "Acme Updated" },
 })
 
-await auth.auth.organization.delete({
+await client.auth.organization.delete({
   organizationId: "org_1",
 })
 
-await auth.auth.organization.setActive({
+await client.auth.organization.setActive({
   organizationId: "org_1",
 })
 
-await auth.auth.organization.list()
+await client.auth.organization.list()
 
-await auth.auth.organization.getFull({
+await client.auth.organization.getFull({
   query: { organizationId: "org_1" },
 })
 
-await auth.auth.organization.checkSlug({
+await client.auth.organization.checkSlug({
   slug: "acme",
 })
 
-await auth.auth.organization.leave({
+await client.auth.organization.leave({
   organizationId: "org_1",
 })
 
-await auth.auth.organization.listUserInvitations()
+await client.auth.organization.listUserInvitations()
 
-await auth.auth.organization.hasPermission({
+await client.auth.organization.hasPermission({
   permissions: { project: ["create"] },
 })
 ```

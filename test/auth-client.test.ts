@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
 import { createAuthClient } from '../src/auth/index.ts'
+import { createClient } from '../src/client.ts'
 
 type Captured = {
   url: string
@@ -20,6 +21,28 @@ function mockFetch(responseBody: unknown = { ok: true }, responseInit: ResponseI
     restore: () => (globalThis.fetch = original),
   }
 }
+
+test('createClient exposes auth namespace and routes auth calls to configured auth base URL', async () => {
+  const { calls, restore } = mockFetch({
+    session: { id: 's_1' },
+    user: { id: 'u_1', email: 'u@example.com' },
+  })
+  try {
+    const client = createClient('https://gateway.example.com', 'gateway-key', {
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+      },
+    })
+
+    const result = await client.auth.getSession()
+    assert.equal(result.ok, true)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[0].init?.body, undefined)
+  } finally {
+    restore()
+  }
+})
 
 test('signIn.email posts to sign-in endpoint with payload', async () => {
   const { calls, restore } = mockFetch({ redirect: false, token: 't', user: { id: 'u', email: 'u@x.com' } })
@@ -410,6 +433,10 @@ test('auth.session.revoke collapses single and list payloads to correct endpoint
     assert.equal(calls[1].url, 'https://auth.example.com/api/auth/revoke-session')
     assert.equal(calls[2].url, 'https://auth.example.com/api/auth/revoke-sessions')
     assert.equal(calls[3].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[0].init?.body, JSON.stringify({ token: 'tok-1' }))
+    assert.equal(calls[1].init?.body, JSON.stringify({ token: 'tok-2' }))
+    assert.equal(calls[2].init?.body, JSON.stringify({}))
+    assert.equal(calls[3].init?.body, JSON.stringify({}))
   } finally {
     restore()
   }
@@ -422,17 +449,17 @@ test('auth.twoFactor and auth.passkey bindings map to expected endpoints', async
 
     await client.auth.twoFactor.getTotpUri({ password: 'secret' })
     await client.auth.twoFactor.verifyTotp({ code: '123456' })
-    await client.auth.twoFactor.sendOtp({ method: 'email' })
+    await client.auth.twoFactor.sendOtp()
     await client.auth.twoFactor.verifyOtp({ code: '654321' })
     await client.auth.twoFactor.verifyBackupCode({ code: 'backup-code' })
-    await client.auth.twoFactor.generateBackupCodes()
+    await client.auth.twoFactor.generateBackupCodes({ password: 'secret' })
     await client.auth.twoFactor.enable({ password: 'secret' })
     await client.auth.twoFactor.disable({ password: 'secret' })
 
     await client.auth.passkey.generateRegisterOptions()
-    await client.auth.passkey.generateAuthenticateOptions({ email: 'u@example.com' })
-    await client.auth.passkey.verifyRegistration({ response: { id: 'cred' } })
-    await client.auth.passkey.verifyAuthentication({ response: { id: 'cred' } })
+    await client.auth.passkey.generateAuthenticateOptions()
+    await client.auth.passkey.verifyRegistration({ response: 'webauthn-registration-response' })
+    await client.auth.passkey.verifyAuthentication({ response: 'webauthn-authentication-response' })
     await client.auth.passkey.listUserPasskeys()
     await client.auth.passkey.deletePasskey({ id: 'pk_1' })
     await client.auth.passkey.updatePasskey({ id: 'pk_1', name: 'Laptop Key' })
@@ -457,7 +484,7 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     await client.auth.admin.user.list()
     await client.auth.admin.user.create({ email: 'new@example.com', password: 'secret' })
     await client.auth.admin.user.unban({ userId: 'u_1' })
-    await client.auth.admin.user.ban({ userId: 'u_2', reason: 'abuse' })
+    await client.auth.admin.user.ban({ userId: 'u_2', banReason: 'abuse' })
     await client.auth.admin.user.impersonate({ userId: 'u_3' })
     await client.auth.admin.user.stopImpersonating({ userId: 'u_3' })
     await client.auth.admin.user.session.list({ userId: 'u_3' })
@@ -466,36 +493,49 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
       { userId: 'u_3', sessionToken: 's_2' },
       { userId: 'u_3', sessionToken: 's_3' },
     ])
+    await client.auth.admin.user.session.revoke({
+      sessions: [{ userId: 'u_3', sessionToken: 's_4' }],
+    })
+    await client.auth.admin.user.session.revoke({ userId: 'u_3' })
     await client.auth.admin.user.remove({ userId: 'u_4' })
-    await client.auth.admin.user.setPassword({ userId: 'u_4', password: 'new-pass' })
-    await client.auth.admin.hasPermission({ permissions: ['manage:users'] })
-    await client.auth.admin.apiKey.create({ userId: 'u_1', name: 'test-key' })
-    await client.auth.admin.athenaClient.create({ name: 'demo-client' })
+    await client.auth.admin.user.setPassword({ userId: 'u_4', newPassword: 'new-pass' })
+    await client.auth.admin.hasPermission({ permissions: { users: ['manage'] } })
+    await client.auth.admin.apiKey.create({ name: 'test-key', expiresIn: 3600 })
+    await client.auth.admin.athenaClient.create({ clientName: 'demo-client' })
     await client.auth.admin.athenaClient.list()
     await client.auth.admin.auditLog.list()
     await client.auth.admin.email.get({ query: { id: 'email_1' } })
-    await client.auth.admin.email.create({ to: 'to@example.com', subject: 'Welcome' })
-    await client.auth.admin.email.update({ id: 'email_1', status: 'delivered' })
+    await client.auth.admin.email.create({
+      recipientEmail: 'to@example.com',
+      subject: 'Welcome',
+      fromAddress: 'no-reply@example.com',
+      provider: 'resend',
+    })
+    await client.auth.admin.email.update({ id: 'email_1', subject: 'Welcome Updated' })
     await client.auth.admin.email.delete({ id: 'email_1' })
     await client.auth.admin.email.failure.list()
     await client.auth.admin.email.failure.get({ query: { id: 'failure_1' } })
-    await client.auth.admin.email.failure.create({ emailId: 'email_1', reason: 'bounce' })
-    await client.auth.admin.email.failure.update({ id: 'failure_1', status: 'reviewed' })
+    await client.auth.admin.email.failure.create({
+      recipientEmail: 'to@example.com',
+      flow: 'transactional',
+      errorMessage: 'bounce',
+    })
+    await client.auth.admin.email.failure.update({ id: 'failure_1', resolved: true })
     await client.auth.admin.email.failure.delete({ id: 'failure_1' })
-    await client.auth.admin.email.template.create({ key: 'welcome', subject: 'Welcome' })
-    await client.auth.admin.email.template.delete({ key: 'welcome' })
+    await client.auth.admin.email.template.create({ templateKey: 'welcome', subjectTemplate: 'Welcome' })
+    await client.auth.admin.email.template.delete({ id: 'tmpl_1' })
     await client.auth.admin.email.template.list()
-    await client.auth.admin.email.template.update({ key: 'welcome', subject: 'Welcome 2' })
+    await client.auth.admin.email.template.update({ id: 'tmpl_1', subjectTemplate: 'Welcome 2' })
     await client.auth.admin.email.list()
-    await client.auth.admin.emailTemplate.create({ key: 'legacy', subject: 'Legacy' })
-    await client.auth.admin.emailTemplate.delete({ key: 'legacy' })
+    await client.auth.admin.emailTemplate.create({ templateKey: 'legacy', subjectTemplate: 'Legacy' })
+    await client.auth.admin.emailTemplate.delete({ id: 'legacy_tmpl_1' })
     await client.auth.admin.emailTemplate.list()
-    await client.auth.admin.emailTemplate.update({ key: 'legacy', subject: 'Legacy 2' })
+    await client.auth.admin.emailTemplate.update({ id: 'legacy_tmpl_1', subjectTemplate: 'Legacy 2' })
 
-    await client.auth.apiKey.create({ name: 'user-key' })
+    await client.auth.apiKey.create({ name: 'user-key', expiresIn: '3600', remaining: '1000' })
     await client.auth.apiKey.get({ query: { id: 'key_1' } })
-    await client.auth.apiKey.update({ id: 'key_1', name: 'updated' })
-    await client.auth.apiKey.delete({ id: 'key_1' })
+    await client.auth.apiKey.update({ keyId: 'key_1', name: 'updated', expiresIn: '3600', permissions: '{}' })
+    await client.auth.apiKey.delete({ keyId: 'key_1' })
     await client.auth.apiKey.list()
     await client.auth.apiKey.verify({ key: 'prefix.secret' })
     await client.auth.apiKey.deleteAllExpired()
@@ -506,7 +546,13 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     assert.equal(calls[1].url, 'https://auth.example.com/api/auth/admin/list-users')
     assert.equal(calls[8].url, 'https://auth.example.com/api/auth/admin/revoke-user-session')
     assert.equal(calls[9].url, 'https://auth.example.com/api/auth/admin/revoke-user-sessions')
-    assert.equal(calls[15].url, 'https://auth.example.com/api/auth/admin/athena-client/list')
+    assert.equal(calls[10].url, 'https://auth.example.com/api/auth/admin/revoke-user-session')
+    assert.equal(calls[11].url, 'https://auth.example.com/api/auth/admin/revoke-user-sessions')
+    assert.equal(calls[17].url, 'https://auth.example.com/api/auth/admin/athena-client/list')
+    assert.equal(calls[8].init?.body, JSON.stringify({ userId: 'u_3', sessionToken: 's_1' }))
+    assert.equal(calls[9].init?.body, JSON.stringify({ userId: 'u_3' }))
+    assert.equal(calls[10].init?.body, JSON.stringify({ userId: 'u_3', sessionToken: 's_4' }))
+    assert.equal(calls[11].init?.body, JSON.stringify({ userId: 'u_3' }))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/get?id=email_1'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/create'))
     assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/update'))
@@ -593,8 +639,8 @@ test('auth.callback.provider resolves dynamic provider endpoint', async () => {
   const { calls, restore } = mockFetch({ ok: true })
   try {
     const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
-    await client.auth.callback.provider({ provider: 'github' })
-    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/callback/github')
+    await client.auth.callback.provider({ provider: 'github', code: 'oauth-code', state: 'oauth-state' })
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/callback/github?code=oauth-code&state=oauth-state')
     assert.equal(calls[0].init?.method, 'GET')
   } finally {
     restore()

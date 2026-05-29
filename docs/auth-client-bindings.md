@@ -1,6 +1,6 @@
 # Athena Auth Client Bindings
 
-This page documents the expanded `createAuthClient()` surface in `athena-js`, including Better Auth-style grouped methods under `client.auth.*` and React `useSession` parity.
+This page documents the auth surface exposed on `createClient(...).auth` in `athena-js`, including Better Auth-style grouped methods and React `useSession` parity.
 
 For per-domain deep docs (with endpoint-by-endpoint TypeScript examples), see [`docs/auth/index.mdx`](./auth/index.mdx).
 
@@ -20,10 +20,10 @@ type AthenaAuthResult<T> = {
 ## Client setup
 
 ```ts
-import { createAuthClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena"
 
-const client = createAuthClient({
-  baseUrl: "http://localhost:3001/api/auth",
+const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
 })
 ```
 
@@ -175,7 +175,7 @@ All admin endpoints are server-authorized; the server enforces role/permission c
 
 ### OAuth callback bindings
 
-- `client.auth.callback.provider({ provider })` -> `GET /callback/{provider}`
+- `client.auth.callback.provider({ provider, code, state })` -> `GET /callback/{provider}?code=...&state=...`
 
 ## React `useSession` parity
 
@@ -183,12 +183,14 @@ All admin endpoints are server-authorized; the server enforces role/permission c
 
 ```ts
 import { useSession } from "@xylex-group/athena/react"
-import { createAuthClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena"
 
-const auth = createAuthClient({ baseUrl: "http://localhost:3001/api/auth" })
+const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
+})
 
 function SessionPanel() {
-  const { data, isPending, isRefetching, error, refetch } = useSession(auth)
+  const { data, isPending, isRefetching, error, refetch } = useSession(client)
   return null
 }
 ```
@@ -203,4 +205,8 @@ function SessionPanel() {
 
 ## Legacy flat methods remain
 
-Top-level methods (`client.getSession`, `client.signOut`, `client.signIn.email`, etc.) are still available for backward compatibility. The grouped `client.auth.*` namespace is additive.
+Top-level methods (`client.getSession`, `client.signOut`, `client.signIn.email`, etc.) are still available on the deprecated `createAuthClient(...)` return type for backward compatibility.
+
+## Deprecated helper
+
+`createAuthClient(...)` still exists for backward compatibility, but it is deprecated in favor of `createClient(...).auth`.

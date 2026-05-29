@@ -11,25 +11,25 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.organization.member.remove({
+await client.auth.organization.member.remove({
   memberIdOrEmail: "member@example.com",
 })
 
-await auth.auth.organization.member.updateRole({
+await client.auth.organization.member.updateRole({
   memberId: "member_1",
   role: "admin",
 })
 
-await auth.auth.organization.member.invite({
+await client.auth.organization.member.invite({
   email: "new-member@example.com",
   role: "member",
 })
 
-await auth.auth.organization.member.getActive()
+await client.auth.organization.member.getActive()
 
-await auth.auth.organization.member.list({
+await client.auth.organization.member.list({
   query: {
     organizationId: "org_1",
     limit: 50,

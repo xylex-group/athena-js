@@ -1,0 +1,25 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageFontColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam NoteBorderColor #000000
+skinparam NoteFontColor #000000
+skinparam NoteBackgroundColor #FDEDEC
+
+title useSession Typing (Before)
+
+rectangle "useSession(authClient)" as hook #FCF3CF
+rectangle "UseSessionResult\n- data: AthenaAuthSessionResponse | null\n- error: AthenaAuthResult<unknown>['errorDetails']\n- refetch(): Promise<AthenaAuthSessionResponse | null>" as result #F9EBEA
+
+hook --> result
+
+note bottom of result
+Return typing is fixed to the default session shape.
+Client-specific getSession data narrowing is not propagated.
+end note
+
+@enduml

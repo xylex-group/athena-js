@@ -1,6 +1,6 @@
 # Athena Auth Docs
 
-This folder documents the full `createAuthClient().auth.*` surface with one section per API domain.
+This folder documents the full `createClient(...).auth.*` surface with one section per API domain.
 
 ## Pages
 
@@ -21,9 +21,9 @@ This folder documents the full `createAuthClient().auth.*` surface with one sect
 ## Base setup
 
 ```ts
-import { createAuthClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena"
 
-export const auth = createAuthClient({
-  baseUrl: "http://localhost:3001/api/auth",
+export const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
 })
 ```

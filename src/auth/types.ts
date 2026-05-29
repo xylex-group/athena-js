@@ -377,6 +377,593 @@ export interface AthenaAuthLinkedAccount {
   updatedAt?: string
 }
 
+export type AthenaAuthPermissionSet = Record<string, unknown> | string[]
+export type AthenaAuthLooseRecord = Record<string, unknown>
+
+export interface AthenaSetPasswordRequest {
+  newPassword: string
+}
+
+export interface AthenaAuthTokenQuery {
+  token: string
+}
+
+export interface AthenaAuthTokenVerificationResponse {
+  status: boolean
+  message: string
+}
+
+export interface AthenaAuthEmailListQuery {
+  limit?: number
+  offset?: number
+}
+
+export interface AthenaAuthEmailListResponse {
+  total: number
+  limit: number
+  offset: number
+  emails: AthenaAuthLooseRecord[]
+}
+
+export interface AthenaAuthHealthResponse {
+  status?: string
+  service?: string
+  version?: string
+}
+
+export interface AthenaAuthOkResponse {
+  ok: boolean
+}
+
+export interface AthenaAuthErrorResponse {
+  message: string
+}
+
+export interface AthenaAuthCallbackProviderRequest {
+  provider: string
+  code: string
+  state: string
+}
+
+export interface AthenaAuthCallbackProviderResponse {
+  token?: string
+  user?: AthenaAuthLooseRecord
+}
+
+export interface AthenaTwoFactorGetTotpUriRequest {
+  password: string
+}
+
+export interface AthenaTwoFactorGetTotpUriResponse {
+  totpURI?: string
+}
+
+export interface AthenaTwoFactorVerifyTotpRequest {
+  code: string
+  trustDevice?: string
+}
+
+export interface AthenaTwoFactorVerifyTotpResponse {
+  status?: boolean
+}
+
+export interface AthenaTwoFactorVerifyOtpRequest {
+  code: string
+  trustDevice?: string
+}
+
+export interface AthenaTwoFactorVerifyOtpResponse {
+  token: string
+  user: AthenaAuthUser
+}
+
+export interface AthenaTwoFactorVerifyBackupCodeRequest {
+  code: string
+  disableSession?: string
+  trustDevice?: string
+}
+
+export interface AthenaTwoFactorSessionSnapshot {
+  token: string
+  userId: string
+  createdAt: string
+  expiresAt: string
+}
+
+export interface AthenaTwoFactorVerifyBackupCodeResponse {
+  user: AthenaAuthUser
+  session: AthenaTwoFactorSessionSnapshot
+}
+
+export interface AthenaTwoFactorGenerateBackupCodesRequest {
+  password: string
+}
+
+export interface AthenaTwoFactorGenerateBackupCodesResponse {
+  status: true
+  backupCodes: string[]
+}
+
+export interface AthenaTwoFactorEnableRequest {
+  password: string
+  issuer?: string
+}
+
+export interface AthenaTwoFactorEnableResponse {
+  totpURI?: string
+  backupCodes?: string[]
+}
+
+export interface AthenaTwoFactorDisableRequest {
+  password: string
+}
+
+export interface AthenaTwoFactorDisableResponse {
+  status?: boolean
+}
+
+export interface AthenaPasskeyCredentialDescriptor {
+  id?: string
+  type?: string
+  transports?: string[]
+}
+
+export interface AthenaPasskeyPublicKeyCredentialParam {
+  type?: string
+  alg?: number
+}
+
+export interface AthenaPasskeyUserDescriptor {
+  id?: string
+  name?: string
+  displayName?: string
+}
+
+export interface AthenaPasskeyRelyingParty {
+  name?: string
+  id?: string
+}
+
+export interface AthenaPasskeyAuthenticatorSelection {
+  authenticatorAttachment?: string
+  requireResidentKey?: boolean
+  userVerification?: string
+}
+
+export interface AthenaPasskeyOptionsResponse {
+  challenge?: string
+  rp?: AthenaPasskeyRelyingParty
+  user?: AthenaPasskeyUserDescriptor
+  timeout?: number
+  allowCredentials?: AthenaPasskeyCredentialDescriptor[]
+  excludeCredentials?: AthenaPasskeyCredentialDescriptor[]
+  pubKeyCredParams?: AthenaPasskeyPublicKeyCredentialParam[]
+  userVerification?: string
+  authenticatorSelection?: AthenaPasskeyAuthenticatorSelection
+  attestation?: string
+  extensions?: AthenaAuthLooseRecord
+}
+
+export interface AthenaPasskeyRecord {
+  id: string
+  name?: string | null
+  publicKey?: string
+  userId: string
+  credentialID?: string
+  counter?: number
+  deviceType?: string
+  backedUp?: boolean
+  transports?: string
+  createdAt?: string
+}
+
+export interface AthenaPasskeyVerifyRegistrationRequest {
+  response: string
+  name?: string
+}
+
+export interface AthenaPasskeyVerifyAuthenticationRequest {
+  response: string
+}
+
+export interface AthenaPasskeyVerifyAuthenticationResponse {
+  session: AthenaAuthSession
+  user: AthenaAuthUser
+}
+
+export interface AthenaPasskeyDeleteRequest {
+  id: string
+}
+
+export interface AthenaPasskeyDeleteResponse {
+  status: boolean
+}
+
+export interface AthenaPasskeyUpdateRequest {
+  id: string
+  name: string
+}
+
+export interface AthenaPasskeyUpdateResponse {
+  passkey: AthenaPasskeyRecord
+}
+
+export interface AthenaAdminSetRoleRequest {
+  userId: string
+  role: string
+}
+
+export interface AthenaAdminCreateUserRequest {
+  email: string
+  password: string
+  name: string
+  role?: string
+  data?: string
+}
+
+export interface AthenaAdminTargetUserRequest {
+  userId: string
+}
+
+export interface AthenaAdminBanUserRequest extends AthenaAdminTargetUserRequest {
+  banReason?: string
+  banExpiresIn?: string
+}
+
+export interface AthenaAdminListUsersQuery {
+  searchValue?: string
+  searchField?: string
+  searchOperator?: string
+  limit?: number | string
+  offset?: number | string
+  sortBy?: string
+  sortDirection?: string
+  filterField?: string
+  filterValue?: string
+  filterOperator?: string
+}
+
+export interface AthenaAdminListUsersResponse {
+  users: AthenaAuthUser[]
+  total: number
+  limit?: number
+  offset?: number
+}
+
+export interface AthenaAdminListUserSessionsRequest {
+  userId: string
+}
+
+export interface AthenaAdminListUserSessionsResponse {
+  sessions: AthenaAuthSession[]
+}
+
+export interface AthenaAdminImpersonateResponse {
+  session: AthenaAuthSession
+  user: AthenaAuthUser
+}
+
+export interface AthenaAdminStopImpersonatingRequest {
+  userId?: string
+}
+
+export interface AthenaAdminRevokeUserSessionRequest {
+  sessionToken: string
+  userId?: string
+  sessionId?: string
+}
+
+export interface AthenaAdminRevokeUserSessionsRequest {
+  userId: string
+}
+
+export interface AthenaAdminSetUserPasswordRequest {
+  userId: string
+  newPassword: string
+}
+
+export interface AthenaAdminUserResponse {
+  user: AthenaAuthUser
+}
+
+export interface AthenaAdminSuccessResponse {
+  success: boolean
+}
+
+export interface AthenaAdminHasPermissionRequest {
+  permission?: AthenaAuthPermissionSet
+  permissions: AthenaAuthPermissionSet
+}
+
+export interface AthenaAdminHasPermissionResponse {
+  success: boolean
+  error?: string
+}
+
+export interface AthenaAdminApiKeyCreateRequest {
+  name?: string
+  expiresIn?: number
+  athenaClientName?: string
+  permissions?: AthenaAuthLooseRecord
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminApiKeyCreateResponse {
+  key?: string
+  apiKey?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminAthenaClientCreateRequest {
+  clientName: string
+  description?: string
+  isActive?: boolean
+  pgUriEnvVar?: string
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminAthenaClientListResponse {
+  athenaClients?: AthenaAuthLooseRecord[]
+}
+
+export interface AthenaAdminAuditLogListQuery {
+  limit?: number
+  offset?: number
+  actorUserId?: string
+  action?: string
+  targetType?: string
+  targetId?: string
+  success?: boolean
+  createdAfter?: string
+  createdBefore?: string
+}
+
+export interface AthenaAdminAuditLogListResponse {
+  total?: number
+  limit?: number
+  offset?: number
+  auditLogs?: AthenaAuthLooseRecord[]
+}
+
+export interface AthenaAdminEmailListQuery {
+  limit?: number
+  offset?: number
+  recipientEmail?: string
+  provider?: string
+  flow?: string
+  subjectContains?: string
+  createdAfter?: string
+  createdBefore?: string
+}
+
+export interface AthenaAdminEmailListResponse {
+  total?: number
+  limit?: number
+  offset?: number
+  emails?: AthenaAuthLooseRecord[]
+}
+
+export interface AthenaAdminEmailGetQuery {
+  id: string
+}
+
+export interface AthenaAdminEmailGetResponse {
+  email?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailCreateRequest {
+  recipientEmail: string
+  subject: string
+  fromAddress: string
+  fromName?: string
+  textBody?: string
+  htmlBody?: string
+  provider: string
+  flow?: string
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailUpdateRequest {
+  id: string
+  recipientEmail?: string
+  subject?: string
+  fromAddress?: string
+  fromName?: string | null
+  textBody?: string | null
+  htmlBody?: string | null
+  provider?: string
+  flow?: string | null
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailUpdateResponse {
+  email?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailDeleteRequest {
+  id: string
+}
+
+export interface AthenaAdminEmailFailureListQuery {
+  limit?: number
+  offset?: number
+  recipientEmail?: string
+  provider?: string
+  flow?: string
+  resolved?: boolean
+  createdAfter?: string
+  createdBefore?: string
+}
+
+export interface AthenaAdminEmailFailureListResponse {
+  total?: number
+  limit?: number
+  offset?: number
+  emailSendFailures?: AthenaAuthLooseRecord[]
+}
+
+export interface AthenaAdminEmailFailureGetQuery {
+  id: string
+}
+
+export interface AthenaAdminEmailFailureGetResponse {
+  emailSendFailure?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailFailureCreateRequest {
+  userId?: string
+  recipientEmail: string
+  flow: string
+  provider?: string
+  errorMessage: string
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailFailureUpdateRequest {
+  id: string
+  resolved?: boolean
+  resolutionNote?: string | null
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailFailureUpdateResponse {
+  emailSendFailure?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailFailureDeleteRequest {
+  id: string
+}
+
+export interface AthenaAdminEmailTemplateListQuery {
+  limit?: number
+  offset?: number
+  templateKey?: string
+  locale?: string
+  isActive?: boolean
+}
+
+export interface AthenaAdminEmailTemplateListResponse {
+  total?: number
+  limit?: number
+  offset?: number
+  emailTemplates?: AthenaAuthLooseRecord[]
+}
+
+export interface AthenaAdminEmailTemplateCreateRequest {
+  templateKey: string
+  locale?: string
+  subjectTemplate: string
+  textTemplate?: string
+  htmlTemplate?: string
+  variables?: string[]
+  isActive?: boolean
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailTemplateUpdateRequest {
+  id: string
+  templateKey?: string
+  locale?: string
+  subjectTemplate?: string
+  textTemplate?: string | null
+  htmlTemplate?: string | null
+  variables?: string[]
+  isActive?: boolean
+  metadata?: AthenaAuthLooseRecord
+}
+
+export interface AthenaAdminEmailTemplateDeleteRequest {
+  id: string
+}
+
+export interface AthenaAdminEmailTemplateGetQuery {
+  id: string
+}
+
+export interface AthenaAdminEmailTemplateGetResponse {
+  emailTemplate?: AthenaAuthLooseRecord
+}
+
+export interface AthenaApiKeyCreateRequest {
+  name?: string
+  expiresIn: string
+  userId?: string
+  prefix?: string
+  remaining: string
+  metadata?: string
+  refillAmount?: string
+  refillInterval?: string
+  rateLimitTimeWindow?: string
+  rateLimitMax?: string
+  rateLimitEnabled?: string
+  permissions?: string
+}
+
+export interface AthenaApiKeyRecord {
+  id: string
+  name?: string | null
+  start?: string | null
+  prefix?: string | null
+  userId: string
+  refillInterval?: number | null
+  refillAmount?: number | null
+  lastRefillAt?: string | null
+  enabled: boolean
+  rateLimitEnabled: boolean
+  rateLimitTimeWindow?: number | null
+  rateLimitMax?: number | null
+  requestCount: number
+  remaining?: number | null
+  lastRequest?: string | null
+  expiresAt?: string | null
+  createdAt: string
+  updatedAt: string
+  metadata?: AthenaAuthLooseRecord | null
+  permissions?: string | null
+  key?: string
+}
+
+export interface AthenaApiKeyGetQuery {
+  id?: string
+}
+
+export interface AthenaApiKeyUpdateRequest {
+  keyId: string
+  userId?: string
+  name?: string
+  enabled?: string
+  remaining?: string
+  refillAmount?: string
+  refillInterval?: string
+  metadata?: string
+  expiresIn: string
+  rateLimitEnabled?: string
+  rateLimitTimeWindow?: string
+  rateLimitMax?: string
+  permissions: string
+}
+
+export interface AthenaApiKeyDeleteRequest {
+  keyId: string
+}
+
+export interface AthenaApiKeyVerifyRequest {
+  key: string
+  permissions?: AthenaAuthLooseRecord
+}
+
+export interface AthenaApiKeyVerifyResponse {
+  valid?: boolean
+  error?: {
+    message?: string
+    code?: string
+  } | null
+  key?: AthenaAuthLooseRecord | null
+}
+
+export interface AthenaApiKeyDeleteAllExpiredResponse {
+  deleted?: number
+}
+
 export interface AthenaAuthOrganizationCreateRequest {
   name: string
   slug: string
@@ -594,10 +1181,12 @@ export type AthenaAuthSessionRevokeBinding = (
 
 export type AthenaAuthAdminUserSessionRevokeBinding = (
   input:
-    | (AthenaAuthGenericInput & { sessionToken?: string; sessionId?: string; userId?: string })
-    | ((AthenaAuthGenericInput & { sessionToken?: string; sessionId?: string; userId?: string })[]),
+    | (AthenaAdminRevokeUserSessionRequest & AthenaAuthFetchCompatibleInput)
+    | (AthenaAdminRevokeUserSessionsRequest & AthenaAuthFetchCompatibleInput)
+    | ({ sessions: AthenaAdminRevokeUserSessionRequest[] } & AthenaAuthFetchCompatibleInput)
+    | ((AthenaAdminRevokeUserSessionRequest & AthenaAuthFetchCompatibleInput)[]),
   options?: AthenaAuthCallOptions,
-) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
 
 export interface AthenaAuthOrganizationBindings {
   /** Create an organization. Route: `POST /organization/create`. */
@@ -651,9 +1240,9 @@ export interface AthenaAuthOrganizationBindings {
   ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation[]>>
   /** Check organization-level permissions for the current principal. Route: `POST /organization/has-permission`. */
   hasPermission: (
-    input: AthenaAuthGenericInput,
+    input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<{ success?: boolean; error?: string }>>
+  ) => Promise<AthenaAuthResult<AthenaAdminHasPermissionResponse>>
   invitation: {
     /** Cancel an organization invitation. Route: `POST /organization/cancel-invitation`. */
     cancel: (
@@ -721,7 +1310,7 @@ export interface AthenaAuthBindings {
   resetPassword: AthenaAuthResetPasswordBinding
   /** Set password for the current authenticated user. Route: `POST /set-password`. */
   setPassword: (
-    input: AthenaAuthGenericInput,
+    input: AthenaSetPasswordRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
   /** Verify email token. Route: `GET /verify-email`. */
@@ -732,14 +1321,14 @@ export interface AthenaAuthBindings {
   changeEmail: AthenaAuthSdkClient['changeEmail']
   /** Verify pending email change. Route: `GET /change-email/verify`. */
   changeEmailVerify: (
-    input: AthenaAuthGenericQueryInput,
+    input: { query: AthenaAuthTokenQuery } & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  ) => Promise<AthenaAuthResult<AthenaAuthTokenVerificationResponse>>
   /** Verify pending delete-user flow. Route: `GET /delete-user/verify`. */
   deleteUserVerify: (
-    input: AthenaAuthGenericQueryInput,
+    input: { query: AthenaAuthTokenQuery } & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  ) => Promise<AthenaAuthResult<AthenaAuthTokenVerificationResponse>>
   /** Change current user password. Route: `POST /change-password`. */
   changePassword: AthenaAuthSdkClient['changePassword']
   user: {
@@ -750,9 +1339,9 @@ export interface AthenaAuthBindings {
     email: {
       /** List email identities for current user. Route: `GET /email-list`. */
       list: (
-        input?: AthenaAuthFetchCompatibleInput,
+        input?: { query?: AthenaAuthEmailListQuery } & AthenaAuthFetchCompatibleInput,
         options?: AthenaAuthCallOptions,
-      ) => Promise<AthenaAuthResult<unknown[]>>
+      ) => Promise<AthenaAuthResult<AthenaAuthEmailListResponse>>
     }
   }
   session: {
@@ -785,158 +1374,326 @@ export interface AthenaAuthBindings {
   health: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<unknown>>
+  ) => Promise<AthenaAuthResult<AthenaAuthHealthResponse>>
   /** Health route passthrough. Route: `GET /ok`. */
   ok: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<unknown>>
+  ) => Promise<AthenaAuthResult<AthenaAuthOkResponse>>
   /** Error route passthrough. Route: `GET /error`. */
   error: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
-  ) => Promise<AthenaAuthResult<unknown>>
+  ) => Promise<AthenaAuthResult<AthenaAuthErrorResponse | string>>
   twoFactor: {
     /** Get TOTP URI for setup. Route: `POST /two-factor/get-totp-uri`. */
-    getTotpUri: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    getTotpUri: (
+      input: AthenaTwoFactorGetTotpUriRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorGetTotpUriResponse>>
     /** Verify TOTP code. Route: `POST /two-factor/verify-totp`. */
-    verifyTotp: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    verifyTotp: (
+      input: AthenaTwoFactorVerifyTotpRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorVerifyTotpResponse>>
     /** Send one-time passcode (OTP). Route: `POST /two-factor/send-otp`. */
-    sendOtp: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    sendOtp: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
     /** Verify OTP code. Route: `POST /two-factor/verify-otp`. */
-    verifyOtp: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    verifyOtp: (
+      input: AthenaTwoFactorVerifyOtpRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorVerifyOtpResponse>>
     /** Verify backup code. Route: `POST /two-factor/verify-backup-code`. */
-    verifyBackupCode: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    verifyBackupCode: (
+      input: AthenaTwoFactorVerifyBackupCodeRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorVerifyBackupCodeResponse>>
     /** Generate backup codes. Route: `POST /two-factor/generate-backup-codes`. */
-    generateBackupCodes: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    generateBackupCodes: (
+      input: AthenaTwoFactorGenerateBackupCodesRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorGenerateBackupCodesResponse>>
     /** Enable two-factor auth. Route: `POST /two-factor/enable`. */
-    enable: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    enable: (
+      input: AthenaTwoFactorEnableRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorEnableResponse>>
     /** Disable two-factor auth. Route: `POST /two-factor/disable`. */
-    disable: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    disable: (
+      input: AthenaTwoFactorDisableRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaTwoFactorDisableResponse>>
   }
   passkey: {
     /** Generate WebAuthn registration options. Route: `GET /passkey/generate-register-options`. */
-    generateRegisterOptions: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    generateRegisterOptions: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyOptionsResponse>>
     /** Generate WebAuthn authentication options. Route: `POST /passkey/generate-authenticate-options`. */
-    generateAuthenticateOptions: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    generateAuthenticateOptions: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyOptionsResponse>>
     /** Verify passkey registration response. Route: `POST /passkey/verify-registration`. */
-    verifyRegistration: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    verifyRegistration: (
+      input: AthenaPasskeyVerifyRegistrationRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyRecord>>
     /** Verify passkey authentication response. Route: `POST /passkey/verify-authentication`. */
-    verifyAuthentication: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    verifyAuthentication: (
+      input: AthenaPasskeyVerifyAuthenticationRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyVerifyAuthenticationResponse>>
     /** List current user's passkeys. Route: `GET /passkey/list-user-passkeys`. */
-    listUserPasskeys: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+    listUserPasskeys: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyRecord[]>>
     /** Delete a passkey. Route: `POST /passkey/delete-passkey`. */
-    deletePasskey: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    deletePasskey: (
+      input: AthenaPasskeyDeleteRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyDeleteResponse>>
     /** Update a passkey metadata record. Route: `POST /passkey/update-passkey`. */
-    updatePasskey: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    updatePasskey: (
+      input: AthenaPasskeyUpdateRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaPasskeyUpdateResponse>>
     /** Return related origins for WebAuthn. Route: `GET /.well-known/webauthn`. */
-    getRelatedOrigins: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<{ origins?: string[] }>>
+    getRelatedOrigins: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<{ origins?: string[] }>>
   }
   admin: {
     role: {
       /** Set a user role. Route: `POST /admin/set-role`. */
-      set: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      set: (
+        input: AthenaAdminSetRoleRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminUserResponse>>
     }
     user: {
       /** List users. Route: `GET /admin/list-users`. */
-      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      list: (
+        input?: { query?: AthenaAdminListUsersQuery } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminListUsersResponse>>
       /** Create user. Route: `POST /admin/create-user`. */
-      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      create: (
+        input: AthenaAdminCreateUserRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminUserResponse>>
       /** Unban user. Route: `POST /admin/unban-user`. */
-      unban: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      unban: (
+        input: AthenaAdminTargetUserRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminUserResponse>>
       /** Ban user. Route: `POST /admin/ban-user`. */
-      ban: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      ban: (
+        input: AthenaAdminBanUserRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminUserResponse>>
       /** Start impersonation. Route: `POST /admin/impersonate-user`. */
-      impersonate: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      impersonate: (
+        input: AthenaAdminTargetUserRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminImpersonateResponse>>
       /** Stop impersonation. Route: `POST /admin/stop-impersonating`. */
-      stopImpersonating: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      stopImpersonating: (
+        input?: AthenaAdminStopImpersonatingRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAuthLooseRecord>>
       /** Remove user. Route: `POST /admin/remove-user`. */
-      remove: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      remove: (
+        input: AthenaAdminTargetUserRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
       /** Set user password. Route: `POST /admin/set-user-password`. */
-      setPassword: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      setPassword: (
+        input: AthenaAdminSetUserPasswordRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
       session: {
         /** List sessions for a target user. Route: `POST /admin/list-user-sessions`. */
-        list: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+        list: (
+          input: AthenaAdminListUserSessionsRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminListUserSessionsResponse>>
         /** Revoke one or multiple sessions; collapses to `/admin/revoke-user-session` or `/admin/revoke-user-sessions`. */
         revoke: AthenaAuthAdminUserSessionRevokeBinding
       }
     }
     /** Check permission under admin policy. Route: `POST /admin/has-permission`. */
-    hasPermission: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<{ success?: boolean; error?: string }>>
+    hasPermission: (
+      input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAdminHasPermissionResponse>>
     apiKey: {
       /** Create admin-scoped API key. Route: `POST /admin/api-key/create`. */
-      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      create: (
+        input?: AthenaAdminApiKeyCreateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminApiKeyCreateResponse>>
     }
     athenaClient: {
       /** Create Athena client credentials. Route: `POST /admin/athena-client/create`. */
-      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      create: (
+        input: AthenaAdminAthenaClientCreateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAuthLooseRecord>>
       /** List Athena client credentials. Route: `GET /admin/athena-client/list`. */
-      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      list: (
+        input?: AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminAthenaClientListResponse>>
     }
     auditLog: {
       /** List auth audit events. Route: `GET /admin/audit-log/list`. */
-      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      list: (
+        input?: { query?: AthenaAdminAuditLogListQuery } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminAuditLogListResponse>>
     }
     email: {
       /** List emails. Route: `GET /admin/email/list`. */
-      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      list: (
+        input?: { query?: AthenaAdminEmailListQuery } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminEmailListResponse>>
       /** Get a specific email record. Route: `GET /admin/email/get`. */
-      get: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      get: (
+        input: { query: AthenaAdminEmailGetQuery } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminEmailGetResponse>>
       /** Create an email record. Route: `POST /admin/email/create`. */
-      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      create: (
+        input: AthenaAdminEmailCreateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
       /** Update an email record. Route: `POST /admin/email/update`. */
-      update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      update: (
+        input: AthenaAdminEmailUpdateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminEmailUpdateResponse>>
       /** Delete an email record. Route: `POST /admin/email/delete`. */
-      delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      delete: (
+        input: AthenaAdminEmailDeleteRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
       failure: {
         /** List email failure records. Route: `GET /admin/email-failure/list`. */
-        list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+        list: (
+          input?: { query?: AthenaAdminEmailFailureListQuery } & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminEmailFailureListResponse>>
         /** Get an email failure record. Route: `GET /admin/email-failure/get`. */
-        get: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        get: (
+          input: { query: AthenaAdminEmailFailureGetQuery } & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminEmailFailureGetResponse>>
         /** Create an email failure record. Route: `POST /admin/email-failure/create`. */
-        create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        create: (
+          input: AthenaAdminEmailFailureCreateRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
         /** Update an email failure record. Route: `POST /admin/email-failure/update`. */
-        update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        update: (
+          input: AthenaAdminEmailFailureUpdateRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminEmailFailureUpdateResponse>>
         /** Delete an email failure record. Route: `POST /admin/email-failure/delete`. */
-        delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        delete: (
+          input: AthenaAdminEmailFailureDeleteRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
       }
       template: {
         /** List email templates. Route: `GET /admin/email-template/list`. */
-        list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+        list: (
+          input?: { query?: AthenaAdminEmailTemplateListQuery } & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminEmailTemplateListResponse>>
         /** Create email template. Route: `POST /admin/email-template/create`. */
-        create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        create: (
+          input: AthenaAdminEmailTemplateCreateRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAuthLooseRecord>>
         /** Update email template. Route: `POST /admin/email-template/update`. */
-        update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        update: (
+          input: AthenaAdminEmailTemplateUpdateRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAuthLooseRecord>>
         /** Delete email template. Route: `POST /admin/email-template/delete`. */
-        delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        delete: (
+          input: AthenaAdminEmailTemplateDeleteRequest & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions,
+        ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
       }
     }
     emailTemplate: {
       /** Create email template. Route: `POST /admin/email-template/create`. */
-      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      create: (
+        input: AthenaAdminEmailTemplateCreateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAuthLooseRecord>>
       /** Delete email template. Route: `POST /admin/email-template/delete`. */
-      delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      delete: (
+        input: AthenaAdminEmailTemplateDeleteRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
       /** List email templates. Route: `GET /admin/email-template/list`. */
-      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      list: (
+        input?: { query?: AthenaAdminEmailTemplateListQuery } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAdminEmailTemplateListResponse>>
       /** Update email template. Route: `POST /admin/email-template/update`. */
-      update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      update: (
+        input: AthenaAdminEmailTemplateUpdateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions,
+      ) => Promise<AthenaAuthResult<AthenaAuthLooseRecord>>
     }
   }
   apiKey: {
     /** Create API key. Route: `POST /api-key/create`. */
-    create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    create: (
+      input: AthenaApiKeyCreateRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaApiKeyRecord>>
     /** Get API key metadata. Route: `GET /api-key/get`. */
-    get: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    get: (
+      input?: { query?: AthenaApiKeyGetQuery } & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaApiKeyRecord>>
     /** Update API key metadata. Route: `POST /api-key/update`. */
-    update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    update: (
+      input: AthenaApiKeyUpdateRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaApiKeyRecord>>
     /** Delete API key. Route: `POST /api-key/delete`. */
-    delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    delete: (
+      input: AthenaApiKeyDeleteRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>
     /** List API keys. Route: `GET /api-key/list`. */
-    list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+    list: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaApiKeyRecord[]>>
     /** Verify an API key. Route: `POST /api-key/verify`. */
-    verify: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    verify: (
+      input: AthenaApiKeyVerifyRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaApiKeyVerifyResponse>>
     /** Delete all expired API keys. Route: `POST /api-key/delete-all-expired-api-keys`. */
-    deleteAllExpired: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    deleteAllExpired: (
+      input?: AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaApiKeyDeleteAllExpiredResponse>>
   }
   signIn: {
     /** Sign in with email and password. Route: `POST /sign-in/email`. */
@@ -954,7 +1711,10 @@ export interface AthenaAuthBindings {
   organization: AthenaAuthOrganizationBindings
   callback: {
     /** OAuth provider callback passthrough. Route: `GET /callback/{provider}`. */
-    provider: (input: { provider: string } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    provider: (
+      input: AthenaAuthCallbackProviderRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthResult<AthenaAuthCallbackProviderResponse>>
   }
 }
 

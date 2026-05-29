@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AthenaAuthCallOptions,
-  AthenaAuthFetchCompatibleInput,
   AthenaAuthErrorCode,
   AthenaAuthErrorDetails,
+  AthenaAuthFetchCompatibleInput,
   AthenaAuthResult,
   AthenaAuthSessionResponse,
-  AthenaAuthSdkClient,
 } from '../auth/types.ts'
 
 export interface UseSessionOptions {
@@ -16,31 +15,79 @@ export interface UseSessionOptions {
   callOptions?: AthenaAuthCallOptions
 }
 
-export interface UseSessionResult {
-  data: AthenaAuthSessionResponse | null
-  error: AthenaAuthResult<unknown>['errorDetails']
+export interface UseSessionResult<
+  TSessionData extends AthenaAuthSessionResponse = AthenaAuthSessionResponse,
+> {
+  data: TSessionData | null
+  error: AthenaAuthErrorDetails | null
   isPending: boolean
   isRefetching: boolean
-  refetch: () => Promise<AthenaAuthSessionResponse | null>
+  refetch: () => Promise<TSessionData | null>
+}
+
+type SessionGetter<TSessionData extends AthenaAuthSessionResponse> = (
+  input?: AthenaAuthFetchCompatibleInput,
+  options?: AthenaAuthCallOptions,
+) => Promise<AthenaAuthResult<TSessionData>>
+
+type UseSessionAuthClient<
+  TSessionData extends AthenaAuthSessionResponse = AthenaAuthSessionResponse,
+> =
+  | { getSession: SessionGetter<TSessionData> }
+  | { auth: { getSession: SessionGetter<TSessionData> } }
+
+type InferSessionData<TClient> =
+  TClient extends { getSession: (...args: unknown[]) => Promise<AthenaAuthResult<infer TSessionData>> }
+    ? TSessionData extends AthenaAuthSessionResponse
+      ? TSessionData
+      : AthenaAuthSessionResponse
+    : TClient extends {
+        auth: { getSession: (...args: unknown[]) => Promise<AthenaAuthResult<infer TSessionData>> }
+      }
+      ? TSessionData extends AthenaAuthSessionResponse
+        ? TSessionData
+        : AthenaAuthSessionResponse
+      : AthenaAuthSessionResponse
+
+function resolveGetSession<TSessionData extends AthenaAuthSessionResponse>(
+  authClient: UseSessionAuthClient<TSessionData>,
+): SessionGetter<TSessionData> {
+  if ('getSession' in authClient && typeof authClient.getSession === 'function') {
+    return authClient.getSession
+  }
+
+  if (
+    'auth' in authClient &&
+    authClient.auth &&
+    typeof authClient.auth.getSession === 'function'
+  ) {
+    return authClient.auth.getSession
+  }
+
+  throw new Error('useSession requires an auth-capable client (createClient(...).auth or createAuthClient(...))')
 }
 
 /**
  * Better Auth style session hook parity for Athena auth clients.
  */
-export function useSession(
-  authClient: Pick<AthenaAuthSdkClient, 'getSession'>,
+export function useSession<TClient extends UseSessionAuthClient>(
+  authClient: TClient,
   options: UseSessionOptions = {},
-): UseSessionResult {
+): UseSessionResult<InferSessionData<TClient>> {
+  type SessionData = InferSessionData<TClient>
   const enabled = options.enabled ?? true
   const refetchOnMount = options.refetchOnMount ?? true
 
-  const [data, setData] = useState<AthenaAuthSessionResponse | null>(null)
-  const [error, setError] = useState<AthenaAuthResult<unknown>['errorDetails']>(null)
+  const [data, setData] = useState<SessionData | null>(null)
+  const [error, setError] = useState<AthenaAuthErrorDetails | null>(null)
   const [isPending, setIsPending] = useState<boolean>(enabled)
   const [isRefetching, setIsRefetching] = useState<boolean>(false)
   const requestIdRef = useRef(0)
   const mountedRef = useRef(true)
-  const dataRef = useRef<AthenaAuthSessionResponse | null>(null)
+  const dataRef = useRef<SessionData | null>(null)
+  const getSession = resolveGetSession<SessionData>(
+    authClient as UseSessionAuthClient<SessionData>,
+  )
 
   useEffect(() => {
     dataRef.current = data
@@ -67,15 +114,15 @@ export function useSession(
     }
 
     try {
-      const result = await authClient.getSession(options.fetchInput, options.callOptions)
+      const result = await getSession(options.fetchInput, options.callOptions)
       if (!mountedRef.current || requestId !== requestIdRef.current) {
         return null
       }
 
       if (result.ok) {
-        setData(result.data ?? null)
+        setData((result.data ?? null) as SessionData | null)
         setError(null)
-        return result.data ?? null
+        return (result.data ?? null) as SessionData | null
       }
 
       setError(
@@ -102,7 +149,7 @@ export function useSession(
         setIsRefetching(false)
       }
     }
-  }, [authClient, options.callOptions, options.fetchInput])
+  }, [getSession, options.callOptions, options.fetchInput])
 
   useEffect(() => {
     mountedRef.current = true

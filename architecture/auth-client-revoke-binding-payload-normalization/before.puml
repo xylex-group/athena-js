@@ -1,0 +1,36 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageFontColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam NoteBorderColor #000000
+skinparam NoteFontColor #000000
+skinparam NoteBackgroundColor #FFF7E6
+
+title Auth Revoke Bindings (Before)
+
+package "auth.session.revoke" {
+  rectangle "Input: token or token-list" as sessionInput #E7F3FF
+  rectangle "Route select\nsingle => /revoke-session\nmulti => /revoke-sessions" as sessionRoute #D6EAF8
+  rectangle "Payload behavior\nsingle => { token }\nmulti => token array or { tokens }" as sessionPayload #FDEBD0
+  sessionInput --> sessionRoute
+  sessionRoute --> sessionPayload
+}
+
+package "auth.admin.user.session.revoke" {
+  rectangle "Input: single payload, list, or { sessions }" as adminInput #E8F8F5
+  rectangle "Route select\nsingle => /admin/revoke-user-session\nmulti => /admin/revoke-user-sessions" as adminRoute #D5F5E3
+  rectangle "Payload behavior\n{ sessions: [one] } still sent to singular route\nmulti always sends { sessions: [...] }" as adminPayload #FADBD8
+  adminInput --> adminRoute
+  adminRoute --> adminPayload
+}
+
+note bottom of adminPayload
+OpenAPI expects plural admin revoke body as { userId }.
+Before behavior can send non-canonical payloads.
+end note
+
+@enduml

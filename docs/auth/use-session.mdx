@@ -6,11 +6,13 @@
 
 ```ts
 import { useSession } from "@xylex-group/athena/react"
-import { createAuthClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena"
 
-const auth = createAuthClient({ baseUrl: "http://localhost:3001/api/auth" })
+const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
+})
 
-const session = useSession(auth, {
+const session = useSession(client, {
   enabled: true,
   refetchOnMount: true,
   fetchInput: undefined,
@@ -29,13 +31,15 @@ const session = useSession(auth, {
 ## Example component
 
 ```tsx
-import { createAuthClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena"
 import { useSession } from "@xylex-group/athena/react"
 
-const auth = createAuthClient({ baseUrl: "http://localhost:3001/api/auth" })
+const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
+})
 
 export function SessionPanel() {
-  const { data, error, isPending, isRefetching, refetch } = useSession(auth)
+  const { data, error, isPending, isRefetching, refetch } = useSession(client)
 
   if (isPending) return <div>Loading session...</div>
   if (error) return <div>Session error: {error.message}</div>

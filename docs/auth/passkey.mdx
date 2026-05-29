@@ -14,28 +14,26 @@
 ## Examples
 
 ```ts
-import { auth } from "./auth-client"
+import { client } from "./auth-client"
 
-await auth.auth.passkey.generateRegisterOptions()
-await auth.auth.passkey.generateAuthenticateOptions({
-  email: "user@example.com",
+await client.auth.passkey.generateRegisterOptions()
+await client.auth.passkey.generateAuthenticateOptions()
+
+await client.auth.passkey.verifyRegistration({
+  response: "webauthn-registration-response",
 })
 
-await auth.auth.passkey.verifyRegistration({
-  response: { id: "credential_id", type: "public-key" },
+await client.auth.passkey.verifyAuthentication({
+  response: "webauthn-authentication-response",
 })
 
-await auth.auth.passkey.verifyAuthentication({
-  response: { id: "credential_id", type: "public-key" },
-})
+await client.auth.passkey.listUserPasskeys()
 
-await auth.auth.passkey.listUserPasskeys()
-
-await auth.auth.passkey.deletePasskey({ id: "passkey_id" })
-await auth.auth.passkey.updatePasskey({
+await client.auth.passkey.deletePasskey({ id: "passkey_id" })
+await client.auth.passkey.updatePasskey({
   id: "passkey_id",
   name: "My Laptop Passkey",
 })
 
-await auth.auth.passkey.getRelatedOrigins()
+await client.auth.passkey.getRelatedOrigins()
 ```

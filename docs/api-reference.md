@@ -24,7 +24,7 @@ React package exports include:
 
 Main package auth exports include:
 
-- `createAuthClient`
+- `createClient(...).auth` (preferred) and `createAuthClient` (deprecated)
 - `AthenaAuthSdkClient` with both legacy flat methods and grouped `auth.*` bindings
 - organization plugin binding surface (`AthenaAuthOrganizationBindings`)
 - auth binding contract (`AthenaAuthBindings`)
@@ -52,8 +52,10 @@ interface AthenaResult<T> {
 function createClient(
   url: string,
   apiKey: string,
-  options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend">,
-): AthenaSdkClient
+  options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
+    auth?: AthenaAuthClientConfig
+  },
+): AthenaSdkClientWithAuth
 ```
 
 ### `AthenaClient.fromEnvironment()`
@@ -75,7 +77,7 @@ interface AthenaClientBuilder {
   client(clientName: string): AthenaClientBuilder
   headers(headers: Record<string, string>): AthenaClientBuilder
   healthTracking(enabled: boolean): AthenaClientBuilder
-  build(): AthenaSdkClient
+  build(): AthenaSdkClientWithAuth
 }
 ```
 
@@ -118,6 +120,10 @@ interface AthenaSdkClient {
     query: string,
     options?: AthenaGatewayCallOptions,
   ): Promise<AthenaResult<Row[]>>
+}
+
+interface AthenaSdkClientWithAuth extends AthenaSdkClient {
+  auth: AthenaAuthBindings
 }
 ```
 
