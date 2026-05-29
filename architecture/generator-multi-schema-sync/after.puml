@@ -35,7 +35,7 @@ rectangle "Gateway Provider" as Gateway #F7F7F7 {
 
 rectangle "Renderer" as Renderer #F7F7F7 {
   rectangle "public.users and athena.users\nwrite separate files" as Separate #EFFFF0
-  rectangle "collision error recommends\n{schema} or {schema_kebab}" as Error #EAF7FF
+  rectangle "when paths collide, generator auto-scopes\nby schema segment before failing" as Recovery #EAF7FF
 }
 
 Config --> Selection
@@ -48,7 +48,7 @@ Targets --> Separate
 DirectInspect --> Renderer
 GatewayInspect --> Renderer
 Renderer --> Separate
-Renderer --> Error
+Renderer --> Recovery
 
 note bottom of Separate
 The default generator layout is now safe

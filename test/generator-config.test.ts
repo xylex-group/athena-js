@@ -221,6 +221,138 @@ test('loadGeneratorConfig resolves CJS transpiler-style nested default exports',
   }
 })
 
+test('loadGeneratorConfig resolves named object exports such as generatorConfig', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-named-export-'))
+  try {
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export const helper = { value: true }
+
+      export const generatorConfig = {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+          database: 'app_db',
+          schemas: ['public', 'athena'],
+        },
+        output: {
+          targets: {
+            model: 'src/generated/{schema_kebab}/{model_kebab}.ts',
+            schema: 'src/generated/{schema_kebab}.schema.ts',
+            database: 'src/generated/database.ts',
+            registry: 'src/generated/registry.ts',
+          },
+        },
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.config.provider.kind, 'postgres')
+    assert.deepEqual(
+      loaded.config.provider.kind === 'postgres' ? loaded.config.provider.schemas : [],
+      ['public', 'athena'],
+    )
+    assert.equal(loaded.config.output.targets.registry, 'src/generated/registry.ts')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('loadGeneratorConfig loads .env and .env.local values before config evaluation', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-env-load-'))
+  const previousDatabaseUrl = process.env.DATABASE_URL
+
+  delete process.env.DATABASE_URL
+
+  try {
+    writeFileSync(join(root, '.env'), 'DATABASE_URL=postgres://postgres:from_env@127.0.0.1:5432/app_db\n', 'utf8')
+    writeFileSync(
+      join(root, '.env.local'),
+      'DATABASE_URL=postgres://postgres:from_local@127.0.0.1:5432/app_db\n',
+      'utf8',
+    )
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: process.env.DATABASE_URL,
+          database: 'app_db',
+        },
+        output: {},
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    if (loaded.config.provider.kind !== 'postgres' || loaded.config.provider.mode !== 'direct') {
+      throw new Error('Expected direct postgres provider.')
+    }
+    assert.equal(
+      loaded.config.provider.connectionString,
+      'postgres://postgres:from_local@127.0.0.1:5432/app_db',
+    )
+    assert.equal(process.env.DATABASE_URL, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    if (previousDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL
+    } else {
+      process.env.DATABASE_URL = previousDatabaseUrl
+    }
+  }
+})
+
+test('loadGeneratorConfig backfills postgres password from env when URL has no password segment', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-password-fallback-'))
+  const previousPgPassword = process.env.PGPASSWORD
+
+  delete process.env.PGPASSWORD
+
+  try {
+    writeFileSync(join(root, '.env'), 'PGPASSWORD=from_local_env\n', 'utf8')
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgresql://postgres@127.0.0.1:5432/app_db',
+          database: 'app_db',
+        },
+        output: {},
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    if (loaded.config.provider.kind !== 'postgres' || loaded.config.provider.mode !== 'direct') {
+      throw new Error('Expected direct postgres provider.')
+    }
+    assert.equal(
+      loaded.config.provider.connectionString,
+      'postgresql://postgres:from_local_env@127.0.0.1:5432/app_db',
+    )
+    assert.equal(process.env.PGPASSWORD, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    if (previousPgPassword === undefined) {
+      delete process.env.PGPASSWORD
+    } else {
+      process.env.PGPASSWORD = previousPgPassword
+    }
+  }
+})
+
 test('loadGeneratorConfig uses runtime indirection instead of direct dynamic import call', () => {
   const source = readFileSync(join(process.cwd(), 'src/generator/config.ts'), 'utf8')
 

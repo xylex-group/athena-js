@@ -217,7 +217,7 @@ test('generateArtifactsFromSnapshot default targets are safe for multiple schema
   assert.equal(paths.includes('athena/config.ts'), true)
 })
 
-test('generateArtifactsFromSnapshot explains schema-safe paths when multi-schema configs collide', () => {
+test('generateArtifactsFromSnapshot auto-scopes colliding multi-schema output paths', () => {
   const config = defineGeneratorConfig({
     provider: {
       kind: 'postgres',
@@ -236,8 +236,45 @@ test('generateArtifactsFromSnapshot explains schema-safe paths when multi-schema
     },
   })
 
-  assert.throws(
-    () => generateArtifactsFromSnapshot(multiSchemaSnapshot, config),
-    /include a schema placeholder/,
-  )
+  const artifacts = generateArtifactsFromSnapshot(multiSchemaSnapshot, config)
+  const paths = artifacts.files.map(file => file.path)
+
+  assert.equal(paths.includes('athena/models/public/users.ts'), true)
+  assert.equal(paths.includes('athena/models/athena/users.ts'), true)
+  assert.equal(paths.includes('athena/public/schema.ts'), true)
+  assert.equal(paths.includes('athena/athena/schema.ts'), true)
+})
+
+test('generateArtifactsFromSnapshot keeps built-in placeholders stable when placeholderMap redefines schema/model keys', () => {
+  const config = defineGeneratorConfig({
+    provider: {
+      kind: 'postgres',
+      mode: 'direct',
+      connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+      database: 'app_db',
+      schemas: ['public', 'athena'],
+    },
+    output: {
+      targets: {
+        model: 'athena/models/{schema}/{model_kebab}.ts',
+        schema: 'athena/{schema}/schema.ts',
+        database: 'athena/{schema}/relations.ts',
+        registry: 'athena/{schema}/config.ts',
+      },
+      placeholderMap: {
+        schema: 'schema',
+        model: 'model',
+        namespace: 'athena',
+      },
+    },
+  })
+
+  const artifacts = generateArtifactsFromSnapshot(multiSchemaSnapshot, config)
+  const paths = artifacts.files.map(file => file.path)
+
+  assert.equal(paths.includes('athena/models/public/users.ts'), true)
+  assert.equal(paths.includes('athena/models/athena/users.ts'), true)
+  assert.equal(paths.includes('athena/public/schema.ts'), true)
+  assert.equal(paths.includes('athena/athena/schema.ts'), true)
+  assert.equal(paths.some(path => path.startsWith('athena/models/schema/')), false)
 })

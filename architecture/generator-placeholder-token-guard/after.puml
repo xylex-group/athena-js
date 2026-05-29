@@ -1,0 +1,42 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam rectangle {
+  FontColor #111111
+  BorderColor #111111
+}
+
+title Generator Placeholder Override After Guard
+
+rectangle "athena.config.ts" as Config #F7F7F7 {
+  rectangle "targets keep {schema}/{model_kebab}" as Target #EAF7FF
+  rectangle "placeholderMap may define aliases\nwithout replacing reserved tokens" as Map #E8F7E8
+}
+
+rectangle "renderOutputPath" as Renderer #F7F7F7 {
+  rectangle "base tokens are marked reserved" as Reserved #E8F7E8
+  rectangle "custom placeholder keys\nthat match reserved names are ignored" as Ignore #E8F7E8
+  rectangle "schema/model resolve from context\n(public, athena, payload, ...)" as Stable #E8F7E8
+}
+
+rectangle "Outcome" as Outcome #F7F7F7 {
+  rectangle "athena/models/public/*.ts\nathena/models/athena/*.ts" as Unique #E8F7E8
+  rectangle "no false collision from token override" as Seamless #E8F7E8
+}
+
+Config --> Renderer
+Target --> Reserved
+Map --> Ignore
+Reserved --> Ignore
+Ignore --> Stable
+Stable --> Unique
+Unique --> Seamless
+
+note bottom of Seamless
+Schema-aware templates now stay schema-aware,
+regardless of placeholderMap key collisions.
+end note
+@enduml

@@ -1,0 +1,55 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam rectangle {
+  FontColor #111111
+  BorderColor #111111
+}
+
+title Athena JS Generator Before Autonomous Recovery
+
+rectangle "CLI: athena-js generate" as CLI #F7F7F7 {
+  rectangle "loadGeneratorConfig()" as LoadConfig #EAF7FF
+  rectangle "runSchemaGenerator()" as Pipeline #EFFFF0
+}
+
+rectangle "Project Inputs" as Inputs #F7F7F7 {
+  rectangle "athena.config.ts reads\nprocess.env.* directly" as Config #FFF4E5
+  rectangle "output.targets model/schema\ncan omit schema placeholders" as Targets #FFF4E5
+}
+
+rectangle "Provider Resolution" as Provider #F7F7F7 {
+  rectangle "direct postgres connectionString\npassed through unchanged" as Direct #EAF7FF
+  rectangle "gateway url/key must already exist\nin live process env" as Gateway #EAF7FF
+}
+
+rectangle "Renderer" as Renderer #F7F7F7 {
+  rectangle "duplicate model/schema paths\ntrigger hard collision error" as Collision #FDECEC
+  rectangle "manual target template edits\nrequired to continue" as ManualFix #FDECEC
+}
+
+rectangle "Observed Failures" as Failures #F7F7F7 {
+  rectangle "AthenaClient requires url and key" as FailureA #FDECEC
+  rectangle "SASL password must be a string" as FailureB #FDECEC
+  rectangle "Generator output collision detected" as FailureC #FDECEC
+}
+
+Config --> LoadConfig
+Targets --> Renderer
+LoadConfig --> Provider
+Provider --> Pipeline
+Pipeline --> Renderer
+Renderer --> Collision
+Collision --> ManualFix
+LoadConfig --> FailureA
+Provider --> FailureB
+Renderer --> FailureC
+
+note bottom of ManualFix
+Users had to patch env wiring and
+schema-aware output templates manually.
+end note
+@enduml

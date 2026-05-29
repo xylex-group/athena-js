@@ -1,0 +1,55 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam rectangle {
+  FontColor #111111
+  BorderColor #111111
+}
+
+title Athena JS Generator After Autonomous Recovery
+
+rectangle "CLI: athena-js generate" as CLI #F7F7F7 {
+  rectangle "loadGeneratorConfig()" as LoadConfig #EAF7FF
+  rectangle "runSchemaGenerator()" as Pipeline #EFFFF0
+}
+
+rectangle "Autonomous Config Bootstrap" as Bootstrap #F7F7F7 {
+  rectangle "auto-load .env + .env.local\n(+ NODE_ENV overlays)" as EnvLoad #E8F7E8
+  rectangle "temporary env injection\nduring config import" as TempEnv #E8F7E8
+  rectangle "provider field backfill from env\nfor connection/gateway values" as Backfill #E8F7E8
+  rectangle "postgres password fallback\nfrom PGPASSWORD when URL lacks one" as PasswordFallback #E8F7E8
+}
+
+rectangle "Renderer Collision Recovery" as Recovery #F7F7F7 {
+  rectangle "detect duplicate model/schema paths" as Detect #EAF7FF
+  rectangle "ignore placeholderMap overrides\nfor reserved schema/model tokens" as TokenGuard #E8F7E8
+  rectangle "auto-scope by schema segment\n(public/users.ts, athena/users.ts)" as AutoScope #E8F7E8
+  rectangle "keep hard error only when\npaths are still unresolved" as ResidualError #FFF4E5
+}
+
+rectangle "Result" as Result #F7F7F7 {
+  rectangle "single generate command succeeds\nfor multi-schema setups" as Seamless #E8F7E8
+  rectangle "fewer manual config edits\nneeded in consuming repos" as Outcome #E8F7E8
+}
+
+LoadConfig --> EnvLoad
+EnvLoad --> TempEnv
+TempEnv --> Backfill
+Backfill --> PasswordFallback
+PasswordFallback --> Pipeline
+Pipeline --> Detect
+Detect --> TokenGuard
+TokenGuard --> AutoScope
+Detect --> AutoScope
+AutoScope --> Seamless
+AutoScope --> Outcome
+AutoScope --> ResidualError
+
+note bottom of Seamless
+The generator now self-heals common
+env and path-collision misconfigurations.
+end note
+@enduml

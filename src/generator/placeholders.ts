@@ -35,10 +35,15 @@ function resolvePlaceholderMap(
   const resolved: Record<string, string> = {
     ...baseTokens,
   }
+  const reservedTokenKeys = new Set(Object.keys(baseTokens))
 
   const entries = Object.entries(outputConfig.placeholderMap ?? {})
   for (let index = 0; index < entries.length; index += 1) {
     const [key, value] = entries[index]
+    if (reservedTokenKeys.has(key)) {
+      continue
+    }
+
     let current = value
     for (let depth = 0; depth < 8; depth += 1) {
       const next = renderTemplate(current, resolved)

@@ -11,6 +11,7 @@ import type {
   IntrospectionTable,
 } from '../schema/types.ts'
 import {
+  applyNamingStyle,
   escapeStringLiteral,
   escapeTypePropertyName,
   toSafeIdentifier,
@@ -226,12 +227,83 @@ function assertNoDuplicatePaths(files: GeneratedArtifact[]) {
         [
           `Generator output collision detected for path: ${file.path}`,
           `Collision: ${existing.kind} and ${file.kind}.`,
-          'When syncing multiple schemas, include a schema placeholder such as {schema} or {schema_kebab} in model/schema output targets.',
+          'Use explicit placeholders such as {model}, {model_kebab}, {schema}, or {schema_kebab} in output targets so each artifact resolves to a unique path.',
         ].join(' '),
       )
     }
     seen.set(file.path, file)
   }
+}
+
+type SchemaScopedPathDescriptor = {
+  schemaName: string
+  filePath: string
+}
+
+function addSchemaSegmentToPath(pathValue: string, schemaName: string): string {
+  const normalizedPath = normalizePath(pathValue)
+  const parsedPath = posix.parse(normalizedPath)
+  const schemaSegment = applyNamingStyle(schemaName, 'kebab')
+  if (!schemaSegment) {
+    return normalizedPath
+  }
+
+  const dir = parsedPath.dir.length > 0 ? `${parsedPath.dir}/${schemaSegment}` : schemaSegment
+  return normalizePath(posix.join(dir, parsedPath.base))
+}
+
+function scopeDuplicateDescriptorPathsBySchema<
+  TDescriptor extends SchemaScopedPathDescriptor,
+>(
+  descriptors: TDescriptor[],
+): TDescriptor[] {
+  const nextDescriptors = descriptors.map(descriptor => ({ ...descriptor }))
+  const duplicates = new Map<string, number[]>()
+
+  for (let index = 0; index < nextDescriptors.length; index += 1) {
+    const descriptor = nextDescriptors[index]
+    const indexes = duplicates.get(descriptor.filePath) ?? []
+    indexes.push(index)
+    duplicates.set(descriptor.filePath, indexes)
+  }
+
+  let appliedSchemaScoping = false
+  for (const indexes of duplicates.values()) {
+    if (indexes.length <= 1) {
+      continue
+    }
+
+    const schemaNames = new Set(indexes.map(index => nextDescriptors[index].schemaName))
+    if (schemaNames.size <= 1) {
+      continue
+    }
+
+    for (const index of indexes) {
+      const descriptor = nextDescriptors[index]
+      descriptor.filePath = addSchemaSegmentToPath(descriptor.filePath, descriptor.schemaName)
+    }
+    appliedSchemaScoping = true
+  }
+
+  if (!appliedSchemaScoping) {
+    return nextDescriptors
+  }
+
+  const normalizedPaths = new Set<string>()
+  for (const descriptor of nextDescriptors) {
+    if (normalizedPaths.has(descriptor.filePath)) {
+      throw new Error(
+        [
+          `Generator output collision detected for path: ${descriptor.filePath}`,
+          'Automatic schema path scoping was applied but collisions remain.',
+          'Add explicit placeholders such as {model}, {model_kebab}, {schema}, or {schema_kebab} to your output targets.',
+        ].join(' '),
+      )
+    }
+    normalizedPaths.add(descriptor.filePath)
+  }
+
+  return nextDescriptors
 }
 
 class ArtifactComposer {
@@ -277,7 +349,9 @@ class ArtifactComposer {
       }
     }
 
-    const schemaDescriptors: SchemaRenderDescriptor[] = Object.keys(this.snapshot.schemas)
+    const scopedModelDescriptors = scopeDuplicateDescriptorPathsBySchema(modelDescriptors)
+
+    let schemaDescriptors: SchemaRenderDescriptor[] = Object.keys(this.snapshot.schemas)
       .sort()
       .map(schemaName => {
         const schemaPath = normalizePath(
@@ -298,9 +372,11 @@ class ArtifactComposer {
             this.config.naming.schemaConst,
             'schema',
           ),
-          models: modelDescriptors.filter(model => model.schemaName === schemaName),
+          models: scopedModelDescriptors.filter(model => model.schemaName === schemaName),
         }
       })
+
+    schemaDescriptors = scopeDuplicateDescriptorPathsBySchema(schemaDescriptors)
 
     const databasePath = normalizePath(
       renderOutputPath(this.config.output.targets.database, {
@@ -324,7 +400,7 @@ class ArtifactComposer {
 
     const files: GeneratedArtifact[] = []
 
-    for (const modelDescriptor of modelDescriptors) {
+    for (const modelDescriptor of scopedModelDescriptors) {
       files.push(renderModelArtifact(this.snapshot, modelDescriptor, this.config))
     }
 

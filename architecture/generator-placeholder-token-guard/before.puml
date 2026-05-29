@@ -1,0 +1,43 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam rectangle {
+  FontColor #111111
+  BorderColor #111111
+}
+
+title Generator Placeholder Override Before Guard
+
+rectangle "athena.config.ts" as Config #F7F7F7 {
+  rectangle "targets.model = athena/models/{schema}/{model_kebab}.ts" as Target #EAF7FF
+  rectangle "placeholderMap.schema = 'schema'\nplaceholderMap.model = 'model'" as Map #FDECEC
+}
+
+rectangle "renderOutputPath" as Renderer #F7F7F7 {
+  rectangle "base tokens include schema/public|athena" as BaseTokens #EAF7FF
+  rectangle "placeholderMap can overwrite\nreserved keys (schema/model)" as Override #FDECEC
+  rectangle "all schemas collapse to\nathena/models/schema/*.ts" as Collapse #FDECEC
+}
+
+rectangle "Outcome" as Outcome #F7F7F7 {
+  rectangle "duplicate model artifact paths" as Duplicate #FDECEC
+  rectangle "Generator output collision detected" as Error #FDECEC
+}
+
+Config --> Renderer
+Target --> BaseTokens
+Map --> Override
+BaseTokens --> Override
+Override --> Collapse
+Collapse --> Duplicate
+Duplicate --> Error
+
+note bottom of Error
+Even with {schema} in templates,
+manual placeholderMap entries
+could silently erase schema isolation.
+end note
+@enduml
