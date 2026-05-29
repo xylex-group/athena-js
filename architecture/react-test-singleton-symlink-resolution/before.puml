@@ -1,0 +1,30 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment left
+skinparam ArrowColor #1F2937
+skinparam rectangle {
+  FontColor #111827
+  BorderColor #1F2937
+}
+skinparam NoteBackgroundColor #FEE2E2
+skinparam NoteBorderColor #B91C1C
+
+title React Tests Before: Duplicate React Singleton
+
+rectangle "node --import tsx --test" as Runner #DBEAFE
+rectangle "react-test-renderer\n(require('react'))" as RTR #FECACA
+rectangle "SDK/Test imports\n(import 'react')" as SDK #FECACA
+rectangle "Hooks Runtime" as Runtime #E5E7EB
+
+Runner --> RTR
+Runner --> SDK
+RTR --> Runtime : React instance A
+SDK --> Runtime : React instance B
+
+note right of Runtime
+On Windows + pnpm symlink casing,
+two module cache keys are created for React.
+Hooks dispatcher mismatch triggers:
+"Invalid hook call"
+end note
+@enduml

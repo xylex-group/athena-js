@@ -1,0 +1,17 @@
+# Auth Callback
+
+## Endpoints and methods
+
+- `auth.callback.provider({ provider, code, state })` -> `GET /callback/{provider}?code=...&state=...`
+
+## Example
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.callback.provider({
+  provider: "github",
+  code: "oauth_authorization_code",
+  state: "oauth_state_value",
+})
+```

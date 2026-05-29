@@ -1,0 +1,40 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageFontColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam NoteBorderColor #000000
+skinparam NoteFontColor #000000
+skinparam NoteBackgroundColor #E8F8F5
+
+title SDK Auth Surface (After)
+
+package "Unified SDK Client" {
+  rectangle "createClient(url, key, { auth? })\n-> AthenaSdkClientWithAuth" as client #EAF2F8
+  rectangle "from/rpc/query" as gatewayOps #D6EAF8
+  rectangle "auth.* namespace" as authOps #D5F5E3
+  client --> gatewayOps
+  client --> authOps
+}
+
+package "React Hook" {
+  rectangle "useSession(client)\nor useSession(authClient)" as useSession #FCF3CF
+}
+
+useSession --> client : supports
+
+package "Compatibility" {
+  rectangle "createAuthClient(config)\n(deprecated)" as deprecated #F9EBEA
+}
+
+useSession --> deprecated : legacy supported
+
+note bottom of deprecated
+Standalone auth client remains available
+but is no longer the preferred integration seam.
+end note
+
+@enduml

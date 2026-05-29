@@ -122,6 +122,47 @@ test('loadGeneratorConfig normalizes env-style multiple schemas', async () => {
   }
 })
 
+test('loadGeneratorConfig normalizes string boolean feature flags', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-boolean-flags-'))
+  try {
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+          database: 'app_db',
+        },
+        output: {},
+        features: {
+          emitRelations: 'yes',
+          emitRegistry: 'off',
+        },
+        experimental: {
+          postgresGatewayIntrospection: '1',
+          scyllaProviderContracts: '0',
+        },
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.deepEqual(loaded.config.features, {
+      emitRelations: true,
+      emitRegistry: false,
+    })
+    assert.deepEqual(loaded.config.experimental, {
+      postgresGatewayIntrospection: true,
+      scyllaProviderContracts: false,
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('defineGeneratorConfig is an identity helper for typed configs', () => {
   const config = defineGeneratorConfig({
     provider: {

@@ -5,6 +5,7 @@ import {
   coerceInt,
   isOk,
   normalizeAthenaError,
+  parseBooleanFlag,
   requireAffected,
   requireSuccess,
   unwrap,
@@ -256,6 +257,25 @@ test('coerceInt and assertInt handle mixed integer values safely', () => {
 
   assert.equal(assertInt('7', 'case_id'), 7)
   assert.throws(() => assertInt('foo', 'case_id'), /case_id must be a finite integer/)
+})
+
+test('parseBooleanFlag supports common truthy and falsey variants', () => {
+  assert.equal(parseBooleanFlag('1', false), true)
+  assert.equal(parseBooleanFlag(' true ', false), true)
+  assert.equal(parseBooleanFlag('YES', false), true)
+  assert.equal(parseBooleanFlag('on', false), true)
+
+  assert.equal(parseBooleanFlag('0', true), false)
+  assert.equal(parseBooleanFlag(' false ', true), false)
+  assert.equal(parseBooleanFlag('NO', true), false)
+  assert.equal(parseBooleanFlag('off', true), false)
+})
+
+test('parseBooleanFlag falls back for missing or unrecognized values', () => {
+  assert.equal(parseBooleanFlag(undefined, true), true)
+  assert.equal(parseBooleanFlag('', false), false)
+  assert.equal(parseBooleanFlag('   ', true), true)
+  assert.equal(parseBooleanFlag('maybe', false), false)
 })
 
 test('withRetry retries transient failures and eventually succeeds', async () => {

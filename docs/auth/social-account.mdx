@@ -1,0 +1,52 @@
+# Auth Social and Provider Accounts
+
+## Endpoints and methods
+
+- `auth.social.link()` -> `POST /link-social`
+- `auth.account.list()` -> `GET /list-accounts`
+- `auth.account.unlink()` -> `POST /unlink-account`
+- `auth.deleteUser.callback()` -> `GET /delete-user/callback`
+- `auth.refreshToken()` -> `POST /refresh-token`
+- `auth.getAccessToken()` -> `POST /get-access-token`
+- `auth.health()` -> `GET /health` (fallback to `GET /ok` on `404`)
+- `auth.ok()` -> `GET /ok`
+- `auth.error()` -> `GET /error`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.social.link({
+  provider: "google",
+  callbackURL: "https://app.example.com/auth/callback",
+})
+
+await client.auth.account.list()
+
+await client.auth.account.unlink({
+  providerId: "google",
+  accountId: "acc_123",
+})
+
+await client.auth.deleteUser.callback({
+  token: "delete_callback_token",
+  callbackURL: "https://app.example.com/delete-callback",
+})
+
+await client.auth.refreshToken({
+  providerId: "google",
+  accountId: "acc_123",
+  userId: "usr_123",
+})
+
+await client.auth.getAccessToken({
+  providerId: "google",
+  accountId: "acc_123",
+  userId: "usr_123",
+})
+
+await client.auth.health()
+await client.auth.ok()
+await client.auth.error()
+```

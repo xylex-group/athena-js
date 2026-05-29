@@ -1,0 +1,36 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageFontColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam NoteBorderColor #000000
+skinparam NoteFontColor #000000
+skinparam NoteBackgroundColor #E8F8F5
+
+title Auth Revoke Bindings (After)
+
+package "auth.session.revoke" {
+  rectangle "Input accepted\nsingle token, token-list, { tokens }" as sessionInput #E7F3FF
+  rectangle "Route select\nsingle => /revoke-session\nmulti => /revoke-sessions" as sessionRoute #D6EAF8
+  rectangle "Payload normalization\nsingle => { token }\nmulti => {} (OpenAPI-compatible revoke-all semantics)" as sessionPayload #E8DAEF
+  sessionInput --> sessionRoute
+  sessionRoute --> sessionPayload
+}
+
+package "auth.admin.user.session.revoke" {
+  rectangle "Input accepted\nsingle payload, list, { sessions }, or { userId }" as adminInput #E8F8F5
+  rectangle "Route select\nsingle item => /admin/revoke-user-session\nmulti/userId => /admin/revoke-user-sessions" as adminRoute #D5F5E3
+  rectangle "Payload normalization\nsingle => { sessionToken }\nlist multi => { userId } when inferable\nfallback multi => { sessions: [...] }" as adminPayload #FCF3CF
+  adminInput --> adminRoute
+  adminRoute --> adminPayload
+}
+
+note bottom of adminPayload
+Length-1 sessions wrapper now collapses to singular payload.
+Plural route prefers canonical { userId } body.
+end note
+
+@enduml

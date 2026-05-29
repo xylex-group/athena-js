@@ -1,0 +1,30 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam ArrowFontColor #000000
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam rectangle {
+  FontColor #000000
+  BorderColor #000000
+}
+title SDK Utils Before parseBooleanFlag Export
+
+package "athena-js SDK" {
+  rectangle "src/index.ts\n(public export surface)" as Index #F5F5F5
+  rectangle "src/auxiliaries.ts\n(error/result/int/retry helpers)" as Aux #E8F4FF
+}
+
+rectangle "Consumers\n(apps, scripts, test-sdk)" as Consumers #FFF7E8
+
+Index --> Aux : re-exports existing helpers
+Consumers --> Index : import helpers from SDK
+Consumers ..> Aux : no shared parseBooleanFlag utility
+
+note bottom of Aux
+Missing shared parser for string
+boolean flags in env/CLI contexts.
+end note
+@enduml

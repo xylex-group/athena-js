@@ -1,11 +1,42 @@
 import type {
+  AthenaAdminRevokeUserSessionRequest,
+  AthenaAdminRevokeUserSessionsRequest,
+  AthenaAdminSuccessResponse,
+  AthenaAdminHasPermissionResponse,
+  AthenaApiKeyDeleteAllExpiredResponse,
   AthenaAuthCallOptions,
   AthenaAuthClientConfig,
   AthenaAuthEndpointPath,
   AthenaAuthErrorCode,
   AthenaAuthErrorDetails,
   AthenaAuthFetchCompatibleInput,
+  AthenaAuthGenericInput,
+  AthenaAuthGenericQueryInput,
+  AthenaAuthBindings,
+  AthenaAuthEmailListQuery,
+  AthenaAuthEmailListResponse,
+  AthenaAuthHealthResponse,
+  AthenaAuthOkResponse,
   AthenaAuthLinkedAccount,
+  AthenaAuthOrganizationBindings,
+  AthenaAuthOrganization,
+  AthenaAuthOrganizationCheckSlugRequest,
+  AthenaAuthOrganizationCreateRequest,
+  AthenaAuthOrganizationDeleteRequest,
+  AthenaAuthOrganizationGetFullQuery,
+  AthenaAuthOrganizationGetInvitationQuery,
+  AthenaAuthOrganizationInvitation,
+  AthenaAuthOrganizationInvitationActionRequest,
+  AthenaAuthOrganizationInviteMemberRequest,
+  AthenaAuthOrganizationLeaveRequest,
+  AthenaAuthOrganizationListInvitationsQuery,
+  AthenaAuthOrganizationListMembersQuery,
+  AthenaAuthOrganizationListUserInvitationsQuery,
+  AthenaAuthOrganizationMember,
+  AthenaAuthOrganizationRemoveMemberRequest,
+  AthenaAuthOrganizationSetActiveRequest,
+  AthenaAuthOrganizationUpdateMemberRoleRequest,
+  AthenaAuthOrganizationUpdateRequest,
   AthenaAuthMethod,
   AthenaAuthQueryValue,
   AthenaAuthRequestInput,
@@ -32,6 +63,8 @@ import type {
   AthenaResetPasswordRequest,
   AthenaSendVerificationEmailRequest,
   AthenaSocialSignInRequest,
+  AthenaTwoFactorGenerateBackupCodesRequest,
+  AthenaTwoFactorGenerateBackupCodesResponse,
   AthenaUnlinkAccountRequest,
   AthenaUpdateUserRequest,
   AthenaVerifyEmailRequest,
@@ -233,8 +266,34 @@ function inferDefaultMethod(endpoint: AthenaAuthEndpointPath): AthenaAuthMethod 
     case '/get-session':
     case '/list-sessions':
     case '/verify-email':
+    case '/change-email/verify':
+    case '/delete-user/verify':
+    case '/email-list':
+    case '/email/list':
     case '/delete-user/callback':
     case '/list-accounts':
+    case '/passkey/generate-register-options':
+    case '/passkey/list-user-passkeys':
+    case '/.well-known/webauthn':
+    case '/admin/list-users':
+    case '/admin/athena-client/list':
+    case '/admin/audit-log/list':
+    case '/admin/email/get':
+    case '/admin/email-failure/list':
+    case '/admin/email-failure/get':
+    case '/admin/email-template/get':
+    case '/admin/email-template/list':
+    case '/admin/email/list':
+    case '/api-key/get':
+    case '/api-key/list':
+    case '/organization/get-full-organization':
+    case '/organization/list':
+    case '/organization/get-invitation':
+    case '/organization/list-invitations':
+    case '/organization/list-user-invitations':
+    case '/organization/list-members':
+    case '/organization/get-active-member':
+    case '/health':
     case '/ok':
     case '/error':
       return 'GET'
@@ -273,7 +332,7 @@ async function callAuthEndpoint<T>(
       status: 0,
       endpoint: context.endpoint,
       method: context.method,
-      hint: 'Use Node 18+ or provide `fetch` in createAuthClient({ fetch })',
+      hint: 'Use Node 18+ or provide `fetch` via createClient(..., { auth: { fetch } }) or createAuthClient({ fetch })',
     })
     return {
       ok: false,
@@ -399,6 +458,30 @@ function executeGetWithCompatibleInput<TResult>(
   return callAuthEndpoint<TResult>(config, context, undefined, undefined, mergedOptions)
 }
 
+function executeGetWithQueryCompatibleInput<
+  TQuery extends object,
+  TResult,
+>(
+  config: AthenaAuthClientConfig,
+  context: AuthRequestContext,
+  input?: { query?: TQuery } & AthenaAuthFetchCompatibleInput,
+  options?: AthenaAuthCallOptions,
+) {
+  const { payload, fetchOptions } = extractFetchOptions(input)
+  const mergedOptions = mergeCallOptions(fetchOptions, options)
+  const query = (payload as { query?: Record<string, AthenaAuthQueryValue> } | undefined)?.query
+  return callAuthEndpoint<TResult>(
+    config,
+    context,
+    undefined,
+    query,
+    mergedOptions,
+  )
+}
+
+/**
+ * @deprecated Prefer `createClient(...).auth` from `@xylex-group/athena`.
+ */
 export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAuthSdkClient {
   const normalizedBaseUrl = normalizeBaseUrl(config.baseUrl)
   const resolvedConfig: AthenaAuthClientConfig = {
@@ -419,6 +502,107 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       input.query,
       mergedOptions,
     )
+  }
+
+  const postGeneric = <T = unknown>(
+    endpoint: AthenaAuthEndpointPath,
+    input?: (AthenaAuthFetchCompatibleInput & object),
+    options?: AthenaAuthCallOptions,
+  ) => {
+    const { payload, fetchOptions } = extractFetchOptions(input)
+    return request<T>(
+      {
+        endpoint,
+        method: 'POST',
+        body: payload ?? {},
+        fetchOptions,
+      },
+      options,
+    )
+  }
+
+  const getGeneric = <T = unknown>(
+    endpoint: AthenaAuthEndpointPath,
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => {
+    const { fetchOptions } = extractFetchOptions(input)
+    return request<T>(
+      {
+        endpoint,
+        method: 'GET',
+        fetchOptions,
+      },
+      options,
+    )
+  }
+
+  const getWithQuery = <
+    T = unknown,
+    TQuery extends object = Record<string, AthenaAuthQueryValue>,
+  >(
+    endpoint: AthenaAuthEndpointPath,
+    input?: AthenaAuthFetchCompatibleInput & {
+      query?: TQuery
+    },
+    options?: AthenaAuthCallOptions,
+  ) => {
+    const { payload, fetchOptions } = extractFetchOptions(input)
+    const query = (payload as { query?: TQuery } | undefined)?.query as
+      | Record<string, AthenaAuthQueryValue>
+      | undefined
+    return request<T>(
+      {
+        endpoint,
+        method: 'GET',
+        query,
+        fetchOptions,
+      },
+      options,
+    )
+  }
+
+  const listUserEmailsWithFallback: AthenaAuthBindings['user']['email']['list'] = async (input, options) => {
+    const primary = await getWithQuery<AthenaAuthEmailListResponse, AthenaAuthEmailListQuery>(
+      '/email/list',
+      input,
+      options,
+    )
+    if (primary.ok || primary.status !== 404 || primary.errorDetails?.code !== 'HTTP_ERROR') {
+      return primary
+    }
+    return getWithQuery<AthenaAuthEmailListResponse, AthenaAuthEmailListQuery>(
+      '/email-list',
+      input,
+      options,
+    )
+  }
+
+  const healthWithFallback: AthenaAuthBindings['health'] = async (input, options) => {
+    const primary = await getGeneric<AthenaAuthHealthResponse>('/health', input, options)
+    if (primary.ok || primary.status !== 404 || primary.errorDetails?.code !== 'HTTP_ERROR') {
+      return primary
+    }
+
+    const fallback = await getGeneric<AthenaAuthOkResponse>('/ok', input, options)
+    if (!fallback.ok) {
+      return {
+        ...fallback,
+        data: null,
+      }
+    }
+
+    const fallbackStatus =
+      isRecord(fallback.data) && typeof fallback.data.ok === 'boolean'
+        ? (fallback.data.ok ? 'ok' : 'error')
+        : 'ok'
+
+    return {
+      ...fallback,
+      data: {
+        status: fallbackStatus,
+      },
+    }
   }
 
   const signOut = (
@@ -518,6 +702,570 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       query?.callbackURL ? { callbackURL: query.callbackURL } : undefined,
       mergedOptions,
     )
+  }
+
+  const organization: AthenaAuthOrganizationBindings = {
+    create: (input, options) =>
+      executePostWithCompatibleInput<
+        AthenaAuthOrganizationCreateRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthOrganization
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/create', method: 'POST' },
+        input,
+        options,
+      ),
+    update: (input, options) =>
+      executePostWithCompatibleInput<
+        AthenaAuthOrganizationUpdateRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthOrganization
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/update', method: 'POST' },
+        input,
+        options,
+      ),
+    delete: (input, options) =>
+      executePostWithCompatibleInput<
+        AthenaAuthOrganizationDeleteRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/delete', method: 'POST' },
+        input,
+        options,
+      ),
+    setActive: (input, options) =>
+      executePostWithCompatibleInput<
+        AthenaAuthOrganizationSetActiveRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/set-active', method: 'POST' },
+        input,
+        options,
+      ),
+    list: (input, options) =>
+      getGeneric<AthenaAuthOrganization[]>(
+        '/organization/list',
+        input,
+        options,
+      ),
+    getFull: (input, options) =>
+      executeGetWithQueryCompatibleInput<AthenaAuthOrganizationGetFullQuery, {
+        organization: AthenaAuthOrganization
+        members?: AthenaAuthOrganizationMember[]
+        invitations?: AthenaAuthOrganizationInvitation[]
+      }>(
+        resolvedConfig,
+        { endpoint: '/organization/get-full-organization', method: 'GET' },
+        input,
+        options,
+      ),
+    checkSlug: (input, options) =>
+      executePostWithCompatibleInput<
+        AthenaAuthOrganizationCheckSlugRequest & AthenaAuthFetchCompatibleInput,
+        { available: boolean }
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/check-slug', method: 'POST' },
+        input,
+        options,
+      ),
+    leave: (input, options) =>
+      executePostWithCompatibleInput<
+        AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/leave', method: 'POST' },
+        input,
+        options,
+      ),
+    listUserInvitations: (input, options) =>
+      executeGetWithQueryCompatibleInput<
+        AthenaAuthOrganizationListUserInvitationsQuery,
+        AthenaAuthOrganizationInvitation[]
+      >(
+        resolvedConfig,
+        { endpoint: '/organization/list-user-invitations', method: 'GET' },
+        input,
+        options,
+      ),
+    hasPermission: (input, options) =>
+      postGeneric<AthenaAdminHasPermissionResponse>(
+        '/organization/has-permission',
+        input,
+        options,
+      ),
+    invitation: {
+      cancel: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthStatusResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/cancel-invitation', method: 'POST' },
+          input,
+          options,
+        ),
+      accept: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthStatusResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/accept-invitation', method: 'POST' },
+          input,
+          options,
+        ),
+      get: (input, options) =>
+        executeGetWithQueryCompatibleInput<
+          AthenaAuthOrganizationGetInvitationQuery,
+          AthenaAuthOrganizationInvitation
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/get-invitation', method: 'GET' },
+          input,
+          options,
+        ),
+      reject: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthStatusResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/reject-invitation', method: 'POST' },
+          input,
+          options,
+        ),
+      list: (input, options) =>
+        executeGetWithQueryCompatibleInput<
+          AthenaAuthOrganizationListInvitationsQuery,
+          AthenaAuthOrganizationInvitation[]
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/list-invitations', method: 'GET' },
+          input,
+          options,
+        ),
+    },
+    member: {
+      remove: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaAuthOrganizationRemoveMemberRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthStatusResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/remove-member', method: 'POST' },
+          input,
+          options,
+        ),
+      updateRole: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaAuthOrganizationUpdateMemberRoleRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthStatusResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/update-member-role', method: 'POST' },
+          input,
+          options,
+        ),
+      invite: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaAuthOrganizationInviteMemberRequest & AthenaAuthFetchCompatibleInput,
+          AthenaAuthOrganizationInvitation
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/invite-member', method: 'POST' },
+          input,
+          options,
+        ),
+      getActive: (input, options) =>
+        executeGetWithCompatibleInput<AthenaAuthOrganizationMember>(
+          resolvedConfig,
+          { endpoint: '/organization/get-active-member', method: 'GET' },
+          input,
+          options,
+        ),
+      list: (input, options) =>
+        executeGetWithQueryCompatibleInput<
+          AthenaAuthOrganizationListMembersQuery,
+          AthenaAuthOrganizationMember[]
+        >(
+          resolvedConfig,
+          { endpoint: '/organization/list-members', method: 'GET' },
+          input,
+          options,
+        ),
+    },
+  }
+
+  const authResetPassword = Object.assign(
+    (
+      input: AthenaResetPasswordRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) =>
+      executePostWithCompatibleInput<
+        AthenaResetPasswordRequest & AthenaAuthFetchCompatibleInput,
+        AthenaAuthStatusResponse
+      >(
+        resolvedConfig,
+        { endpoint: '/reset-password', method: 'POST' },
+        input,
+        options,
+      ),
+    {
+      token: resolveResetPasswordToken,
+    },
+  )
+
+  const sessionRevokeBinding: AthenaAuthBindings['session']['revoke'] = (
+    input,
+    options,
+  ) => {
+    if (Array.isArray(input)) {
+      if (input.length === 0) {
+        throw new Error('session.revoke requires at least one session token')
+      }
+      if (input.length === 1) {
+        return revokeSession(input[0], options)
+      }
+      return revokeSessions(undefined, options)
+    }
+
+    const parsed = input as AthenaAuthGenericInput & {
+      token?: string
+      tokens?: string[]
+    }
+    const tokens = Array.isArray(parsed.tokens)
+      ? parsed.tokens.filter(token => token.trim().length > 0)
+      : undefined
+
+    if (tokens && tokens.length > 1) {
+      return revokeSessions(
+        parsed.fetchOptions ? { fetchOptions: parsed.fetchOptions } : undefined,
+        options,
+      )
+    }
+
+    if (tokens && tokens.length === 1) {
+      return revokeSession(
+        { token: tokens[0], fetchOptions: parsed.fetchOptions },
+        options,
+      )
+    }
+
+    const token = parsed.token?.trim()
+    if (!token) {
+      throw new Error('session.revoke requires a non-empty token or a non-empty token list')
+    }
+
+    return revokeSession(
+      {
+        token,
+        fetchOptions: parsed.fetchOptions,
+      },
+      options,
+    )
+  }
+
+  const adminUserSessionRevokeBinding: AthenaAuthBindings['admin']['user']['session']['revoke'] = (
+    input,
+    options,
+  ) => {
+    const requireUserId = (userId: string | undefined): string => {
+      const trimmed = String(userId ?? '').trim()
+      if (!trimmed) {
+        throw new Error('admin.user.session.revoke requires a non-empty userId')
+      }
+      return trimmed
+    }
+
+    const requireSinglePluralUserId = (
+      sessions: AthenaAdminRevokeUserSessionRequest[],
+    ): AthenaAdminRevokeUserSessionsRequest => {
+      const uniqueUserIds = [...new Set(sessions.map(session => requireUserId(session.userId)))]
+      if (uniqueUserIds.length !== 1) {
+        throw new Error('admin.user.session.revoke requires the same userId across plural payloads')
+      }
+      return { userId: uniqueUserIds[0] }
+    }
+
+    if (Array.isArray(input)) {
+      if (input.length === 0) {
+        throw new Error('admin.user.session.revoke requires at least one payload item')
+      }
+      if (input.length === 1) {
+        return postGeneric<AthenaAdminSuccessResponse>(
+          '/admin/revoke-user-session',
+          {
+            ...input[0],
+            userId: requireUserId(input[0].userId),
+          } as AthenaAuthGenericInput,
+          options,
+        )
+      }
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-sessions',
+        requireSinglePluralUserId(input),
+        options,
+      )
+    }
+
+    const parsed = input as AthenaAuthGenericInput & {
+      sessions?: AthenaAdminRevokeUserSessionRequest[]
+      sessionToken?: string
+      userId?: string
+    }
+    const sessions = parsed.sessions
+
+    if (sessions && sessions.length === 0) {
+      throw new Error('admin.user.session.revoke requires at least one payload item')
+    }
+
+    if (sessions && sessions.length === 1) {
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-session',
+        {
+          ...sessions[0],
+          userId: requireUserId(sessions[0].userId),
+          fetchOptions: parsed.fetchOptions,
+        } as AthenaAuthGenericInput,
+        options,
+      )
+    }
+
+    if (sessions && sessions.length > 1) {
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-sessions',
+        {
+          ...requireSinglePluralUserId(sessions),
+          fetchOptions: parsed.fetchOptions,
+        } as AthenaAuthGenericInput,
+        options,
+      )
+    }
+
+    const normalizedUserId = requireUserId(parsed.userId)
+
+    if (!parsed.sessionToken) {
+      return postGeneric<AthenaAdminSuccessResponse>(
+        '/admin/revoke-user-sessions',
+        {
+          userId: normalizedUserId,
+          fetchOptions: parsed.fetchOptions,
+        } as AthenaAuthGenericInput,
+        options,
+      )
+    }
+    return postGeneric<AthenaAdminSuccessResponse>(
+      '/admin/revoke-user-session',
+      {
+        ...parsed,
+        userId: normalizedUserId,
+      } as AthenaAuthGenericInput,
+      options,
+    )
+  }
+
+  const auth: AthenaAuthBindings = {
+    getSession: (input, options) => getGeneric('/get-session', input, options),
+    signOut,
+    forgetPassword: (input, options) => postGeneric('/forget-password', input, options),
+    resetPassword: authResetPassword,
+    setPassword: (input, options) => postGeneric('/set-password', input, options),
+    verifyEmail: (input, options) => {
+      const queryInput: AthenaAuthGenericQueryInput = {
+        query: {
+          token: input.token,
+          callbackURL: input.callbackURL,
+        },
+        fetchOptions: input.fetchOptions,
+      }
+      return getWithQuery<{ user: AthenaAuthUser; status: boolean }>(
+        '/verify-email',
+        queryInput,
+        options,
+      )
+    },
+    sendVerificationEmail: (input, options) => postGeneric('/send-verification-email', input, options),
+    changeEmail: (input, options) => postGeneric('/change-email', input, options),
+    changeEmailVerify: (input, options) => getWithQuery('/change-email/verify', input, options),
+    deleteUserVerify: (input, options) => getWithQuery('/delete-user/verify', input, options),
+    changePassword: (input, options) => postGeneric('/change-password', input, options),
+    user: {
+      update: (input, options) => postGeneric('/update-user', input, options),
+      delete: (input, options) => postGeneric('/delete-user', input, options),
+      email: {
+        list: listUserEmailsWithFallback,
+      },
+    },
+    session: {
+      list: (input, options) => getGeneric('/list-sessions', input, options),
+      revoke: sessionRevokeBinding,
+      revokeOther: revokeOtherSessions,
+    },
+    social: {
+      link: (input, options) => postGeneric('/link-social', input, options),
+    },
+    account: {
+      list: (input, options) => getGeneric('/list-accounts', input, options),
+      unlink: (input, options) => postGeneric('/unlink-account', input, options),
+    },
+    deleteUser: {
+      callback: deleteUserCallback,
+    },
+    refreshToken: (input, options) => postGeneric('/refresh-token', input, options),
+    getAccessToken: (input, options) => postGeneric('/get-access-token', input, options),
+    health: healthWithFallback,
+    ok: (input, options) => getGeneric('/ok', input, options),
+    error: (input, options) => getGeneric('/error', input, options),
+    twoFactor: {
+      getTotpUri: (input, options) => postGeneric('/two-factor/get-totp-uri', input, options),
+      verifyTotp: (input, options) => postGeneric('/two-factor/verify-totp', input, options),
+      sendOtp: (input, options) => postGeneric('/two-factor/send-otp', input, options),
+      verifyOtp: (input, options) => postGeneric('/two-factor/verify-otp', input, options),
+      verifyBackupCode: (input, options) => postGeneric('/two-factor/verify-backup-code', input, options),
+      generateBackupCodes: (input, options) =>
+        executePostWithCompatibleInput<
+          AthenaTwoFactorGenerateBackupCodesRequest & AthenaAuthFetchCompatibleInput,
+          AthenaTwoFactorGenerateBackupCodesResponse
+        >(
+          resolvedConfig,
+          { endpoint: '/two-factor/generate-backup-codes', method: 'POST' },
+          input,
+          options,
+        ),
+      enable: (input, options) => postGeneric('/two-factor/enable', input, options),
+      disable: (input, options) => postGeneric('/two-factor/disable', input, options),
+    },
+    passkey: {
+      generateRegisterOptions: (input, options) =>
+        getGeneric('/passkey/generate-register-options', input, options),
+      generateAuthenticateOptions: (input, options) =>
+        postGeneric('/passkey/generate-authenticate-options', input, options),
+      verifyRegistration: (input, options) =>
+        postGeneric('/passkey/verify-registration', input, options),
+      verifyAuthentication: (input, options) =>
+        postGeneric('/passkey/verify-authentication', input, options),
+      listUserPasskeys: (input, options) => getGeneric('/passkey/list-user-passkeys', input, options),
+      deletePasskey: (input, options) => postGeneric('/passkey/delete-passkey', input, options),
+      updatePasskey: (input, options) => postGeneric('/passkey/update-passkey', input, options),
+      getRelatedOrigins: (input, options) => getGeneric('/.well-known/webauthn', input, options),
+    },
+    admin: {
+      role: {
+        set: (input, options) => postGeneric('/admin/set-role', input, options),
+      },
+      user: {
+        list: (input, options) => getWithQuery('/admin/list-users', input, options),
+        create: (input, options) => postGeneric('/admin/create-user', input, options),
+        unban: (input, options) => postGeneric('/admin/unban-user', input, options),
+        ban: (input, options) => postGeneric('/admin/ban-user', input, options),
+        impersonate: (input, options) => postGeneric('/admin/impersonate-user', input, options),
+        stopImpersonating: (input, options) => postGeneric('/admin/stop-impersonating', input, options),
+        remove: (input, options) => postGeneric('/admin/remove-user', input, options),
+        setPassword: (input, options) => postGeneric('/admin/set-user-password', input, options),
+        session: {
+          list: (input, options) => postGeneric('/admin/list-user-sessions', input, options),
+          revoke: adminUserSessionRevokeBinding,
+        },
+      },
+      hasPermission: (input, options) =>
+        postGeneric<AthenaAdminHasPermissionResponse>('/admin/has-permission', input, options),
+      apiKey: {
+        create: (input, options) => postGeneric('/admin/api-key/create', input, options),
+      },
+      athenaClient: {
+        create: (input, options) => postGeneric('/admin/athena-client/create', input, options),
+        list: (input, options) => getWithQuery('/admin/athena-client/list', input, options),
+      },
+      auditLog: {
+        list: (input, options) => getWithQuery('/admin/audit-log/list', input, options),
+      },
+      email: {
+        list: (input, options) => getWithQuery('/admin/email/list', input, options),
+        get: (input, options) => getWithQuery('/admin/email/get', input, options),
+        create: (input, options) => postGeneric('/admin/email/create', input, options),
+        update: (input, options) => postGeneric('/admin/email/update', input, options),
+        delete: (input, options) => postGeneric('/admin/email/delete', input, options),
+        failure: {
+          list: (input, options) => getWithQuery('/admin/email-failure/list', input, options),
+          get: (input, options) => getWithQuery('/admin/email-failure/get', input, options),
+          create: (input, options) => postGeneric('/admin/email-failure/create', input, options),
+          update: (input, options) => postGeneric('/admin/email-failure/update', input, options),
+          delete: (input, options) => postGeneric('/admin/email-failure/delete', input, options),
+        },
+        template: {
+          list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
+          get: (input, options) => getWithQuery('/admin/email-template/get', input, options),
+          create: (input, options) => postGeneric('/admin/email-template/create', input, options),
+          update: (input, options) => postGeneric('/admin/email-template/update', input, options),
+          delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
+        },
+      },
+      emailTemplate: {
+        get: (input, options) => getWithQuery('/admin/email-template/get', input, options),
+        create: (input, options) => postGeneric('/admin/email-template/create', input, options),
+        delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
+        list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
+        update: (input, options) => postGeneric('/admin/email-template/update', input, options),
+      },
+    },
+    apiKey: {
+      create: (input, options) => postGeneric('/api-key/create', input, options),
+      get: (input, options) => getWithQuery('/api-key/get', input, options),
+      update: (input, options) => postGeneric('/api-key/update', input, options),
+      delete: (input, options) => postGeneric('/api-key/delete', input, options),
+      list: (input, options) => getWithQuery('/api-key/list', input, options),
+      verify: (input, options) => postGeneric('/api-key/verify', input, options),
+      deleteAllExpired: (input, options) =>
+        executePostWithOptionalInput<AthenaApiKeyDeleteAllExpiredResponse>(
+          resolvedConfig,
+          { endpoint: '/api-key/delete-all-expired-api-keys', method: 'POST' },
+          input,
+          options,
+        ),
+    },
+    signIn: {
+      email: (input, options) => postGeneric('/sign-in/email', input, options),
+      username: (input, options) => postGeneric('/sign-in/username', input, options),
+      social: (input, options) => postGeneric('/sign-in/social', input, options),
+    },
+    signUp: {
+      email: (input, options) => postGeneric('/sign-up/email', input, options),
+    },
+    organization,
+    callback: {
+      provider: (input, options) => {
+        const { payload, fetchOptions } = extractFetchOptions(input)
+        const parsed = payload as {
+          provider?: string
+          code?: string
+          state?: string
+        } | undefined
+        const provider = String(parsed?.provider ?? '').trim()
+        if (!provider) {
+          throw new Error('callback.provider requires a non-empty provider value')
+        }
+        const code = String(parsed?.code ?? '').trim()
+        const state = String(parsed?.state ?? '').trim()
+        if (!code || !state) {
+          throw new Error('callback.provider requires non-empty code and state values')
+        }
+        const endpoint = `/callback/${encodeURIComponent(provider)}` as AthenaAuthEndpointPath
+        return request({
+          endpoint,
+          method: 'GET',
+          query: {
+            code,
+            state,
+          },
+          fetchOptions,
+        }, options)
+      },
+    },
   }
 
   return {
@@ -761,5 +1509,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         input,
         options,
       ),
+    organization,
+    auth,
   }
 }

@@ -1,0 +1,44 @@
+# Auth API Key
+
+## Endpoints and methods
+
+- `auth.apiKey.create()` -> `POST /api-key/create`
+- `auth.apiKey.get()` -> `GET /api-key/get`
+- `auth.apiKey.update()` -> `POST /api-key/update`
+- `auth.apiKey.delete()` -> `POST /api-key/delete`
+- `auth.apiKey.list()` -> `GET /api-key/list`
+- `auth.apiKey.verify()` -> `POST /api-key/verify`
+- `auth.apiKey.deleteAllExpired()` -> `POST /api-key/delete-all-expired-api-keys`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.apiKey.create({
+  name: "mobile-client-key",
+  expiresIn: "3600",
+  remaining: "1000",
+})
+
+await client.auth.apiKey.get({
+  query: { id: "api_key_id" },
+})
+
+await client.auth.apiKey.update({
+  keyId: "api_key_id",
+  name: "mobile-client-key-updated",
+  expiresIn: "3600",
+  permissions: "{}",
+})
+
+await client.auth.apiKey.delete({ keyId: "api_key_id" })
+
+await client.auth.apiKey.list()
+
+await client.auth.apiKey.verify({
+  key: "prefix.secret",
+})
+
+await client.auth.apiKey.deleteAllExpired()
+```

@@ -13,6 +13,7 @@ import type {
   LoadedGeneratorConfig,
   NormalizedAthenaGeneratorConfig,
 } from './types.ts'
+import { parseBooleanFlag } from '../auxiliaries.ts'
 import { normalizeSchemaSelection } from './schema-selection.ts'
 
 const DEFAULT_CONFIG_CANDIDATES = [
@@ -47,6 +48,46 @@ const DEFAULT_FEATURES: GeneratorFeatureFlags = {
 const DEFAULT_EXPERIMENTAL_FLAGS: GeneratorExperimentalFlags = {
   postgresGatewayIntrospection: false,
   scyllaProviderContracts: true,
+}
+
+function normalizeBooleanFlag(rawValue: unknown, fallback: boolean): boolean {
+  if (typeof rawValue === 'boolean') {
+    return rawValue
+  }
+  if (typeof rawValue === 'string') {
+    return parseBooleanFlag(rawValue, fallback)
+  }
+  return fallback
+}
+
+function normalizeFeatureFlags(
+  input: Partial<GeneratorFeatureFlags> | undefined,
+): GeneratorFeatureFlags {
+  return {
+    emitRelations: normalizeBooleanFlag(
+      input?.emitRelations,
+      DEFAULT_FEATURES.emitRelations,
+    ),
+    emitRegistry: normalizeBooleanFlag(
+      input?.emitRegistry,
+      DEFAULT_FEATURES.emitRegistry,
+    ),
+  }
+}
+
+function normalizeExperimentalFlags(
+  input: Partial<GeneratorExperimentalFlags> | undefined,
+): GeneratorExperimentalFlags {
+  return {
+    postgresGatewayIntrospection: normalizeBooleanFlag(
+      input?.postgresGatewayIntrospection,
+      DEFAULT_EXPERIMENTAL_FLAGS.postgresGatewayIntrospection,
+    ),
+    scyllaProviderContracts: normalizeBooleanFlag(
+      input?.scyllaProviderContracts,
+      DEFAULT_EXPERIMENTAL_FLAGS.scyllaProviderContracts,
+    ),
+  }
 }
 
 function normalizeOutputConfig(output: GeneratorOutputConfig): GeneratorOutputConfig {
@@ -89,14 +130,8 @@ export function normalizeGeneratorConfig(input: AthenaGeneratorConfig): Normaliz
       ...DEFAULT_NAMING,
       ...(input.naming ?? {}),
     },
-    features: {
-      ...DEFAULT_FEATURES,
-      ...(input.features ?? {}),
-    },
-    experimental: {
-      ...DEFAULT_EXPERIMENTAL_FLAGS,
-      ...(input.experimental ?? {}),
-    },
+    features: normalizeFeatureFlags(input.features),
+    experimental: normalizeExperimentalFlags(input.experimental),
   }
 }
 

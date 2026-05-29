@@ -59,6 +59,13 @@ declare function acceptsUserArrayInsertMutation(
 ): void
 
 const client = createClient("https://mirror3.athena-db.com", "api-key")
+const authSessionResult = client.auth.getSession()
+authSessionResult.then(result => {
+  if (result.ok) {
+    const sessionId = result.data?.session.id
+    if (sessionId) acceptsString(sessionId)
+  }
+})
 const users = client.from<UserRow>("users")
 
 users.eq('id', '1')

@@ -1,0 +1,27 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam ArrowColor #000000
+skinparam PackageBorderColor #000000
+skinparam PackageFontColor #000000
+skinparam RectangleBorderColor #000000
+skinparam RectangleFontColor #000000
+skinparam NoteBorderColor #000000
+skinparam NoteFontColor #000000
+skinparam NoteBackgroundColor #E8F8F5
+
+title useSession Typing (After)
+
+rectangle "useSession<TClient>(authClient)" as hook #FCF3CF
+rectangle "InferSessionData<TClient>\nfrom getSession() result type" as infer #D6EAF8
+rectangle "UseSessionResult<TSessionData>\n- data: TSessionData | null\n- error: AthenaAuthErrorDetails | null\n- refetch(): Promise<TSessionData | null>" as result #D5F5E3
+
+hook --> infer
+infer --> result
+
+note bottom of result
+Return type now follows the client's getSession payload shape.
+Error field is explicitly normalized to AthenaAuthErrorDetails.
+end note
+
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+skinparam backgroundColor white
+skinparam defaultTextAlignment left
+skinparam ArrowColor #1F2937
+skinparam rectangle {
+  FontColor #111827
+  BorderColor #1F2937
+}
+skinparam NoteBackgroundColor #DCFCE7
+skinparam NoteBorderColor #15803D
+
+title React Tests After: Preserved Symlink Resolution
+
+rectangle "node --preserve-symlinks\n--import tsx --test" as Runner #D1FAE5
+rectangle "react-test-renderer\n(require('react'))" as RTR #BBF7D0
+rectangle "SDK/Test imports\n(import 'react')" as SDK #BBF7D0
+rectangle "Hooks Runtime" as Runtime #E5E7EB
+
+Runner --> RTR
+Runner --> SDK
+RTR --> Runtime : React singleton
+SDK --> Runtime : Same React singleton
+
+note right of Runtime
+Module path canonicalization is stable.
+Hooks dispatcher is shared.
+React hook tests execute successfully.
+end note
+@enduml

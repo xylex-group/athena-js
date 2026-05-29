@@ -1,0 +1,38 @@
+# Auth Sign In and Sign Up
+
+## Endpoints and methods
+
+- `auth.signIn.social()` -> `POST /sign-in/social`
+- `auth.signIn.email()` -> `POST /sign-in/email`
+- `auth.signIn.username()` -> `POST /sign-in/username`
+- `auth.signUp.email()` -> `POST /sign-up/email`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.signIn.social({
+  provider: "google",
+  callbackURL: "https://app.example.com/auth/callback",
+})
+
+await client.auth.signIn.email({
+  email: "user@example.com",
+  password: "password",
+  rememberMe: true,
+})
+
+await client.auth.signIn.username({
+  username: "user1",
+  password: "password",
+  rememberMe: true,
+})
+
+await client.auth.signUp.email({
+  name: "New User",
+  email: "new-user@example.com",
+  password: "password",
+  callbackURL: "https://app.example.com/onboarding",
+})
+```

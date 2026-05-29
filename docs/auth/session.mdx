@@ -1,0 +1,37 @@
+# Auth Session
+
+## Endpoints and methods
+
+- `auth.getSession()` -> `GET /get-session`
+- `auth.signOut()` -> `POST /sign-out`
+- `auth.session.list()` -> `GET /list-sessions`
+- `auth.session.revoke()` -> `POST /revoke-session` or `POST /revoke-sessions` (payload-shape dependent)
+- `auth.session.revokeOther()` -> `POST /revoke-other-sessions`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+const session = await client.auth.getSession()
+const signOut = await client.auth.signOut()
+
+const sessions = await client.auth.session.list()
+
+// single -> /revoke-session
+await client.auth.session.revoke({ token: "session_token_1" })
+
+// array length 1 -> /revoke-session
+await client.auth.session.revoke([{ token: "session_token_2" }])
+
+// array length > 1 -> /revoke-sessions
+await client.auth.session.revoke([
+  { token: "session_token_3" },
+  { token: "session_token_4" },
+])
+
+// tokens list length > 1 -> /revoke-sessions
+await client.auth.session.revoke({ tokens: ["session_token_5", "session_token_6"] })
+
+const revokeOther = await client.auth.session.revokeOther()
+```

@@ -1,0 +1,29 @@
+# Athena Auth Docs
+
+This folder documents the full `createClient(...).auth.*` surface with one section per API domain.
+
+## Pages
+
+- [Session](./session.mdx)
+- [User Lifecycle](./user.mdx)
+- [Social, Provider Accounts, and Health](./social-account.mdx)
+- [Two Factor](./two-factor.mdx)
+- [Passkey](./passkey.mdx)
+- [Admin](./admin.mdx)
+- [API Key](./api-key.mdx)
+- [Organization](./organization.mdx)
+- [Organization Members](./organization-members.mdx)
+- [Organization Invitations](./organization-invitations.mdx)
+- [Sign In and Sign Up](./sign-in-up.mdx)
+- [Callback](./callback.mdx)
+- [React `useSession`](./use-session.mdx)
+
+## Base setup
+
+```ts
+import { createClient } from "@xylex-group/athena"
+
+export const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
+})
+```

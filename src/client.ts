@@ -21,6 +21,8 @@ import type {
 import type { BackendConfig, BackendType } from './gateway/types.ts'
 import { createAthenaGatewayClient } from './gateway/client.ts'
 import { quoteQualifiedIdentifier, quoteSelectColumnsExpression } from './sql-identifiers.ts'
+import { createAuthClient } from './auth/client.ts'
+import type { AthenaAuthBindings, AthenaAuthClientConfig } from './auth/types.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -1091,6 +1093,10 @@ export interface AthenaSdkClient {
   query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
 }
 
+export interface AthenaSdkClientWithAuth extends AthenaSdkClient {
+  auth: AthenaAuthBindings
+}
+
 /** Client config for builder */
 export interface AthenaClientConfig {
   baseUrl: string
@@ -1099,9 +1105,10 @@ export interface AthenaClientConfig {
   backend?: BackendConfig
   headers?: Record<string, string>
   healthTracking?: boolean
+  auth?: AthenaAuthClientConfig
 }
 
-function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
+function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWithAuth {
   const gateway = createAthenaGatewayClient({
     baseUrl: config.baseUrl,
     apiKey: config.apiKey,
@@ -1109,6 +1116,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
     backend: config.backend,
     headers: config.headers,
   })
+  const auth = createAuthClient(config.auth)
   return {
     from<
       Row = AthenaRowShape,
@@ -1134,6 +1142,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClient {
       )
     },
     query: createQueryBuilder(gateway) as AthenaSdkClient['query'],
+    auth: auth.auth,
   }
 }
 
@@ -1151,7 +1160,7 @@ export interface AthenaClientBuilder {
   /** Enable or disable health tracking metadata. */
   healthTracking(enabled: boolean): AthenaClientBuilder
   /** Build the immutable Athena SDK client. */
-  build(): AthenaSdkClient
+  build(): AthenaSdkClientWithAuth
 }
 
 const DEFAULT_BACKEND: BackendConfig = { type: 'athena' }
@@ -1199,7 +1208,7 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder {
     return this
   }
 
-  build(): AthenaSdkClient {
+  build(): AthenaSdkClientWithAuth {
     if (!this.baseUrl || !this.apiKey) {
       throw new Error('AthenaClient requires url and key; call .url() and .key() before .build()')
     }
@@ -1223,7 +1232,7 @@ export class AthenaClient {
   }
 
   /** Build a client from process environment variables. */
-  static fromEnvironment(): AthenaSdkClient {
+  static fromEnvironment(): AthenaSdkClientWithAuth {
     const url =
       process.env.ATHENA_URL ??
       process.env.ATHENA_GATEWAY_URL
@@ -1244,14 +1253,22 @@ export class AthenaClient {
   }
 }
 
+export interface AthenaCreateClientOptions extends Pick<AthenaGatewayCallOptions, 'client' | 'headers' | 'backend'> {
+  auth?: AthenaAuthClientConfig
+}
+
 /** Create client (convenience wrapper; use AthenaClient.builder() for full control) */
 export function createClient(
   url: string,
   apiKey: string,
-  options?: Pick<AthenaGatewayCallOptions, 'client' | 'headers' | 'backend'>,
-): AthenaSdkClient {
+  options?: AthenaCreateClientOptions,
+): AthenaSdkClientWithAuth {
   const b = AthenaClient.builder().url(url).key(apiKey).backend(toBackendConfig(options?.backend))
   if (options?.client) b.client(options.client)
   if (options?.headers && Object.keys(options.headers).length > 0) b.headers(options.headers)
-  return b.build()
+  const client = b.build()
+  if (options?.auth) {
+    client.auth = createAuthClient(options.auth).auth
+  }
+  return client
 }

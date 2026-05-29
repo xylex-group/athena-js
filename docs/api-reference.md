@@ -4,6 +4,7 @@ This page documents the exported contract surfaces of `@xylex-group/athena` and 
 
 For workflow-first onboarding, start with [`getting-started.md`](getting-started.md).
 For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
+For Athena Auth endpoint parity and per-endpoint examples, use [`auth/index.mdx`](auth/index.mdx) and [`auth-client-bindings.md`](auth-client-bindings.md).
 
 ## Export surfaces
 
@@ -19,6 +20,14 @@ React package exports include:
 
 - low-level gateway hook (`useAthenaGateway`)
 - query runtime (`createAthenaQueryClient`, provider, `useQuery`, `useMutation`)
+- auth session parity hook (`useSession`)
+
+Main package auth exports include:
+
+- `createClient(...).auth` (preferred) and `createAuthClient` (deprecated)
+- `AthenaAuthSdkClient` with both legacy flat methods and grouped `auth.*` bindings
+- organization plugin binding surface (`AthenaAuthOrganizationBindings`)
+- auth binding contract (`AthenaAuthBindings`)
 
 ## Core result contract
 
@@ -43,8 +52,10 @@ interface AthenaResult<T> {
 function createClient(
   url: string,
   apiKey: string,
-  options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend">,
-): AthenaSdkClient
+  options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
+    auth?: AthenaAuthClientConfig
+  },
+): AthenaSdkClientWithAuth
 ```
 
 ### `AthenaClient.fromEnvironment()`
@@ -66,7 +77,7 @@ interface AthenaClientBuilder {
   client(clientName: string): AthenaClientBuilder
   headers(headers: Record<string, string>): AthenaClientBuilder
   healthTracking(enabled: boolean): AthenaClientBuilder
-  build(): AthenaSdkClient
+  build(): AthenaSdkClientWithAuth
 }
 ```
 
@@ -109,6 +120,10 @@ interface AthenaSdkClient {
     query: string,
     options?: AthenaGatewayCallOptions,
   ): Promise<AthenaResult<Row[]>>
+}
+
+interface AthenaSdkClientWithAuth extends AthenaSdkClient {
+  auth: AthenaAuthBindings
 }
 ```
 

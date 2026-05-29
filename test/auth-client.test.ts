@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
 import { createAuthClient } from '../src/auth/index.ts'
+import { createClient } from '../src/client.ts'
 
 type Captured = {
   url: string
@@ -20,6 +21,28 @@ function mockFetch(responseBody: unknown = { ok: true }, responseInit: ResponseI
     restore: () => (globalThis.fetch = original),
   }
 }
+
+test('createClient exposes auth namespace and routes auth calls to configured auth base URL', async () => {
+  const { calls, restore } = mockFetch({
+    session: { id: 's_1' },
+    user: { id: 'u_1', email: 'u@example.com' },
+  })
+  try {
+    const client = createClient('https://gateway.example.com', 'gateway-key', {
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+      },
+    })
+
+    const result = await client.auth.getSession()
+    assert.equal(result.ok, true)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[0].init?.body, undefined)
+  } finally {
+    restore()
+  }
+})
 
 test('signIn.email posts to sign-in endpoint with payload', async () => {
   const { calls, restore } = mockFetch({ redirect: false, token: 't', user: { id: 'u', email: 'u@x.com' } })
@@ -337,5 +360,387 @@ test('network failures are normalized into NETWORK_ERROR', async () => {
     assert.match(response.error ?? '', /Network error while calling GET \/list-sessions/)
   } finally {
     globalThis.fetch = original
+  }
+})
+
+test('auth namespace exposes session-level bindings', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.auth.getSession()
+    await client.auth.signOut()
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/sign-out')
+    assert.equal(calls[1].init?.method, 'POST')
+  } finally {
+    restore()
+  }
+})
+
+test('auth namespace user/session/oauth bindings map to expected endpoints', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.auth.setPassword({ newPassword: 'new-pass' })
+    await client.auth.changeEmailVerify({ query: { token: 'email-token' } })
+    await client.auth.deleteUserVerify({ query: { token: 'delete-token' } })
+    await client.auth.user.update({ name: 'Updated' })
+    await client.auth.user.delete({ password: 'secret' })
+    await client.auth.user.email.list()
+    await client.auth.social.link({ provider: 'google' })
+    await client.auth.account.list()
+    await client.auth.account.unlink({ providerId: 'google', accountId: 'acc_1' })
+    await client.auth.deleteUser.callback({ token: 'cb-token' })
+    await client.auth.refreshToken({ providerId: 'google', accountId: 'acc_1', userId: 'u_1' })
+    await client.auth.getAccessToken({ providerId: 'google', accountId: 'acc_1', userId: 'u_1' })
+    await client.auth.health()
+    await client.auth.ok()
+    await client.auth.error()
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/set-password')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/change-email/verify?token=email-token')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/delete-user/verify?token=delete-token')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/update-user')
+    assert.equal(calls[4].url, 'https://auth.example.com/api/auth/delete-user')
+    assert.equal(calls[5].url, 'https://auth.example.com/api/auth/email/list')
+    assert.equal(calls[6].url, 'https://auth.example.com/api/auth/link-social')
+    assert.equal(calls[7].url, 'https://auth.example.com/api/auth/list-accounts')
+    assert.equal(calls[8].url, 'https://auth.example.com/api/auth/unlink-account')
+    assert.equal(calls[9].url, 'https://auth.example.com/api/auth/delete-user/callback?token=cb-token')
+    assert.equal(calls[10].url, 'https://auth.example.com/api/auth/refresh-token')
+    assert.equal(calls[11].url, 'https://auth.example.com/api/auth/get-access-token')
+    assert.equal(calls[12].url, 'https://auth.example.com/api/auth/health')
+    assert.equal(calls[13].url, 'https://auth.example.com/api/auth/ok')
+    assert.equal(calls[14].url, 'https://auth.example.com/api/auth/error')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.user.email.list falls back to legacy route on 404', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (calls.length === 1) {
+      return new Response(JSON.stringify({ message: 'Not found' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    return new Response(JSON.stringify({ emails: [{ id: 'email_1' }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const response = await client.auth.user.email.list()
+
+    assert.equal(response.ok, true)
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/email/list')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/email-list')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].init?.method, 'GET')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('auth.health falls back to ok route on 404', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (calls.length === 1) {
+      return new Response(JSON.stringify({ message: 'Not found' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const response = await client.auth.health()
+
+    assert.equal(response.ok, true)
+    assert.equal(response.data?.status, 'ok')
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/health')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/ok')
+    assert.equal(calls[0].init?.method, 'GET')
+    assert.equal(calls[1].init?.method, 'GET')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('auth.session.revoke collapses single and list payloads to correct endpoints', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    await client.auth.session.revoke({ token: 'tok-1' })
+    await client.auth.session.revoke([{ token: 'tok-2' }])
+    await client.auth.session.revoke([{ token: 'tok-3' }, { token: 'tok-4' }])
+    await client.auth.session.revoke({ tokens: ['tok-5', 'tok-6'] })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/revoke-session')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/revoke-session')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/revoke-sessions')
+    assert.equal(calls[0].init?.body, JSON.stringify({ token: 'tok-1' }))
+    assert.equal(calls[1].init?.body, JSON.stringify({ token: 'tok-2' }))
+    assert.equal(calls[2].init?.body, JSON.stringify({}))
+    assert.equal(calls[3].init?.body, JSON.stringify({}))
+  } finally {
+    restore()
+  }
+})
+
+test('auth.twoFactor and auth.passkey bindings map to expected endpoints', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    await client.auth.twoFactor.getTotpUri({ password: 'secret' })
+    await client.auth.twoFactor.verifyTotp({ code: '123456' })
+    await client.auth.twoFactor.sendOtp()
+    await client.auth.twoFactor.verifyOtp({ code: '654321' })
+    await client.auth.twoFactor.verifyBackupCode({ code: 'backup-code' })
+    await client.auth.twoFactor.generateBackupCodes({ password: 'secret' })
+    await client.auth.twoFactor.enable({ password: 'secret' })
+    await client.auth.twoFactor.disable({ password: 'secret' })
+
+    await client.auth.passkey.generateRegisterOptions()
+    await client.auth.passkey.generateAuthenticateOptions()
+    await client.auth.passkey.verifyRegistration({ response: 'webauthn-registration-response' })
+    await client.auth.passkey.verifyAuthentication({ response: 'webauthn-authentication-response' })
+    await client.auth.passkey.listUserPasskeys()
+    await client.auth.passkey.deletePasskey({ id: 'pk_1' })
+    await client.auth.passkey.updatePasskey({ id: 'pk_1', name: 'Laptop Key' })
+    await client.auth.passkey.getRelatedOrigins()
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/two-factor/get-totp-uri')
+    assert.equal(calls[7].url, 'https://auth.example.com/api/auth/two-factor/disable')
+    assert.equal(calls[8].url, 'https://auth.example.com/api/auth/passkey/generate-register-options')
+    assert.equal(calls[12].url, 'https://auth.example.com/api/auth/passkey/list-user-passkeys')
+    assert.equal(calls[15].url, 'https://auth.example.com/api/auth/.well-known/webauthn')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.admin and auth.apiKey bindings map to expected endpoints', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    await client.auth.admin.role.set({ userId: 'u_1', role: 'admin' })
+    await client.auth.admin.user.list()
+    await client.auth.admin.user.create({ email: 'new@example.com', password: 'secret' })
+    await client.auth.admin.user.unban({ userId: 'u_1' })
+    await client.auth.admin.user.ban({ userId: 'u_2', banReason: 'abuse' })
+    await client.auth.admin.user.impersonate({ userId: 'u_3' })
+    await client.auth.admin.user.stopImpersonating({ userId: 'u_3' })
+    await client.auth.admin.user.session.list({ userId: 'u_3' })
+    await client.auth.admin.user.session.revoke({ userId: 'u_3', sessionToken: 's_1' })
+    await client.auth.admin.user.session.revoke([
+      { userId: 'u_3', sessionToken: 's_2' },
+      { userId: 'u_3', sessionToken: 's_3' },
+    ])
+    await client.auth.admin.user.session.revoke({
+      sessions: [{ userId: 'u_3', sessionToken: 's_4' }],
+    })
+    await client.auth.admin.user.session.revoke({ userId: 'u_3' })
+    await client.auth.admin.user.remove({ userId: 'u_4' })
+    await client.auth.admin.user.setPassword({ userId: 'u_4', newPassword: 'new-pass' })
+    await client.auth.admin.hasPermission({ permissions: { users: ['manage'] } })
+    await client.auth.admin.apiKey.create({ name: 'test-key', expiresIn: 3600 })
+    await client.auth.admin.athenaClient.create({ clientName: 'demo-client' })
+    await client.auth.admin.athenaClient.list()
+    await client.auth.admin.auditLog.list()
+    await client.auth.admin.email.get({ query: { id: 'email_1' } })
+    await client.auth.admin.email.create({
+      recipientEmail: 'to@example.com',
+      subject: 'Welcome',
+      fromAddress: 'no-reply@example.com',
+      provider: 'resend',
+    })
+    await client.auth.admin.email.update({ id: 'email_1', subject: 'Welcome Updated' })
+    await client.auth.admin.email.delete({ id: 'email_1' })
+    await client.auth.admin.email.failure.list()
+    await client.auth.admin.email.failure.get({ query: { id: 'failure_1' } })
+    await client.auth.admin.email.failure.create({
+      recipientEmail: 'to@example.com',
+      flow: 'transactional',
+      errorMessage: 'bounce',
+    })
+    await client.auth.admin.email.failure.update({ id: 'failure_1', resolved: true })
+    await client.auth.admin.email.failure.delete({ id: 'failure_1' })
+    await client.auth.admin.email.template.create({ templateKey: 'welcome', subjectTemplate: 'Welcome' })
+    await client.auth.admin.email.template.get({ query: { id: 'tmpl_1' } })
+    await client.auth.admin.email.template.delete({ id: 'tmpl_1' })
+    await client.auth.admin.email.template.list()
+    await client.auth.admin.email.template.update({ id: 'tmpl_1', subjectTemplate: 'Welcome 2' })
+    await client.auth.admin.email.list()
+    await client.auth.admin.emailTemplate.create({ templateKey: 'legacy', subjectTemplate: 'Legacy' })
+    await client.auth.admin.emailTemplate.get({ query: { id: 'legacy_tmpl_1' } })
+    await client.auth.admin.emailTemplate.delete({ id: 'legacy_tmpl_1' })
+    await client.auth.admin.emailTemplate.list()
+    await client.auth.admin.emailTemplate.update({ id: 'legacy_tmpl_1', subjectTemplate: 'Legacy 2' })
+
+    await client.auth.apiKey.create({ name: 'user-key', expiresIn: '3600', remaining: '1000' })
+    await client.auth.apiKey.get({ query: { id: 'key_1' } })
+    await client.auth.apiKey.update({ keyId: 'key_1', name: 'updated', expiresIn: '3600', permissions: '{}' })
+    await client.auth.apiKey.delete({ keyId: 'key_1' })
+    await client.auth.apiKey.list()
+    await client.auth.apiKey.verify({ key: 'prefix.secret' })
+    await client.auth.apiKey.deleteAllExpired()
+
+    const requestedUrls = calls.map(call => call.url)
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/admin/set-role')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/admin/list-users')
+    assert.equal(calls[8].url, 'https://auth.example.com/api/auth/admin/revoke-user-session')
+    assert.equal(calls[9].url, 'https://auth.example.com/api/auth/admin/revoke-user-sessions')
+    assert.equal(calls[10].url, 'https://auth.example.com/api/auth/admin/revoke-user-session')
+    assert.equal(calls[11].url, 'https://auth.example.com/api/auth/admin/revoke-user-sessions')
+    assert.equal(calls[17].url, 'https://auth.example.com/api/auth/admin/athena-client/list')
+    assert.equal(calls[8].init?.body, JSON.stringify({ userId: 'u_3', sessionToken: 's_1' }))
+    assert.equal(calls[9].init?.body, JSON.stringify({ userId: 'u_3' }))
+    assert.equal(calls[10].init?.body, JSON.stringify({ userId: 'u_3', sessionToken: 's_4' }))
+    assert.equal(calls[11].init?.body, JSON.stringify({ userId: 'u_3' }))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/get?id=email_1'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/create'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/update'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email/delete'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/list'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/get?id=failure_1'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/create'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/update'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-failure/delete'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-template/get?id=tmpl_1'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-template/get?id=legacy_tmpl_1'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/admin/email-template/update'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/api-key/create'))
+    assert.ok(requestedUrls.includes('https://auth.example.com/api/auth/api-key/delete-all-expired-api-keys'))
+
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email/get?id=email_1')?.init?.method, 'GET')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email/create')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email/update')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email/delete')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/list')?.init?.method, 'GET')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/get?id=failure_1')?.init?.method, 'GET')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/create')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/update')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-failure/delete')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/get?id=tmpl_1')?.init?.method, 'GET')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/list')?.init?.method, 'GET')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/create')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/update')?.init?.method, 'POST')
+    assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/delete')?.init?.method, 'POST')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.admin.user.session.revoke enforces non-empty userId and a single plural userId', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    assert.throws(
+      () =>
+        client.auth.admin.user.session.revoke([
+          { userId: 'u_1', sessionToken: 's_1' },
+          { userId: 'u_2', sessionToken: 's_2' },
+        ]),
+      /same userId across plural payloads/,
+    )
+
+    assert.throws(
+      () =>
+        client.auth.admin.user.session.revoke({
+          sessionToken: 's_1',
+        } as unknown as Parameters<typeof client.auth.admin.user.session.revoke>[0]),
+      /non-empty userId/,
+    )
+
+    assert.equal(calls.length, 0)
+  } finally {
+    restore()
+  }
+})
+
+test('auth.organization bindings map to expected endpoints', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    await client.auth.organization.create({ name: 'Acme', slug: 'acme' })
+    await client.auth.organization.update({ organizationId: 'org_1', data: { name: 'Acme 2' } })
+    await client.auth.organization.delete({ organizationId: 'org_1' })
+    await client.auth.organization.setActive({ organizationId: 'org_1' })
+    await client.auth.organization.list()
+    await client.auth.organization.getFull({ query: { organizationId: 'org_1' } })
+    await client.auth.organization.invitation.cancel({ invitationId: 'inv_1' })
+    await client.auth.organization.invitation.accept({ invitationId: 'inv_1' })
+    await client.auth.organization.invitation.get({ query: { id: 'inv_1' } })
+    await client.auth.organization.invitation.reject({ invitationId: 'inv_1' })
+    await client.auth.organization.checkSlug({ slug: 'acme' })
+    await client.auth.organization.member.remove({ memberIdOrEmail: 'user@example.com' })
+    await client.auth.organization.member.updateRole({ memberId: 'mem_1', role: 'admin' })
+    await client.auth.organization.member.invite({ email: 'user@example.com', role: 'member' })
+    await client.auth.organization.member.getActive()
+    await client.auth.organization.member.list()
+    await client.auth.organization.leave({ organizationId: 'org_1' })
+    await client.auth.organization.invitation.list()
+    await client.auth.organization.listUserInvitations()
+    await client.auth.organization.hasPermission({ permissions: ['org:manage'] })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/organization/create')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/organization/update')
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/organization/delete')
+    assert.equal(calls[3].url, 'https://auth.example.com/api/auth/organization/set-active')
+    assert.equal(calls[4].url, 'https://auth.example.com/api/auth/organization/list')
+    assert.equal(calls[5].url, 'https://auth.example.com/api/auth/organization/get-full-organization?organizationId=org_1')
+    assert.equal(calls[6].url, 'https://auth.example.com/api/auth/organization/cancel-invitation')
+    assert.equal(calls[7].url, 'https://auth.example.com/api/auth/organization/accept-invitation')
+    assert.equal(calls[8].url, 'https://auth.example.com/api/auth/organization/get-invitation?id=inv_1')
+    assert.equal(calls[9].url, 'https://auth.example.com/api/auth/organization/reject-invitation')
+    assert.equal(calls[10].url, 'https://auth.example.com/api/auth/organization/check-slug')
+    assert.equal(calls[11].url, 'https://auth.example.com/api/auth/organization/remove-member')
+    assert.equal(calls[12].url, 'https://auth.example.com/api/auth/organization/update-member-role')
+    assert.equal(calls[13].url, 'https://auth.example.com/api/auth/organization/invite-member')
+    assert.equal(calls[14].url, 'https://auth.example.com/api/auth/organization/get-active-member')
+    assert.equal(calls[15].url, 'https://auth.example.com/api/auth/organization/list-members')
+    assert.equal(calls[16].url, 'https://auth.example.com/api/auth/organization/leave')
+    assert.equal(calls[17].url, 'https://auth.example.com/api/auth/organization/list-invitations')
+    assert.equal(calls[18].url, 'https://auth.example.com/api/auth/organization/list-user-invitations')
+    assert.equal(calls[19].url, 'https://auth.example.com/api/auth/organization/has-permission')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.callback.provider resolves dynamic provider endpoint', async () => {
+  const { calls, restore } = mockFetch({ ok: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    await client.auth.callback.provider({ provider: 'github', code: 'oauth-code', state: 'oauth-state' })
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/callback/github?code=oauth-code&state=oauth-state')
+    assert.equal(calls[0].init?.method, 'GET')
+  } finally {
+    restore()
   }
 })

@@ -1,0 +1,31 @@
+@startuml
+title Auth Client Docs and Method Docstrings (After)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #E8F5E9
+skinparam noteBorderColor #000000
+
+actor "SDK Consumer" as Consumer #BBDEFB
+component "createAuthClient().auth.* bindings" as Bindings #B2DFDB
+component "Typed contracts\nwith JSDoc per method\n`src/auth/types.ts`" as TypesDocs #C5E1A5
+component "Domain docs index\n`docs/auth/index.mdx`" as AuthIndex #FFECB3
+component "Domain MDX pages\nsession/user/social/health/two-factor/passkey\nadmin (email/failure/template)/api-key\norg/member/invites/sign-in-up/callback/use-session" as DomainDocs #B3E5FC
+component "Compact map\n`docs/auth-client-bindings.md`" as CompactDoc #FFE082
+
+Consumer --> Bindings
+Bindings --> TypesDocs
+Consumer --> AuthIndex
+AuthIndex --> DomainDocs
+AuthIndex --> CompactDoc
+
+note right of DomainDocs
+Every route in the expanded auth surface
+has a corresponding method + TypeScript
+example in a scoped MDX page, including
+`/health`, `/email-list`, and new
+`/admin/email*` + `/admin/email-failure*`.
+end note
+@enduml

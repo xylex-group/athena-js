@@ -1,0 +1,172 @@
+# Auth Admin
+
+## Endpoints and methods
+
+- `auth.admin.role.set()` -> `POST /admin/set-role`
+- `auth.admin.user.list()` -> `GET /admin/list-users`
+- `auth.admin.user.session.list()` -> `POST /admin/list-user-sessions`
+- `auth.admin.user.create()` -> `POST /admin/create-user`
+- `auth.admin.user.unban()` -> `POST /admin/unban-user`
+- `auth.admin.user.ban()` -> `POST /admin/ban-user`
+- `auth.admin.user.impersonate()` -> `POST /admin/impersonate-user`
+- `auth.admin.user.stopImpersonating()` -> `POST /admin/stop-impersonating`
+- `auth.admin.user.session.revoke()` -> `POST /admin/revoke-user-session` or `POST /admin/revoke-user-sessions` (payload-shape dependent; requires `userId`)
+- `auth.admin.user.remove()` -> `POST /admin/remove-user`
+- `auth.admin.user.setPassword()` -> `POST /admin/set-user-password`
+- `auth.admin.hasPermission()` -> `POST /admin/has-permission`
+- `auth.admin.apiKey.create()` -> `POST /admin/api-key/create`
+- `auth.admin.athenaClient.create()` -> `POST /admin/athena-client/create`
+- `auth.admin.athenaClient.list()` -> `GET /admin/athena-client/list`
+- `auth.admin.auditLog.list()` -> `GET /admin/audit-log/list`
+- `auth.admin.email.list()` -> `GET /admin/email/list`
+- `auth.admin.email.get()` -> `GET /admin/email/get`
+- `auth.admin.email.create()` -> `POST /admin/email/create`
+- `auth.admin.email.update()` -> `POST /admin/email/update`
+- `auth.admin.email.delete()` -> `POST /admin/email/delete`
+- `auth.admin.email.failure.list()` -> `GET /admin/email-failure/list`
+- `auth.admin.email.failure.get()` -> `GET /admin/email-failure/get`
+- `auth.admin.email.failure.create()` -> `POST /admin/email-failure/create`
+- `auth.admin.email.failure.update()` -> `POST /admin/email-failure/update`
+- `auth.admin.email.failure.delete()` -> `POST /admin/email-failure/delete`
+- `auth.admin.email.template.list()` -> `GET /admin/email-template/list`
+- `auth.admin.email.template.get()` -> `GET /admin/email-template/get`
+- `auth.admin.email.template.create()` -> `POST /admin/email-template/create`
+- `auth.admin.email.template.update()` -> `POST /admin/email-template/update`
+- `auth.admin.email.template.delete()` -> `POST /admin/email-template/delete`
+- `auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list` (legacy alias)
+- `auth.admin.emailTemplate.get()` -> `GET /admin/email-template/get` (legacy alias)
+- `auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create` (legacy alias)
+- `auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
+- `auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.admin.role.set({
+  userId: "usr_1",
+  role: "admin",
+})
+
+await client.auth.admin.user.list()
+await client.auth.admin.user.session.list({ userId: "usr_1" })
+
+await client.auth.admin.user.create({
+  email: "new-user@example.com",
+  password: "temporary-password",
+})
+
+await client.auth.admin.user.unban({ userId: "usr_1" })
+await client.auth.admin.user.ban({ userId: "usr_2", banReason: "policy violation" })
+
+await client.auth.admin.user.impersonate({ userId: "usr_3" })
+await client.auth.admin.user.stopImpersonating({ userId: "usr_3" })
+
+// single payload -> /admin/revoke-user-session
+await client.auth.admin.user.session.revoke({
+  userId: "usr_3",
+  sessionToken: "sess_token_1",
+})
+
+// multiple payloads -> /admin/revoke-user-sessions
+await client.auth.admin.user.session.revoke([
+  { userId: "usr_3", sessionToken: "sess_token_2" },
+  { userId: "usr_3", sessionToken: "sess_token_3" },
+])
+
+// direct plural payload -> /admin/revoke-user-sessions
+await client.auth.admin.user.session.revoke({
+  userId: "usr_3",
+})
+
+await client.auth.admin.user.remove({ userId: "usr_4" })
+await client.auth.admin.user.setPassword({
+  userId: "usr_4",
+  newPassword: "new-password",
+})
+
+await client.auth.admin.hasPermission({
+  permissions: { users: ["manage"] },
+})
+
+await client.auth.admin.apiKey.create({
+  name: "admin-key",
+  expiresIn: 3600,
+})
+
+await client.auth.admin.athenaClient.create({
+  clientName: "dashboard-client",
+})
+await client.auth.admin.athenaClient.list()
+
+await client.auth.admin.auditLog.list()
+
+await client.auth.admin.email.get({
+  query: { id: "email_1" },
+})
+
+await client.auth.admin.email.create({
+  recipientEmail: "to@example.com",
+  subject: "Welcome",
+  fromAddress: "no-reply@example.com",
+  provider: "resend",
+})
+
+await client.auth.admin.email.update({
+  id: "email_1",
+  subject: "Welcome Updated",
+})
+
+await client.auth.admin.email.delete({
+  id: "email_1",
+})
+
+await client.auth.admin.email.failure.list()
+await client.auth.admin.email.failure.get({
+  query: { id: "failure_1" },
+})
+await client.auth.admin.email.failure.create({
+  recipientEmail: "to@example.com",
+  flow: "transactional",
+  errorMessage: "bounce",
+})
+await client.auth.admin.email.failure.update({
+  id: "failure_1",
+  resolved: true,
+})
+await client.auth.admin.email.failure.delete({
+  id: "failure_1",
+})
+
+await client.auth.admin.email.list()
+
+await client.auth.admin.email.template.create({
+  templateKey: "welcome",
+  subjectTemplate: "Welcome",
+})
+await client.auth.admin.email.template.get({
+  query: { id: "tmpl_1" },
+})
+await client.auth.admin.email.template.list()
+await client.auth.admin.email.template.update({
+  id: "tmpl_1",
+  subjectTemplate: "Welcome Updated",
+})
+await client.auth.admin.email.template.delete({ id: "tmpl_1" })
+
+// legacy alias
+await client.auth.admin.emailTemplate.create({
+  templateKey: "legacy",
+  subjectTemplate: "Legacy",
+})
+await client.auth.admin.emailTemplate.get({
+  query: { id: "legacy_tmpl_1" },
+})
+await client.auth.admin.emailTemplate.list()
+await client.auth.admin.emailTemplate.update({
+  id: "legacy_tmpl_1",
+  subjectTemplate: "Legacy Updated",
+})
+await client.auth.admin.emailTemplate.delete({ id: "legacy_tmpl_1" })
+```

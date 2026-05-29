@@ -120,6 +120,40 @@ export interface RequireAffectedOptions {
   min?: number
 }
 
+/**
+ * Parses a string-based boolean flag with a deterministic fallback.
+ *
+ * Accepts common truthy/falsey token variants used by env vars and CLI flags.
+ */
+export function parseBooleanFlag(
+  rawValue: string | undefined,
+  fallback: boolean,
+): boolean {
+  if (!rawValue) return fallback
+
+  const normalized = rawValue.trim().toLowerCase()
+
+  if (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  ) {
+    return true
+  }
+
+  if (
+    normalized === '0' ||
+    normalized === 'false' ||
+    normalized === 'no' ||
+    normalized === 'off'
+  ) {
+    return false
+  }
+
+  return fallback
+}
+
 export class AthenaError extends Error {
   readonly code: AthenaErrorCode
   readonly kind: AthenaErrorKind

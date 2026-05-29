@@ -1,0 +1,63 @@
+# Auth Organization
+
+Top-level organization operations are documented here. Invitation and member sub-surfaces are split into:
+
+- [Organization Invitations](./organization-invitations.mdx)
+- [Organization Members](./organization-members.mdx)
+
+## Endpoints and methods
+
+- `auth.organization.create()` -> `POST /organization/create`
+- `auth.organization.update()` -> `POST /organization/update`
+- `auth.organization.delete()` -> `POST /organization/delete`
+- `auth.organization.setActive()` -> `POST /organization/set-active`
+- `auth.organization.list()` -> `GET /organization/list`
+- `auth.organization.getFull()` -> `GET /organization/get-full-organization`
+- `auth.organization.checkSlug()` -> `POST /organization/check-slug`
+- `auth.organization.leave()` -> `POST /organization/leave`
+- `auth.organization.listUserInvitations()` -> `GET /organization/list-user-invitations`
+- `auth.organization.hasPermission()` -> `POST /organization/has-permission`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.organization.create({
+  name: "Acme",
+  slug: "acme",
+})
+
+await client.auth.organization.update({
+  organizationId: "org_1",
+  data: { name: "Acme Updated" },
+})
+
+await client.auth.organization.delete({
+  organizationId: "org_1",
+})
+
+await client.auth.organization.setActive({
+  organizationId: "org_1",
+})
+
+await client.auth.organization.list()
+
+await client.auth.organization.getFull({
+  query: { organizationId: "org_1" },
+})
+
+await client.auth.organization.checkSlug({
+  slug: "acme",
+})
+
+await client.auth.organization.leave({
+  organizationId: "org_1",
+})
+
+await client.auth.organization.listUserInvitations()
+
+await client.auth.organization.hasPermission({
+  permissions: { project: ["create"] },
+})
+```

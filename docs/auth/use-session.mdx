@@ -1,0 +1,56 @@
+# React `useSession`
+
+`@xylex-group/athena/react` exports a session hook that mirrors Better Auth client behavior.
+
+## Hook API
+
+```ts
+import { useSession } from "@xylex-group/athena/react"
+import { createClient } from "@xylex-group/athena"
+
+const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
+})
+
+const session = useSession(client, {
+  enabled: true,
+  refetchOnMount: true,
+  fetchInput: undefined,
+  callOptions: undefined,
+})
+```
+
+## Return shape
+
+- `data`: session payload or `null`
+- `error`: normalized auth error details or `null`
+- `isPending`: first-load state
+- `isRefetching`: manual/background refresh state when prior data exists
+- `refetch()`: explicit re-fetch trigger
+
+## Example component
+
+```tsx
+import { createClient } from "@xylex-group/athena"
+import { useSession } from "@xylex-group/athena/react"
+
+const client = createClient("http://localhost:3001", "gateway_api_key", {
+  auth: { baseUrl: "http://localhost:3001/api/auth" },
+})
+
+export function SessionPanel() {
+  const { data, error, isPending, isRefetching, refetch } = useSession(client)
+
+  if (isPending) return <div>Loading session...</div>
+  if (error) return <div>Session error: {error.message}</div>
+
+  return (
+    <div>
+      <div>User: {data?.user.email ?? "none"}</div>
+      <button disabled={isRefetching} onClick={() => void refetch()}>
+        {isRefetching ? "Refreshing..." : "Refetch session"}
+      </button>
+    </div>
+  )
+}
+```
