@@ -182,6 +182,77 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+function isAthenaErrorKind(value: unknown): value is AthenaErrorKind {
+  return (
+    value === 'unique_violation' ||
+    value === 'not_found' ||
+    value === 'validation' ||
+    value === 'auth' ||
+    value === 'rate_limit' ||
+    value === 'transient' ||
+    value === 'unknown'
+  )
+}
+
+function isAthenaErrorCode(value: unknown): value is AthenaErrorCode {
+  return (
+    value === 'UNIQUE_VIOLATION' ||
+    value === 'NOT_FOUND' ||
+    value === 'VALIDATION_FAILED' ||
+    value === 'AUTH_UNAUTHORIZED' ||
+    value === 'AUTH_FORBIDDEN' ||
+    value === 'RATE_LIMITED' ||
+    value === 'NETWORK_UNAVAILABLE' ||
+    value === 'TRANSIENT_FAILURE' ||
+    value === 'HTTP_FAILURE' ||
+    value === 'UNKNOWN'
+  )
+}
+
+function isAthenaErrorCategory(value: unknown): value is AthenaErrorCategory {
+  return (
+    value === 'transport' ||
+    value === 'client' ||
+    value === 'server' ||
+    value === 'database' ||
+    value === 'unknown'
+  )
+}
+
+function isNormalizedAthenaError(value: unknown): value is NormalizedAthenaError {
+  return (
+    isRecord(value) &&
+    isAthenaErrorKind(value.kind) &&
+    isAthenaErrorCode(value.code) &&
+    isAthenaErrorCategory(value.category) &&
+    typeof value.retryable === 'boolean' &&
+    typeof value.message === 'string' &&
+    'raw' in value
+  )
+}
+
+function withContextOverrides(
+  normalized: NormalizedAthenaError,
+  context?: AthenaOperationContext,
+): NormalizedAthenaError {
+  if (!context?.table && !context?.operation) {
+    return normalized
+  }
+
+  return {
+    ...normalized,
+    table: context.table ?? normalized.table,
+    operation: context.operation ?? normalized.operation,
+  }
+}
+
+function resolveAttachedNormalizedError(resultOrError: unknown): NormalizedAthenaError | undefined {
+  if (!isRecord(resultOrError)) return undefined
+  if (!('__athenaNormalizedError' in resultOrError)) return undefined
+  const candidate = resultOrError.__athenaNormalizedError
+  return isNormalizedAthenaError(candidate) ? candidate : undefined
+}
+
 function safeStringify(value: unknown): string {
   try {
     const serialized = JSON.stringify(value)
@@ -385,6 +456,11 @@ export function normalizeAthenaError(
   resultOrError: unknown,
   context?: AthenaOperationContext,
 ): NormalizedAthenaError {
+  const attached = resolveAttachedNormalizedError(resultOrError)
+  if (attached) {
+    return withContextOverrides(attached, context)
+  }
+
   if (isAthenaResultLike(resultOrError)) {
     const details = resultOrError.errorDetails
     const message =

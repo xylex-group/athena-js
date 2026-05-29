@@ -209,14 +209,15 @@ requireAffected(inserted, { min: 1 }, { table: "users", operation: "insert" });
 ### Error normalization
 
 ```ts
-import { normalizeAthenaError } from "@xylex-group/athena";
+import { createClient, normalizeAthenaError } from "@xylex-group/athena";
+
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  experimental: { enableErrorNormalization: true },
+});
 
 const result = await athena.from("users").insert({ id: 1 }).select();
 if (result.error) {
-  const err = normalizeAthenaError(result, {
-    table: "users",
-    operation: "insert",
-  });
+  const err = normalizeAthenaError(result);
   if (err.kind === "unique_violation") {
     // deterministic conflict handling
   }
@@ -224,6 +225,8 @@ if (result.error) {
 ```
 
 Normalized errors expose stable `kind` values (`unique_violation`, `validation`, `auth`, `rate_limit`, `transient`, etc.) plus operation metadata.
+
+`experimental.enableErrorNormalization` keeps the existing `AthenaResult<T>` shape intact and pre-attaches context-aware metadata so `normalizeAthenaError(result)` can resolve table/operation without extra per-call context objects.
 
 ### Numeric coercion
 

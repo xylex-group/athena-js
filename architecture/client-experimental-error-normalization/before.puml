@@ -1,0 +1,28 @@
+@startuml
+title Client Error Normalization Opt-In (Before)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #D6EAF8
+component "createClient(...)" as Client #D5F5E3
+component "Table/RPC/Query Builder" as Builder #FCF3CF
+component "Athena Gateway Client" as Gateway #FADBD8
+component "AthenaResult<T>\n{ data, error, status, ... }" as Result #E8DAEF
+component "normalizeAthenaError(result, context)" as Normalize #FDEBD0
+
+Consumer --> Client : configure URL/key
+Client --> Builder : from()/rpc()/query()
+Builder --> Gateway : execute HTTP call
+Gateway --> Result : return error payload
+Consumer --> Normalize : pass result + table/operation
+Normalize --> Consumer : { kind, table, operation, ... }
+
+note right of Consumer
+Caller must provide per-call context
+to get deterministic table/operation
+metadata for normalization.
+end note
+@enduml

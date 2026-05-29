@@ -23,6 +23,8 @@ import { createAthenaGatewayClient } from './gateway/client.ts'
 import { quoteQualifiedIdentifier, quoteSelectColumnsExpression } from './sql-identifiers.ts'
 import { createAuthClient } from './auth/client.ts'
 import type { AthenaAuthBindings, AthenaAuthClientConfig } from './auth/types.ts'
+import { normalizeAthenaError } from './auxiliaries.ts'
+import type { AthenaOperationContext, NormalizedAthenaError } from './auxiliaries.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -31,6 +33,14 @@ export interface AthenaResult<T> {
   status: number
   count?: number | null
   raw: unknown
+}
+
+export interface AthenaClientExperimentalOptions {
+  /**
+   * Pre-compute and attach normalized error metadata to failed AthenaResult values.
+   * Keeps AthenaResult shape intact and enables context-aware normalizeAthenaError(result) usage.
+   */
+  enableErrorNormalization?: boolean
 }
 
 type TableBuilderState = {
@@ -56,6 +66,7 @@ const DEFAULT_COLUMNS = '*'
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
+const ATHENA_NORMALIZED_ERROR_KEY = '__athenaNormalizedError' as const
 
 export interface MutationQuery<Result> extends PromiseLike<AthenaResult<Result>> {
   select(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<Result>>
@@ -90,6 +101,41 @@ function formatResult<T>(response: AthenaGatewayResponse<T>): AthenaResult<T> {
     result.count = response.count
   }
   return result
+}
+
+type AthenaResultFormatter = <T>(
+  response: AthenaGatewayResponse<T>,
+  context?: AthenaOperationContext,
+) => AthenaResult<T>
+
+function attachNormalizedError<T>(
+  result: AthenaResult<T>,
+  normalizedError: NormalizedAthenaError,
+): void {
+  Object.defineProperty(result, ATHENA_NORMALIZED_ERROR_KEY, {
+    value: normalizedError,
+    enumerable: false,
+    configurable: true,
+    writable: false,
+  })
+}
+
+function createResultFormatter(
+  experimental?: AthenaClientExperimentalOptions,
+): AthenaResultFormatter {
+  if (!experimental?.enableErrorNormalization) {
+    return formatResult
+  }
+
+  return <T>(response: AthenaGatewayResponse<T>, context?: AthenaOperationContext): AthenaResult<T> => {
+    const result = formatResult(response)
+    if (result.error == null) {
+      return result
+    }
+    const normalizedError = normalizeAthenaError(result, context)
+    attachNormalizedError(result, normalizedError)
+    return result
+  }
 }
 
 function toSingleResult<Result>(response: AthenaResult<Result>): AthenaResult<MutationSingleResult<Result>> {
@@ -660,6 +706,7 @@ function createRpcBuilder<Row>(
   args: AthenaJsonObject | undefined,
   baseOptions: AthenaRpcCallOptions | undefined,
   client: ReturnType<typeof createAthenaGatewayClient>,
+  formatGatewayResult: AthenaResultFormatter,
 ): RpcQueryBuilder<Row> {
   const state: {
     filters: AthenaRpcFilter[]
@@ -692,7 +739,7 @@ function createRpcBuilder<Row>(
       order: state.order,
     }
     const response = await client.rpcGateway<SelectedRow[]>(payload, mergedOptions)
-    return formatResult(response)
+    return formatGatewayResult(response, { operation: 'rpc' })
   }
 
   const run = (columns?: string | string[], options?: AthenaRpcCallOptions) => {
@@ -761,6 +808,7 @@ function createTableBuilder<
 >(
   tableName: string,
   client: ReturnType<typeof createAthenaGatewayClient>,
+  formatGatewayResult: AthenaResultFormatter,
 ): TableQueryBuilder<Row, Insert, Update> {
   const state: TableBuilderState = {
     conditions: [],
@@ -837,7 +885,7 @@ function createTableBuilder<
       })
       if (query) {
         const queryResponse = await client.queryGateway<T>({ query }, options)
-        return formatResult(queryResponse)
+        return formatGatewayResult(queryResponse, { table: resolvedTableName, operation: 'select' })
       }
     }
 
@@ -856,7 +904,7 @@ function createTableBuilder<
       head: options?.head,
     }
     const response = await client.fetchGateway<T>(payload, options)
-    return formatResult(response)
+    return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
   }
 
   const createSelectChain = <SelectedRow>(
@@ -922,7 +970,7 @@ function createTableBuilder<
             payload.default_to_null = mergedOptions.defaultToNull
           }
           const response = await client.insertGateway<Row[]>(payload, mergedOptions)
-          return formatResult(response)
+          return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
         }
         return createMutationQuery<Row[]>(executeInsertMany)
       }
@@ -943,7 +991,7 @@ function createTableBuilder<
           payload.default_to_null = mergedOptions.defaultToNull
         }
         const response = await client.insertGateway<Row>(payload, mergedOptions)
-        return formatResult(response)
+        return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
       }
       return createMutationQuery<Row>(executeInsertOne)
     },
@@ -971,7 +1019,7 @@ function createTableBuilder<
             payload.default_to_null = mergedOptions.defaultToNull
           }
           const response = await client.insertGateway<Row[]>(payload, mergedOptions)
-          return formatResult(response)
+          return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
         }
         return createMutationQuery<Row[]>(executeUpsertMany)
       }
@@ -994,7 +1042,7 @@ function createTableBuilder<
           payload.default_to_null = mergedOptions.defaultToNull
         }
         const response = await client.insertGateway<Row>(payload, mergedOptions)
-        return formatResult(response)
+        return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
       }
       return createMutationQuery<Row>(executeUpsertOne)
     },
@@ -1018,7 +1066,7 @@ function createTableBuilder<
         if (state.totalPages !== undefined) payload.total_pages = state.totalPages
         if (columns) payload.columns = columns
         const response = await client.updateGateway<Row[]>(payload, mergedOptions)
-        return formatResult(response)
+        return formatGatewayResult(response, { table: resolvedTableName, operation: 'update' })
       }
       const mutation = createMutationQuery<Row[]>(executeUpdate, null)
       const updateChain = {} as UpdateChain<Row>
@@ -1049,7 +1097,7 @@ function createTableBuilder<
         if (state.totalPages !== undefined) payload.total_pages = state.totalPages
         if (columns) payload.columns = columns
         const response = await client.deleteGateway<Row | null>(payload, mergedOptions)
-        return formatResult(response)
+        return formatGatewayResult(response, { table: resolvedTableName, operation: 'delete' })
       }
       return createMutationQuery<Row | null>(executeDelete, null)
     },
@@ -1065,7 +1113,10 @@ function createTableBuilder<
   return builder
 }
 
-function createQueryBuilder(client: ReturnType<typeof createAthenaGatewayClient>) {
+function createQueryBuilder(
+  client: ReturnType<typeof createAthenaGatewayClient>,
+  formatGatewayResult: AthenaResultFormatter,
+) {
   return async function query<Row = unknown>(
     query: string,
     options?: AthenaGatewayCallOptions,
@@ -1075,7 +1126,7 @@ function createQueryBuilder(client: ReturnType<typeof createAthenaGatewayClient>
       throw new Error('query requires a non-empty string')
     }
     const response = await client.queryGateway<Row[]>({ query: normalizedQuery }, options)
-    return formatResult(response)
+    return formatGatewayResult(response, { operation: 'query' })
   }
 }
 
@@ -1106,6 +1157,7 @@ export interface AthenaClientConfig {
   headers?: Record<string, string>
   healthTracking?: boolean
   auth?: AthenaAuthClientConfig
+  experimental?: AthenaClientExperimentalOptions
 }
 
 function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWithAuth {
@@ -1116,6 +1168,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
     backend: config.backend,
     headers: config.headers,
   })
+  const formatGatewayResult = createResultFormatter(config.experimental)
   const auth = createAuthClient(config.auth)
   return {
     from<
@@ -1123,7 +1176,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
       Insert = Partial<Row>,
       Update = Partial<Insert>,
     >(table: string) {
-      return createTableBuilder<Row, Insert, Update>(table, gateway)
+      return createTableBuilder<Row, Insert, Update>(table, gateway, formatGatewayResult)
     },
     rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
       fn: string,
@@ -1139,9 +1192,10 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
         args as AthenaJsonObject | undefined,
         options,
         gateway,
+        formatGatewayResult,
       )
     },
-    query: createQueryBuilder(gateway) as AthenaSdkClient['query'],
+    query: createQueryBuilder(gateway, formatGatewayResult) as AthenaSdkClient['query'],
     auth: auth.auth,
   }
 }
@@ -1255,6 +1309,7 @@ export class AthenaClient {
 
 export interface AthenaCreateClientOptions extends Pick<AthenaGatewayCallOptions, 'client' | 'headers' | 'backend'> {
   auth?: AthenaAuthClientConfig
+  experimental?: AthenaClientExperimentalOptions
 }
 
 /** Create client (convenience wrapper; use AthenaClient.builder() for full control) */
@@ -1263,12 +1318,13 @@ export function createClient(
   apiKey: string,
   options?: AthenaCreateClientOptions,
 ): AthenaSdkClientWithAuth {
-  const b = AthenaClient.builder().url(url).key(apiKey).backend(toBackendConfig(options?.backend))
-  if (options?.client) b.client(options.client)
-  if (options?.headers && Object.keys(options.headers).length > 0) b.headers(options.headers)
-  const client = b.build()
-  if (options?.auth) {
-    client.auth = createAuthClient(options.auth).auth
-  }
-  return client
+  return createClientFromConfig({
+    baseUrl: url,
+    apiKey,
+    client: options?.client,
+    backend: toBackendConfig(options?.backend),
+    headers: options?.headers,
+    auth: options?.auth,
+    experimental: options?.experimental,
+  })
 }

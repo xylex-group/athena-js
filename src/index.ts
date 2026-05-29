@@ -53,6 +53,7 @@ export {
 } from './generator/index.ts'
 export { createAuthClient } from './auth/index.ts'
 export type {
+  AthenaClientExperimentalOptions,
   RpcQueryBuilder,
   RpcOrderOptions,
   AthenaCreateClientOptions,

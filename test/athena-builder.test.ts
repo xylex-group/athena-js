@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
 import { createClient, AthenaClient } from '../src/client.ts'
+import { normalizeAthenaError } from '../src/auxiliaries.ts'
 
 function createMockResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
@@ -290,6 +291,33 @@ test('update chain supports filters after update (flexible ordering)', async () 
         },
       ],
     )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('experimental.enableErrorNormalization attaches context-aware metadata on failed results', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    createMockResponse(
+      { error: 'duplicate key value violates unique constraint "users_id_key"' },
+      409,
+    )
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret', {
+      experimental: { enableErrorNormalization: true },
+    })
+    const result = await athena.from('users').insert({ id: 1 }).select()
+
+    assert.equal(result.status, 409)
+    assert.equal(typeof result.error, 'string')
+    assert.equal(Object.keys(result).includes('__athenaNormalizedError'), false)
+
+    const normalized = normalizeAthenaError(result)
+    assert.equal(normalized.kind, 'unique_violation')
+    assert.equal(normalized.operation, 'insert')
+    assert.equal(normalized.table, 'users')
   } finally {
     globalThis.fetch = originalFetch
   }

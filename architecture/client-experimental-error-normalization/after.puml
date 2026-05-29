@@ -1,0 +1,29 @@
+@startuml
+title Client Error Normalization Opt-In (After)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #D6EAF8
+component "createClient(..., {\n  experimental: {\n    enableErrorNormalization: true\n  }\n})" as Client #D5F5E3
+component "Result Formatter\n(createResultFormatter)" as Formatter #F9E79F
+component "normalizeAthenaError(result, context?)" as Normalize #FDEBD0
+component "AthenaResult<T>\n{ data, error, status, ... }" as Result #E8DAEF
+component "Hidden metadata\n__athenaNormalizedError" as Metadata #F5CBA7
+
+Consumer --> Client : opt-in once
+Client --> Formatter : inject into from/rpc/query paths
+Formatter --> Result : preserve AthenaResult shape
+Formatter --> Normalize : pre-compute with table/operation
+Normalize --> Metadata : produce normalized envelope
+Metadata --> Result : attach non-enumerable metadata
+Consumer --> Normalize : normalizeAthenaError(result)
+Normalize --> Consumer : reuse attached metadata
+
+note right of Result
+No public input/output type changes.
+Existing AthenaResult contract remains intact.
+end note
+@enduml

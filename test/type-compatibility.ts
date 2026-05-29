@@ -59,6 +59,9 @@ declare function acceptsUserArrayInsertMutation(
 ): void
 
 const client = createClient("https://mirror3.athena-db.com", "api-key")
+const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
+  experimental: { enableErrorNormalization: true },
+})
 const authSessionResult = client.auth.getSession()
 authSessionResult.then(result => {
   if (result.ok) {
@@ -108,6 +111,7 @@ acceptsUserArrayWithCountPromise(client.rpc<UserRow>('list_users', {}, { head: t
 client.rpc<UserRow>('list_users').select().then(result => acceptsCountValue(result.count))
 acceptsUserArrayPromise(client.rpc<UserRow>('list_users').order('created_at').range(0, 24).select())
 acceptsMaybeUserPromise(client.rpc<UserRow>('list_users').order('created_at', { ascending: false }).single())
+acceptsUserPromise(experimentalClient.from<UserRow>('users').insert({ id: "3", name: "Ciri" }).select())
 
 const helperResult = users.select()
 helperResult.then(result => {

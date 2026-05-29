@@ -54,9 +54,14 @@ function createClient(
   apiKey: string,
   options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
     auth?: AthenaAuthClientConfig
+    experimental?: {
+      enableErrorNormalization?: boolean
+    }
   },
 ): AthenaSdkClientWithAuth
 ```
+
+`experimental.enableErrorNormalization` pre-attaches normalized error metadata to failed `AthenaResult` values while preserving the existing `AthenaResult<T>` contract.
 
 ### `AthenaClient.fromEnvironment()`
 
