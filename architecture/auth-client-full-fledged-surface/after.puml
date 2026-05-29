@@ -1,5 +1,5 @@
 @startuml
-title Athena Auth Client Surface (After Full-Fledged Expansion)
+title Athena Auth Client Surface (After Namespace Expansion)
 skinparam backgroundColor #FFFFFF
 skinparam componentStyle rectangle
 skinparam ArrowColor #000000
@@ -8,31 +8,36 @@ skinparam defaultFontColor #000000
 skinparam noteBackgroundColor #E8F5E9
 skinparam noteBorderColor #000000
 
-actor "App / SDK Consumer" as Consumer #BBDEFB
-component "athena-js createAuthClient" as AuthClient #B2DFDB
-component "SignIn Group\nemail/username/social" as SignInGroup #FFECB3
-component "Session Group\nget/list/revoke/clear" as SessionGroup #C5E1A5
-component "Account Lifecycle\nforget/reset/verify/change/update/delete" as AccountGroup #F8BBD0
-component "Provider Account Flows\nlink/list/unlink/refresh/getAccess" as ProviderGroup #D1C4E9
-component "Generic request()\nquery + method + body" as GenericRequest #B3E5FC
-component "Athena Auth Server\n/api/auth/*" as AuthServer #C8E6C9
+actor "SDK Consumer" as Consumer #BBDEFB
+component "createAuthClient()" as AuthClient #B2DFDB
+component "Flat compatibility methods\n(kept for existing callers)" as FlatCompat #FFE082
+component "auth namespace bindings" as AuthNamespace #C5E1A5
+component "auth.session.revoke\nsingle/list collapse" as SessionCollapse #FFF59D
+component "auth.admin.user.session.revoke\nsingle/list collapse" as AdminSessionCollapse #FFECB3
+component "auth.organization.*\nfull plugin coverage" as OrgBindings #FFCCBC
+component "auth.callback.provider\n/callback/{provider}" as CallbackBinding #D1C4E9
+component "auth.passkey.getRelatedOrigins\nGET /.well-known/webauthn" as PasskeyOrigins #B3E5FC
+component "React exports: useSession(authClient)" as ReactSessionHook #F8BBD0
+component "Athena Auth API\n/api/auth/*" as AuthServer #C8E6C9
 
-Consumer --> AuthClient : single SDK auth client
-AuthClient --> SignInGroup
-AuthClient --> SessionGroup
-AuthClient --> AccountGroup
-AuthClient --> ProviderGroup
-AuthClient --> GenericRequest
+Consumer --> AuthClient
+AuthClient --> FlatCompat
+AuthClient --> AuthNamespace
+AuthNamespace --> SessionCollapse
+AuthNamespace --> AdminSessionCollapse
+AuthNamespace --> OrgBindings
+AuthNamespace --> CallbackBinding
+AuthNamespace --> PasskeyOrigins
+Consumer --> ReactSessionHook
+ReactSessionHook --> AuthClient : calls getSession + refetch
 
-SignInGroup --> AuthServer
-SessionGroup --> AuthServer
-AccountGroup --> AuthServer
-ProviderGroup --> AuthServer
-GenericRequest --> AuthServer
+FlatCompat --> AuthServer
+AuthNamespace --> AuthServer
 
-note right of AuthClient
-The SDK now acts as a full auth surface,
-with typed helpers and a request fallback
-for any compatible auth endpoint.
+note right of AuthNamespace
+Grouped client parity now covers:
+session, user lifecycle, social/account,
+two-factor, passkey, admin, api-key,
+organization, and OAuth callback routes.
 end note
 @enduml

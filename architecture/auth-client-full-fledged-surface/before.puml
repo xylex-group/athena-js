@@ -1,5 +1,5 @@
 @startuml
-title Athena Auth Client Surface (Before Full-Fledged Expansion)
+title Athena Auth Client Surface (Before Namespace Expansion)
 skinparam backgroundColor #FFFFFF
 skinparam componentStyle rectangle
 skinparam ArrowColor #000000
@@ -8,18 +8,24 @@ skinparam defaultFontColor #000000
 skinparam noteBackgroundColor #FFF9C4
 skinparam noteBorderColor #000000
 
-actor "App / SDK Consumer" as Consumer #BBDEFB
-component "athena-js createAuthClient" as AuthClient #B2DFDB
-component "Core Auth Methods\nsignIn.email\nsignUp.email\nsignOut/getSession\nlist/revoke sessions" as CoreMethods #FFE082
-component "Athena Auth Server\n/api/auth/*" as AuthServer #C8E6C9
+actor "SDK Consumer" as Consumer #BBDEFB
+component "createAuthClient()" as AuthClient #B2DFDB
+component "Flat Core Methods\nsignIn/signUp/signOut/getSession\nsession revoke/list\npassword+profile core flows" as CoreMethods #FFE082
+component "Top-level organization.*\n(partial plugin mapping)" as LegacyOrg #FFCCBC
+component "Manual custom wrappers\nfor advanced routes" as ManualWrappers #E1BEE7
+component "Athena Auth API\n/api/auth/*" as AuthServer #C8E6C9
 
-Consumer --> AuthClient : use auth SDK
-AuthClient --> CoreMethods : fixed subset only
-CoreMethods --> AuthServer : direct endpoint calls
+Consumer --> AuthClient
+AuthClient --> CoreMethods
+AuthClient --> LegacyOrg
+Consumer --> ManualWrappers
+ManualWrappers --> AuthServer
+CoreMethods --> AuthServer
+LegacyOrg --> AuthServer
 
-note right of CoreMethods
-Only a narrow core subset exists.
-Advanced flows still need manual fetch
-or extra wrappers in app code.
+note right of AuthClient
+No grouped auth namespace parity for
+admin/api-key/two-factor/passkey/callback routes.
+No React useSession parity hook in SDK react exports.
 end note
 @enduml

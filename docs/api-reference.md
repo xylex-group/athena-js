@@ -4,6 +4,7 @@ This page documents the exported contract surfaces of `@xylex-group/athena` and 
 
 For workflow-first onboarding, start with [`getting-started.md`](getting-started.md).
 For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
+For Athena Auth endpoint parity, use [`auth-client-bindings.md`](auth-client-bindings.md).
 
 ## Export surfaces
 
@@ -19,6 +20,14 @@ React package exports include:
 
 - low-level gateway hook (`useAthenaGateway`)
 - query runtime (`createAthenaQueryClient`, provider, `useQuery`, `useMutation`)
+- auth session parity hook (`useSession`)
+
+Main package auth exports include:
+
+- `createAuthClient`
+- `AthenaAuthSdkClient` with both legacy flat methods and grouped `auth.*` bindings
+- organization plugin binding surface (`AthenaAuthOrganizationBindings`)
+- auth binding contract (`AthenaAuthBindings`)
 
 ## Core result contract
 

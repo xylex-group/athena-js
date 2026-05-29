@@ -6,9 +6,11 @@ import type { ReactTestRenderer } from 'react-test-renderer'
 import {
   AthenaQueryClientProvider,
   createAthenaQueryClient,
+  useSession,
   useMutation,
   useQuery,
   type UseMutationResult,
+  type UseSessionResult,
   type UseQueryResult,
 } from '../src/react/index.ts'
 
@@ -38,6 +40,14 @@ function QueryProbe<TData>(props: {
 function MutationProbe<TVariables, TData>(props: {
   onChange: (value: UseMutationResult<TVariables, TData>) => void
   hook: () => UseMutationResult<TVariables, TData>
+}) {
+  props.onChange(props.hook())
+  return null
+}
+
+function SessionProbe(props: {
+  onChange: (value: UseSessionResult) => void
+  hook: () => UseSessionResult
 }) {
   props.onChange(props.hook())
   return null
@@ -449,4 +459,89 @@ test('useQuery unmount safety: no setState warning after unmount', async () => {
   } finally {
     console.error = originalConsoleError
   }
+})
+
+test('useSession returns data and refetch parity fields', async () => {
+  const calls: string[] = []
+  const authClient = {
+    getSession: async () => {
+      calls.push('getSession')
+      return {
+        ok: true,
+        status: 200,
+        data: {
+          session: { id: 's_1' },
+          user: { id: 'u_1', email: 'u@example.com' },
+        },
+        error: null,
+        errorDetails: null,
+        raw: null,
+      }
+    },
+  }
+
+  let latest: UseSessionResult | undefined
+
+  await act(async () => {
+    create(
+      createElement(SessionProbe, {
+        onChange: value => {
+          latest = value
+        },
+        hook: () => useSession(authClient),
+      }),
+    )
+    await flush()
+  })
+
+  assert.equal(calls.length, 1)
+  assert(latest)
+  assert.equal(latest.isPending, false)
+  assert.equal(latest.isRefetching, false)
+  assert.equal(latest.data?.session.id, 's_1')
+
+  await act(async () => {
+    const refetched = await latest!.refetch()
+    assert.equal(refetched?.session.id, 's_1')
+    await flush()
+  })
+
+  assert.equal(calls.length, 2)
+})
+
+test('useSession surfaces error details on failed session request', async () => {
+  const authClient = {
+    getSession: async () => ({
+      ok: false,
+      status: 401,
+      data: null,
+      error: 'unauthorized',
+      errorDetails: {
+        code: 'HTTP_ERROR' as const,
+        message: 'unauthorized',
+        status: 401,
+        endpoint: '/get-session' as const,
+        method: 'GET' as const,
+      },
+      raw: null,
+    }),
+  }
+
+  let latest: UseSessionResult | undefined
+  await act(async () => {
+    create(
+      createElement(SessionProbe, {
+        onChange: value => {
+          latest = value
+        },
+        hook: () => useSession(authClient),
+      }),
+    )
+    await flush()
+  })
+
+  assert(latest)
+  assert.equal(latest.data, null)
+  assert.equal(latest.error?.code, 'HTTP_ERROR')
+  assert.equal(latest.isPending, false)
 })
