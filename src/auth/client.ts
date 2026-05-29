@@ -257,6 +257,7 @@ function inferDefaultMethod(endpoint: AthenaAuthEndpointPath): AthenaAuthMethod 
     case '/verify-email':
     case '/change-email/verify':
     case '/delete-user/verify':
+    case '/email-list':
     case '/email/list':
     case '/delete-user/callback':
     case '/list-accounts':
@@ -266,6 +267,9 @@ function inferDefaultMethod(endpoint: AthenaAuthEndpointPath): AthenaAuthMethod 
     case '/admin/list-users':
     case '/admin/athena-client/list':
     case '/admin/audit-log/list':
+    case '/admin/email/get':
+    case '/admin/email-failure/list':
+    case '/admin/email-failure/get':
     case '/admin/email-template/list':
     case '/admin/email/list':
     case '/api-key/get':
@@ -277,6 +281,7 @@ function inferDefaultMethod(endpoint: AthenaAuthEndpointPath): AthenaAuthMethod 
     case '/organization/list-user-invitations':
     case '/organization/list-members':
     case '/organization/get-active-member':
+    case '/health':
     case '/ok':
     case '/error':
       return 'GET'
@@ -968,7 +973,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       update: (input, options) => postGeneric('/update-user', input, options),
       delete: (input, options) => postGeneric('/delete-user', input, options),
       email: {
-        list: (input, options) => getGeneric('/email/list', input, options),
+        list: (input, options) => getGeneric('/email-list', input, options),
       },
     },
     session: {
@@ -988,6 +993,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     },
     refreshToken: (input, options) => postGeneric('/refresh-token', input, options),
     getAccessToken: (input, options) => postGeneric('/get-access-token', input, options),
+    health: (input, options) => getGeneric('/health', input, options),
     ok: (input, options) => getGeneric('/ok', input, options),
     error: (input, options) => getGeneric('/error', input, options),
     twoFactor: {
@@ -1044,14 +1050,31 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       auditLog: {
         list: (input, options) => getWithQuery('/admin/audit-log/list', input, options),
       },
+      email: {
+        list: (input, options) => getWithQuery('/admin/email/list', input, options),
+        get: (input, options) => getWithQuery('/admin/email/get', input, options),
+        create: (input, options) => postGeneric('/admin/email/create', input, options),
+        update: (input, options) => postGeneric('/admin/email/update', input, options),
+        delete: (input, options) => postGeneric('/admin/email/delete', input, options),
+        failure: {
+          list: (input, options) => getWithQuery('/admin/email-failure/list', input, options),
+          get: (input, options) => getWithQuery('/admin/email-failure/get', input, options),
+          create: (input, options) => postGeneric('/admin/email-failure/create', input, options),
+          update: (input, options) => postGeneric('/admin/email-failure/update', input, options),
+          delete: (input, options) => postGeneric('/admin/email-failure/delete', input, options),
+        },
+        template: {
+          list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
+          create: (input, options) => postGeneric('/admin/email-template/create', input, options),
+          update: (input, options) => postGeneric('/admin/email-template/update', input, options),
+          delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
+        },
+      },
       emailTemplate: {
         create: (input, options) => postGeneric('/admin/email-template/create', input, options),
         delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
         list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
         update: (input, options) => postGeneric('/admin/email-template/update', input, options),
-      },
-      email: {
-        list: (input, options) => getWithQuery('/admin/email/list', input, options),
       },
     },
     apiKey: {

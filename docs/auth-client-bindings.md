@@ -2,6 +2,8 @@
 
 This page documents the expanded `createAuthClient()` surface in `athena-js`, including Better Auth-style grouped methods under `client.auth.*` and React `useSession` parity.
 
+For per-domain deep docs (with endpoint-by-endpoint TypeScript examples), see [`docs/auth/index.mdx`](./auth/index.mdx).
+
 All calls return the auth envelope:
 
 ```ts
@@ -46,7 +48,7 @@ const client = createAuthClient({
 - `client.auth.changePassword()` -> `POST /change-password`
 - `client.auth.user.update()` -> `POST /update-user`
 - `client.auth.user.delete()` -> `POST /delete-user`
-- `client.auth.user.email.list()` -> `GET /email/list`
+- `client.auth.user.email.list()` -> `GET /email-list`
 
 ### Session bindings
 
@@ -64,6 +66,7 @@ const client = createAuthClient({
 - `client.auth.deleteUser.callback()` -> `GET /delete-user/callback`
 - `client.auth.refreshToken()` -> `POST /refresh-token`
 - `client.auth.getAccessToken()` -> `POST /get-access-token`
+- `client.auth.health()` -> `GET /health`
 - `client.auth.ok()` -> `GET /ok`
 - `client.auth.error()` -> `GET /error`
 
@@ -111,11 +114,24 @@ All admin endpoints are server-authorized; the server enforces role/permission c
 - `client.auth.admin.athenaClient.create()` -> `POST /admin/athena-client/create`
 - `client.auth.admin.athenaClient.list()` -> `GET /admin/athena-client/list`
 - `client.auth.admin.auditLog.list()` -> `GET /admin/audit-log/list`
-- `client.auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create`
-- `client.auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete`
-- `client.auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list`
-- `client.auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update`
 - `client.auth.admin.email.list()` -> `GET /admin/email/list`
+- `client.auth.admin.email.get()` -> `GET /admin/email/get`
+- `client.auth.admin.email.create()` -> `POST /admin/email/create`
+- `client.auth.admin.email.update()` -> `POST /admin/email/update`
+- `client.auth.admin.email.delete()` -> `POST /admin/email/delete`
+- `client.auth.admin.email.failure.list()` -> `GET /admin/email-failure/list`
+- `client.auth.admin.email.failure.get()` -> `GET /admin/email-failure/get`
+- `client.auth.admin.email.failure.create()` -> `POST /admin/email-failure/create`
+- `client.auth.admin.email.failure.update()` -> `POST /admin/email-failure/update`
+- `client.auth.admin.email.failure.delete()` -> `POST /admin/email-failure/delete`
+- `client.auth.admin.email.template.list()` -> `GET /admin/email-template/list`
+- `client.auth.admin.email.template.create()` -> `POST /admin/email-template/create`
+- `client.auth.admin.email.template.update()` -> `POST /admin/email-template/update`
+- `client.auth.admin.email.template.delete()` -> `POST /admin/email-template/delete`
+- `client.auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list` (legacy alias)
+- `client.auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create` (legacy alias)
+- `client.auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
+- `client.auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
 
 ### API key bindings
 

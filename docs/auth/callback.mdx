@@ -1,0 +1,15 @@
+# Auth Callback
+
+## Endpoints and methods
+
+- `auth.callback.provider()` -> `GET /callback/{provider}`
+
+## Example
+
+```ts
+import { auth } from "./auth-client"
+
+await auth.auth.callback.provider({
+  provider: "github",
+})
+```

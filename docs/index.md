@@ -26,8 +26,9 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 
 ### Track D - Athena Auth Client
 
-1. [`auth-client-bindings.md`](auth-client-bindings.md) - full `createAuthClient().auth.*` method map, organization plugin coverage, and `useSession` parity
-2. [`api-reference.md`](api-reference.md) - envelope contracts and exported auth types
+1. [`auth/index.mdx`](auth/index.mdx) - full grouped auth docs by domain (session, user, admin, api-key, organization, passkey, two-factor, callback, and `useSession`)
+2. [`auth-client-bindings.md`](auth-client-bindings.md) - compact single-page route map
+3. [`api-reference.md`](api-reference.md) - envelope contracts and exported auth types
 
 ## Concept map
 
@@ -52,5 +53,5 @@ Runtime client (createClient / AthenaClient.builder)
 - If your app is mostly string-table runtime calls: start at [`getting-started.md`](getting-started.md).
 - If your issue is type drift across domains: start at [`type-safety-playbook.md`](type-safety-playbook.md).
 - If your issue is generated artifacts or CI determinism: start at [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).
-- If your issue is auth endpoint parity and typed auth bindings: start at [`auth-client-bindings.md`](auth-client-bindings.md).
+- If your issue is auth endpoint parity and typed auth bindings: start at [`auth/index.mdx`](auth/index.mdx).
 - If your issue is exact method signatures: use [`api-reference.md`](api-reference.md).

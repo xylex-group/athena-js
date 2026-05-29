@@ -26,6 +26,7 @@ export type AthenaAuthEndpointPath =
   | '/delete-user'
   | '/delete-user/verify'
   | '/delete-user/callback'
+  | '/email-list'
   | '/email/list'
   | '/list-sessions'
   | '/revoke-session'
@@ -69,6 +70,15 @@ export type AthenaAuthEndpointPath =
   | '/admin/athena-client/create'
   | '/admin/athena-client/list'
   | '/admin/audit-log/list'
+  | '/admin/email/get'
+  | '/admin/email/create'
+  | '/admin/email/update'
+  | '/admin/email/delete'
+  | '/admin/email-failure/list'
+  | '/admin/email-failure/get'
+  | '/admin/email-failure/create'
+  | '/admin/email-failure/update'
+  | '/admin/email-failure/delete'
   | '/admin/email-template/create'
   | '/admin/email-template/delete'
   | '/admin/email-template/list'
@@ -102,6 +112,7 @@ export type AthenaAuthEndpointPath =
   | '/organization/leave'
   | '/organization/has-permission'
   | `/callback/${string}`
+  | '/health'
   | '/ok'
   | '/error'
   | `/reset-password/${string}`
@@ -589,26 +600,32 @@ export type AthenaAuthAdminUserSessionRevokeBinding = (
 ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
 
 export interface AthenaAuthOrganizationBindings {
+  /** Create an organization. Route: `POST /organization/create`. */
   create: (
     input: AthenaAuthOrganizationCreateRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthOrganization>>
+  /** Update an organization. Route: `POST /organization/update`. */
   update: (
     input: AthenaAuthOrganizationUpdateRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthOrganization>>
+  /** Delete an organization. Route: `POST /organization/delete`. */
   delete: (
     input: AthenaAuthOrganizationDeleteRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  /** Set active organization for current session. Route: `POST /organization/set-active`. */
   setActive: (
     input: AthenaAuthOrganizationSetActiveRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  /** List organizations visible to the current user. Route: `GET /organization/list`. */
   list: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthOrganization[]>>
+  /** Get organization details including related members/invitations. Route: `GET /organization/get-full-organization`. */
   getFull: (
     input?: { query?: AthenaAuthOrganizationGetFullQuery } & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
@@ -617,61 +634,75 @@ export interface AthenaAuthOrganizationBindings {
     members?: AthenaAuthOrganizationMember[]
     invitations?: AthenaAuthOrganizationInvitation[]
   }>>
+  /** Check if an organization slug is available. Route: `POST /organization/check-slug`. */
   checkSlug: (
     input: AthenaAuthOrganizationCheckSlugRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<{ available: boolean }>>
+  /** Leave an organization. Route: `POST /organization/leave`. */
   leave: (
     input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  /** List invitations for the current user. Route: `GET /organization/list-user-invitations`. */
   listUserInvitations: (
     input?: { query?: AthenaAuthOrganizationListUserInvitationsQuery } & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation[]>>
+  /** Check organization-level permissions for the current principal. Route: `POST /organization/has-permission`. */
   hasPermission: (
     input: AthenaAuthGenericInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<{ success?: boolean; error?: string }>>
   invitation: {
+    /** Cancel an organization invitation. Route: `POST /organization/cancel-invitation`. */
     cancel: (
       input: AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    /** Accept an organization invitation. Route: `POST /organization/accept-invitation`. */
     accept: (
       input: AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    /** Get an invitation by id. Route: `GET /organization/get-invitation`. */
     get: (
       input: { query: AthenaAuthOrganizationGetInvitationQuery } & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation>>
+    /** Reject an organization invitation. Route: `POST /organization/reject-invitation`. */
     reject: (
       input: AthenaAuthOrganizationInvitationActionRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    /** List invitations for an organization. Route: `GET /organization/list-invitations`. */
     list: (
       input?: { query?: AthenaAuthOrganizationListInvitationsQuery } & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation[]>>
   }
   member: {
+    /** Remove an organization member. Route: `POST /organization/remove-member`. */
     remove: (
       input: AthenaAuthOrganizationRemoveMemberRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    /** Update a member role. Route: `POST /organization/update-member-role`. */
     updateRole: (
       input: AthenaAuthOrganizationUpdateMemberRoleRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+    /** Invite a member to an organization. Route: `POST /organization/invite-member`. */
     invite: (
       input: AthenaAuthOrganizationInviteMemberRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthOrganizationInvitation>>
+    /** Get the active organization member context for the current session. Route: `GET /organization/get-active-member`. */
     getActive: (
       input?: AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAuthOrganizationMember>>
+    /** List organization members. Route: `GET /organization/list-members`. */
     list: (
       input?: { query?: AthenaAuthOrganizationListMembersQuery } & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
@@ -680,30 +711,44 @@ export interface AthenaAuthOrganizationBindings {
 }
 
 export interface AthenaAuthBindings {
+  /** Get current session. Route: `GET /get-session`. */
   getSession: AthenaAuthSdkClient['getSession']
+  /** Sign out current session. Route: `POST /sign-out`. */
   signOut: AthenaAuthSdkClient['signOut']
+  /** Trigger password reset email flow. Route: `POST /forget-password`. */
   forgetPassword: AthenaAuthSdkClient['forgetPassword']
+  /** Reset password (`POST /reset-password`) and token resolver (`GET /reset-password/{token}`). */
   resetPassword: AthenaAuthResetPasswordBinding
+  /** Set password for the current authenticated user. Route: `POST /set-password`. */
   setPassword: (
     input: AthenaAuthGenericInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  /** Verify email token. Route: `GET /verify-email`. */
   verifyEmail: AthenaAuthSdkClient['verifyEmail']
+  /** Send verification email. Route: `POST /send-verification-email`. */
   sendVerificationEmail: AthenaAuthSdkClient['sendVerificationEmail']
+  /** Start change-email flow. Route: `POST /change-email`. */
   changeEmail: AthenaAuthSdkClient['changeEmail']
+  /** Verify pending email change. Route: `GET /change-email/verify`. */
   changeEmailVerify: (
     input: AthenaAuthGenericQueryInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  /** Verify pending delete-user flow. Route: `GET /delete-user/verify`. */
   deleteUserVerify: (
     input: AthenaAuthGenericQueryInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>
+  /** Change current user password. Route: `POST /change-password`. */
   changePassword: AthenaAuthSdkClient['changePassword']
   user: {
+    /** Update current user profile fields. Route: `POST /update-user`. */
     update: AthenaAuthSdkClient['updateUser']
+    /** Delete current user. Route: `POST /delete-user`. */
     delete: AthenaAuthSdkClient['deleteUser']
     email: {
+      /** List email identities for current user. Route: `GET /email-list`. */
       list: (
         input?: AthenaAuthFetchCompatibleInput,
         options?: AthenaAuthCallOptions,
@@ -711,102 +756,204 @@ export interface AthenaAuthBindings {
     }
   }
   session: {
+    /** List user sessions. Route: `GET /list-sessions`. */
     list: AthenaAuthSdkClient['listSessions']
+    /** Revoke one or multiple sessions; collapses to `/revoke-session` or `/revoke-sessions` by payload shape. */
     revoke: AthenaAuthSessionRevokeBinding
+    /** Revoke all other sessions for current user. Route: `POST /revoke-other-sessions`. */
     revokeOther: AthenaAuthSdkClient['revokeOtherSessions']
   }
   social: {
+    /** Link a social provider to current user. Route: `POST /link-social`. */
     link: AthenaAuthSdkClient['linkSocial']
   }
   account: {
+    /** List linked provider accounts. Route: `GET /list-accounts`. */
     list: AthenaAuthSdkClient['listAccounts']
+    /** Unlink a provider account. Route: `POST /unlink-account`. */
     unlink: AthenaAuthSdkClient['unlinkAccount']
   }
   deleteUser: {
+    /** Callback endpoint for delete-user verification flows. Route: `GET /delete-user/callback`. */
     callback: AthenaAuthSdkClient['deleteUserCallback']
   }
+  /** Refresh provider token. Route: `POST /refresh-token`. */
   refreshToken: AthenaAuthSdkClient['refreshToken']
+  /** Get provider access token. Route: `POST /get-access-token`. */
   getAccessToken: AthenaAuthSdkClient['getAccessToken']
+  /** Auth health route passthrough. Route: `GET /health`. */
+  health: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<unknown>>
+  /** Health route passthrough. Route: `GET /ok`. */
   ok: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<unknown>>
+  /** Error route passthrough. Route: `GET /error`. */
   error: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<unknown>>
   twoFactor: {
+    /** Get TOTP URI for setup. Route: `POST /two-factor/get-totp-uri`. */
     getTotpUri: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Verify TOTP code. Route: `POST /two-factor/verify-totp`. */
     verifyTotp: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Send one-time passcode (OTP). Route: `POST /two-factor/send-otp`. */
     sendOtp: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Verify OTP code. Route: `POST /two-factor/verify-otp`. */
     verifyOtp: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Verify backup code. Route: `POST /two-factor/verify-backup-code`. */
     verifyBackupCode: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Generate backup codes. Route: `POST /two-factor/generate-backup-codes`. */
     generateBackupCodes: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Enable two-factor auth. Route: `POST /two-factor/enable`. */
     enable: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Disable two-factor auth. Route: `POST /two-factor/disable`. */
     disable: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
   }
   passkey: {
+    /** Generate WebAuthn registration options. Route: `GET /passkey/generate-register-options`. */
     generateRegisterOptions: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Generate WebAuthn authentication options. Route: `POST /passkey/generate-authenticate-options`. */
     generateAuthenticateOptions: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Verify passkey registration response. Route: `POST /passkey/verify-registration`. */
     verifyRegistration: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Verify passkey authentication response. Route: `POST /passkey/verify-authentication`. */
     verifyAuthentication: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** List current user's passkeys. Route: `GET /passkey/list-user-passkeys`. */
     listUserPasskeys: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+    /** Delete a passkey. Route: `POST /passkey/delete-passkey`. */
     deletePasskey: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Update a passkey metadata record. Route: `POST /passkey/update-passkey`. */
     updatePasskey: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Return related origins for WebAuthn. Route: `GET /.well-known/webauthn`. */
     getRelatedOrigins: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<{ origins?: string[] }>>
   }
   admin: {
     role: {
+      /** Set a user role. Route: `POST /admin/set-role`. */
       set: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
     }
     user: {
+      /** List users. Route: `GET /admin/list-users`. */
       list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      /** Create user. Route: `POST /admin/create-user`. */
       create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Unban user. Route: `POST /admin/unban-user`. */
       unban: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Ban user. Route: `POST /admin/ban-user`. */
       ban: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Start impersonation. Route: `POST /admin/impersonate-user`. */
       impersonate: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Stop impersonation. Route: `POST /admin/stop-impersonating`. */
       stopImpersonating: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Remove user. Route: `POST /admin/remove-user`. */
       remove: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Set user password. Route: `POST /admin/set-user-password`. */
       setPassword: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
       session: {
+        /** List sessions for a target user. Route: `POST /admin/list-user-sessions`. */
         list: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+        /** Revoke one or multiple sessions; collapses to `/admin/revoke-user-session` or `/admin/revoke-user-sessions`. */
         revoke: AthenaAuthAdminUserSessionRevokeBinding
       }
     }
+    /** Check permission under admin policy. Route: `POST /admin/has-permission`. */
     hasPermission: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<{ success?: boolean; error?: string }>>
     apiKey: {
+      /** Create admin-scoped API key. Route: `POST /admin/api-key/create`. */
       create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
     }
     athenaClient: {
+      /** Create Athena client credentials. Route: `POST /admin/athena-client/create`. */
       create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** List Athena client credentials. Route: `GET /admin/athena-client/list`. */
       list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
     }
     auditLog: {
+      /** List auth audit events. Route: `GET /admin/audit-log/list`. */
       list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
-    }
-    emailTemplate: {
-      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
-      delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
-      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
-      update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
     }
     email: {
+      /** List emails. Route: `GET /admin/email/list`. */
       list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      /** Get a specific email record. Route: `GET /admin/email/get`. */
+      get: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Create an email record. Route: `POST /admin/email/create`. */
+      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Update an email record. Route: `POST /admin/email/update`. */
+      update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Delete an email record. Route: `POST /admin/email/delete`. */
+      delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      failure: {
+        /** List email failure records. Route: `GET /admin/email-failure/list`. */
+        list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+        /** Get an email failure record. Route: `GET /admin/email-failure/get`. */
+        get: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        /** Create an email failure record. Route: `POST /admin/email-failure/create`. */
+        create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        /** Update an email failure record. Route: `POST /admin/email-failure/update`. */
+        update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        /** Delete an email failure record. Route: `POST /admin/email-failure/delete`. */
+        delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      }
+      template: {
+        /** List email templates. Route: `GET /admin/email-template/list`. */
+        list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+        /** Create email template. Route: `POST /admin/email-template/create`. */
+        create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        /** Update email template. Route: `POST /admin/email-template/update`. */
+        update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+        /** Delete email template. Route: `POST /admin/email-template/delete`. */
+        delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      }
+    }
+    emailTemplate: {
+      /** Create email template. Route: `POST /admin/email-template/create`. */
+      create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** Delete email template. Route: `POST /admin/email-template/delete`. */
+      delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+      /** List email templates. Route: `GET /admin/email-template/list`. */
+      list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+      /** Update email template. Route: `POST /admin/email-template/update`. */
+      update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
     }
   }
   apiKey: {
+    /** Create API key. Route: `POST /api-key/create`. */
     create: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Get API key metadata. Route: `GET /api-key/get`. */
     get: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Update API key metadata. Route: `POST /api-key/update`. */
     update: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Delete API key. Route: `POST /api-key/delete`. */
     delete: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** List API keys. Route: `GET /api-key/list`. */
     list: (input?: AthenaAuthGenericQueryInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown[]>>
+    /** Verify an API key. Route: `POST /api-key/verify`. */
     verify: (input: AthenaAuthGenericInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
+    /** Delete all expired API keys. Route: `POST /api-key/delete-all-expired-api-keys`. */
     deleteAllExpired: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
   }
-  signIn: AthenaAuthSdkClient['signIn']
-  signUp: AthenaAuthSdkClient['signUp']
+  signIn: {
+    /** Sign in with email and password. Route: `POST /sign-in/email`. */
+    email: AthenaAuthSdkClient['signIn']['email']
+    /** Sign in with username and password. Route: `POST /sign-in/username`. */
+    username: AthenaAuthSdkClient['signIn']['username']
+    /** Sign in with social provider. Route: `POST /sign-in/social`. */
+    social: AthenaAuthSdkClient['signIn']['social']
+  }
+  signUp: {
+    /** Sign up with email/password identity. Route: `POST /sign-up/email`. */
+    email: AthenaAuthSdkClient['signUp']['email']
+  }
+  /** Organization plugin helper surface. Routes: `/organization/*`. */
   organization: AthenaAuthOrganizationBindings
   callback: {
+    /** OAuth provider callback passthrough. Route: `GET /callback/{provider}`. */
     provider: (input: { provider: string } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>
   }
 }

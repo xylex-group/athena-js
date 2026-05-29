@@ -1,0 +1,41 @@
+# Auth Passkey
+
+## Endpoints and methods
+
+- `auth.passkey.generateRegisterOptions()` -> `GET /passkey/generate-register-options`
+- `auth.passkey.generateAuthenticateOptions()` -> `POST /passkey/generate-authenticate-options`
+- `auth.passkey.verifyRegistration()` -> `POST /passkey/verify-registration`
+- `auth.passkey.verifyAuthentication()` -> `POST /passkey/verify-authentication`
+- `auth.passkey.listUserPasskeys()` -> `GET /passkey/list-user-passkeys`
+- `auth.passkey.deletePasskey()` -> `POST /passkey/delete-passkey`
+- `auth.passkey.updatePasskey()` -> `POST /passkey/update-passkey`
+- `auth.passkey.getRelatedOrigins()` -> `GET /.well-known/webauthn`
+
+## Examples
+
+```ts
+import { auth } from "./auth-client"
+
+await auth.auth.passkey.generateRegisterOptions()
+await auth.auth.passkey.generateAuthenticateOptions({
+  email: "user@example.com",
+})
+
+await auth.auth.passkey.verifyRegistration({
+  response: { id: "credential_id", type: "public-key" },
+})
+
+await auth.auth.passkey.verifyAuthentication({
+  response: { id: "credential_id", type: "public-key" },
+})
+
+await auth.auth.passkey.listUserPasskeys()
+
+await auth.auth.passkey.deletePasskey({ id: "passkey_id" })
+await auth.auth.passkey.updatePasskey({
+  id: "passkey_id",
+  name: "My Laptop Passkey",
+})
+
+await auth.auth.passkey.getRelatedOrigins()
+```

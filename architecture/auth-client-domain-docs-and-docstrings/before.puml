@@ -1,0 +1,25 @@
+@startuml
+title Auth Client Docs and Method Docstrings (Before)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #000000
+skinparam defaultFontName Consolas
+skinparam defaultFontColor #000000
+skinparam noteBackgroundColor #FFF9C4
+skinparam noteBorderColor #000000
+
+actor "SDK Consumer" as Consumer #BBDEFB
+component "createAuthClient().auth.* bindings" as Bindings #B2DFDB
+component "Single summary doc\n`docs/auth-client-bindings.md`" as SingleDoc #FFE082
+component "Type declarations\n(no per-method docstrings)" as Types #FFCDD2
+
+Consumer --> Bindings
+Consumer --> SingleDoc
+Bindings --> Types
+
+note right of SingleDoc
+Route map exists, but no split docs by
+domain and no per-method examples in
+dedicated MDX pages.
+end note
+@enduml

@@ -1,0 +1,35 @@
+# Auth Organization Invitations
+
+## Endpoints and methods
+
+- `auth.organization.invitation.cancel()` -> `POST /organization/cancel-invitation`
+- `auth.organization.invitation.accept()` -> `POST /organization/accept-invitation`
+- `auth.organization.invitation.get()` -> `GET /organization/get-invitation`
+- `auth.organization.invitation.reject()` -> `POST /organization/reject-invitation`
+- `auth.organization.invitation.list()` -> `GET /organization/list-invitations`
+
+## Examples
+
+```ts
+import { auth } from "./auth-client"
+
+await auth.auth.organization.invitation.cancel({
+  invitationId: "inv_1",
+})
+
+await auth.auth.organization.invitation.accept({
+  invitationId: "inv_1",
+})
+
+await auth.auth.organization.invitation.get({
+  query: { id: "inv_1" },
+})
+
+await auth.auth.organization.invitation.reject({
+  invitationId: "inv_1",
+})
+
+await auth.auth.organization.invitation.list({
+  query: { organizationId: "org_1" },
+})
+```
