@@ -1,0 +1,26 @@
+@startuml
+title Client DB Surface (Before)
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam ArrowColor #111111
+skinparam defaultFontColor #111111
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #D6EAF8
+component "createClient(...)" as Client #D5F5E3
+component "Root methods\nfrom / rpc / query" as RootApi #FCF3CF
+component "TableQueryBuilder" as TableBuilder #FADBD8
+component "Gateway HTTP Client" as Gateway #E8DAEF
+
+Consumer --> Client : build client
+Client --> RootApi : expose db operations at root
+Consumer --> RootApi : call from(...)/rpc(...)/query(...)
+RootApi --> TableBuilder : from(table)
+TableBuilder --> Gateway : execute fetch/insert/update/delete/query/rpc
+RootApi --> Gateway : query/rpc direct
+
+note right of RootApi
+No dedicated db namespace.
+Module expansion point is limited.
+end note
+@enduml

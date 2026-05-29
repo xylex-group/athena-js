@@ -134,6 +134,7 @@ class TypedAthenaClientImpl<
   readonly registry: TRegistry
   readonly tenantKeyMap: Readonly<TTenantMap>
   readonly tenantContext: TenantContext<TTenantMap>
+  readonly db: AthenaSdkClient['db']
 
   private readonly baseClient: AthenaSdkClient
   private readonly registryNavigator: RegistryNavigator<TRegistry>
@@ -171,6 +172,7 @@ class TypedAthenaClientImpl<
       client: this.clientOptions.client,
       headers: this.tenantHeaderMapper.apply(this.clientOptions.headers, tenantContext),
     })
+    this.db = this.baseClient.db
   }
 
   from<

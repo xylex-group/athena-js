@@ -25,6 +25,8 @@ import { createAuthClient } from './auth/client.ts'
 import type { AthenaAuthBindings, AthenaAuthClientConfig } from './auth/types.ts'
 import { normalizeAthenaError } from './auxiliaries.ts'
 import type { AthenaOperationContext, NormalizedAthenaError } from './auxiliaries.ts'
+import { createDbModule } from './db/module.ts'
+import type { AthenaDbModule } from './db/module.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -1136,6 +1138,7 @@ export interface AthenaSdkClient {
     Insert = Partial<Row>,
     Update = Partial<Insert>,
   >(table: string): TableQueryBuilder<Row, Insert, Update>
+  db: AthenaDbModule
   rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
     args?: Args,
@@ -1170,32 +1173,36 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
   })
   const formatGatewayResult = createResultFormatter(config.experimental)
   const auth = createAuthClient(config.auth)
+  const from: AthenaSdkClient['from'] = <
+    Row = AthenaRowShape,
+    Insert = Partial<Row>,
+    Update = Partial<Insert>,
+  >(table: string) => createTableBuilder<Row, Insert, Update>(table, gateway, formatGatewayResult)
+  const rpc: AthenaSdkClient['rpc'] = <Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
+    fn: string,
+    args?: Args,
+    options?: AthenaRpcCallOptions,
+  ) => {
+    const normalizedFn = fn.trim()
+    if (!normalizedFn) {
+      throw new Error('rpc requires a function name')
+    }
+    return createRpcBuilder<Row>(
+      normalizedFn,
+      args as AthenaJsonObject | undefined,
+      options,
+      gateway,
+      formatGatewayResult,
+    )
+  }
+  const query = createQueryBuilder(gateway, formatGatewayResult) as AthenaSdkClient['query']
+  const db = createDbModule({ from, rpc, query })
+
   return {
-    from<
-      Row = AthenaRowShape,
-      Insert = Partial<Row>,
-      Update = Partial<Insert>,
-    >(table: string) {
-      return createTableBuilder<Row, Insert, Update>(table, gateway, formatGatewayResult)
-    },
-    rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
-      fn: string,
-      args?: Args,
-      options?: AthenaRpcCallOptions,
-    ) {
-      const normalizedFn = fn.trim()
-      if (!normalizedFn) {
-        throw new Error('rpc requires a function name')
-      }
-      return createRpcBuilder<Row>(
-        normalizedFn,
-        args as AthenaJsonObject | undefined,
-        options,
-        gateway,
-        formatGatewayResult,
-      )
-    },
-    query: createQueryBuilder(gateway, formatGatewayResult) as AthenaSdkClient['query'],
+    from,
+    db,
+    rpc,
+    query,
     auth: auth.auth,
   }
 }

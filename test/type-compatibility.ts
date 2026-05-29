@@ -36,6 +36,7 @@ interface UserRow {
 
 declare function acceptsUserPromise(value: Promise<AthenaResult<UserRow>>): void
 declare function acceptsUserArrayPromise(value: Promise<AthenaResult<UserRow[]>>): void
+declare function acceptsUserArrayPromiseLike(value: PromiseLike<AthenaResult<UserRow[]>>): void
 declare function acceptsUserArrayWithCountPromise(
   value: Promise<AthenaResult<UserRow[]>>,
 ): void
@@ -70,10 +71,13 @@ authSessionResult.then(result => {
   }
 })
 const users = client.from<UserRow>("users")
+const dbUsers = client.db.from<UserRow>('users')
 
 users.eq('id', '1')
 users.order('name')
 users.select('id').eq('name', 'Alice')
+dbUsers.eq('id', '1')
+dbUsers.select('id').eq('name', 'Alice')
 
 // @ts-expect-error unknown filter column should be rejected
 users.eq('missing_column', 'x')
@@ -112,6 +116,12 @@ client.rpc<UserRow>('list_users').select().then(result => acceptsCountValue(resu
 acceptsUserArrayPromise(client.rpc<UserRow>('list_users').order('created_at').range(0, 24).select())
 acceptsMaybeUserPromise(client.rpc<UserRow>('list_users').order('created_at', { ascending: false }).single())
 acceptsUserPromise(experimentalClient.from<UserRow>('users').insert({ id: "3", name: "Ciri" }).select())
+acceptsUserArrayPromiseLike(client.db.select<UserRow>('users'))
+acceptsMaybeUserPromise(client.db.select<UserRow>('users').single())
+acceptsUserPromise(client.db.insert<UserRow>('users', { id: "4", name: "Geralt" }).select())
+acceptsUserArrayPromise(client.db.insert<UserRow>('users', [{ id: "5", name: "Yennefer" }]).select())
+acceptsUserArrayPromise(client.db.rpc<UserRow>('list_users').select())
+acceptsUserArrayPromise(client.db.query<UserRow>('select id, name from users'))
 
 const helperResult = users.select()
 helperResult.then(result => {

@@ -114,6 +114,7 @@ interface AthenaSdkClient {
   from<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
     table: string,
   ): TableQueryBuilder<Row, Insert, Update>
+  db: AthenaDbModule
 
   rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
@@ -129,6 +130,49 @@ interface AthenaSdkClient {
 
 interface AthenaSdkClientWithAuth extends AthenaSdkClient {
   auth: AthenaAuthBindings
+}
+
+interface AthenaDbModule {
+  from<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
+    table: string,
+  ): TableQueryBuilder<Row, Insert, Update>
+
+  select<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>, SelectedRow = Row>(
+    table: string,
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): SelectChain<Row, SelectedRow>
+
+  insert<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
+    table: string,
+    values: Insert | Insert[],
+    options?: AthenaGatewayCallOptions,
+  ): MutationQuery<Row> | MutationQuery<Row[]>
+
+  upsert<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
+    table: string,
+    values: Insert | Insert[],
+    options?: AthenaGatewayCallOptions & { updateBody?: Update; onConflict?: string | string[] },
+  ): MutationQuery<Row> | MutationQuery<Row[]>
+
+  update<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
+    table: string,
+    values: Update,
+    options?: AthenaGatewayCallOptions,
+  ): UpdateChain<Row>
+
+  delete<Row = Record<string, AthenaJsonValue | undefined>>(
+    table: string,
+    options?: AthenaGatewayCallOptions & { resourceId?: string },
+  ): MutationQuery<Row | null>
+
+  rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
+    fn: string,
+    args?: Args,
+    options?: AthenaRpcCallOptions,
+  ): RpcQueryBuilder<Row>
+
+  query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
 }
 ```
 

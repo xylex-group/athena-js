@@ -322,3 +322,50 @@ test('experimental.enableErrorNormalization attaches context-aware metadata on f
     globalThis.fetch = originalFetch
   }
 })
+
+test('db module exposes from/select/insert/query without changing root behavior', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (String(url).endsWith('/gateway/query')) {
+      return createMockResponse([{ id: 42 }], 200)
+    }
+    return createMockResponse([{ id: 1, name: 'Alice' }], 200)
+  }
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret')
+
+    const dbSelect = await athena.db.select('users', 'id, name').eq('id', 1).limit(1)
+    assert.equal(dbSelect.status, 200)
+
+    const dbInsert = await athena.db.insert('users', { id: 2, name: 'Bob' }).select('id')
+    assert.equal(dbInsert.status, 200)
+
+    const dbFrom = await athena.db.from('users').select('id').limit(2)
+    assert.equal(dbFrom.status, 200)
+
+    const dbQuery = await athena.db.query('select id from users')
+    assert.equal(dbQuery.status, 200)
+
+    assert.equal(calls.length, 4)
+
+    const selectPayload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(selectPayload.table_name, 'users')
+    assert.equal(selectPayload.columns, 'id, name')
+
+    const insertPayload = JSON.parse(calls[1].init?.body as string)
+    assert.equal(insertPayload.table_name, 'users')
+    assert.deepEqual(insertPayload.insert_body, { id: 2, name: 'Bob' })
+
+    const fromPayload = JSON.parse(calls[2].init?.body as string)
+    assert.equal(fromPayload.table_name, 'users')
+    assert.equal(fromPayload.columns, 'id')
+
+    const queryPayload = JSON.parse(calls[3].init?.body as string)
+    assert.equal(queryPayload.query, 'select id from users')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

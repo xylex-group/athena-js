@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `2.0.0`
+current version: `2.1.0`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments plus Athena-native React hooks for client-side use.
 
 ## Install
@@ -258,6 +258,24 @@ const result = await withRetry(
 By default, retries target transient/rate-limit failures; use `shouldRetry` for custom policies.
 
 ## Query builder
+
+### DB module namespace
+
+`createClient()` keeps root methods (`from`, `rpc`, `query`) and now also exposes `db` as an additive namespace.
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY);
+
+await athena.db.from("users").select("id,name").eq("active", true).limit(20);
+
+await athena.db.select("users", "id,name").eq("id", 1).single();
+
+await athena.db.insert("users", { id: 1, name: "Alice" }).select("id");
+await athena.db.update("users", { name: "Updated" }).eq("id", 1).select("id,name");
+await athena.db.delete("users", { resourceId: "r-1" }).select("id");
+```
+
+`db` mirrors the existing query builder semantics while providing a module seam for future database-surface expansion.
 
 ### Reading rows
 

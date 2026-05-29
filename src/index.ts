@@ -62,6 +62,7 @@ export type {
   TableQueryBuilder,
   AthenaResult,
 } from "./client.js";
+export type { AthenaDbModule } from './db/module.js'
 export type {
   AthenaErrorInput,
   AthenaOperationContext,
