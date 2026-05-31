@@ -1,4 +1,4 @@
-import { Pool } from 'pg'
+import type { Pool } from 'pg'
 import type {
   IntrospectionInspectOptions,
   IntrospectionSnapshot,
@@ -21,6 +21,30 @@ export interface PostgresIntrospectionProviderOptions {
   connectionString: string
   database?: string
   schemas?: readonly string[]
+}
+
+type PgPoolConstructor = new (config: { connectionString: string }) => Pool
+
+let pgPoolConstructorPromise: Promise<PgPoolConstructor> | undefined
+
+async function loadPgPoolConstructor(): Promise<PgPoolConstructor> {
+  if (!pgPoolConstructorPromise) {
+    pgPoolConstructorPromise = import('pg').then(module => {
+      const poolConstructor =
+        (module as { Pool?: PgPoolConstructor }).Pool ??
+        (module as { default?: { Pool?: PgPoolConstructor } }).default?.Pool
+
+      if (!poolConstructor) {
+        throw new Error(
+          '@xylex-group/athena: Unable to load the PostgreSQL driver. Ensure "pg" is installed and this API runs in a Node.js server runtime.',
+        )
+      }
+
+      return poolConstructor
+    })
+  }
+
+  return pgPoolConstructorPromise
 }
 
 class PgCatalogClient {
@@ -70,7 +94,8 @@ class PostgresIntrospectionProvider implements SchemaIntrospectionProvider {
     const schemas = options?.schemas && options.schemas.length > 0
       ? normalizePostgresCatalogSchemas(options.schemas)
       : this.schemas
-    const pool = new Pool({
+    const PoolConstructor = await loadPgPoolConstructor()
+    const pool = new PoolConstructor({
       connectionString: this.connectionString,
     })
     const catalogClient = new PgCatalogClient(pool)

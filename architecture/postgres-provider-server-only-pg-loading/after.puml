@@ -1,0 +1,34 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #000000
+skinparam TitleFontColor #000000
+
+title Postgres Provider Driver Loading (After)
+
+actor "Client/Edge Bundler" as Bundler
+actor "Node.js Server Runtime" as Server
+component "@xylex-group/athena\n(root entry)" as Root #E3F2FD
+component "schema/postgres-provider.ts" as Provider #E8F5E9
+component "loadPgPoolConstructor()\nasync lazy loader" as LazyLoader #FFFDE7
+component "pg driver\n(node-postgres)" as PgDriver #FFCDD2
+
+Bundler --> Root : import { createClient }
+Root --> Provider : module can be linked safely
+Provider --> LazyLoader : defines loader only
+note right of Provider
+No top-level runtime import from 'pg'
+at module evaluation time.
+end note
+
+Server --> Provider : inspect()
+Provider --> LazyLoader : await import('pg') on demand
+LazyLoader --> PgDriver : load in server runtime only
+
+note bottom of LazyLoader
+pg is loaded only when introspection executes,
+keeping default package imports client-safe.
+end note
+@enduml

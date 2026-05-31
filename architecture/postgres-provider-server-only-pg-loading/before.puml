@@ -1,0 +1,27 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #000000
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #000000
+skinparam TitleFontColor #000000
+
+title Postgres Provider Driver Loading (Before)
+
+actor "Client/Edge Bundler" as Bundler
+component "@xylex-group/athena\n(root entry)" as Root #E3F2FD
+component "schema/index.ts\nbarrel export" as SchemaIndex #FFF3E0
+component "schema/postgres-provider.ts" as Provider #FFEBEE
+component "pg driver\n(node-postgres)" as PgDriver #FFCDD2
+
+Bundler --> Root : import { createClient }
+Root --> SchemaIndex : re-export chain
+SchemaIndex --> Provider : static module link
+Provider --> PgDriver : top-level import { Pool } from 'pg'
+Bundler --> PgDriver : resolver touches Node-only dependency
+
+note bottom of Provider
+Even without calling introspection, loading the provider module
+links pg immediately in the root bundle path.
+end note
+@enduml

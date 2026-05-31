@@ -48,15 +48,15 @@
       "require": "./dist/browser.cjs",
       "types": "./dist/browser.d.ts"
     },
-    "./react": {
-      "import": "./dist/react.js",
-      "require": "./dist/react.cjs",
-      "types": "./dist/react.d.ts"
-    },
     "./cookies": {
       "import": "./dist/cookies.js",
       "require": "./dist/cookies.cjs",
       "types": "./dist/cookies.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs",
+      "types": "./dist/react.d.ts"
     }
   },
   "files": [
@@ -131,5 +131,5 @@
       ]
     }
   },
-  "version": "2.1.1"
+  "version": "2.1.2"
 }
