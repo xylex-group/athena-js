@@ -101,6 +101,7 @@
   "scripts": {
     "build": "tsup",
     "check:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "docs:methods": "node scripts/generate-sdk-method-reference.mjs",
     "dev": "tsup --watch",
     "example:api-call": "cd examples/api-call && bun run start",
     "example:email-resend": "cd examples/email-resend && bun run start",

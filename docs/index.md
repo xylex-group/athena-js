@@ -11,6 +11,7 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 1. [`getting-started.md`](getting-started.md) - install, runtime client setup, query/writes/RPC, and practical guardrails
 2. [`api-reference.md`](api-reference.md) - exact signatures for the runtime client, builders, helpers, `@xylex-group/athena/utils`, and experimental query tracing
 3. [`cli-command-reference.md`](cli-command-reference.md) - CLI commands and troubleshooting
+4. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive, generated method-by-method reference with examples
 
 ### Track B - Typed model architecture
 
@@ -29,6 +30,7 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 1. [`auth/index.mdx`](auth/index.mdx) - full grouped auth docs by domain (session, user, admin, api-key, organization, passkey, two-factor, callback, and `useSession`)
 2. [`auth-client-bindings.md`](auth-client-bindings.md) - compact single-page route map
 3. [`api-reference.md`](api-reference.md) - envelope contracts and exported auth types
+4. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive auth method table with per-method usage snippets
 
 ## Concept map
 
@@ -55,3 +57,4 @@ Runtime client (createClient / AthenaClient.builder)
 - If your issue is generated artifacts or CI determinism: start at [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).
 - If your issue is auth endpoint parity and typed auth bindings: start at [`auth/index.mdx`](auth/index.mdx).
 - If your issue is exact method signatures: use [`api-reference.md`](api-reference.md).
+- If you need a one-stop “every method + example” index: use [`complete-method-reference.md`](complete-method-reference.md).

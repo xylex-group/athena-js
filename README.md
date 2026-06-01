@@ -125,6 +125,8 @@ await typed
 
 For full details, see [`docs/typed-schema-registry.md`](./docs/typed-schema-registry.md).
 
+For exhaustive method-by-method documentation with usage snippets (root client, runtime builders, auth bindings, react runtime, cookies, and utils), see [`docs/complete-method-reference.md`](./docs/complete-method-reference.md).
+
 ### Typed schema generator
 
 Schema generation is additive. Existing `createClient(...).from<T>(...)` usage remains valid while teams migrate to generated registry files.

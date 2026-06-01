@@ -5,6 +5,7 @@ This page documents the exported contract surfaces of `@xylex-group/athena` and 
 For workflow-first onboarding, start with [`getting-started.md`](getting-started.md).
 For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
 For Athena Auth endpoint parity and per-endpoint examples, use [`auth/index.mdx`](auth/index.mdx) and [`auth-client-bindings.md`](auth-client-bindings.md).
+For exhaustive method-by-method coverage (including auth, runtime chains, react, cookies, and utils), use [`complete-method-reference.md`](complete-method-reference.md).
 
 ## Export surfaces
 
