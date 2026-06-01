@@ -10,12 +10,13 @@ skinparam RectangleBackgroundColor #E8F5E9
 skinparam NoteBackgroundColor #FFFFFF
 skinparam NoteBorderColor #000000
 
-title Table Builder Schema Handling (After)
+title Table Builder Schema Dedup (After This Change)
 
 package "Athena JS SDK" {
-  rectangle "TableQueryBuilder\nfrom(table)" as Builder #D9F2DC
-  rectangle "AthenaGatewayCallOptions\n(schema optional)" as Options #D9F2DC
-  rectangle "resolveTableNameForCall\n- qualifies unqualified names\n- guards schema conflicts" as Resolver #E8F7EA
+  rectangle "TableQueryBuilder\nselect/insert/upsert/update/delete" as Builder #D9F2DC
+  rectangle "splitQualifiedTableName\nhandles quoted identifiers" as Splitter #E8F7EA
+  rectangle "parseIdentifierSegment\nnormalizes quoted/unquoted schema names" as Parser #E8F7EA
+  rectangle "resolveTableNameForCall\n- deduplicate matching schema\n- prepend only when unqualified\n- fail on true conflicts" as Resolver #E8F7EA
   rectangle "Payload Builder\ntable_name = resolved" as Payload #E8F7EA
   rectangle "Gateway Client" as Gateway #E8F7EA
 }
@@ -23,18 +24,22 @@ package "Athena JS SDK" {
 rectangle "Caller" as Caller #EAF3FF
 rectangle "Athena Gateway" as Api #EAF3FF
 
-Caller --> Builder : from("users")
+Caller --> Builder : from("\"public\".\"users\"")
 Caller --> Builder : select("id", { schema: "public" })
-Builder --> Options : merge select/mutation options
-Options --> Resolver : schema + table
-Resolver --> Payload : "public.users"
-Payload --> Gateway : POST /gateway/fetch\n{ table_name: "public.users" }
+Builder --> Splitter : split table path
+Splitter --> Parser : parse table schema segment
+Builder --> Parser : parse schema option
+Parser --> Resolver : normalized schema identities
+Resolver --> Payload : "\"public\".\"users\"" (single qualification)
+Payload --> Gateway : POST /gateway/fetch\n{ table_name: "\"public\".\"users\"" }
 Gateway --> Api : send request
 
 note right of Resolver
-If caller passes from("public.users")
-and schema: "athena", SDK throws a
-clear conflict error before request.
+Same logic now applies for all table
+operations (select/insert/upsert/
+update/delete) through one resolver.
+No duplicated schema qualification
+when both inputs reference same schema.
 end note
 
 @enduml

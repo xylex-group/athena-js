@@ -388,21 +388,100 @@ function buildSelectColumnsClause(columns: string | string[]): string {
   return quoteSelectColumnsExpression(columns)
 }
 
+interface ParsedIdentifierSegment {
+  normalizedValue: string
+}
+
+function parseIdentifierSegment(input: string): ParsedIdentifierSegment | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  if (!trimmed.startsWith('"')) {
+    return {
+      normalizedValue: trimmed.toLowerCase(),
+    }
+  }
+
+  let value = ''
+  let index = 1
+  let closed = false
+  while (index < trimmed.length) {
+    const char = trimmed[index]
+    const next = index + 1 < trimmed.length ? trimmed[index + 1] : ''
+    if (char === '"' && next === '"') {
+      value += '"'
+      index += 2
+      continue
+    }
+    if (char === '"') {
+      closed = true
+      index += 1
+      break
+    }
+    value += char
+    index += 1
+  }
+
+  if (!closed || trimmed.slice(index).trim().length > 0 || !value.trim()) {
+    return null
+  }
+
+  return {
+    normalizedValue: value,
+  }
+}
+
+function splitQualifiedTableName(tableName: string): { schemaSegment: string } | null {
+  const trimmed = tableName.trim()
+  let inQuotes = false
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed[index]
+    const next = index + 1 < trimmed.length ? trimmed[index + 1] : ''
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        index += 1
+        continue
+      }
+      inQuotes = !inQuotes
+      continue
+    }
+    if (char === '.' && !inQuotes) {
+      const schemaSegment = trimmed.slice(0, index).trim()
+      const tableSegment = trimmed.slice(index + 1).trim()
+      if (!schemaSegment || !tableSegment) {
+        return null
+      }
+      return { schemaSegment }
+    }
+  }
+  return null
+}
+
 function resolveTableNameForCall(tableName: string, schema: string | undefined): string {
   if (!schema) return tableName
   const normalizedSchema = schema.trim()
   if (!normalizedSchema) {
     throw new Error('schema option must be a non-empty string')
   }
-  if (tableName.includes('.')) {
-    if (tableName.startsWith(`${normalizedSchema}.`)) {
-      return tableName
+  const normalizedTableName = tableName.trim()
+  const parsedSchema = parseIdentifierSegment(normalizedSchema)
+  if (!parsedSchema) {
+    throw new Error('schema option must be a non-empty string')
+  }
+  const qualified = splitQualifiedTableName(normalizedTableName)
+  if (qualified) {
+    const parsedTableSchema = parseIdentifierSegment(qualified.schemaSegment)
+    const sameSchema = parsedTableSchema
+      ? parsedTableSchema.normalizedValue === parsedSchema.normalizedValue
+      : normalizedTableName.startsWith(`${normalizedSchema}.`)
+    if (sameSchema) {
+      return normalizedTableName
     }
     throw new Error(
-      `schema option "${normalizedSchema}" conflicts with schema-qualified table "${tableName}"`,
+      `schema option "${normalizedSchema}" conflicts with schema-qualified table "${normalizedTableName}"`,
     )
   }
-  return `${normalizedSchema}.${tableName}`
+  return `${normalizedSchema}.${normalizedTableName}`
 }
 
 function conditionToSqlClause(condition: AthenaGatewayCondition): string | null {

@@ -10,29 +10,32 @@ skinparam RectangleBackgroundColor #FFF5E6
 skinparam NoteBackgroundColor #FFFFFF
 skinparam NoteBorderColor #000000
 
-title Table Builder Schema Handling (Before)
+title Table Builder Schema Dedup (Before This Change)
 
 package "Athena JS SDK" {
-  rectangle "TableQueryBuilder\nfrom(table)" as Builder #FFE8C2
-  rectangle "AthenaGatewayCallOptions\n(no schema)" as Options #FFE8C2
-  rectangle "Payload Builder\ntable_name = table" as Payload #FFF1D6
+  rectangle "TableQueryBuilder\nselect/insert/upsert/update/delete" as Builder #FFE8C2
+  rectangle "resolveTableNameForCall\nsimple prefix check only" as Resolver #FFF1D6
+  rectangle "Payload Builder\ntable_name = resolved" as Payload #FFF1D6
   rectangle "Gateway Client" as Gateway #FFF1D6
 }
 
 rectangle "Caller" as Caller #EAF3FF
 rectangle "Athena Gateway" as Api #EAF3FF
 
-Caller --> Builder : from("users")
-Caller --> Builder : select("id", options)
-Builder --> Options : merge select/mutation options
-Options --> Payload : schema unavailable
-Payload --> Gateway : POST /gateway/fetch\n{ table_name: "users" }
+Caller --> Builder : from("\"public\".\"users\"")
+Caller --> Builder : select("id", { schema: "public" })
+Builder --> Resolver : resolveTableNameForCall(table, schema)
+Resolver --> Builder : conflict error (false negative)
+Builder --> Caller : throw
+Builder --> Payload : caller retry with manual workaround
+Payload --> Gateway : POST /gateway/fetch\n{ table_name: "\"public\".\"users\"" }
 Gateway --> Api : send request
 
-note right of Payload
-SDK cannot pass table schema
-unless caller pre-qualifies
-"public.users" manually.
+note right of Resolver
+Dedup worked only for exact
+startsWith("schema.") matches.
+Quoted or case-varied table names
+were treated as conflicts.
 end note
 
 @enduml

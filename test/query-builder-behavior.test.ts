@@ -790,6 +790,64 @@ test('table options keep pre-qualified table when schema matches', async () => {
   }
 })
 
+test('table options keep quoted pre-qualified table when schema matches', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('"public"."users"').select('id', { schema: 'public' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, '"public"."users"')
+  } finally {
+    restore()
+  }
+})
+
+test('table options deduplicate matching schema for insert/upsert/update/delete', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('"public"."users"')
+      .insert({ id: 'u-1' })
+      .select('id', { schema: 'public' })
+
+    await client
+      .from('"public"."users"')
+      .upsert({ id: 'u-1' })
+      .select('id', { schema: 'public' })
+
+    await client
+      .from('"public"."users"')
+      .eq('id', 'u-1')
+      .update({ id: 'u-2' })
+      .select('id', { schema: 'public' })
+
+    await client
+      .from('"public"."users"')
+      .eq('id', 'u-2')
+      .delete({ schema: 'public' })
+
+    const tableNames = calls.map(call => JSON.parse(call.init?.body as string).table_name)
+    assert.deepEqual(tableNames, [
+      '"public"."users"',
+      '"public"."users"',
+      '"public"."users"',
+      '"public"."users"',
+    ])
+  } finally {
+    restore()
+  }
+})
+
+test('table options compare unquoted schema names case-insensitively', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('Public.users').select('id', { schema: 'public' })
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'Public.users')
+  } finally {
+    restore()
+  }
+})
+
 test('table options reject conflicting schema and schema-qualified table', async () => {
   await assert.rejects(
     async () => client.from('public.users').select('id', { schema: 'athena' }),
