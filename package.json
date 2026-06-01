@@ -53,15 +53,15 @@
       "require": "./dist/cookies.cjs",
       "types": "./dist/cookies.d.ts"
     },
-    "./utils": {
-      "import": "./dist/utils.js",
-      "require": "./dist/utils.cjs",
-      "types": "./dist/utils.d.ts"
-    },
     "./react": {
       "import": "./dist/react.js",
       "require": "./dist/react.cjs",
       "types": "./dist/react.d.ts"
+    },
+    "./utils": {
+      "import": "./dist/utils.js",
+      "require": "./dist/utils.cjs",
+      "types": "./dist/utils.d.ts"
     }
   },
   "files": [
@@ -101,8 +101,8 @@
   "scripts": {
     "build": "tsup",
     "check:all": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "docs:methods": "node scripts/generate-sdk-method-reference.mjs",
     "dev": "tsup --watch",
+    "docs:methods": "node scripts/generate-sdk-method-reference.mjs",
     "example:api-call": "cd examples/api-call && bun run start",
     "example:email-resend": "cd examples/email-resend && bun run start",
     "example:express-api": "cd examples/express-api && bun run start",
@@ -132,13 +132,13 @@
       "cookies": [
         "dist/cookies.d.ts"
       ],
-      "utils": [
-        "dist/utils.d.ts"
-      ],
       "react": [
         "dist/react.d.ts"
+      ],
+      "utils": [
+        "dist/utils.d.ts"
       ]
     }
   },
-  "version": "2.1.2"
+  "version": "2.2.0"
 }
