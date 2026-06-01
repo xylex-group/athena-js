@@ -4,6 +4,7 @@
 
 | Version | Channel | Supported |
 | ------- | ------- | --------- |
+| 2.2.0 | stable | :white_check_mark: |
 | 2.1.2 | stable | :white_check_mark: |
 | 2.1.1 | stable | :white_check_mark: |
 | 2.1.0 | stable | :white_check_mark: |
