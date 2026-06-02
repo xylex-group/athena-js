@@ -190,10 +190,17 @@ test('setCookieToHeader merges response set-cookie into downstream request cooki
 
 test('package exports expose ./cookies entrypoint', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
-    exports: Record<string, { import?: string; require?: string; types?: string }>
+    exports: Record<
+      string,
+      {
+        import?: { default?: string; types?: string }
+        require?: { default?: string; types?: string }
+      }
+    >
   }
 
-  assert.equal(packageJson.exports['./cookies']?.import, './dist/cookies.js')
-  assert.equal(packageJson.exports['./cookies']?.require, './dist/cookies.cjs')
-  assert.equal(packageJson.exports['./cookies']?.types, './dist/cookies.d.ts')
+  assert.equal(packageJson.exports['./cookies']?.import?.default, './dist/cookies.js')
+  assert.equal(packageJson.exports['./cookies']?.import?.types, './dist/cookies.d.ts')
+  assert.equal(packageJson.exports['./cookies']?.require?.default, './dist/cookies.cjs')
+  assert.equal(packageJson.exports['./cookies']?.require?.types, './dist/cookies.d.cts')
 })

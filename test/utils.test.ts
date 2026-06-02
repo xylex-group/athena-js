@@ -129,12 +129,19 @@ test('clearAuthCookies avoids domain attributes for local hostnames', () => {
 
 test('package exports expose ./utils entrypoint', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
-    exports: Record<string, { import?: string; require?: string; types?: string }>
+    exports: Record<
+      string,
+      {
+        import?: { default?: string; types?: string }
+        require?: { default?: string; types?: string }
+      }
+    >
   }
 
-  assert.equal(packageJson.exports['./utils']?.import, './dist/utils.js')
-  assert.equal(packageJson.exports['./utils']?.require, './dist/utils.cjs')
-  assert.equal(packageJson.exports['./utils']?.types, './dist/utils.d.ts')
+  assert.equal(packageJson.exports['./utils']?.import?.default, './dist/utils.js')
+  assert.equal(packageJson.exports['./utils']?.import?.types, './dist/utils.d.ts')
+  assert.equal(packageJson.exports['./utils']?.require?.default, './dist/utils.cjs')
+  assert.equal(packageJson.exports['./utils']?.require?.types, './dist/utils.d.cts')
 })
 
 test('proxyRequestHeaders removes host and applies forwarded headers from request URL', () => {

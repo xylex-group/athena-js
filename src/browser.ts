@@ -70,8 +70,9 @@ function throwBrowserUnsupported(apiName: string): never {
 }
 
 export function createPostgresIntrospectionProvider(
-  _options: PostgresIntrospectionProviderOptions,
+  options: PostgresIntrospectionProviderOptions,
 ): SchemaIntrospectionProvider {
+  void options
   return throwBrowserUnsupported('createPostgresIntrospectionProvider')
 }
 
@@ -81,39 +82,47 @@ export function defineGeneratorConfig<TConfig extends AthenaGeneratorConfig>(
   return config
 }
 
-export function findGeneratorConfigPath(_cwd?: string): string | undefined {
+export function findGeneratorConfigPath(cwd?: string): string | undefined {
+  void cwd
   return throwBrowserUnsupported('findGeneratorConfigPath')
 }
 
 export async function loadGeneratorConfig(
-  _options: LoadGeneratorConfigOptions = {},
+  options: LoadGeneratorConfigOptions = {},
 ): Promise<LoadedGeneratorConfig> {
+  void options
   return throwBrowserUnsupported('loadGeneratorConfig')
 }
 
 export function normalizeGeneratorConfig(
-  _input: AthenaGeneratorConfig,
+  input: AthenaGeneratorConfig,
 ): NormalizedAthenaGeneratorConfig {
+  void input
   return throwBrowserUnsupported('normalizeGeneratorConfig')
 }
 
 export function generateArtifactsFromSnapshot(
-  _snapshot: IntrospectionSnapshot,
-  _config: AthenaGeneratorConfig | NormalizedAthenaGeneratorConfig,
+  snapshot: IntrospectionSnapshot,
+  config: AthenaGeneratorConfig | NormalizedAthenaGeneratorConfig,
 ): GeneratedArtifacts {
+  void snapshot
+  void config
   return throwBrowserUnsupported('generateArtifactsFromSnapshot')
 }
 
 export function resolveGeneratorProvider(
-  _providerConfig: GeneratorProviderConfig,
-  _experimentalFlags: GeneratorExperimentalFlags,
+  providerConfig: GeneratorProviderConfig,
+  experimentalFlags: GeneratorExperimentalFlags,
 ): SchemaIntrospectionProvider {
+  void providerConfig
+  void experimentalFlags
   return throwBrowserUnsupported('resolveGeneratorProvider')
 }
 
 export async function runSchemaGenerator(
-  _options: RunGeneratorOptions = {},
+  options: RunGeneratorOptions = {},
 ): Promise<RunGeneratorResult> {
+  void options
   return throwBrowserUnsupported('runSchemaGenerator')
 }
 

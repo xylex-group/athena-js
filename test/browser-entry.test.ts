@@ -59,13 +59,21 @@ test('package root export maps browser condition to browser bundle', async () =>
     exports: {
       '.': {
         browser?: {
-          import?: string
-          require?: string
+          import?: {
+            types?: string
+            default?: string
+          }
+          require?: {
+            types?: string
+            default?: string
+          }
         }
       }
     }
   }
 
-  assert.equal(pkg.exports['.'].browser?.import, './dist/browser.js')
-  assert.equal(pkg.exports['.'].browser?.require, './dist/browser.cjs')
+  assert.equal(pkg.exports['.'].browser?.import?.default, './dist/browser.js')
+  assert.equal(pkg.exports['.'].browser?.import?.types, './dist/browser.d.ts')
+  assert.equal(pkg.exports['.'].browser?.require?.default, './dist/browser.cjs')
+  assert.equal(pkg.exports['.'].browser?.require?.types, './dist/browser.d.cts')
 })
