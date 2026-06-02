@@ -1,4 +1,9 @@
 export { createAuthClient } from './client.ts'
+export {
+  renderAthenaReactEmail,
+  createAuthReactEmailInput,
+  defineAuthEmailTemplate,
+} from './react-email.ts'
 export type {
   AthenaAuthQueryPrimitive,
   AthenaAuthQueryValue,
@@ -39,6 +44,18 @@ export type {
   AthenaDeleteUserRequest,
   AthenaDeleteUserCallbackRequest,
   AthenaDeleteUserResponse,
+  AthenaAuthReactEmailProps,
+  AthenaAuthReactEmailComponent,
+  AthenaAuthReactEmailRenderInput,
+  AthenaAuthReactEmailRenderOptions,
+  AthenaAuthReactEmailConfig,
+  AthenaAuthReactEmailEventPhase,
+  AthenaAuthReactEmailRenderEvent,
+  AthenaAuthEmailTemplateDefinition,
+  AthenaAuthEmailTemplateReactOverrides,
+  AthenaAuthEmailTemplateCreateFromDefinitionInput,
+  AthenaAuthEmailTemplateUpdateFromDefinitionInput,
+  AthenaAuthEmailTemplateBuilder,
   AthenaLinkSocialRequest,
   AthenaUnlinkAccountRequest,
   AthenaAuthSession,

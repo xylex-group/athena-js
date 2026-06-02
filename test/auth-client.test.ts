@@ -1,6 +1,12 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
-import { createAuthClient } from '../src/auth/index.ts'
+import { Body, Html, Text } from '@react-email/components'
+import { createElement } from 'react'
+import {
+  createAuthClient,
+  defineAuthEmailTemplate,
+  renderAthenaReactEmail,
+} from '../src/auth/index.ts'
 import { createClient } from '../src/client.ts'
 
 type Captured = {
@@ -20,6 +26,30 @@ function mockFetch(responseBody: unknown = { ok: true }, responseInit: ResponseI
     calls,
     restore: () => (globalThis.fetch = original),
   }
+}
+
+function buildReactEmailElement(message: string) {
+  return createElement(
+    Html,
+    { lang: 'en' },
+    createElement(Body, null, createElement(Text, null, message)),
+  )
+}
+
+function NewLoginDemoTemplate(props: { dashboardUrl: string; name?: string }) {
+  return createElement(
+    Html,
+    { lang: 'en' },
+    createElement(
+      Body,
+      null,
+      createElement(
+        Text,
+        null,
+        `We detected a new login${props.name ? `, ${props.name}` : ''}. Visit ${props.dashboardUrl}`,
+      ),
+    ),
+  )
 }
 
 test('createClient exposes auth namespace and routes auth calls to configured auth base URL', async () => {
@@ -652,6 +682,208 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
   } finally {
     restore()
   }
+})
+
+test('auth.admin.email.create renders react email payload into htmlBody/textBody', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    await client.auth.admin.email.create({
+      recipientEmail: 'to@example.com',
+      subject: 'React Email',
+      fromAddress: 'no-reply@example.com',
+      provider: 'resend',
+      react: {
+        element: buildReactEmailElement('Welcome to Athena'),
+      },
+    })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/admin/email/create')
+    const body = JSON.parse(calls[0].init?.body as string)
+    assert.equal(typeof body.htmlBody, 'string')
+    assert.equal(body.htmlBody.includes('Welcome to Athena'), true)
+    assert.equal(typeof body.textBody, 'string')
+    assert.equal(body.textBody.includes('Welcome to Athena'), true)
+    assert.equal(Object.hasOwn(body, 'react'), false)
+  } finally {
+    restore()
+  }
+})
+
+test('auth.admin email-template routes render react email payload and preserve explicit text template', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+
+    await client.auth.admin.email.template.update({
+      id: 'tmpl_1',
+      textTemplate: 'Explicit text template override',
+      react: {
+        component: NewLoginDemoTemplate,
+        props: {
+          dashboardUrl: 'https://ikiform.com/dashboard',
+          name: 'Ava',
+        },
+      },
+    })
+
+    await client.auth.admin.emailTemplate.create({
+      templateKey: 'welcome',
+      subjectTemplate: 'Welcome',
+      react: {
+        element: buildReactEmailElement('Legacy alias path'),
+        includePlainText: false,
+      },
+    })
+
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/admin/email-template/update')
+    const updateBody = JSON.parse(calls[0].init?.body as string)
+    assert.equal(updateBody.htmlTemplate.includes('We detected a new login, Ava.'), true)
+    assert.equal(updateBody.htmlTemplate.includes('https://ikiform.com/dashboard'), true)
+    assert.equal(updateBody.textTemplate, 'Explicit text template override')
+    assert.deepEqual(updateBody.variables, ['dashboardUrl', 'name'])
+    assert.equal(Object.hasOwn(updateBody, 'react'), false)
+
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/admin/email-template/create')
+    const createBody = JSON.parse(calls[1].init?.body as string)
+    assert.equal(createBody.htmlTemplate.includes('Legacy alias path'), true)
+    assert.equal(Object.hasOwn(createBody, 'textTemplate'), false)
+    assert.equal(Object.hasOwn(createBody, 'react'), false)
+  } finally {
+    restore()
+  }
+})
+
+test('defineAuthEmailTemplate builds create/update payloads with component props', () => {
+  const template = defineAuthEmailTemplate({
+    component: NewLoginDemoTemplate,
+    templateKey: 'new_login',
+    subjectTemplate: 'New Login to Ikiform',
+    defaults: {
+      includePlainText: false,
+    },
+  })
+
+  const createPayload = template.toTemplateCreate({
+    props: {
+      dashboardUrl: 'https://ikiform.com/dashboard',
+      name: 'Ava',
+    },
+  })
+
+  const updatePayload = template.toTemplateUpdate({
+    id: 'tmpl_1',
+    props: {
+      dashboardUrl: 'https://ikiform.com/dashboard',
+    },
+    subjectTemplate: 'New Login alert',
+  })
+
+  assert.equal(createPayload.templateKey, 'new_login')
+  assert.equal(createPayload.subjectTemplate, 'New Login to Ikiform')
+  assert.equal(createPayload.react?.component, NewLoginDemoTemplate)
+  assert.deepEqual(createPayload.react?.props, {
+    dashboardUrl: 'https://ikiform.com/dashboard',
+    name: 'Ava',
+  })
+  assert.equal(createPayload.react?.includePlainText, false)
+
+  assert.equal(updatePayload.id, 'tmpl_1')
+  assert.equal(updatePayload.subjectTemplate, 'New Login alert')
+  assert.equal(updatePayload.react?.component, NewLoginDemoTemplate)
+  assert.deepEqual(updatePayload.react?.props, {
+    dashboardUrl: 'https://ikiform.com/dashboard',
+  })
+})
+
+test('react email runtime defaults and observer events are applied for admin email payloads', async () => {
+  const { calls, restore } = mockFetch({ status: true })
+  try {
+    const events: Array<{
+      phase: string
+      route?: string
+      durationMs?: number
+      error?: string
+      timestamp?: string
+    }> = []
+    const client = createAuthClient({
+      baseUrl: 'https://auth.example.com/api/auth',
+      reactEmail: {
+        defaults: {
+          includePlainText: false,
+        },
+        observe: event => {
+          events.push({
+            phase: event.phase,
+            route: event.route,
+            durationMs: event.durationMs,
+            error: event.error,
+            timestamp: event.timestamp,
+          })
+        },
+      },
+    })
+
+    await client.auth.admin.email.create({
+      recipientEmail: 'to@example.com',
+      subject: 'Runtime defaults',
+      fromAddress: 'no-reply@example.com',
+      provider: 'resend',
+      react: {
+        component: NewLoginDemoTemplate,
+        props: {
+          dashboardUrl: 'https://ikiform.com/dashboard',
+        },
+      },
+    })
+
+    const body = JSON.parse(calls[0].init?.body as string)
+    assert.equal(typeof body.htmlBody, 'string')
+    assert.equal(body.htmlBody.includes('https://ikiform.com/dashboard'), true)
+    assert.equal(Object.hasOwn(body, 'textBody'), false)
+
+    assert.equal(events.length >= 2, true)
+    assert.equal(events[0].phase, 'render:start')
+    assert.equal(events[0].route, '/admin/email/create')
+    const successEvent = events.find(event => event.phase === 'render:success')
+    assert.equal(Boolean(successEvent), true)
+    assert.equal(successEvent?.route, '/admin/email/create')
+    assert.equal(typeof successEvent?.durationMs, 'number')
+    assert.equal(Boolean(successEvent?.timestamp), true)
+  } finally {
+    restore()
+  }
+})
+
+test('renderAthenaReactEmail supports runtime observer and default includePlainText', async () => {
+  const events: Array<{ phase: string; route?: string }> = []
+  const rendered = await renderAthenaReactEmail(
+    {
+      component: NewLoginDemoTemplate,
+      props: {
+        dashboardUrl: 'https://ikiform.com/dashboard',
+        name: 'Ava',
+      },
+    },
+    {
+      route: '/admin/email-template/create',
+      defaults: {
+        includePlainText: false,
+      },
+      observe: event => {
+        events.push({
+          phase: event.phase,
+          route: event.route,
+        })
+      },
+    },
+  )
+
+  assert.equal(rendered.html.includes('We detected a new login, Ava.'), true)
+  assert.equal(Object.hasOwn(rendered, 'text'), false)
+  assert.equal(events[0]?.phase, 'render:start')
+  assert.equal(events.find(event => event.phase === 'render:success')?.route, '/admin/email-template/create')
 })
 
 test('auth.admin.user.session.revoke enforces non-empty userId and a single plural userId', async () => {

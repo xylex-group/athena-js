@@ -45,7 +45,12 @@ export {
   resolveProviderSchemas,
 } from './generator/schema-selection.ts'
 export { resolvePostgresColumnType } from './generator/postgres-type-mapping.ts'
-export { createAuthClient } from './auth/index.ts'
+export {
+  createAuthClient,
+  renderAthenaReactEmail,
+  createAuthReactEmailInput,
+  defineAuthEmailTemplate,
+} from './auth/index.ts'
 
 import type {
   PostgresIntrospectionProviderOptions,
@@ -240,6 +245,18 @@ export type {
   AthenaDeleteUserRequest,
   AthenaDeleteUserCallbackRequest,
   AthenaDeleteUserResponse,
+  AthenaAuthReactEmailProps,
+  AthenaAuthReactEmailComponent,
+  AthenaAuthReactEmailRenderInput,
+  AthenaAuthReactEmailRenderOptions,
+  AthenaAuthReactEmailConfig,
+  AthenaAuthReactEmailEventPhase,
+  AthenaAuthReactEmailRenderEvent,
+  AthenaAuthEmailTemplateDefinition,
+  AthenaAuthEmailTemplateReactOverrides,
+  AthenaAuthEmailTemplateCreateFromDefinitionInput,
+  AthenaAuthEmailTemplateUpdateFromDefinitionInput,
+  AthenaAuthEmailTemplateBuilder,
   AthenaLinkSocialRequest,
   AthenaUnlinkAccountRequest,
   AthenaAuthSession,

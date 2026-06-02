@@ -1,0 +1,138 @@
+# Auth React Email API
+
+This page is the API-first companion to [`react-email.mdx`](./react-email.mdx).  
+Use it when you want exact helper shapes and integration patterns.
+
+## Exports
+
+From `@xylex-group/athena`:
+
+- `createAuthReactEmailInput`
+- `defineAuthEmailTemplate`
+- `renderAthenaReactEmail`
+
+From `createClient(..., { auth })` config:
+
+- `auth.reactEmail.defaults`
+- `auth.reactEmail.observe`
+
+## `createAuthReactEmailInput`
+
+Build a normalized `react` payload without manually assembling object keys.
+
+```ts
+import { createAuthReactEmailInput } from "@xylex-group/athena"
+
+const react = createAuthReactEmailInput(NewLoginEmail, {
+  dashboardUrl: "https://ikiform.com/dashboard",
+  name: "Ava",
+}, {
+  includePlainText: true,
+  pretty: true,
+})
+```
+
+You can pass this directly to:
+
+- `auth.admin.email.create/update`
+- `auth.admin.email.template.create/update`
+- `auth.admin.emailTemplate.create/update` (legacy alias)
+
+## `defineAuthEmailTemplate`
+
+Create a reusable typed definition for template routes.
+
+```ts
+import { defineAuthEmailTemplate } from "@xylex-group/athena"
+
+const newLoginTemplate = defineAuthEmailTemplate({
+  component: NewLoginEmail,
+  templateKey: "new_login",
+  subjectTemplate: "New Login to xxxx",
+  defaults: {
+    includePlainText: true,
+  },
+})
+```
+
+Builder methods:
+
+- `react(props, overrides?)`
+- `toTemplateCreate(input)`
+- `toTemplateUpdate(input)`
+
+Example:
+
+```ts
+await client.auth.admin.email.template.create(
+  newLoginTemplate.toTemplateCreate({
+    props: {
+      dashboardUrl: "https://ikiform.com/dashboard",
+      name: "Ava",
+    },
+  }),
+)
+```
+
+## `renderAthenaReactEmail`
+
+Render a React email payload without sending it.
+
+```ts
+import { renderAthenaReactEmail } from "@xylex-group/athena"
+
+const rendered = await renderAthenaReactEmail(
+  {
+    component: NewLoginEmail,
+    props: {
+      dashboardUrl: "https://ikiform.com/dashboard",
+      name: "Ava",
+    },
+  },
+  {
+    route: "/admin/email-template/create",
+    defaults: { includePlainText: false },
+  },
+)
+
+console.log(rendered.html) // html string
+console.log(rendered.text) // optional plain text
+```
+
+## Auth Config (`reactEmail`)
+
+Configure defaults/observability once:
+
+```ts
+const client = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  auth: {
+    baseUrl: AUTH_BASE_URL,
+    reactEmail: {
+      defaults: {
+        includePlainText: true,
+      },
+      observe: event => {
+        console.log(JSON.stringify(event))
+      },
+    },
+  },
+})
+```
+
+Event phases:
+
+- `render:start`
+- `render:success`
+- `render:error`
+
+## Route Behavior Summary
+
+For admin template routes, if `variables` is omitted and `react.props` exists:
+
+- `variables` is auto-derived from `Object.keys(react.props)`.
+
+For email + template routes:
+
+- `react` is removed from outbound API payload.
+- `htmlBody`/`htmlTemplate` is always rendered from `react`.
+- `textBody`/`textTemplate` is preserved if explicitly set; otherwise derived when possible.

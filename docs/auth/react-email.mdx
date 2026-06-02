@@ -1,0 +1,221 @@
+# Auth React Email Templates
+
+`athena-js` supports passing React Email elements or component+props directly to the admin email/template routes that accept HTML payloads.
+
+For helper-focused API details, see [`react-email-api.mdx`](./react-email-api.mdx).
+
+Supported routes:
+
+- `auth.admin.email.create(...)`
+- `auth.admin.email.update(...)`
+- `auth.admin.email.template.create(...)`
+- `auth.admin.email.template.update(...)`
+- `auth.admin.emailTemplate.create(...)` (legacy alias)
+- `auth.admin.emailTemplate.update(...)` (legacy alias)
+
+## Install
+
+```bash
+pnpm add @react-email/components @react-email/render
+```
+
+## Route payload shape
+
+Add a `react` field to your request body:
+
+```ts
+type AthenaAuthReactEmailRenderInput = {
+  element?: unknown
+  component?: (props: Record<string, unknown>) => unknown
+  props?: Record<string, unknown>
+  pretty?: boolean
+  text?: string
+  includePlainText?: boolean
+}
+```
+
+Behavior:
+
+- `react.element` renders into `htmlBody`/`htmlTemplate`
+- `react.component + react.props` also renders into `htmlBody`/`htmlTemplate`
+- if `react.text` is provided, it is used as plain text
+- otherwise plain text is auto-derived with `toPlainText(html)` when available
+- set `includePlainText: false` to skip auto text generation
+- `react` is never forwarded to the backend route body
+- on template routes, `variables` is auto-derived from `Object.keys(react.props)` when `variables` is omitted
+
+## Ergonomic template builder
+
+For reusable templates, use `defineAuthEmailTemplate(...)`:
+
+```ts
+import { defineAuthEmailTemplate } from "@xylex-group/athena"
+
+const newLoginTemplate = defineAuthEmailTemplate({
+  component: NewLoginEmail,
+  templateKey: "new_login",
+  subjectTemplate: "New Login to xxxx",
+  defaults: {
+    includePlainText: true,
+  },
+})
+
+await client.auth.admin.email.template.create(
+  newLoginTemplate.toTemplateCreate({
+    props: {
+      dashboardUrl: "https://ikiform.com/dashboard",
+      name: "Ava",
+    },
+  }),
+)
+```
+
+Builder helpers:
+
+- `template.react(props, overrides?)` -> returns `react` payload
+- `template.toTemplateCreate(...)` -> creates a typed create payload
+- `template.toTemplateUpdate(...)` -> creates a typed update payload
+
+## `email_templates` table mapping
+
+When you call `auth.admin.email.template.create/update` (or legacy `emailTemplate.*`), payload fields map as:
+
+- `templateKey` -> template key column
+- `subjectTemplate` -> subject template column
+- `htmlTemplate` -> HTML template column (auto-rendered from `react`)
+- `textTemplate` -> text template column (explicit `react.text` or auto-derived from HTML)
+- `variables` -> template variable list (auto-derived from `react.props` if omitted)
+- `isActive`, `locale`, `metadata` -> persisted as provided
+
+## Render observability
+
+You can instrument render flow with `auth.reactEmail.observe`:
+
+```ts
+const client = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  auth: {
+    baseUrl: AUTH_BASE_URL,
+    reactEmail: {
+      defaults: {
+        includePlainText: true,
+      },
+      observe: event => {
+        console.log(JSON.stringify({
+          level: event.phase === "render:error" ? "error" : "info",
+          scope: "auth.reactEmail",
+          phase: event.phase,
+          route: event.route,
+          durationMs: event.durationMs,
+          error: event.error,
+          timestamp: event.timestamp,
+        }))
+      },
+    },
+  },
+})
+```
+
+## Example: Admin email create
+
+```ts
+import { Body, Html, Text } from "@react-email/components"
+import { createClient } from "@xylex-group/athena"
+
+const client = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+  auth: { baseUrl: process.env.AUTH_BASE_URL },
+})
+
+function WelcomeEmail(props: { name: string }) {
+  return (
+    <Html lang="en">
+      <Body>
+        <Text>Welcome {props.name}</Text>
+      </Body>
+    </Html>
+  )
+}
+
+await client.auth.admin.email.create({
+  recipientEmail: "to@example.com",
+  subject: "Welcome",
+  fromAddress: "no-reply@example.com",
+  provider: "resend",
+  react: {
+    component: WelcomeEmail,
+    props: { name: "Ava" },
+  },
+})
+```
+
+## Example: Admin email template update
+
+```ts
+function NewLoginEmail(props: { dashboardUrl: string; name?: string }) {
+  return (
+    <Html lang="en">
+      <Body>
+        <Text>
+          We detected a new login{props.name ? `, ${props.name}` : ""}.
+        </Text>
+        <Text>Go to {props.dashboardUrl}</Text>
+      </Body>
+    </Html>
+  )
+}
+
+await client.auth.admin.email.template.update({
+  id: "tmpl_1",
+  subjectTemplate: "New Login to Ikiform",
+  react: {
+    component: NewLoginEmail,
+    props: {
+      dashboardUrl: "https://ikiform.com/dashboard",
+      name: "Ava",
+    },
+    pretty: true,
+  },
+})
+
+// variables is auto-filled as: ["dashboardUrl", "name"]
+```
+
+## Example: Layout-based component (your pattern)
+
+This works with nested local components like `EmailLayout`, `EmailHeader`, and `CtaList`.
+
+```ts
+interface NewLoginEmailProps {
+  dashboardUrl: string
+  name?: string
+}
+
+function NewLoginEmail(props: NewLoginEmailProps) {
+  return (
+    <EmailLayout
+      heading="New Login to xxxx"
+      previewText="If this wasn’t you, please contact us."
+    >
+      <Section>
+        <Text>
+          We detected a new login to your Ikiform account
+          {props.name ? `, ${props.name}` : ""}. If this was you, you can safely
+          ignore this email.
+        </Text>
+      </Section>
+      <CtaList primary={{ label: "Go to Dashboard", url: props.dashboardUrl }} />
+    </EmailLayout>
+  )
+}
+
+await client.auth.admin.email.template.create({
+  templateKey: "new_login",
+  subjectTemplate: "New Login to xxxx",
+  react: {
+    component: NewLoginEmail,
+    props: {
+      dashboardUrl: "https://ikiform.com/dashboard",
+      name: "Ava",
+    },
+  },
+})
+```

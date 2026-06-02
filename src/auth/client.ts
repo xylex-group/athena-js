@@ -40,6 +40,7 @@ import type {
   AthenaAuthMethod,
   AthenaAuthQueryValue,
   AthenaAuthRequestInput,
+  AthenaAuthReactEmailRenderInput,
   AthenaAuthResult,
   AthenaAuthSdkClient,
   AthenaAuthSession,
@@ -70,6 +71,7 @@ import type {
   AthenaVerifyEmailRequest,
   AthenaUsernameSignInRequest,
 } from './types.ts'
+import { resolveReactEmailPayloadFields } from './react-email.ts'
 
 const DEFAULT_AUTH_BASE_URL = 'http://localhost:3001/api/auth'
 const FALLBACK_SDK_VERSION = '1.0.0'
@@ -561,6 +563,34 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       options,
     )
   }
+
+  const withReactEmailRoute = (route: AthenaAuthEndpointPath) => ({
+    ...resolvedConfig.reactEmail,
+    route,
+  })
+
+  const resolveAdminEmailPayload = <TInput extends AthenaAuthFetchCompatibleInput & {
+    react?: AthenaAuthReactEmailRenderInput
+  }>(
+    route: '/admin/email/create' | '/admin/email/update',
+    input: TInput,
+  ) =>
+    resolveReactEmailPayloadFields(input, {
+      htmlField: 'htmlBody',
+      textField: 'textBody',
+    }, withReactEmailRoute(route))
+
+  const resolveAdminEmailTemplatePayload = <TInput extends AthenaAuthFetchCompatibleInput & {
+    react?: AthenaAuthReactEmailRenderInput
+  }>(
+    route: '/admin/email-template/create' | '/admin/email-template/update',
+    input: TInput,
+  ) =>
+    resolveReactEmailPayloadFields(input, {
+      htmlField: 'htmlTemplate',
+      textField: 'textTemplate',
+      variablesField: 'variables',
+    }, withReactEmailRoute(route))
 
   const listUserEmailsWithFallback: AthenaAuthBindings['user']['email']['list'] = async (input, options) => {
     const primary = await getWithQuery<AthenaAuthEmailListResponse, AthenaAuthEmailListQuery>(
@@ -1187,8 +1217,18 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       email: {
         list: (input, options) => getWithQuery('/admin/email/list', input, options),
         get: (input, options) => getWithQuery('/admin/email/get', input, options),
-        create: (input, options) => postGeneric('/admin/email/create', input, options),
-        update: (input, options) => postGeneric('/admin/email/update', input, options),
+        create: async (input, options) =>
+          postGeneric(
+            '/admin/email/create',
+            await resolveAdminEmailPayload('/admin/email/create', input),
+            options,
+          ),
+        update: async (input, options) =>
+          postGeneric(
+            '/admin/email/update',
+            await resolveAdminEmailPayload('/admin/email/update', input),
+            options,
+          ),
         delete: (input, options) => postGeneric('/admin/email/delete', input, options),
         failure: {
           list: (input, options) => getWithQuery('/admin/email-failure/list', input, options),
@@ -1200,17 +1240,37 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         template: {
           list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
           get: (input, options) => getWithQuery('/admin/email-template/get', input, options),
-          create: (input, options) => postGeneric('/admin/email-template/create', input, options),
-          update: (input, options) => postGeneric('/admin/email-template/update', input, options),
+          create: async (input, options) =>
+            postGeneric(
+              '/admin/email-template/create',
+              await resolveAdminEmailTemplatePayload('/admin/email-template/create', input),
+              options,
+            ),
+          update: async (input, options) =>
+            postGeneric(
+              '/admin/email-template/update',
+              await resolveAdminEmailTemplatePayload('/admin/email-template/update', input),
+              options,
+            ),
           delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
         },
       },
       emailTemplate: {
         get: (input, options) => getWithQuery('/admin/email-template/get', input, options),
-        create: (input, options) => postGeneric('/admin/email-template/create', input, options),
+        create: async (input, options) =>
+          postGeneric(
+            '/admin/email-template/create',
+            await resolveAdminEmailTemplatePayload('/admin/email-template/create', input),
+            options,
+          ),
         delete: (input, options) => postGeneric('/admin/email-template/delete', input, options),
         list: (input, options) => getWithQuery('/admin/email-template/list', input, options),
-        update: (input, options) => postGeneric('/admin/email-template/update', input, options),
+        update: async (input, options) =>
+          postGeneric(
+            '/admin/email-template/update',
+            await resolveAdminEmailTemplatePayload('/admin/email-template/update', input),
+            options,
+          ),
       },
     },
     apiKey: {

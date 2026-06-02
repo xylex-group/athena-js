@@ -28,9 +28,10 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 ### Track D - Athena Auth Client
 
 1. [`auth/index.mdx`](auth/index.mdx) - full grouped auth docs by domain (session, user, admin, api-key, organization, passkey, two-factor, callback, and `useSession`)
-2. [`auth-client-bindings.md`](auth-client-bindings.md) - compact single-page route map
-3. [`api-reference.md`](api-reference.md) - envelope contracts and exported auth types
-4. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive auth method table with per-method usage snippets
+2. [`auth/react-email.mdx`](auth/react-email.mdx) - render `@react-email/components` payloads into admin HTML routes
+3. [`auth/react-email-api.mdx`](auth/react-email-api.mdx) - helper exports and exact integration API
+4. [`auth-client-bindings.md`](auth-client-bindings.md) - compact single-page route map
+5. [`api-reference.md`](api-reference.md) - envelope contracts and exported auth types
 
 ## Concept map
 

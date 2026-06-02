@@ -39,6 +39,25 @@
 - `auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
 - `auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
 
+## React Email payload support
+
+For routes that accept HTML (`/admin/email/create`, `/admin/email/update`, `/admin/email-template/create`, `/admin/email-template/update`), you can pass:
+
+```ts
+react: {
+  element?: <YourEmailComponent />,
+  component?: YourEmailComponent,
+  props?: { ...templateProps },
+  pretty?: boolean,
+  text?: string,
+  includePlainText?: boolean,
+}
+```
+
+When `react` is present, the SDK renders `element` to `htmlBody` or `htmlTemplate` before sending.
+For template routes, `variables` is auto-derived from `react.props` when omitted.
+For reusable flows, prefer `defineAuthEmailTemplate(...)` from the root SDK export.
+
 ## Examples
 
 ```ts
@@ -111,6 +130,11 @@ await client.auth.admin.email.create({
   subject: "Welcome",
   fromAddress: "no-reply@example.com",
   provider: "resend",
+  react: {
+    // assume WelcomeEmail is your React Email component
+    component: WelcomeEmail,
+    props: { name: "Ava" },
+  },
 })
 
 await client.auth.admin.email.update({

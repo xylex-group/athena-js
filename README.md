@@ -83,6 +83,72 @@ await athena.auth.changePassword({ currentPassword: "old-secret", newPassword: "
 await athena.auth.user.update({ name: "Demo User" });
 ```
 
+#### React Email templates for admin HTML routes
+
+If you use `@react-email/components`, you can pass component+props payloads directly on admin email/template routes:
+
+```ts
+import { Body, Html, Text } from "@react-email/components";
+
+function WelcomeEmail(props: { name: string }) {
+  return (
+    <Html lang="en">
+      <Body>
+        <Text>Welcome {props.name}</Text>
+      </Body>
+    </Html>
+  );
+}
+
+await athena.auth.admin.email.template.create({
+  templateKey: "welcome",
+  subjectTemplate: "Welcome",
+  react: {
+    component: WelcomeEmail,
+    props: { name: "Ava" },
+  },
+});
+```
+
+For reusable templates, use `defineAuthEmailTemplate(...)`:
+
+```ts
+import { defineAuthEmailTemplate } from "@xylex-group/athena";
+
+const welcomeTemplate = defineAuthEmailTemplate({
+  component: WelcomeEmail,
+  templateKey: "welcome",
+  subjectTemplate: "Welcome",
+});
+
+await athena.auth.admin.email.template.create(
+  welcomeTemplate.toTemplateCreate({
+    props: { name: "Ava" },
+  }),
+);
+```
+
+You can also observe render timing/errors:
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  auth: {
+    baseUrl: AUTH_BASE_URL,
+    reactEmail: {
+      observe: (event) => {
+        console.log(JSON.stringify(event));
+      },
+    },
+  },
+});
+```
+
+Install support packages in your app:
+
+```bash
+pnpm add @react-email/components @react-email/render
+```
+
 Auth responses follow the same envelope style: `{ ok, status, data, error, errorDetails, raw }`.
 
 ### Typed schema registry (model-first)

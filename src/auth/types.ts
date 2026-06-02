@@ -380,6 +380,7 @@ export interface AthenaAuthLinkedAccount {
 
 export type AthenaAuthPermissionSet = Record<string, unknown> | string[]
 export type AthenaAuthLooseRecord = Record<string, unknown>
+export type AthenaAuthReactEmailProps = Record<string, unknown>
 
 export interface AthenaSetPasswordRequest {
   newPassword: string
@@ -751,6 +752,64 @@ export interface AthenaAdminEmailGetResponse {
   email?: AthenaAuthLooseRecord
 }
 
+export interface AthenaAuthReactEmailRenderInput {
+  /**
+   * React email element instance (for example: `<WelcomeEmail {...props} />`).
+   */
+  element?: unknown
+  /**
+   * React email component function. Use with `props` when you prefer component + props inputs.
+   */
+  component?: AthenaAuthReactEmailComponent
+  /**
+   * Props passed to `component` when `element` is omitted.
+   */
+  props?: AthenaAuthReactEmailProps
+  /**
+   * When true, run `pretty(...)` on rendered HTML when available.
+   */
+  pretty?: boolean
+  /**
+   * Override plain-text output. If omitted, text is auto-derived when possible.
+   */
+  text?: string
+  /**
+   * Disable derived plain-text generation. Defaults to `true`.
+   */
+  includePlainText?: boolean
+}
+
+export type AthenaAuthReactEmailComponent<
+  TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps,
+> = (props: TProps) => unknown
+
+export interface AthenaAuthReactEmailRenderOptions {
+  pretty?: boolean
+  includePlainText?: boolean
+}
+
+export type AthenaAuthReactEmailEventPhase = 'render:start' | 'render:success' | 'render:error'
+
+export interface AthenaAuthReactEmailRenderEvent {
+  phase: AthenaAuthReactEmailEventPhase
+  timestamp: string
+  route?: string
+  durationMs?: number
+  message?: string
+  error?: string
+}
+
+export interface AthenaAuthReactEmailConfig {
+  /**
+   * Optional default render settings used when request payloads omit `pretty` or `includePlainText`.
+   */
+  defaults?: AthenaAuthReactEmailRenderOptions
+  /**
+   * Optional observer for render lifecycle events.
+   */
+  observe?: (event: AthenaAuthReactEmailRenderEvent) => void
+}
+
 export interface AthenaAdminEmailCreateRequest {
   recipientEmail: string
   subject: string
@@ -758,6 +817,10 @@ export interface AthenaAdminEmailCreateRequest {
   fromName?: string
   textBody?: string
   htmlBody?: string
+  /**
+   * Optional React Email render input. When provided, `htmlBody` is derived automatically.
+   */
+  react?: AthenaAuthReactEmailRenderInput
   provider: string
   flow?: string
   metadata?: AthenaAuthLooseRecord
@@ -771,6 +834,10 @@ export interface AthenaAdminEmailUpdateRequest {
   fromName?: string | null
   textBody?: string | null
   htmlBody?: string | null
+  /**
+   * Optional React Email render input. When provided, `htmlBody` is derived automatically.
+   */
+  react?: AthenaAuthReactEmailRenderInput
   provider?: string
   flow?: string | null
   metadata?: AthenaAuthLooseRecord
@@ -855,6 +922,10 @@ export interface AthenaAdminEmailTemplateCreateRequest {
   subjectTemplate: string
   textTemplate?: string
   htmlTemplate?: string
+  /**
+   * Optional React Email render input. When provided, `htmlTemplate` is derived automatically.
+   */
+  react?: AthenaAuthReactEmailRenderInput
   variables?: string[]
   isActive?: boolean
   metadata?: AthenaAuthLooseRecord
@@ -867,6 +938,10 @@ export interface AthenaAdminEmailTemplateUpdateRequest {
   subjectTemplate?: string
   textTemplate?: string | null
   htmlTemplate?: string | null
+  /**
+   * Optional React Email render input. When provided, `htmlTemplate` is derived automatically.
+   */
+  react?: AthenaAuthReactEmailRenderInput
   variables?: string[]
   isActive?: boolean
   metadata?: AthenaAuthLooseRecord
@@ -1156,6 +1231,60 @@ export interface AthenaAuthFetchCompatibleInput {
 
 export interface AthenaAuthClientConfig extends AthenaAuthCallOptions {
   fetch?: typeof fetch
+  reactEmail?: AthenaAuthReactEmailConfig
+}
+
+export interface AthenaAuthEmailTemplateDefinition<
+  TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps,
+> {
+  component: AthenaAuthReactEmailComponent<TProps>
+  templateKey?: string
+  subjectTemplate?: string
+  defaults?: AthenaAuthReactEmailRenderOptions
+}
+
+export interface AthenaAuthEmailTemplateReactOverrides {
+  pretty?: boolean
+  text?: string
+  includePlainText?: boolean
+}
+
+export interface AthenaAuthEmailTemplateCreateFromDefinitionInput<
+  TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps,
+> extends Omit<
+    AthenaAdminEmailTemplateCreateRequest,
+    'react' | 'htmlTemplate' | 'textTemplate' | 'variables' | 'templateKey' | 'subjectTemplate'
+  > {
+  props: TProps
+  templateKey?: string
+  subjectTemplate?: string
+  react?: AthenaAuthEmailTemplateReactOverrides
+}
+
+export interface AthenaAuthEmailTemplateUpdateFromDefinitionInput<
+  TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps,
+> extends Omit<
+    AthenaAdminEmailTemplateUpdateRequest,
+    'react' | 'htmlTemplate' | 'textTemplate' | 'variables'
+  > {
+  props: TProps
+  react?: AthenaAuthEmailTemplateReactOverrides
+}
+
+export interface AthenaAuthEmailTemplateBuilder<
+  TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps,
+> {
+  component: AthenaAuthReactEmailComponent<TProps>
+  react: (
+    props: TProps,
+    overrides?: AthenaAuthEmailTemplateReactOverrides,
+  ) => AthenaAuthReactEmailRenderInput
+  toTemplateCreate: (
+    input: AthenaAuthEmailTemplateCreateFromDefinitionInput<TProps>,
+  ) => AthenaAdminEmailTemplateCreateRequest
+  toTemplateUpdate: (
+    input: AthenaAuthEmailTemplateUpdateFromDefinitionInput<TProps>,
+  ) => AthenaAdminEmailTemplateUpdateRequest
 }
 
 export type AthenaAuthGenericInput = AthenaAuthFetchCompatibleInput & Record<string, unknown>
