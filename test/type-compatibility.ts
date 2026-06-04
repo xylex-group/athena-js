@@ -52,6 +52,7 @@ declare function acceptsUserRows(value: UserRow[]): void
 declare function acceptsNullableUserRow(value: UserRow | null): void
 declare function acceptsNumber(value: number): void
 declare function acceptsString(value: string): void
+declare function acceptsUnknown(value: unknown): void
 
 declare function acceptsUserInsertMutation(
   value: PromiseLike<AthenaResult<UserRow>>,
@@ -133,6 +134,44 @@ const idOnlySelect = users.select<Pick<UserRow, "id">>("id")
 acceptsUserPickArrayPromise(idOnlySelect)
 acceptsMaybeUserPickPromise(idOnlySelect.single())
 acceptsMaybeUserPickPromise(idOnlySelect.maybeSingle())
+
+declare function acceptsUserFindManyBasePromise(
+  value: Promise<
+    AthenaResult<
+      Array<{
+        id: string
+        name: string
+      }>
+    >
+  >,
+): void
+
+acceptsUserFindManyBasePromise(
+  users.findMany({
+    select: {
+      id: true,
+      name: true,
+    },
+  }),
+)
+
+users
+  .findMany({
+    select: {
+      id: true,
+      profile: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  })
+  .then(result => {
+    if (result.data && result.data.length > 0) {
+      acceptsString(result.data[0].id)
+      acceptsUnknown(result.data[0].profile)
+    }
+  })
 
 acceptsMaybeUserPromise(users.single())
 acceptsMaybeUserPromise(users.maybeSingle())
@@ -262,9 +301,59 @@ interface OrganizationRow {
   owner_user_id: string
 }
 
+interface ProfileRow {
+  id: string
+  user_id: string
+  display_name: string | null
+}
+
+interface ProjectRow {
+  id: string
+  user_id: string
+  title: string
+}
+
+interface TagRow {
+  id: string
+  label: string
+}
+
 const typedRegistry = defineRegistry({
   primary: defineDatabase({
     public: defineSchema({
+      users: defineModel<
+        UserRow,
+        Pick<UserRow, 'name'> & Partial<Pick<UserRow, 'email'>>,
+        Partial<Pick<UserRow, 'name' | 'email'>>
+      >({
+        meta: {
+          database: 'primary',
+          schema: 'public',
+          model: 'users',
+          primaryKey: ['id'],
+          nullable: {
+            id: false,
+            name: false,
+            email: true,
+          },
+          relations: {
+            profile: {
+              kind: 'one-to-one',
+              sourceColumns: ['id'],
+              targetSchema: 'public',
+              targetModel: 'profiles',
+              targetColumns: ['user_id'],
+            },
+            projects: {
+              kind: 'one-to-many',
+              sourceColumns: ['id'],
+              targetSchema: 'public',
+              targetModel: 'projects',
+              targetColumns: ['user_id'],
+            },
+          },
+        },
+      }),
       organizations: defineModel<
         OrganizationRow,
         Pick<OrganizationRow, 'slug' | 'owner_user_id'>,
@@ -287,6 +376,91 @@ const typedRegistry = defineRegistry({
               targetSchema: 'public',
               targetModel: 'users',
               targetColumns: ['id'],
+            },
+          },
+        },
+      }),
+      profiles: defineModel<
+        ProfileRow,
+        Pick<ProfileRow, 'user_id' | 'display_name'>,
+        Partial<Pick<ProfileRow, 'display_name'>>
+      >({
+        meta: {
+          database: 'primary',
+          schema: 'public',
+          model: 'profiles',
+          primaryKey: ['id'],
+          nullable: {
+            id: false,
+            user_id: false,
+            display_name: true,
+          },
+          relations: {
+            user: {
+              kind: 'many-to-one',
+              sourceColumns: ['user_id'],
+              targetSchema: 'public',
+              targetModel: 'users',
+              targetColumns: ['id'],
+            },
+          },
+        },
+      }),
+      projects: defineModel<
+        ProjectRow,
+        Pick<ProjectRow, 'user_id' | 'title'>,
+        Partial<Pick<ProjectRow, 'title'>>
+      >({
+        meta: {
+          database: 'primary',
+          schema: 'public',
+          model: 'projects',
+          primaryKey: ['id'],
+          nullable: {
+            id: false,
+            user_id: false,
+            title: false,
+          },
+          relations: {
+            tags: {
+              kind: 'many-to-many',
+              sourceColumns: ['id'],
+              targetSchema: 'public',
+              targetModel: 'tags',
+              targetColumns: ['id'],
+              through: {
+                schema: 'public',
+                model: 'project_tags',
+                sourceColumns: ['project_id'],
+                targetColumns: ['tag_id'],
+              },
+            },
+          },
+        },
+      }),
+      tags: defineModel<TagRow, Pick<TagRow, 'label'>, Partial<Pick<TagRow, 'label'>>>({
+        meta: {
+          database: 'primary',
+          schema: 'public',
+          model: 'tags',
+          primaryKey: ['id'],
+          nullable: {
+            id: false,
+            label: false,
+          },
+          relations: {
+            projects: {
+              kind: 'many-to-many',
+              sourceColumns: ['id'],
+              targetSchema: 'public',
+              targetModel: 'projects',
+              targetColumns: ['id'],
+              through: {
+                schema: 'public',
+                model: 'project_tags',
+                sourceColumns: ['tag_id'],
+                targetColumns: ['project_id'],
+              },
             },
           },
         },
@@ -321,6 +495,121 @@ typedClient
   .update({ owner_user_id: 'user_2' })
   .eq('slug', 'org-slug')
   .select('id,slug')
+
+declare function acceptsOrganizationFindManyPromise(
+  value: Promise<
+    AthenaResult<
+      Array<{
+        slug: string
+        owner: {
+          id: string
+          name: string
+        } | null
+      }>
+    >
+  >,
+): void
+
+declare function acceptsOrganizationAliasFindManyPromise(
+  value: Promise<
+    AthenaResult<
+      Array<{
+        primary_owner: {
+          id: string
+        } | null
+      }>
+    >
+  >,
+): void
+
+declare function acceptsUserFindManyPromise(
+  value: Promise<
+    AthenaResult<
+      Array<{
+        name: string
+        profile: {
+          display_name: string | null
+        } | null
+        projects: Array<{
+          id: string
+        }>
+      }>
+    >
+  >,
+): void
+
+declare function acceptsProjectFindManyPromise(
+  value: Promise<
+    AthenaResult<
+      Array<{
+        title: string
+        tags: Array<{
+          label: string
+        }>
+      }>
+    >
+  >,
+): void
+
+acceptsOrganizationFindManyPromise(
+  typedClient.fromModel('primary', 'public', 'organizations').findMany({
+    select: {
+      slug: true,
+      owner: {
+        via: 'owner_user_id',
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  }),
+)
+
+acceptsOrganizationAliasFindManyPromise(
+  typedClient.fromModel('primary', 'public', 'organizations').findMany({
+    select: {
+      owner: {
+        as: 'primary_owner',
+        via: 'owner_user_id',
+        select: {
+          id: true,
+        },
+      },
+    },
+  }),
+)
+
+acceptsUserFindManyPromise(
+  typedClient.fromModel('primary', 'public', 'users').findMany({
+    select: {
+      name: true,
+      profile: {
+        select: {
+          display_name: true,
+        },
+      },
+      projects: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  }),
+)
+
+acceptsProjectFindManyPromise(
+  typedClient.fromModel('primary', 'public', 'projects').findMany({
+    select: {
+      title: true,
+      tags: {
+        select: {
+          label: true,
+        },
+      },
+    },
+  }),
+)
 
 // @ts-expect-error unknown model key should not type-check
 typedClient.fromModel('primary', 'public', 'missing_table').select()

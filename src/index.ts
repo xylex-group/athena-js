@@ -27,6 +27,16 @@ export {
   AthenaErrorCategory,
 } from './auxiliaries.js'
 export { identifier } from './sql-identifiers.ts'
+export type {
+  AthenaFindManyOptions,
+  AthenaFindManyResult,
+  AthenaOrderBy,
+  AthenaRelationSelectNode,
+  AthenaSelectShape,
+  AthenaWhere,
+  AthenaWhereBooleanOperand,
+  AthenaWhereOperatorInput,
+} from './query-ast.ts'
 export {
   createTypedClient,
   defineDatabase,

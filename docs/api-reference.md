@@ -341,11 +341,14 @@ Methods include:
 
 `eq()` applies UUID-aware behavior for identifier-like columns.
 
-### `TableQueryBuilder<Row, Insert, Update>`
+### `TableQueryBuilder<Row, Insert, Update, Context = unknown>`
 
 ```ts
-interface TableQueryBuilder<Row, Insert = Partial<Row>, Update = Partial<Insert>> {
+interface TableQueryBuilder<Row, Insert = Partial<Row>, Update = Partial<Insert>, Context = unknown> {
   select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<Row, T>
+  findMany<const TSelect extends AthenaSelectShape>(
+    options: AthenaFindManyOptions<Row, TSelect>,
+  ): Promise<AthenaResult<Array<AthenaFindManyResult<Row, TSelect, Context>>>>
 
   insert(values: Insert, options?: AthenaGatewayCallOptions): MutationQuery<Row>
   insert(values: Insert[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
@@ -373,12 +376,13 @@ interface TableQueryBuilder<Row, Insert = Partial<Row>, Update = Partial<Insert>
   single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
   maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
 
-  reset(): TableQueryBuilder<Row, Insert, Update>
+  reset(): TableQueryBuilder<Row, Insert, Update, Context>
 }
 ```
 
 Notes:
 
+- `.findMany(...)` is an eager object-AST read surface that compiles into the existing gateway payload.
 - `.select(...)` returns a chain, not an eager promise.
 - The `columns` string is comma-separated, and response aliases can be requested with `customName:columnName`.
 - `.delete(...)` throws if neither `id` nor `resource_id` condition is present and no `resourceId` option is supplied.
@@ -387,7 +391,19 @@ Notes:
 Example:
 
 ```ts
-await athena.from("users").select("user_id:id, user_email:email")
+await athena.from("users").findMany({
+  select: {
+    id: true,
+    profile: {
+      select: {
+        display_name: true,
+      },
+    },
+  },
+  where: {
+    id: "u-1",
+  },
+})
 ```
 
 ### `SelectChain<Row, SelectedRow = Row>`

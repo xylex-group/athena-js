@@ -473,6 +473,145 @@ test('canonical chained range filters work: gte + lt after select', async () => 
   }
 })
 
+test('findMany compiles nested select trees into gateway columns', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('orchestral_sections').findMany({
+      select: {
+        name: true,
+        instruments: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'orchestral_sections')
+    assert.equal(payload.columns, 'name,instruments(name)')
+  } finally {
+    restore()
+  }
+})
+
+test('findMany supports aliased via relation nodes', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('messages').findMany({
+      select: {
+        sender: {
+          as: 'from',
+          via: 'sender_id',
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.columns, 'from:sender_id(name)')
+  } finally {
+    restore()
+  }
+})
+
+test('findMany appends where conditions and overrides existing order/limit state', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('orders')
+      .eq('status', 'open')
+      .limit(5)
+      .order('created_at')
+      .findMany({
+        select: {
+          id: true,
+          total: true,
+        },
+        where: {
+          customer_id: 'cust_1',
+          total: {
+            gte: 100,
+          },
+          or: [{ priority: 'high' }, { priority: 'urgent' }],
+          not: {
+            archived_at: {
+              is: null,
+            },
+          },
+        },
+        orderBy: {
+          created_at: 'desc',
+        },
+        limit: 25,
+      })
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.columns, 'id,total')
+    assert.equal(payload.limit, 25)
+    assert.deepEqual(payload.sort_by, {
+      field: 'created_at',
+      direction: 'descending',
+    })
+    assert.deepEqual(payload.conditions, [
+      { operator: 'eq', column: 'status', value: 'open', eq_column: 'status', eq_value: 'open' },
+      { operator: 'eq', column: 'customer_id', value: 'cust_1', eq_column: 'customer_id', eq_value: 'cust_1' },
+      { operator: 'gte', column: 'total', value: 100 },
+      { operator: 'or', value: 'priority.eq.high,priority.eq.urgent' },
+      { operator: 'not', value: 'archived_at.is.null' },
+    ])
+  } finally {
+    restore()
+  }
+})
+
+test('findMany preserves uuid-aware equality fallback inside where objects', async () => {
+  const { calls, restore } = mockFetch()
+  const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+  try {
+    await client.from('form_sessions').findMany({
+      select: {
+        session_id: true,
+      },
+      where: {
+        session_id: sessionId,
+      },
+    })
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.ok(payload.query.includes(`"session_id"::text = '${sessionId}'`))
+  } finally {
+    restore()
+  }
+})
+
+test('findMany rejects unsupported boolean AST shapes', async () => {
+  await assert.rejects(
+    () =>
+      client.from('orders').findMany({
+        select: {
+          id: true,
+        },
+        where: {
+          not: {
+            status: {
+              eq: 'open',
+              neq: 'closed',
+            },
+          },
+        },
+      }),
+    /findMany where\.not only supports a single lossless operator expression/,
+  )
+})
+
 test('uuid-like eq on *_id uses query fallback with ::text comparison', async () => {
   const { calls, restore } = mockFetch()
   const sessionId = '550e8400-e29b-41d4-a716-446655440000'

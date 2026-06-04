@@ -27,6 +27,17 @@ import { normalizeAthenaError } from './auxiliaries.ts'
 import type { AthenaOperationContext, NormalizedAthenaError } from './auxiliaries.ts'
 import { createDbModule } from './db/module.ts'
 import type { AthenaDbModule } from './db/module.ts'
+import {
+  compileOrderBy,
+  compileSelectShape,
+  compileWhere,
+  shouldUseUuidTextComparison,
+} from './query-ast.ts'
+import type {
+  AthenaFindManyOptions,
+  AthenaFindManyResult,
+  AthenaSelectShape,
+} from './query-ast.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -134,8 +145,6 @@ type AthenaRowShape = Record<string, AthenaJsonValue | undefined>
 type FilterColumnKey<Row> = Extract<keyof NonNullable<Row>, string>
 type ResolvedFilterColumnKey<Row> = [FilterColumnKey<Row>] extends [never] ? string : FilterColumnKey<Row>
 const DEFAULT_COLUMNS = '*'
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
 const ATHENA_NORMALIZED_ERROR_KEY = '__athenaNormalizedError' as const
 const QUERY_TRACE_STACK_SKIP_PATTERNS = [
@@ -661,8 +670,12 @@ export interface TableQueryBuilder<
   Row,
   Insert = Partial<Row>,
   Update = Partial<Insert>,
-> extends FilterChain<TableQueryBuilder<Row, Insert, Update>, Row> {
+  TContext = unknown,
+> extends FilterChain<TableQueryBuilder<Row, Insert, Update, TContext>, Row> {
   select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<Row, T>
+  findMany<const TSelect extends AthenaSelectShape>(
+    options: AthenaFindManyOptions<Row, TSelect>,
+  ): Promise<AthenaResult<Array<AthenaFindManyResult<Row, TSelect, TContext>>>>
   insert(values: Insert, options?: AthenaGatewayCallOptions): MutationQuery<Row>
   insert(values: Insert[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
   upsert(
@@ -683,7 +696,7 @@ export interface TableQueryBuilder<
   delete(options?: AthenaGatewayCallOptions & { resourceId?: string }): MutationQuery<Row | null>
   single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
   maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<T | null>>
-  reset(): TableQueryBuilder<Row, Insert, Update>
+  reset(): TableQueryBuilder<Row, Insert, Update, TContext>
 }
 
 function getResourceId(state: TableBuilderState): string | undefined {
@@ -700,18 +713,6 @@ function stringifyFilterValue(value: AthenaConditionValue | AthenaConditionArray
     return value.join(',')
   }
   return String(value)
-}
-
-function isUuidString(value: string): boolean {
-  return UUID_PATTERN.test(value.trim())
-}
-
-function isUuidIdentifierColumn(column: string): boolean {
-  return column === 'id' || /(?:^|_)uuid(?:_|$)/i.test(column) || /_id$/i.test(column)
-}
-
-function shouldUseUuidTextComparison(column: string, value: AthenaConditionValue): boolean {
-  return typeof value === 'string' && isUuidString(value) && isUuidIdentifierColumn(column)
 }
 
 function normalizeCast(cast: AthenaConditionCastType): string {
@@ -1549,12 +1550,13 @@ function createTableBuilder<
   Row,
   Insert = Partial<Row>,
   Update = Partial<Insert>,
+  TContext = unknown,
 >(
   tableName: string,
   client: ReturnType<typeof createAthenaGatewayClient>,
   formatGatewayResult: AthenaResultFormatter,
   tracer?: AthenaQueryTracer,
-): TableQueryBuilder<Row, Insert, Update> {
+): TableQueryBuilder<Row, Insert, Update, TContext> {
   const state: TableBuilderState = {
     conditions: [],
   }
@@ -1594,9 +1596,19 @@ function createTableBuilder<
     state.conditions.push(condition)
   }
 
-  const builder = {} as TableQueryBuilder<Row, Insert, Update>
+  const snapshotState = (): TableBuilderState => ({
+    conditions: state.conditions.map(condition => ({ ...condition })),
+    limit: state.limit,
+    offset: state.offset,
+    order: state.order ? { ...state.order } : undefined,
+    currentPage: state.currentPage,
+    pageSize: state.pageSize,
+    totalPages: state.totalPages,
+  })
 
-  const filterMethods = createFilterMethods<TableQueryBuilder<Row, Insert, Update>, Row>(
+  const builder = {} as TableQueryBuilder<Row, Insert, Update, TContext>
+
+  const filterMethods = createFilterMethods<TableQueryBuilder<Row, Insert, Update, TContext>, Row>(
     state,
     addCondition,
     builder,
@@ -1605,10 +1617,11 @@ function createTableBuilder<
   const runSelect = async <T = Row>(
     columns: string | string[] = DEFAULT_COLUMNS,
     options?: AthenaGatewayCallOptions,
+    executionState: TableBuilderState = snapshotState(),
   ) => {
     const resolvedTableName = resolveTableNameForCall(tableName, options?.schema)
-    const conditions = state.conditions.length
-      ? state.conditions.map(condition => ({ ...condition }))
+    const conditions = executionState.conditions.length
+      ? executionState.conditions.map(condition => ({ ...condition }))
       : undefined
     const hasTypedEqualityComparison =
       conditions?.some(
@@ -1622,11 +1635,11 @@ function createTableBuilder<
         tableName: resolvedTableName,
         columns,
         conditions,
-        limit: state.limit,
-        offset: state.offset,
-        currentPage: state.currentPage,
-        pageSize: state.pageSize,
-        order: state.order,
+        limit: executionState.limit,
+        offset: executionState.offset,
+        currentPage: executionState.currentPage,
+        pageSize: executionState.pageSize,
+        order: executionState.order,
       })
       if (query) {
         const payload = { query }
@@ -1652,12 +1665,12 @@ function createTableBuilder<
       table_name: resolvedTableName,
       columns,
       conditions,
-      limit: state.limit,
-      offset: state.offset,
-      current_page: state.currentPage,
-      page_size: state.pageSize,
-      total_pages: state.totalPages,
-      sort_by: state.order,
+      limit: executionState.limit,
+      offset: executionState.offset,
+      current_page: executionState.currentPage,
+      page_size: executionState.pageSize,
+      total_pages: executionState.totalPages,
+      sort_by: executionState.order,
       strip_nulls: options?.stripNulls ?? true,
       count: options?.count,
       head: options?.head,
@@ -1666,11 +1679,11 @@ function createTableBuilder<
       tableName: resolvedTableName,
       columns,
       conditions,
-      limit: state.limit,
-      offset: state.offset,
-      currentPage: state.currentPage,
-      pageSize: state.pageSize,
-      order: state.order,
+      limit: executionState.limit,
+      offset: executionState.offset,
+      currentPage: executionState.currentPage,
+      pageSize: executionState.pageSize,
+      order: executionState.order,
     })
     return executeWithQueryTrace(
       tracer,
@@ -1732,6 +1745,21 @@ function createTableBuilder<
     },
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
       return createSelectChain<T>(columns, options)
+    },
+    async findMany<const TSelect extends AthenaSelectShape>(options: AthenaFindManyOptions<Row, TSelect>) {
+      const columns = compileSelectShape(options.select)
+      const executionState = snapshotState()
+      const compiledWhere = compileWhere(options.where)
+      if (compiledWhere?.length) {
+        executionState.conditions.push(...compiledWhere)
+      }
+      if (options.orderBy !== undefined) {
+        executionState.order = compileOrderBy<Row>(options.orderBy)
+      }
+      if (options.limit !== undefined) {
+        executionState.limit = options.limit
+      }
+      return runSelect<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(columns, undefined, executionState)
     },
     insert(values: Insert | Insert[], options?: AthenaGatewayCallOptions) {
       if (Array.isArray(values)) {

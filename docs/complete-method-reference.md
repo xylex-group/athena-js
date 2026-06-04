@@ -2,7 +2,7 @@
 
 This file is generated from the TypeScript source and is intended to document every public SDK method surface with a usage example.
 
-Total documented method paths: **323**
+Total documented method paths: **327**
 
 Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 
@@ -15,10 +15,12 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `root.AthenaClient.fromEnvironment` | `() => AthenaSdkClientWithAuth` | `const athena = AthenaClient.fromEnvironment()` | Build a client from process environment variables. |
 | `root.coerceInt` | `(value: unknown, options?: IntCoercionOptions) => number \| null` | `coerceInt(/* ... */)` | Safely coerces `unknown` values into finite integers. Returns `null` when coercion fails or bounds/strict bigint checks are violated. |
 | `root.createAuthClient` | `(config?: AthenaAuthClientConfig) => AthenaAuthSdkClient` | `createAuthClient()` | — |
+| `root.createAuthReactEmailInput` | `<TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps>(component: AthenaAuthReactEmailComponent<TProps>, props: TProps, overrides?: Omit<AthenaAuthReactEmailRenderInput, "component" \| "props" \| "element">) => AthenaAuthReactEmailRenderInput` | `createAuthReactEmailInput(/* ... */)` | — |
 | `root.createClient` | `(url: string, apiKey: string, options?: AthenaCreateClientOptions) => AthenaSdkClientWithAuth` | `const athena = createClient("https://...", "api_key")` | Create client (convenience wrapper; use AthenaClient.builder() for full control) |
 | `root.createModelFormAdapter` | `<TModel extends AnyModelDef>(model: TModel) => ModelFormAdapter<TModel>` | `const adapter = createModelFormAdapter(model)` | Creates a small model-aware adapter for form defaults and payload normalization. |
 | `root.createPostgresIntrospectionProvider` | `(options: PostgresIntrospectionProviderOptions) => SchemaIntrospectionProvider` | `createPostgresIntrospectionProvider(/* ... */)` | Creates a PostgreSQL-backed schema introspection provider. |
 | `root.createTypedClient` | `<TRegistry extends RegistryConstraint, TTenantMap extends TenantKeyMap = Record<never, string>>(registry: TRegistry, url: string, apiKey: string, options?: TypedClientOptions<TTenantMap>) => TypedAthenaClient<TRegistry, TTenantMap>` | `const typed = createTypedClient(registry, "https://...", "api_key")` | Creates a typed client bound to a registry contract and optional tenant header mapping. |
+| `root.defineAuthEmailTemplate` | `<TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps>(definition: AthenaAuthEmailTemplateDefinition<TProps>) => AthenaAuthEmailTemplateBuilder<TProps>` | `defineAuthEmailTemplate(/* ... */)` | — |
 | `root.defineDatabase` | `<Schemas extends Record<string, SchemaDef<Record<string, AnyModelDef>>>>(schemas: Schemas) => DatabaseDef<Schemas>` | `const db = defineDatabase({ public: defineSchema({}) })` | Declares a database-level schema map. |
 | `root.defineGeneratorConfig` | `<TConfig extends AthenaGeneratorConfig>(config: TConfig) => TConfig` | `defineGeneratorConfig(/* ... */)` | Typed identity helper for authoring generator configs. |
 | `root.defineModel` | `<Row, Insert = Partial<Row>, Update = Partial<Insert>, Meta extends ModelMetadata<Row> = ModelMetadata<Row>>(input: {    meta: Meta;}) => ModelDef<Row, Insert, Update, Meta>` | `const model = defineModel<{ id: string }>({ meta: { primaryKey: ["id"], nullable: { id: false } } })` | Declares a model contract with explicit metadata and typed row/insert/update shapes. |
@@ -34,6 +36,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `root.normalizeGeneratorConfig` | `(input: AthenaGeneratorConfig) => NormalizedAthenaGeneratorConfig` | `normalizeGeneratorConfig(/* ... */)` | — |
 | `root.normalizeSchemaSelection` | `(input: GeneratorSchemaSelection \| undefined) => string[]` | `normalizeSchemaSelection(/* ... */)` | Normalizes schema selection from config or env-backed strings into a stable, deduplicated list. Empty selections fall back to PostgreSQL's public schema. |
 | `root.parseBooleanFlag` | `(rawValue: string \| undefined, fallback: boolean) => boolean` | `parseBooleanFlag(/* ... */)` | Parses a string-based boolean flag with a deterministic fallback. Accepts common truthy/falsey token variants used by env vars and CLI flags. |
+| `root.renderAthenaReactEmail` | `(input: AthenaAuthReactEmailRenderInput, options?: AthenaAuthReactEmailRuntimeOptions \| AthenaAuthReactEmailConfig) => Promise<AthenaAuthRenderedReactEmail>` | `renderAthenaReactEmail(/* ... */)` | — |
 | `root.requireAffected` | `<T>(result: AthenaResult<T>, options?: RequireAffectedOptions, context?: AthenaOperationContext) => number` | `requireAffected(/* ... */)` | Enforces mutation postconditions based on `result.count`. - Validates success first. - Requires a non-null count in the response. - Validates `count >= min` (default: `1`). Useful for guaranteeing that critical writes actually affected rows. |
 | `root.requireSuccess` | `<T>(result: AthenaResult<T>, context?: AthenaOperationContext) => AthenaResult<T>` | `requireSuccess(/* ... */)` | Asserts that an Athena result is successful. Returns the original result for fluent composition and throws `AthenaGatewayError` on failure. |
 | `root.resolveGeneratorProvider` | `(providerConfig: GeneratorProviderConfig, experimentalFlags: GeneratorExperimentalFlags) => SchemaIntrospectionProvider` | `resolveGeneratorProvider(/* ... */)` | Resolves a runtime introspection provider from generator config. |
@@ -60,33 +63,34 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `athena.db.update` | `<Row = AthenaRowShape, Insert = Partial<Row>, Update = Partial<Insert>>(table: string, values: Update, options?: AthenaGatewayCallOptions) => UpdateChain<Row>` | `await athena.db.update("users", { name: "Ada" }).eq("id", "u_1").select()` | — |
 | `athena.db.upsert` | `{    <Row = AthenaRowShape, Insert = Partial<Row>, Update = Partial<Insert>>(table: string, values: Insert, options?: AthenaUpsertOptions<Update>): MutationQuery<Row>;    <Row = AthenaRowShape, Insert = Partial<Row>, Update = Partial<Insert>>(table: string, values: Insert[], options?: AthenaUpsertOptions<Update>): MutationQuery<Row[]>;}` | `await athena.db.upsert("users", { id: "u_1", name: "Ada" }).select()` | — |
 | `athena.from` | `<Row = AthenaRowShape, Insert = Partial<Row>, Update = Partial<Insert>>(table: string) => TableQueryBuilder<Row, Insert, Update>` | `athena.from(/* ... */)` | — |
-| `athena.from.containedBy` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").containedBy(/* ... */)` | — |
-| `athena.from.contains` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").contains(/* ... */)` | — |
-| `athena.from.currentPage` | `(value: number) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").currentPage(/* ... */)` | — |
+| `athena.from.containedBy` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").containedBy(/* ... */)` | — |
+| `athena.from.contains` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").contains(/* ... */)` | — |
+| `athena.from.currentPage` | `(value: number) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").currentPage(/* ... */)` | — |
 | `athena.from.delete` | `(options?: AthenaGatewayCallOptions & {    resourceId?: string;}) => MutationQuery<Row \| null>` | `await athena.from("users").eq("id", "u_1").delete()` | — |
-| `athena.from.eq` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").eq(/* ... */)` | — |
-| `athena.from.eqCast` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue, cast: AthenaConditionCastType) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").eqCast(/* ... */)` | — |
-| `athena.from.eqUuid` | `(column: ResolvedFilterColumnKey<Row>, value: string) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").eqUuid(/* ... */)` | — |
-| `athena.from.gt` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").gt(/* ... */)` | — |
-| `athena.from.gte` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").gte(/* ... */)` | — |
-| `athena.from.ilike` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").ilike(/* ... */)` | — |
-| `athena.from.in` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").in(/* ... */)` | — |
+| `athena.from.eq` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").eq(/* ... */)` | — |
+| `athena.from.eqCast` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue, cast: AthenaConditionCastType) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").eqCast(/* ... */)` | — |
+| `athena.from.eqUuid` | `(column: ResolvedFilterColumnKey<Row>, value: string) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").eqUuid(/* ... */)` | — |
+| `athena.from.findMany` | `<const TSelect extends AthenaSelectShape>(options: AthenaFindManyOptions<Row, TSelect>) => Promise<AthenaResult<Array<AthenaFindManyResult<Row, TSelect, TContext>>>>` | `await athena.from("orchestral_sections").findMany({ select: { name: true, instruments: { select: { name: true } } } })` | — |
+| `athena.from.gt` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").gt(/* ... */)` | — |
+| `athena.from.gte` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").gte(/* ... */)` | — |
+| `athena.from.ilike` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").ilike(/* ... */)` | — |
+| `athena.from.in` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").in(/* ... */)` | — |
 | `athena.from.insert` | `{    (values: Insert, options?: AthenaGatewayCallOptions): MutationQuery<Row>;    (values: Insert[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>;}` | `await athena.from("users").insert({ name: "Ada" }).select()` | — |
-| `athena.from.is` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").is(/* ... */)` | — |
-| `athena.from.like` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").like(/* ... */)` | — |
-| `athena.from.limit` | `(count: number) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").limit(/* ... */)` | — |
-| `athena.from.lt` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").lt(/* ... */)` | — |
-| `athena.from.lte` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").lte(/* ... */)` | — |
-| `athena.from.match` | `(filters: Partial<Record<ResolvedFilterColumnKey<Row>, import("C:/Users/floris/Documents/GitHub/athena-js/src/index").AthenaJsonPrimitive>>) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").match(/* ... */)` | — |
+| `athena.from.is` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").is(/* ... */)` | — |
+| `athena.from.like` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").like(/* ... */)` | — |
+| `athena.from.limit` | `(count: number) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").limit(/* ... */)` | — |
+| `athena.from.lt` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").lt(/* ... */)` | — |
+| `athena.from.lte` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").lte(/* ... */)` | — |
+| `athena.from.match` | `(filters: Partial<Record<ResolvedFilterColumnKey<Row>, import("C:/Users/floris/Documents/GitHub/athena-js/src/index").AthenaJsonPrimitive>>) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").match(/* ... */)` | — |
 | `athena.from.maybeSingle` | `<T = Row>(columns?: string \| string[], options?: AthenaGatewayCallOptions) => Promise<AthenaResult<T \| null>>` | `await athena.from("users").eq("id", "u_1").maybeSingle()` | — |
-| `athena.from.neq` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").neq(/* ... */)` | — |
-| `athena.from.not` | `(columnOrExpression: string \| ResolvedFilterColumnKey<Row>, operator?: AthenaConditionOperator, value?: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").not(/* ... */)` | — |
-| `athena.from.offset` | `(count: number) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").offset(/* ... */)` | — |
-| `athena.from.or` | `(expression: string) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").or(/* ... */)` | — |
-| `athena.from.order` | `(column: ResolvedFilterColumnKey<Row>, options?: OrderOptions) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").order(/* ... */)` | — |
-| `athena.from.pageSize` | `(value: number) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").pageSize(/* ... */)` | — |
-| `athena.from.range` | `(from: number, to: number) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").range(/* ... */)` | — |
-| `athena.from.reset` | `() => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").eq("id", "u_1").reset()` | — |
+| `athena.from.neq` | `(column: ResolvedFilterColumnKey<Row>, value: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").neq(/* ... */)` | — |
+| `athena.from.not` | `(columnOrExpression: string \| ResolvedFilterColumnKey<Row>, operator?: AthenaConditionOperator, value?: AthenaConditionValue) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").not(/* ... */)` | — |
+| `athena.from.offset` | `(count: number) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").offset(/* ... */)` | — |
+| `athena.from.or` | `(expression: string) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").or(/* ... */)` | — |
+| `athena.from.order` | `(column: ResolvedFilterColumnKey<Row>, options?: OrderOptions) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").order(/* ... */)` | — |
+| `athena.from.pageSize` | `(value: number) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").pageSize(/* ... */)` | — |
+| `athena.from.range` | `(from: number, to: number) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").range(/* ... */)` | — |
+| `athena.from.reset` | `() => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").eq("id", "u_1").reset()` | — |
 | `athena.from.select` | `<T = Row>(columns?: string \| string[], options?: AthenaGatewayCallOptions) => SelectChain<Row, T>` | `await athena.from("users").select("id,name")` | — |
 | `athena.from.select.containedBy` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => SelectChain<Row, SelectedRow>` | `athena.from("users").containedBy(/* ... */)` | — |
 | `athena.from.select.contains` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => SelectChain<Row, SelectedRow>` | `athena.from("users").contains(/* ... */)` | — |
@@ -115,7 +119,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `athena.from.select.single` | `<T = SelectedRow>(columns?: string \| string[], options?: AthenaGatewayCallOptions) => Promise<AthenaResult<T \| null>>` | `await athena.from("users").eq("id", "u_1").single()` | — |
 | `athena.from.select.totalPages` | `(value: number) => SelectChain<Row, SelectedRow>` | `athena.from("users").select("id").totalPages(/* ... */)` | — |
 | `athena.from.single` | `<T = Row>(columns?: string \| string[], options?: AthenaGatewayCallOptions) => Promise<AthenaResult<T \| null>>` | `await athena.from("users").eq("id", "u_1").single()` | — |
-| `athena.from.totalPages` | `(value: number) => TableQueryBuilder<Row, Insert, Update>` | `athena.from("users").select("id").totalPages(/* ... */)` | — |
+| `athena.from.totalPages` | `(value: number) => TableQueryBuilder<Row, Insert, Update, TContext>` | `athena.from("users").select("id").totalPages(/* ... */)` | — |
 | `athena.from.update` | `(values: Update, options?: AthenaGatewayCallOptions) => UpdateChain<Row>` | `await athena.from("users").eq("id", "u_1").update({ name: "Ada" }).select()` | — |
 | `athena.from.update.catch` | `<TResult = never>(onrejected?: (reason: unknown) => TResult \| PromiseLike<TResult>) => Promise<AthenaResult<Row[]> \| TResult>` | `athena.from("users").catch(/* ... */)` | — |
 | `athena.from.update.containedBy` | `(column: ResolvedFilterColumnKey<Row>, values: AthenaConditionArrayValue) => UpdateChain<Row>` | `athena.from("users").containedBy(/* ... */)` | — |

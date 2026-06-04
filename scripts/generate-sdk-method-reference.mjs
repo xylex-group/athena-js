@@ -268,6 +268,9 @@ function exampleForPath(pathName, minArgs) {
 
   if (pathName.startsWith('athena.from.')) {
     const method = pathName.split('.').at(-1)
+    if (method === 'findMany') {
+      return 'await athena.from("orchestral_sections").findMany({ select: { name: true, instruments: { select: { name: true } } } })'
+    }
     if (method === 'select') return 'await athena.from("users").select("id,name")'
     if (method === 'insert') return 'await athena.from("users").insert({ name: "Ada" }).select()'
     if (method === 'upsert') return 'await athena.from("users").upsert({ id: "u_1", name: "Ada" }).select()'

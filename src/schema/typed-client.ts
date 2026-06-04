@@ -54,7 +54,13 @@ export interface TypedAthenaClient<
   ): TableQueryBuilder<
     RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
     InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
-    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
+    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    {
+      registry: TRegistry
+      database: TDatabase
+      schema: TSchema
+      model: ModelAt<TRegistry, TDatabase, TSchema, TModel>
+    }
   >
 }
 
@@ -225,7 +231,13 @@ class TypedAthenaClientImpl<
   ): TableQueryBuilder<
     RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
     InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
-    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
+    UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+    {
+      registry: TRegistry
+      database: TDatabase
+      schema: TSchema
+      model: ModelAt<TRegistry, TDatabase, TSchema, TModel>
+    }
   > {
     const modelDef = this.registryNavigator.resolveModel(database, schema, model)
     const tableName = this.registryNavigator.resolveTableName(schema, model, modelDef as AnyModelDef)
@@ -233,7 +245,17 @@ class TypedAthenaClientImpl<
       RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
       InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
       UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>
-    >(tableName)
+    >(tableName) as TableQueryBuilder<
+      RowOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+      InsertOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+      UpdateOf<ModelAt<TRegistry, TDatabase, TSchema, TModel>>,
+      {
+        registry: TRegistry
+        database: TDatabase
+        schema: TSchema
+        model: ModelAt<TRegistry, TDatabase, TSchema, TModel>
+      }
+    >
   }
 }
 

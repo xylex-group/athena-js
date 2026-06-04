@@ -29,12 +29,16 @@ const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
   backend: { type: "athena" },
 });
 
-const { data, error } = await athenaClient.from("characters").select(`
-    id,
-    name,
-    from:sender_id(name),
-    to:receiver_id(name)
-  `);
+const { data, error } = await athenaClient.from("orchestral_sections").findMany({
+  select: {
+    name: true,
+    instruments: {
+      select: {
+        name: true,
+      },
+    },
+  },
+});
 
 if (error) {
   console.error("gateway error", error);
@@ -42,6 +46,10 @@ if (error) {
   console.table(data);
 }
 ```
+
+`.findMany({ select, where, orderBy, limit })` is the clean canonical read surface.
+The existing string-based `.select(...)` chain remains fully supported for compatibility,
+including alias/FK patterns like `from:sender_id(name)`.
 
 ### Auth client (Athena Auth server)
 

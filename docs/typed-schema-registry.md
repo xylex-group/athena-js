@@ -147,7 +147,9 @@ type Kind = "one-to-one" | "many-to-one" | "one-to-many" | "many-to-many";
 }
 ```
 
-The SDK preserves this metadata and forwards it in generated model files. It does not perform automatic join expansion in current query builders.
+The SDK preserves this metadata and forwards it in generated model files.
+`fromModel(...).findMany({ select: { ... } })` uses it for typed relation inference,
+while existing string-based `.select(...)` calls remain unchanged.
 
 ## 6) Error behavior and guardrails
 

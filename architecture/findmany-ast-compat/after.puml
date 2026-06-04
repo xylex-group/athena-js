@@ -1,0 +1,30 @@
+@startuml
+title findMany AST Compatibility (After)
+skinparam backgroundColor #F7FAFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #2F3E46
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B2EBF2
+component "createClient(...)" as Client #D5F5E3
+component "TableQueryBuilder<Row, Insert, Update, Context>" as Builder #FFF59D
+component "findMany({\n  select,\n  where,\n  orderBy,\n  limit\n})" as FindMany #FFE082
+component "Query AST Compiler\n- select tree -> columns string\n- where -> conditions\n- orderBy -> sort_by" as Compiler #D1C4E9
+component "Typed Registry\n(relation-aware fromModel context)" as Registry #E3F2FD
+component "Gateway Client" as Gateway #AED581
+database "Athena HTTP Gateway" as GatewayApi #80CBC4
+
+Consumer --> Client : from("table") / fromModel(...)
+Client --> Builder : Build fluent builder
+Builder --> FindMany : eager read
+FindMany --> Compiler : Compile object AST
+Registry --> Builder : relation-aware type context
+Compiler --> Gateway : unchanged /gateway/fetch or /gateway/query payload
+Gateway --> GatewayApi : HTTP request
+
+note right of Compiler
+String-based .select(...)
+and SelectChain stay intact.
+findMany is additive.
+end note
+@enduml

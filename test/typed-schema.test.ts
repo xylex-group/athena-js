@@ -78,6 +78,44 @@ test('typed client routes fromModel() to schema-qualified table names', async ()
   }
 })
 
+test('typed client fromModel() supports findMany object selects', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createTypedClient(registry, 'https://athena-db.com', 'secret')
+    await client.fromModel('app_db', 'public', 'users').findMany({
+      select: {
+        id: true,
+        profile: {
+          select: {
+            id: true,
+          },
+        },
+      },
+      where: {
+        id: 'u1',
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      limit: 1,
+    })
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'public.users')
+    assert.equal(payload.columns, 'id,profile(id)')
+    assert.equal(payload.limit, 1)
+    assert.deepEqual(payload.sort_by, {
+      field: 'id',
+      direction: 'descending',
+    })
+    assert.deepEqual(payload.conditions, [
+      { operator: 'eq', column: 'id', value: 'u1', eq_column: 'id', eq_value: 'u1' },
+    ])
+  } finally {
+    restore()
+  }
+})
+
 test('typed client forwards mapped tenant context headers', async () => {
   const { calls, restore } = mockFetch()
   try {

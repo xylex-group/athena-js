@@ -1,0 +1,29 @@
+@startuml
+title findMany AST Compatibility (Before)
+skinparam backgroundColor #F7FAFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #2F3E46
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B2EBF2
+component "createClient(...)" as Client #D5F5E3
+component "TableQueryBuilder<Row, Insert, Update>" as Builder #FFF59D
+component "SelectChain<Row>" as Chain #FFE082
+component "Typed Registry\n(relations metadata only)" as Registry #E3F2FD
+component "Gateway Client" as Gateway #AED581
+database "Athena HTTP Gateway" as GatewayApi #80CBC4
+
+Consumer --> Client : from("table")
+Client --> Builder : Build fluent builder
+Builder --> Chain : select("id,name,...")
+Consumer --> Chain : eq()/order()/limit()
+Chain --> Gateway : /gateway/fetch or /gateway/query
+Registry --> Builder : Row + table typing only
+Gateway --> GatewayApi : HTTP request
+
+note right of Registry
+Relation metadata exists,
+but query builders do not
+consume object select trees.
+end note
+@enduml

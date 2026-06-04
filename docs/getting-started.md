@@ -149,12 +149,20 @@ type UserRow = {
   created_at: string;
 };
 
-const result = await athena
-  .from<UserRow>("users")
-  .select("id, email, active")
-  .eq("active", true)
-  .order("created_at", { ascending: false })
-  .limit(25);
+const result = await athena.from<UserRow>("users").findMany({
+  select: {
+    id: true,
+    email: true,
+    active: true,
+  },
+  where: {
+    active: true,
+  },
+  orderBy: {
+    created_at: "desc",
+  },
+  limit: 25,
+});
 
 const labeled = await athena
   .from<UserRow>("users")
@@ -163,10 +171,26 @@ const labeled = await athena
 
 ### Important chain behavior
 
+- `.findMany(...)` is the canonical eager read API for object-based selection trees.
 - `.select(...)` returns a `SelectChain`, not a promise.
 - `await` on the chain triggers execution.
 - `.single(...)` and `.maybeSingle(...)` are read terminators.
 - String column lists support response aliases with `customName:columnName`.
+
+Nested relation trees can compile into the existing gateway select transport:
+
+```ts
+const sections = await athena.from("orchestral_sections").findMany({
+  select: {
+    name: true,
+    instruments: {
+      select: {
+        name: true,
+      },
+    },
+  },
+});
+```
 
 ```ts
 const one = await athena.from<UserRow>("users").eq("id", "u-1").single("id, email");
