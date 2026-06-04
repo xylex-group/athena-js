@@ -209,7 +209,12 @@ type AthenaOrderBy<Row> =
       column: keyof Row & string
       ascending?: boolean
     }
-  | Partial<Record<keyof Row & string, "asc" | "desc" | "ascending" | "descending" | boolean>>
+  | Partial<
+      Record<
+        keyof Row & string,
+        "asc" | "desc" | "ascending" | "descending" | boolean | { ascending?: boolean }
+      >
+    >
 
 interface AthenaFindManyOptions<Row, TSelect extends AthenaSelectShape> {
   select: TSelect

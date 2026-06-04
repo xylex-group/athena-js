@@ -428,19 +428,22 @@ function createTraceCallsiteStore(
   tracer?: AthenaQueryTracer,
   initialCallsite?: AthenaQueryTraceCallsite | null,
 ): AthenaTraceCallsiteStore {
-  let storedCallsite = initialCallsite
+  let storedCallsite = initialCallsite ?? undefined
 
   return {
     resolve(callsite) {
-      if (callsite !== undefined) {
+      if (callsite) {
         storedCallsite = callsite
         return callsite
       }
       if (storedCallsite !== undefined) {
         return storedCallsite
       }
-      storedCallsite = captureTraceCallsite(tracer)
-      return storedCallsite
+      const capturedCallsite = captureTraceCallsite(tracer)
+      if (capturedCallsite) {
+        storedCallsite = capturedCallsite
+      }
+      return capturedCallsite
     },
   }
 }
@@ -524,7 +527,7 @@ async function executeWithQueryTrace<T>(
     return runner()
   }
 
-  const callsite = callsiteOverride === undefined ? tracer.captureCallsite() : callsiteOverride
+  const callsite = callsiteOverride ?? tracer.captureCallsite()
   const startedAt = Date.now()
   try {
     const result = await runner()
