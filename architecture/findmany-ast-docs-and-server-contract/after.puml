@@ -1,0 +1,29 @@
+@startuml
+title findMany AST Docs And Server Contract (After)
+skinparam backgroundColor #F7FAFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #2F3E46
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B2EBF2
+component "README + docs index" as EntryPoints #FFE082
+component "findmany-ast-and-server-contract.md" as DeepDive #D5F5E3
+component "API reference" as ApiRef #FFF59D
+component "Source code\nclient.ts + query-ast.ts" as Source #D1C4E9
+cloud "athena-cluster.com\nroot + openapi + live routes" as Cluster #AED581
+
+Consumer --> EntryPoints : Discover canonical doc
+EntryPoints --> DeepDive : Direct link
+ApiRef --> DeepDive : Defer behavioral detail
+DeepDive --> Source : Map AST to compiler/runtime
+DeepDive --> Cluster : Document live route contract
+
+note right of DeepDive
+One page now explains:
+- what AST means
+- how findMany executes
+- expected result and error shapes
+- what Athena server must change now
+- what can wait for later
+end note
+@enduml
