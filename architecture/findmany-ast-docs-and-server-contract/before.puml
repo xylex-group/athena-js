@@ -1,0 +1,23 @@
+@startuml
+title findMany AST Docs And Server Contract (Before)
+skinparam backgroundColor #F7FAFC
+skinparam componentStyle rectangle
+skinparam ArrowColor #2F3E46
+skinparam defaultFontName Consolas
+
+actor "SDK Consumer" as Consumer #B2EBF2
+component "README + getting-started" as IntroDocs #FFE082
+component "API reference" as ApiRef #FFF59D
+component "Source code\nclient.ts + query-ast.ts" as Source #D1C4E9
+cloud "athena-cluster.com\nroot + openapi + live routes" as Cluster #AED581
+
+Consumer --> IntroDocs : Learn basic syntax
+Consumer --> ApiRef : Look up signatures
+Consumer --> Source : Infer runtime behavior manually
+Consumer --> Cluster : Probe live contract manually
+
+note bottom of Consumer
+AST explanation, route shapes,
+and server implications are scattered.
+end note
+@enduml

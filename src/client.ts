@@ -187,6 +187,10 @@ type AthenaQueryTracer = {
   ) => void
 }
 
+type AthenaTraceCallsiteStore = {
+  resolve: (callsite?: AthenaQueryTraceCallsite | null) => AthenaQueryTraceCallsite | null
+}
+
 export interface MutationQuery<Result> extends PromiseLike<AthenaResult<Result>> {
   select(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<Result>>
   returning(columns?: string | string[], options?: AthenaGatewayCallOptions): Promise<AthenaResult<Result>>
@@ -416,6 +420,34 @@ function defaultQueryTraceLogger(event: AthenaQueryTraceEvent): void {
   console.info(banner, event)
 }
 
+function captureTraceCallsite(tracer?: AthenaQueryTracer): AthenaQueryTraceCallsite | null {
+  return tracer?.captureCallsite() ?? null
+}
+
+function createTraceCallsiteStore(
+  tracer?: AthenaQueryTracer,
+  initialCallsite?: AthenaQueryTraceCallsite | null,
+): AthenaTraceCallsiteStore {
+  let storedCallsite = initialCallsite ?? undefined
+
+  return {
+    resolve(callsite) {
+      if (callsite) {
+        storedCallsite = callsite
+        return callsite
+      }
+      if (storedCallsite !== undefined) {
+        return storedCallsite
+      }
+      const capturedCallsite = captureTraceCallsite(tracer)
+      if (capturedCallsite) {
+        storedCallsite = capturedCallsite
+      }
+      return capturedCallsite
+    },
+  }
+}
+
 function createQueryTracer(experimental?: AthenaClientExperimentalOptions): AthenaQueryTracer | undefined {
   const traceOption = experimental?.traceQueries
   if (!traceOption) {
@@ -489,12 +521,13 @@ async function executeWithQueryTrace<T>(
   tracer: AthenaQueryTracer | undefined,
   context: AthenaTraceContext,
   runner: () => Promise<AthenaResult<T>>,
+  callsiteOverride?: AthenaQueryTraceCallsite | null,
 ): Promise<AthenaResult<T>> {
   if (!tracer) {
     return runner()
   }
 
-  const callsite = tracer.captureCallsite()
+  const callsite = callsiteOverride ?? tracer.captureCallsite()
   const startedAt = Date.now()
   try {
     const result = await runner()
@@ -535,18 +568,26 @@ function createMutationQuery<Result>(
   executor: (
     columns?: string | string[],
     options?: AthenaGatewayCallOptions,
+    callsite?: AthenaQueryTraceCallsite | null,
   ) => Promise<AthenaResult<Result>>,
   defaultColumns: string | string[] | null = DEFAULT_COLUMNS,
+  tracer?: AthenaQueryTracer,
+  initialCallsite?: AthenaQueryTraceCallsite | null,
 ): MutationQuery<Result> {
   let selectedColumns: string | string[] | undefined = defaultColumns === null ? undefined : defaultColumns
   let selectedOptions: AthenaGatewayCallOptions | undefined
   let promise: Promise<AthenaResult<Result>> | null = null
+  const callsiteStore = createTraceCallsiteStore(tracer, initialCallsite)
 
-  const run = (columns?: string | string[], options?: AthenaGatewayCallOptions) => {
+  const run = (
+    columns?: string | string[],
+    options?: AthenaGatewayCallOptions,
+    callsite?: AthenaQueryTraceCallsite | null,
+  ) => {
     const payloadColumns = columns ?? selectedColumns
     const payloadOptions = options ?? selectedOptions
     if (!promise) {
-      promise = executor(payloadColumns, payloadOptions)
+      promise = executor(payloadColumns, payloadOptions, callsiteStore.resolve(callsite))
     }
     return promise
   }
@@ -555,7 +596,7 @@ function createMutationQuery<Result>(
     select(columns = selectedColumns, options) {
       selectedColumns = columns
       selectedOptions = options ?? selectedOptions
-      return run(columns, options)
+      return run(columns, options, captureTraceCallsite(tracer))
     },
     returning(columns = selectedColumns, options) {
       return mutationQuery.select(columns, options)
@@ -563,7 +604,7 @@ function createMutationQuery<Result>(
     single(columns = selectedColumns, options) {
       selectedColumns = columns
       selectedOptions = options ?? selectedOptions
-      return run(columns, options).then(toSingleResult)
+      return run(columns, options, captureTraceCallsite(tracer)).then(toSingleResult)
     },
     maybeSingle(columns = selectedColumns, options) {
       return mutationQuery.single(columns, options)
@@ -1437,6 +1478,7 @@ function createRpcBuilder<Row>(
   client: ReturnType<typeof createAthenaGatewayClient>,
   formatGatewayResult: AthenaResultFormatter,
   tracer?: AthenaQueryTracer,
+  initialCallsite?: AthenaQueryTraceCallsite | null,
 ): RpcQueryBuilder<Row> {
   const state: {
     filters: AthenaRpcFilter[]
@@ -1450,10 +1492,12 @@ function createRpcBuilder<Row>(
   let selectedColumns: string | string[] | undefined
   let selectedOptions: AthenaRpcCallOptions | undefined
   let promise: Promise<AthenaResult<Row[]>> | null = null
+  const callsiteStore = createTraceCallsiteStore(tracer, initialCallsite)
 
   const executeRpc = async <SelectedRow = Row>(
     columns?: string | string[],
     options?: AthenaRpcCallOptions,
+    callsite?: AthenaQueryTraceCallsite | null,
   ): Promise<AthenaResult<SelectedRow[]>> => {
     const mergedOptions = mergeOptions(baseOptions, options)
     const payload: AthenaRpcPayload = {
@@ -1484,14 +1528,19 @@ function createRpcBuilder<Row>(
         const response = await client.rpcGateway<SelectedRow[]>(payload, mergedOptions)
         return formatGatewayResult(response, { operation: 'rpc' })
       },
+      callsite,
     )
   }
 
-  const run = (columns?: string | string[], options?: AthenaRpcCallOptions) => {
+  const run = (
+    columns?: string | string[],
+    options?: AthenaRpcCallOptions,
+    callsite?: AthenaQueryTraceCallsite | null,
+  ) => {
     const payloadColumns = columns ?? selectedColumns
     const payloadOptions = options ?? selectedOptions
     if (!promise) {
-      promise = executeRpc<Row>(payloadColumns, payloadOptions)
+      promise = executeRpc<Row>(payloadColumns, payloadOptions, callsiteStore.resolve(callsite))
     }
     return promise
   }
@@ -1503,10 +1552,10 @@ function createRpcBuilder<Row>(
     select(columns = selectedColumns, options?: AthenaRpcCallOptions) {
       selectedColumns = columns
       selectedOptions = options ?? selectedOptions
-      return run(columns, options)
+      return run(columns, options, captureTraceCallsite(tracer))
     },
     async single<T = Row>(columns?: string | string[], options?: AthenaRpcCallOptions) {
-      const result = await run(columns, options)
+      const result = await run(columns, options, captureTraceCallsite(tracer))
       return toSingleResult(result) as AthenaResult<T | null>
     },
     maybeSingle<T = Row>(columns?: string | string[], options?: AthenaRpcCallOptions) {
@@ -1618,6 +1667,7 @@ function createTableBuilder<
     columns: string | string[] = DEFAULT_COLUMNS,
     options?: AthenaGatewayCallOptions,
     executionState: TableBuilderState = snapshotState(),
+    callsite?: AthenaQueryTraceCallsite | null,
   ) => {
     const resolvedTableName = resolveTableNameForCall(tableName, options?.schema)
     const conditions = executionState.conditions.length
@@ -1657,6 +1707,7 @@ function createTableBuilder<
             const queryResponse = await client.queryGateway<T>(payload, options)
             return formatGatewayResult(queryResponse, { table: resolvedTableName, operation: 'select' })
           },
+          callsite,
         )
       }
     }
@@ -1699,18 +1750,26 @@ function createTableBuilder<
         const response = await client.fetchGateway<T>(payload, options)
         return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
       },
+      callsite,
     )
   }
 
   const createSelectChain = <SelectedRow>(
     columns: string | string[],
     options?: AthenaGatewayCallOptions,
+    initialCallsite?: AthenaQueryTraceCallsite | null,
   ): SelectChain<Row, SelectedRow> => {
     const chain = {} as SelectChain<Row, SelectedRow>
+    const callsiteStore = createTraceCallsiteStore(tracer, initialCallsite)
     const filterMethods = createFilterMethods<SelectChain<Row, SelectedRow>, Row>(state, addCondition, chain)
     Object.assign(chain, filterMethods, {
       async single<T = SelectedRow>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
-        const r = await runSelect<T[]>(cols ?? columns, opts ?? options)
+        const r = await runSelect<T[]>(
+          cols ?? columns,
+          opts ?? options,
+          snapshotState(),
+          callsiteStore.resolve(captureTraceCallsite(tracer)),
+        )
         return toSingleResult(r)
       },
       maybeSingle<T = SelectedRow>(cols?: string | string[], opts?: AthenaGatewayCallOptions) {
@@ -1720,13 +1779,22 @@ function createTableBuilder<
         onfulfilled?: (v: AthenaResult<SelectedRow[]>) => T1 | PromiseLike<T1>,
         onrejected?: (reason: unknown) => T2 | PromiseLike<T2>,
       ) {
-        return runSelect<SelectedRow[]>(columns, options).then(onfulfilled, onrejected)
+        return runSelect<SelectedRow[]>(
+          columns,
+          options,
+          snapshotState(),
+          callsiteStore.resolve(),
+        ).then(onfulfilled, onrejected)
       },
       catch<T = never>(onrejected?: (reason: unknown) => T | PromiseLike<T>) {
-        return runSelect<SelectedRow[]>(columns, options).catch(onrejected)
+        return runSelect<SelectedRow[]>(columns, options, snapshotState(), callsiteStore.resolve()).catch(
+          onrejected,
+        )
       },
       finally(onfinally?: () => void) {
-        return runSelect<SelectedRow[]>(columns, options).finally(onfinally)
+        return runSelect<SelectedRow[]>(columns, options, snapshotState(), callsiteStore.resolve()).finally(
+          onfinally,
+        )
       },
     })
     return chain
@@ -1744,11 +1812,12 @@ function createTableBuilder<
       return builder
     },
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
-      return createSelectChain<T>(columns, options)
+      return createSelectChain<T>(columns, options, captureTraceCallsite(tracer))
     },
     async findMany<const TSelect extends AthenaSelectShape>(options: AthenaFindManyOptions<Row, TSelect>) {
       const columns = compileSelectShape(options.select)
       const executionState = snapshotState()
+      const callsite = captureTraceCallsite(tracer)
       const compiledWhere = compileWhere(options.where)
       if (compiledWhere?.length) {
         executionState.conditions.push(...compiledWhere)
@@ -1759,13 +1828,20 @@ function createTableBuilder<
       if (options.limit !== undefined) {
         executionState.limit = options.limit
       }
-      return runSelect<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(columns, undefined, executionState)
+      return runSelect<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
+        columns,
+        undefined,
+        executionState,
+        callsite,
+      )
     },
     insert(values: Insert | Insert[], options?: AthenaGatewayCallOptions) {
+      const mutationCallsite = captureTraceCallsite(tracer)
       if (Array.isArray(values)) {
         const executeInsertMany = async (
           columns?: string | string[],
           selectOptions?: AthenaGatewayCallOptions,
+          callsite?: AthenaQueryTraceCallsite | null,
         ) => {
           const mergedOptions = mergeOptions(options, selectOptions)
           const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
@@ -1794,13 +1870,15 @@ function createTableBuilder<
               const response = await client.insertGateway<Row[]>(payload, mergedOptions)
               return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
             },
+            callsite,
           )
         }
-        return createMutationQuery<Row[]>(executeInsertMany)
+        return createMutationQuery<Row[]>(executeInsertMany, DEFAULT_COLUMNS, tracer, mutationCallsite)
       }
       const executeInsertOne = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
+        callsite?: AthenaQueryTraceCallsite | null,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
@@ -1829,18 +1907,21 @@ function createTableBuilder<
             const response = await client.insertGateway<Row>(payload, mergedOptions)
             return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
           },
+          callsite,
         )
       }
-      return createMutationQuery<Row>(executeInsertOne)
+      return createMutationQuery<Row>(executeInsertOne, DEFAULT_COLUMNS, tracer, mutationCallsite)
     },
     upsert(
       values: Insert | Insert[],
       options?: AthenaGatewayCallOptions & { updateBody?: Update; onConflict?: string | string[] },
     ) {
+      const mutationCallsite = captureTraceCallsite(tracer)
       if (Array.isArray(values)) {
         const executeUpsertMany = async (
           columns?: string | string[],
           selectOptions?: AthenaGatewayCallOptions,
+          callsite?: AthenaQueryTraceCallsite | null,
         ) => {
           const mergedOptions = mergeOptions(options, selectOptions)
           const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
@@ -1871,13 +1952,15 @@ function createTableBuilder<
               const response = await client.insertGateway<Row[]>(payload, mergedOptions)
               return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
             },
+            callsite,
           )
         }
-        return createMutationQuery<Row[]>(executeUpsertMany)
+        return createMutationQuery<Row[]>(executeUpsertMany, DEFAULT_COLUMNS, tracer, mutationCallsite)
       }
       const executeUpsertOne = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
+        callsite?: AthenaQueryTraceCallsite | null,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
@@ -1908,14 +1991,17 @@ function createTableBuilder<
             const response = await client.insertGateway<Row>(payload, mergedOptions)
             return formatGatewayResult(response, { table: resolvedTableName, operation: 'insert' })
           },
+          callsite,
         )
       }
-      return createMutationQuery<Row>(executeUpsertOne)
+      return createMutationQuery<Row>(executeUpsertOne, DEFAULT_COLUMNS, tracer, mutationCallsite)
     },
     update(values: Update, options?: AthenaGatewayCallOptions) {
+      const mutationCallsite = captureTraceCallsite(tracer)
       const executeUpdate = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
+        callsite?: AthenaQueryTraceCallsite | null,
       ) => {
         const filters = state.conditions.length ? [...state.conditions] : undefined
         const mergedOptions = mergeOptions(options, selectOptions)
@@ -1946,9 +2032,10 @@ function createTableBuilder<
             const response = await client.updateGateway<Row[]>(payload, mergedOptions)
             return formatGatewayResult(response, { table: resolvedTableName, operation: 'update' })
           },
+          callsite,
         )
       }
-      const mutation = createMutationQuery<Row[]>(executeUpdate, null)
+      const mutation = createMutationQuery<Row[]>(executeUpdate, null, tracer, mutationCallsite)
       const updateChain = {} as UpdateChain<Row>
       const filterMethods = createFilterMethods<UpdateChain<Row>, Row>(state, addCondition, updateChain)
       Object.assign(updateChain, filterMethods, mutation)
@@ -1960,9 +2047,11 @@ function createTableBuilder<
       if (!resourceId && !filters?.length) {
         throw new Error('delete requires a resource_id either via eq("resource_id", ...) or options.resourceId')
       }
+      const mutationCallsite = captureTraceCallsite(tracer)
       const executeDelete = async (
         columns?: string | string[],
         selectOptions?: AthenaGatewayCallOptions,
+        callsite?: AthenaQueryTraceCallsite | null,
       ) => {
         const mergedOptions = mergeOptions(options, selectOptions)
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
@@ -1991,12 +2080,18 @@ function createTableBuilder<
             const response = await client.deleteGateway<Row | null>(payload, mergedOptions)
             return formatGatewayResult(response, { table: resolvedTableName, operation: 'delete' })
           },
+          callsite,
         )
       }
-      return createMutationQuery<Row | null>(executeDelete, null)
+      return createMutationQuery<Row | null>(executeDelete, null, tracer, mutationCallsite)
     },
     async single<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions) {
-      const response = await builder.select<T[]>(columns, options)
+      const response = await runSelect<T[]>(
+        columns ?? DEFAULT_COLUMNS,
+        options,
+        snapshotState(),
+        captureTraceCallsite(tracer),
+      )
       return toSingleResult(response)
     },
     async maybeSingle<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions) {
@@ -2021,6 +2116,7 @@ function createQueryBuilder(
       throw new Error('query requires a non-empty string')
     }
     const payload = { query: normalizedQuery }
+    const callsite = captureTraceCallsite(tracer)
     return executeWithQueryTrace(
       tracer,
       {
@@ -2034,6 +2130,7 @@ function createQueryBuilder(
         const response = await client.queryGateway<Row[]>(payload, options)
         return formatGatewayResult(response, { operation: 'query' })
       },
+      callsite,
     )
   }
 }
@@ -2101,6 +2198,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
       gateway,
       formatGatewayResult,
       queryTracer,
+      captureTraceCallsite(queryTracer),
     )
   }
   const query = createQueryBuilder(gateway, formatGatewayResult, queryTracer) as AthenaSdkClient['query']

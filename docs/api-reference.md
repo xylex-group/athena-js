@@ -3,6 +3,7 @@
 This page documents the exported contract surfaces of `@xylex-group/athena` and `@xylex-group/athena/react`.
 
 For workflow-first onboarding, start with [`getting-started.md`](getting-started.md).
+For the full `findMany(...)` AST explanation, live route payloads, and Athena server implications, use [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md).
 For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
 For Athena Auth endpoint parity and per-endpoint examples, use [`auth/index.mdx`](auth/index.mdx) and [`auth-client-bindings.md`](auth-client-bindings.md).
 For exhaustive method-by-method coverage (including auth, runtime chains, react, cookies, and utils), use [`complete-method-reference.md`](complete-method-reference.md).
@@ -88,6 +89,7 @@ function createClient(
 
 `experimental.enableErrorNormalization` is deprecated and retained as a no-op compatibility flag because failed `AthenaResult` values now expose structured normalized `error` objects by default.
 `experimental.traceQueries` emits detailed query execution diagnostics for every runtime call.
+For deferred builders, trace callsites are captured from the public SDK seam that declared or finalized the operation and are memoized through the eventual execution, so traces stay anchored to user code across local and CI stack differences.
 
 ### `AthenaQueryTraceOptions`
 
@@ -405,6 +407,66 @@ await athena.from("users").findMany({
   },
 })
 ```
+
+### `findMany(...)` AST types
+
+```ts
+interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = AthenaSelectShape> {
+  select: TSelect
+  as?: string
+  via?: string
+}
+
+type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<any>>
+
+type AthenaWhereOperatorInput = {
+  eq?: AthenaConditionValue
+  neq?: AthenaConditionValue
+  gt?: AthenaConditionValue
+  gte?: AthenaConditionValue
+  lt?: AthenaConditionValue
+  lte?: AthenaConditionValue
+  like?: AthenaConditionValue
+  ilike?: AthenaConditionValue
+  is?: AthenaConditionValue
+  in?: AthenaConditionArrayValue
+  contains?: AthenaConditionArrayValue
+  containedBy?: AthenaConditionArrayValue
+}
+
+type AthenaWhere<Row = Record<string, AthenaJsonValue | undefined>> =
+  Partial<Record<keyof Row & string, AthenaConditionValue | AthenaWhereOperatorInput>> & {
+    or?: Array<Partial<Record<keyof Row & string, AthenaConditionValue | AthenaWhereOperatorInput>>>
+    not?: Partial<Record<keyof Row & string, AthenaConditionValue | AthenaWhereOperatorInput>>
+  }
+
+type AthenaOrderBy<Row = Record<string, AthenaJsonValue | undefined>> =
+  | {
+      column: keyof Row & string
+      ascending?: boolean
+    }
+  | Partial<
+      Record<
+        keyof Row & string,
+        "asc" | "desc" | "ascending" | "descending" | boolean | { ascending?: boolean }
+      >
+    >
+
+interface AthenaFindManyOptions<Row, TSelect extends AthenaSelectShape> {
+  select: TSelect
+  where?: AthenaWhere<Row>
+  orderBy?: AthenaOrderBy<Row>
+  limit?: number
+}
+```
+
+Notes:
+
+- `select` is required.
+- `where` scalar values compile to `eq`.
+- `where.or` and `where.not` only support shapes that map losslessly into the current gateway condition transport.
+- `orderBy` supports one column in v1.
+- `as` and `via` are the escape hatches for aliased or ambiguous relation joins.
 
 ### `SelectChain<Row, SelectedRow = Row>`
 

@@ -109,6 +109,8 @@ Every execution logs:
 - full outcome (`status`, `error`, `count`, `data`, `raw`)
 - invocation callsite (`filePath`, `fileName`, `line`, `column`)
 
+For deferred chains, that callsite is captured from the public Athena SDK seam that declared or finalized the operation and then reused for the eventual request. This keeps traces stable in CI and production even when async stack frames differ from local development.
+
 Custom sink:
 
 ```ts
@@ -169,6 +171,8 @@ const labeled = await athena
   .select("user_id:id, user_email:email");
 ```
 
+Version baseline for the `findMany(...)` examples in this section: SDK `@xylex-group/athena` `2.2.0`, Athena server `3.12.3` verified on 2026-06-04.
+
 ### Important chain behavior
 
 - `.findMany(...)` is the canonical eager read API for object-based selection trees.
@@ -191,6 +195,8 @@ const sections = await athena.from("orchestral_sections").findMany({
   },
 });
 ```
+
+For the full `findMany(...)` AST model, transport mapping, live Athena route examples, and server compatibility notes, read [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md).
 
 ```ts
 const one = await athena.from<UserRow>("users").eq("id", "u-1").single("id, email");

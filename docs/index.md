@@ -9,10 +9,11 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 ### Track A - Runtime-first onboarding
 
 1. [`getting-started.md`](getting-started.md) - install, runtime client setup, query/writes/RPC, and practical guardrails
-2. [`select-column-aliases.md`](select-column-aliases.md) - response shaping with `customName:columnName`, array form, and alias behavior across reads/writes/RPC
-3. [`api-reference.md`](api-reference.md) - exact signatures for the runtime client, builders, helpers, `@xylex-group/athena/utils`, and experimental query tracing
-4. [`cli-command-reference.md`](cli-command-reference.md) - CLI commands and troubleshooting
-5. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive, generated method-by-method reference with examples
+2. [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md) - canonical `findMany(...)` AST semantics, transport mapping, live route shapes, and server follow-up work
+3. [`select-column-aliases.md`](select-column-aliases.md) - response shaping with `customName:columnName`, array form, and alias behavior across reads/writes/RPC
+4. [`api-reference.md`](api-reference.md) - exact signatures for the runtime client, builders, helpers, `@xylex-group/athena/utils`, and experimental query tracing
+5. [`cli-command-reference.md`](cli-command-reference.md) - CLI commands and troubleshooting
+6. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive, generated method-by-method reference with examples
 
 ### Track B - Typed model architecture
 
@@ -48,6 +49,7 @@ Runtime client (createClient / AthenaClient.builder)
 ## What changed recently (type-system focus)
 
 - `TableQueryBuilder` now carries `Row`, `Insert`, and `Update` generics end-to-end.
+- `findMany({ select, where, orderBy, limit })` is now the canonical eager read surface and compiles object AST input into the existing gateway contract.
 - Filter operations (`eq`, `gt`, `order`, etc.) are now keyed to typed row columns when row keys are known.
 - Gateway payload contracts now use JSON-safe primitives (`AthenaJsonValue`, `AthenaJsonObject`, `AthenaJsonArray`) instead of broad untyped records.
 - Typed registry `fromModel(...)` now forwards `RowOf`, `InsertOf`, and `UpdateOf` into the table builder, preserving write-contract typing.
@@ -55,6 +57,7 @@ Runtime client (createClient / AthenaClient.builder)
 ## Which page to open first
 
 - If your app is mostly string-table runtime calls: start at [`getting-started.md`](getting-started.md).
+- If your issue is `findMany(...)`, nested relation selection, route payload shape, or Athena server compatibility: open [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md).
 - If your issue is response field naming or `customName:columnName` syntax: open [`select-column-aliases.md`](select-column-aliases.md).
 - If your issue is type drift across domains: start at [`type-safety-playbook.md`](type-safety-playbook.md).
 - If your issue is generated artifacts or CI determinism: start at [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).

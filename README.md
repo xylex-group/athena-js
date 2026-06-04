@@ -47,9 +47,13 @@ if (error) {
 }
 ```
 
+Example version baseline: SDK `@xylex-group/athena` `2.2.0`, Athena server `3.12.3` verified on 2026-06-04.
+
 `.findMany({ select, where, orderBy, limit })` is the clean canonical read surface.
 The existing string-based `.select(...)` chain remains fully supported for compatibility,
 including alias/FK patterns like `from:sender_id(name)`.
+For the full AST model, route contract, error behavior, and Athena server implications,
+see [`docs/findmany-ast-and-server-contract.md`](docs/findmany-ast-and-server-contract.md).
 
 ### Auth client (Athena Auth server)
 
@@ -328,6 +332,8 @@ With `traceQueries: true`, the SDK logs every runtime execution (`select`, `inse
 - payload and call options
 - full outcome (`status`, `error`, `count`, `data`, `raw`)
 - callsite metadata (`filePath`, `fileName`, `line`, `column`)
+
+For deferred chains, Athena captures that callsite from the public SDK seam that declared or finalized the operation and reuses it for the eventual network execution. That keeps traces pinned to user code instead of drifting into SDK internals when async stack shapes differ between local runs and CI.
 
 Use a custom sink:
 

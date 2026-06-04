@@ -6,7 +6,14 @@ import type {
   AthenaJsonValue,
   AthenaSortBy,
 } from './gateway/types.ts'
-import type { AnyModelDef, ModelDef, ModelRelationMetadata, RegistryDef } from './schema/types.ts'
+import type {
+  AnyModelDef,
+  DatabaseDef,
+  ModelDef,
+  ModelRelationMetadata,
+  RegistryDef,
+  SchemaDef,
+} from './schema/types.ts'
 import type { RowOf } from './schema/types.ts'
 
 type AthenaRowShape = Record<string, AthenaJsonValue | undefined>
@@ -62,7 +69,11 @@ export interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = At
   via?: string
 }
 
-export type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<any>>
+export type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<AthenaSelectShape>>
+
+type GenericRegistryDef = RegistryDef<
+  Record<string, DatabaseDef<Record<string, SchemaDef<Record<string, AnyModelDef>>>>>
+>
 
 type AthenaOrderByDirectionInput =
   | 'asc'
@@ -92,7 +103,7 @@ export interface AthenaFindManyOptions<
 }
 
 type AthenaModelContext<
-  TRegistry extends RegistryDef<Record<string, any>> = RegistryDef<Record<string, any>>,
+  TRegistry extends GenericRegistryDef = GenericRegistryDef,
   TDatabase extends string = string,
   TSchema extends string = string,
   TModel extends AnyModelDef = AnyModelDef,
@@ -107,15 +118,17 @@ type Simplify<T> = {
   [K in keyof T]: T[K]
 } & {}
 
-type ContextRegistry<TContext> = TContext extends AthenaModelContext<infer TRegistry, any, any, any>
+type ContextRegistry<TContext> = TContext extends AthenaModelContext<infer TRegistry, string, string, AnyModelDef>
   ? TRegistry
   : never
 
-type ContextDatabase<TContext> = TContext extends AthenaModelContext<any, infer TDatabase, any, any>
+type ContextDatabase<TContext> = TContext extends AthenaModelContext<GenericRegistryDef, infer TDatabase, string, AnyModelDef>
   ? TDatabase
   : never
 
-type ContextModel<TContext> = TContext extends AthenaModelContext<any, any, any, infer TModel> ? TModel : never
+type ContextModel<TContext> = TContext extends AthenaModelContext<GenericRegistryDef, string, string, infer TModel>
+  ? TModel
+  : never
 
 type ModelMetaOf<TContext> = ContextModel<TContext> extends ModelDef<unknown, unknown, unknown, infer TMeta>
   ? TMeta
@@ -162,7 +175,7 @@ type ResolveTargetModel<
   TContext,
   TRelation extends ModelRelationMetadata,
 > = ContextRegistry<TContext> extends infer TRegistry
-  ? TRegistry extends RegistryDef<Record<string, any>>
+  ? TRegistry extends GenericRegistryDef
     ? TargetDatabaseName<TContext, TRelation> extends keyof TRegistry & string
       ? TRelation['targetSchema'] extends keyof TRegistry[TargetDatabaseName<TContext, TRelation>]['schemas'] & string
         ? TRelation['targetModel'] extends keyof TRegistry[TargetDatabaseName<TContext, TRelation>]['schemas'][TRelation['targetSchema']]['models'] & string
@@ -208,7 +221,7 @@ type RelationResultValue<
   : never
 
 type RelationSelectionResult<TContext, TSelect extends AthenaSelectShape> = {
-  [TKey in Extract<keyof TSelect, string> as TSelect[TKey] extends AthenaRelationSelectNode<any>
+  [TKey in Extract<keyof TSelect, string> as TSelect[TKey] extends AthenaRelationSelectNode<AthenaSelectShape>
     ? SelectedResultKey<TKey, TSelect[TKey]>
     : never]-?: ResolvedRelation<TContext, TKey, TSelect[TKey]> extends infer TRelation
     ? TRelation extends ModelRelationMetadata
