@@ -526,6 +526,16 @@ test('schema-qualified relation select rejects unsupported structured-filter ope
   )
 })
 
+test('schema-qualified relation select rejects head/count options clearly', async () => {
+  await assert.rejects(
+    () =>
+      client.from('chat_subscriptions').select('user_id,athena.user(id)', {
+        head: true,
+      }),
+    /does not support count\/head options/,
+  )
+})
+
 test('findMany compiles nested select trees into gateway columns', async () => {
   const { calls, restore } = mockFetch()
   try {
@@ -596,6 +606,24 @@ test('findMany relation nodes support explicit schema targeting', async () => {
   } finally {
     restore()
   }
+})
+
+test('findMany relation nodes reject combining schema and via', async () => {
+  await assert.rejects(
+    () =>
+      client.from('chat_subscriptions').findMany({
+        select: {
+          user: {
+            schema: 'athena',
+            via: 'user_id',
+            select: {
+              id: true,
+            },
+          },
+        },
+      }),
+    /cannot combine schema and via yet/,
+  )
 })
 
 test('findMany appends where conditions and overrides existing order/limit state', async () => {
@@ -1082,6 +1110,40 @@ test('table select options support schema qualification', async () => {
   }
 })
 
+test('from options support schema qualification for selects', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('users', { schema: 'auth' }).select('id')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'auth.users')
+  } finally {
+    restore()
+  }
+})
+
+test('from options support schema qualification for findMany base tables', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('chat_subscriptions', { schema: 'public' }).findMany({
+      select: {
+        user_id: true,
+        user: {
+          schema: 'athena',
+          select: {
+            id: true,
+          },
+        },
+      },
+    })
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'public.chat_subscriptions')
+    assert.equal(payload.select, 'user_id,user:athena.user(id)')
+  } finally {
+    restore()
+  }
+})
+
 test('table mutation select options support schema qualification', async () => {
   const { calls, restore } = mockFetch()
   try {
@@ -1094,6 +1156,13 @@ test('table mutation select options support schema qualification', async () => {
   } finally {
     restore()
   }
+})
+
+test('from options reject conflicting schema-qualified tables immediately', () => {
+  assert.throws(
+    () => client.from('public.users', { schema: 'athena' }),
+    /schema option "athena" conflicts with schema-qualified table "public.users"/,
+  )
 })
 
 test('table options keep pre-qualified table when schema matches', async () => {

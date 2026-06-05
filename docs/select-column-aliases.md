@@ -62,10 +62,15 @@ const result = await athena
 
 ## 4) Schema-qualified columns
 
-Aliases can target schema-qualified or table-qualified column references:
+Aliases can target schema-qualified or table-qualified column references. The base table can be
+qualified either in `from(...)` or inside the alias expression itself:
 
 ```ts
 const result = await athena
+  .from("users", { schema: "public" })
+  .select("user_id:id, user_email:email");
+
+const explicitQualifiedResult = await athena
   .from("public.users")
   .select("user_id:public.users.id, user_email:public.users.email");
 ```

@@ -22,7 +22,6 @@ import type {
 } from './gateway/types.ts'
 import type { BackendConfig, BackendType } from './gateway/types.ts'
 import { createAthenaGatewayClient } from './gateway/client.ts'
-import { buildStructuredSelectTransport } from './gateway/structured-select.ts'
 import { quoteQualifiedIdentifier, quoteSelectColumnToken, quoteSelectColumnsExpression } from './sql-identifiers.ts'
 import { createAuthClient } from './auth/client.ts'
 import type { AthenaAuthBindings, AthenaAuthClientConfig } from './auth/types.ts'
@@ -33,17 +32,22 @@ import type { AthenaDbModule } from './db/module.ts'
 import {
   compileOrderBy,
   compileSelectShape,
-  selectShapeUsesRelationSchema,
   compileWhere,
+  selectShapeUsesRelationSchema,
   shouldUseUuidTextComparison,
 } from './query-ast.ts'
 import type {
   AthenaFindManyOptions,
   AthenaFindManyResult,
-  AthenaOrderBy,
   AthenaSelectShape,
-  AthenaWhere,
 } from './query-ast.ts'
+import {
+  canUseFindManyAstTransport,
+  createSelectTransportPlan,
+  resolvePagination,
+  toFindManyAstOrder,
+} from './query-transport.ts'
+import type { AthenaFindManyAstPayload } from './query-transport.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -157,16 +161,6 @@ type MutationSingleResult<Result> = Result extends Array<infer Item> ? Item | nu
 type AthenaRowShape = Record<string, AthenaJsonValue | undefined>
 type FilterColumnKey<Row> = Extract<keyof NonNullable<Row>, string>
 type ResolvedFilterColumnKey<Row> = [FilterColumnKey<Row>] extends [never] ? string : FilterColumnKey<Row>
-type AthenaFindManyAstPayload<
-  Row,
-  TSelect extends AthenaSelectShape,
-> = {
-  table_name: string
-  select: TSelect
-  where?: AthenaWhere<Row>
-  orderBy?: AthenaOrderBy<Row>
-  limit?: number
-}
 const DEFAULT_COLUMNS = '*'
 const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
 const ATHENA_NORMALIZED_ERROR_KEY = '__athenaNormalizedError' as const
@@ -183,26 +177,6 @@ const QUERY_TRACE_STACK_SKIP_PATTERNS = [
 
 type AthenaTraceOperation = AthenaQueryTraceEvent['operation']
 type AthenaTraceEndpoint = AthenaQueryTraceEvent['endpoint']
-
-function canUseFindManyAstTransport(state: TableBuilderState): boolean {
-  return (
-    state.conditions.length === 0 &&
-    state.offset === undefined &&
-    state.currentPage === undefined &&
-    state.pageSize === undefined &&
-    state.totalPages === undefined
-  )
-}
-
-function toFindManyAstOrder<Row>(order?: AthenaSortBy): AthenaOrderBy<Row> | undefined {
-  if (!order) {
-    return undefined
-  }
-  return {
-    column: order.field as ResolvedFilterColumnKey<Row>,
-    ascending: order.direction !== 'descending',
-  }
-}
 
 interface AthenaTraceContext {
   operation: AthenaTraceOperation
@@ -750,6 +724,10 @@ export interface RpcQueryBuilder<Row>
   range(from: number, to: number): RpcQueryBuilder<Row>
 }
 
+export interface AthenaFromOptions {
+  schema?: string
+}
+
 export interface TableQueryBuilder<
   Row,
   Insert = Partial<Row>,
@@ -1068,28 +1046,6 @@ function conditionToDebugSqlClause(condition: AthenaGatewayCondition): string {
     default:
       return `TRUE /* unsupported condition: ${rawCondition} */`
   }
-}
-
-function resolvePagination(input: {
-  limit?: number
-  offset?: number
-  currentPage?: number
-  pageSize?: number
-}) {
-  let limit = input.limit
-  let offset = input.offset
-  if (limit === undefined && input.pageSize !== undefined) {
-    limit = input.pageSize
-  }
-  if (
-    offset === undefined &&
-    input.pageSize !== undefined &&
-    input.currentPage !== undefined &&
-    input.currentPage > 0
-  ) {
-    offset = (input.currentPage - 1) * input.pageSize
-  }
-  return { limit, offset }
 }
 
 function appendOrderLimitOffset(
@@ -1714,120 +1670,36 @@ function createTableBuilder<
     callsite?: AthenaQueryTraceCallsite | null,
   ) => {
     const resolvedTableName = resolveTableNameForCall(tableName, options?.schema)
-    const conditions = executionState.conditions.length
-      ? executionState.conditions.map(condition => ({ ...condition }))
-      : undefined
-    const hasTypedEqualityComparison =
-      conditions?.some(
-        condition =>
-          condition.operator === 'eq' &&
-          (condition.value_cast !== undefined || condition.column_cast !== undefined),
-      ) ?? false
-
-    if (hasTypedEqualityComparison && !options?.head && !options?.count && conditions) {
-      const query = buildTypedSelectQuery({
-        tableName: resolvedTableName,
-        columns,
-        conditions,
-        limit: executionState.limit,
-        offset: executionState.offset,
-        currentPage: executionState.currentPage,
-        pageSize: executionState.pageSize,
-        order: executionState.order,
-      })
-      if (query) {
-        const payload = { query }
-        return executeWithQueryTrace(
-          tracer,
-          {
-            operation: 'select',
-            endpoint: '/gateway/query',
-            table: resolvedTableName,
-            sql: query,
-            payload,
-            options,
-          },
-          async () => {
-            const queryResponse = await client.queryGateway<T>(payload, options)
-            return formatGatewayResult(queryResponse, { table: resolvedTableName, operation: 'select' })
-          },
-          callsite,
-        )
-      }
-    }
-
-    const pagination = resolvePagination({
-      limit: executionState.limit,
-      offset: executionState.offset,
-      currentPage: executionState.currentPage,
-      pageSize: executionState.pageSize,
-    })
-    const stripNulls = options?.stripNulls ?? true
-    const structuredSelectTransport = buildStructuredSelectTransport({
+    const plan = createSelectTransportPlan({
       tableName: resolvedTableName,
       columns,
-      conditions,
-      limit: pagination.limit,
-      offset: pagination.offset,
-      order: executionState.order,
-      stripNulls,
-      count: options?.count,
-      head: options?.head,
+      state: executionState,
+      options,
+      buildTypedSelectQuery,
     })
-    if (structuredSelectTransport && 'error' in structuredSelectTransport) {
-      throw new Error(structuredSelectTransport.error)
-    }
-    if (structuredSelectTransport) {
-      const { payload, select } = structuredSelectTransport
-      const sql = buildDebugSelectQuery({
-        tableName: resolvedTableName,
-        columns: select,
-        conditions,
-        limit: pagination.limit,
-        offset: pagination.offset,
-        order: executionState.order,
-      })
+
+    if (plan.kind === 'query') {
       return executeWithQueryTrace(
         tracer,
         {
           operation: 'select',
-          endpoint: '/gateway/fetch',
+          endpoint: '/gateway/query',
           table: resolvedTableName,
-          sql,
-          payload,
+          sql: plan.query,
+          payload: plan.payload,
           options,
         },
         async () => {
-          const response = await client.fetchGateway<T>(payload, options)
-          return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
+          const queryResponse = await client.queryGateway<T>(plan.payload, options)
+          return formatGatewayResult(queryResponse, { table: resolvedTableName, operation: 'select' })
         },
         callsite,
       )
     }
 
-    const payload = {
-      table_name: resolvedTableName,
-      columns,
-      conditions,
-      limit: executionState.limit,
-      offset: executionState.offset,
-      current_page: executionState.currentPage,
-      page_size: executionState.pageSize,
-      total_pages: executionState.totalPages,
-      sort_by: executionState.order,
-      strip_nulls: stripNulls,
-      count: options?.count,
-      head: options?.head,
-    }
     const sql = buildDebugSelectQuery({
       tableName: resolvedTableName,
-      columns,
-      conditions,
-      limit: executionState.limit,
-      offset: executionState.offset,
-      currentPage: executionState.currentPage,
-      pageSize: executionState.pageSize,
-      order: executionState.order,
+      ...plan.debug,
     })
     return executeWithQueryTrace(
       tracer,
@@ -1836,11 +1708,11 @@ function createTableBuilder<
         endpoint: '/gateway/fetch',
         table: resolvedTableName,
         sql,
-        payload,
+        payload: plan.payload,
         options,
       },
       async () => {
-        const response = await client.fetchGateway<T>(payload, options)
+        const response = await client.fetchGateway<T>(plan.payload, options)
         return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
       },
       callsite,
@@ -2279,7 +2151,7 @@ export interface AthenaSdkClient {
     Row = AthenaRowShape,
     Insert = Partial<Row>,
     Update = Partial<Insert>,
-  >(table: string): TableQueryBuilder<Row, Insert, Update>
+  >(table: string, options?: AthenaFromOptions): TableQueryBuilder<Row, Insert, Update>
   db: AthenaDbModule
   rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
@@ -2321,8 +2193,17 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
     Row = AthenaRowShape,
     Insert = Partial<Row>,
     Update = Partial<Insert>,
-  >(table: string) =>
-    createTableBuilder<Row, Insert, Update>(table, gateway, formatGatewayResult, queryTracer, config.experimental)
+  >(
+    table: string,
+    options?: AthenaFromOptions,
+  ) =>
+    createTableBuilder<Row, Insert, Update>(
+      resolveTableNameForCall(table, options?.schema),
+      gateway,
+      formatGatewayResult,
+      queryTracer,
+      config.experimental,
+    )
   const rpc: AthenaSdkClient['rpc'] = <Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
     args?: Args,

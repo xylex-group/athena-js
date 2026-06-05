@@ -556,3 +556,24 @@ test('db module exposes from/select/insert/query without changing root behavior'
     globalThis.fetch = originalFetch
   }
 })
+
+test('db.from supports base schema options', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const athena = createClient('https://athena-db.com', 'secret')
+    const result = await athena.db.from('users', { schema: 'auth' }).select('id').limit(1)
+
+    assert.equal(result.status, 200)
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'auth.users')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

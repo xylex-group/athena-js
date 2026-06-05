@@ -28,7 +28,7 @@ It covers five things:
 
 ## Version baselines for this page
 
-- SDK baseline for all SDK examples on this page: `@xylex-group/athena` `2.3.0`, read from local `package.json` on 2026-06-05.
+- SDK baseline for all SDK examples on this page: `@xylex-group/athena` `2.4.0`, read from local `package.json` on 2026-06-05.
 - Live Athena server baseline used for verification on this page: `3.12.3`, confirmed from `GET https://athena-cluster.com` on 2026-06-04.
 - When an example needs something narrower than "normal `findMany` support", that narrower server requirement is called out in the compatibility matrix below.
 
@@ -36,18 +36,18 @@ It covers five things:
 
 | Example | SDK version | Expected Athena server version | Notes |
 |---|---|---|---|
-| Canonical intro `athena.from("table").findMany(...)` | `2.3.0` | `3.12.3` verified target | Also works on older Athena servers if they already support `POST /gateway/fetch` with `columns`, `conditions`, `sort_by`, and `limit`. |
-| Legacy string `.select("name,instruments(name)")` compatibility example | `2.3.0` | `3.12.3` verified target | No new server behavior required. |
-| Simple scalar read | `2.3.0` | `3.12.3` verified target | Requires normal `POST /gateway/fetch`. |
-| Nested relation read | `2.3.0` | `3.12.3` verified target | Requires existing nested select-string grammar like `instruments(name)`. |
-| Aliased relation with `as` and `via` | `2.3.0` | `3.12.3` verified target | Requires existing alias/FK select grammar like `from:sender_id(name)`. |
-| Filtering with scalar values and operators | `2.3.0` | `3.12.3` verified target | Requires current `conditions` operator support. |
-| Boolean expressions with `or` and `not` | `2.3.0` | `3.12.3` verified target | Requires current gateway string-expression support for `or` and `not`. |
-| Ordering with `orderBy` | `2.3.0` | `3.12.3` verified target | Requires current single `sort_by` payload support. |
-| Typed registry `fromModel(...).findMany(...)` | `2.3.0` | `3.12.3` verified target | Stronger typing is SDK-only; server requirement is the same as ordinary `findMany`. |
-| Plain `from<Row>(...).findMany(...)` | `2.3.0` | `3.12.3` verified target | Server requirement is the same as ordinary `findMany`; relation fallback behavior is SDK-only. |
-| UUID text-comparison fallback | `2.3.0` | `3.12.3` verified target | Requires `POST /gateway/query` in addition to `POST /gateway/fetch`. |
-| Query tracing example | `2.3.0` | `3.12.3` verified target | Trace emission is SDK-side; any server version that already satisfies the executed query example is fine. |
+| Canonical intro `athena.from("table").findMany(...)` | `2.4.0` | `3.12.3` verified target | Also works on older Athena servers if they already support `POST /gateway/fetch` with `columns`, `conditions`, `sort_by`, and `limit`. |
+| Legacy string `.select("name,instruments(name)")` compatibility example | `2.4.0` | `3.12.3` verified target | No new server behavior required. |
+| Simple scalar read | `2.4.0` | `3.12.3` verified target | Requires normal `POST /gateway/fetch`. |
+| Nested relation read | `2.4.0` | `3.12.3` verified target | Requires existing nested select-string grammar like `instruments(name)`. |
+| Aliased relation with `as` and `via` | `2.4.0` | `3.12.3` verified target | Requires existing alias/FK select grammar like `from:sender_id(name)`. |
+| Filtering with scalar values and operators | `2.4.0` | `3.12.3` verified target | Requires current `conditions` operator support. |
+| Boolean expressions with `or` and `not` | `2.4.0` | `3.12.3` verified target | Requires current gateway string-expression support for `or` and `not`. |
+| Ordering with `orderBy` | `2.4.0` | `3.12.3` verified target | Requires current single `sort_by` payload support. |
+| Typed registry `fromModel(...).findMany(...)` | `2.4.0` | `3.12.3` verified target | Stronger typing is SDK-only; server requirement is the same as ordinary `findMany`. |
+| Plain `from<Row>(...).findMany(...)` | `2.4.0` | `3.12.3` verified target | Server requirement is the same as ordinary `findMany`; relation fallback behavior is SDK-only. |
+| UUID text-comparison fallback | `2.4.0` | `3.12.3` verified target | Requires `POST /gateway/query` in addition to `POST /gateway/fetch`. |
+| Query tracing example | `2.4.0` | `3.12.3` verified target | Trace emission is SDK-side; any server version that already satisfies the executed query example is fine. |
 
 ## Snapshot: live Athena server state on 2026-06-04
 
@@ -225,10 +225,11 @@ interface AthenaFindManyOptions<Row, TSelect extends AthenaSelectShape> {
 }
 ```
 
-When a nested relation table lives in another schema, set `schema` on that relation node:
+When the base table is not in `public`, qualify it directly in `from(...)`. When a nested relation
+table lives in another schema, set `schema` on that relation node:
 
 ```ts
-await athena.from("chat_subscriptions").findMany({
+await athena.from("chat_subscriptions", { schema: "private" }).findMany({
   select: {
     user_id: true,
     user: {
@@ -366,7 +367,7 @@ Example:
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same `POST /gateway/query` availability
 
 ```ts
@@ -416,7 +417,7 @@ type FindManyResult<T> = AthenaResult<T[]>
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same `POST /gateway/fetch` contract
 
 ```ts
@@ -441,7 +442,7 @@ type Result = Array<{
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same nested select-string support
 
 ```ts
@@ -472,7 +473,7 @@ type Result = Array<{
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same alias/FK select grammar support
 
 ```ts
@@ -509,7 +510,7 @@ type Result = Array<{
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same `conditions` operator support
 
 ```ts
@@ -550,7 +551,7 @@ Expected `conditions` payload:
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same `or`/`not` condition expression support
 
 ```ts
@@ -588,7 +589,7 @@ Expected `conditions` payload:
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same single `sort_by` support
 
 Object shorthand:
@@ -631,7 +632,7 @@ Both compile to:
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same `findMany` transport support
 - Important note: the stronger nested relation inference here is an SDK feature, not a new server requirement
 
@@ -672,7 +673,7 @@ Relation typing rules are:
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or older Athena server with the same `findMany` transport support
 
 ```ts
@@ -691,6 +692,13 @@ const result = await athena.from<UserRow>("users").findMany({
         name: true,
       },
     },
+  },
+});
+
+const authUsers = await athena.from<UserRow>("users", { schema: "auth" }).findMany({
+  select: {
+    id: true,
+    email: true,
   },
 });
 ```
@@ -835,7 +843,7 @@ Important notes:
 
 Compatibility:
 
-- SDK version: `@xylex-group/athena` `2.3.0`
+- SDK version: `@xylex-group/athena` `2.4.0`
 - Expected Athena server version: `3.12.3` verified target, or any Athena server version already compatible with the query being traced
 
 ```ts

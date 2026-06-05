@@ -5,6 +5,7 @@ import type {
   AthenaRpcCallOptions,
 } from '../gateway/types.ts'
 import type {
+  AthenaFromOptions,
   AthenaResult,
   AthenaSdkClient,
   MutationQuery,
@@ -26,7 +27,7 @@ export interface AthenaDbModule {
     Row = AthenaRowShape,
     Insert = Partial<Row>,
     Update = Partial<Insert>,
-  >(table: string): TableQueryBuilder<Row, Insert, Update>
+  >(table: string, options?: AthenaFromOptions): TableQueryBuilder<Row, Insert, Update>
 
   select<
     Row = AthenaRowShape,
@@ -96,8 +97,11 @@ interface AthenaDbModuleFactoryInput {
 
 export function createDbModule(input: AthenaDbModuleFactoryInput): AthenaDbModule {
   const db: AthenaDbModule = {
-    from<Row = AthenaRowShape, Insert = Partial<Row>, Update = Partial<Insert>>(table: string) {
-      return input.from<Row, Insert, Update>(table)
+    from<Row = AthenaRowShape, Insert = Partial<Row>, Update = Partial<Insert>>(
+      table: string,
+      options?: AthenaFromOptions,
+    ) {
+      return input.from<Row, Insert, Update>(table, options)
     },
     select<
       Row = AthenaRowShape,

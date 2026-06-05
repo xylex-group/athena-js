@@ -1,5 +1,6 @@
 import {
   createClient,
+  type AthenaFromOptions,
   type AthenaResult,
   type AthenaSdkClient,
   type RpcQueryBuilder,
@@ -191,8 +192,8 @@ class TypedAthenaClientImpl<
     Row = Record<string, unknown>,
     Insert = Partial<Row>,
     Update = Partial<Insert>,
-  >(table: string): TableQueryBuilder<Row, Insert, Update> {
-    return this.baseClient.from<Row, Insert, Update>(table)
+  >(table: string, options?: AthenaFromOptions): TableQueryBuilder<Row, Insert, Update> {
+    return this.baseClient.from<Row, Insert, Update>(table, options)
   }
 
   rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(

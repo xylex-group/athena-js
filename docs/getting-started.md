@@ -198,7 +198,7 @@ const labeled = await athena
   .select("user_id:id, user_email:email");
 ```
 
-Version baseline for the `findMany(...)` examples in this section: SDK `@xylex-group/athena` `2.3.0`, Athena server `3.12.3` verified on 2026-06-04.
+Version baseline for the `findMany(...)` examples in this section: SDK `@xylex-group/athena` `2.4.0`, Athena server `3.12.3` verified on 2026-06-04.
 
 ### Important chain behavior
 
@@ -242,6 +242,24 @@ const page = await athena
 const usersInPublic = await athena
   .from<UserRow>("users")
   .select("id, email", { schema: "public" });
+
+const usersInAuth = await athena
+  .from<UserRow>("users", { schema: "auth" })
+  .select("id, email");
+
+const authSubscriptions = await athena
+  .from("chat_subscriptions", { schema: "private" })
+  .findMany({
+    select: {
+      user_id: true,
+      user: {
+        schema: "athena",
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
 ```
 
 The `columns` string is comma-separated. To rename fields in the returned payload, use `customName:columnName`, for example:

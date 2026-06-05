@@ -263,6 +263,7 @@ type BackendType = "athena" | "postgrest" | "postgresql" | "scylladb"
 interface AthenaSdkClient {
   from<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
     table: string,
+    options?: AthenaFromOptions,
   ): TableQueryBuilder<Row, Insert, Update>
   db: AthenaDbModule
 
@@ -282,9 +283,14 @@ interface AthenaSdkClientWithAuth extends AthenaSdkClient {
   auth: AthenaAuthBindings
 }
 
+interface AthenaFromOptions {
+  schema?: string
+}
+
 interface AthenaDbModule {
   from<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
     table: string,
+    options?: AthenaFromOptions,
   ): TableQueryBuilder<Row, Insert, Update>
 
   select<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>, SelectedRow = Row>(
@@ -463,10 +469,10 @@ interface AthenaFindManyOptions<Row, TSelect extends AthenaSelectShape> {
 }
 ```
 
-Schema-qualified relation example:
+Schema-qualified base table + relation example:
 
 ```ts
-await athena.from("chat_subscriptions").findMany({
+await athena.from("chat_subscriptions", { schema: "private" }).findMany({
   select: {
     user_id: true,
     user: {

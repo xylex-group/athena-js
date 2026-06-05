@@ -13,7 +13,9 @@ Use registry models when two things start to become expensive:
 The model system reduces both by introducing a source-of-truth object graph:
 `registry -> database -> schema -> model -> metadata/metadata types`.
 
-`createClient(...).from<Table>("table")` remains valid and fully supported. The typed path is additive.
+`createClient(...).from<Table>("table")` and
+`createClient(...).from<Table>("table", { schema: "..." })` both remain valid and fully supported.
+The typed path is additive.
 
 ## 1) Core contracts
 
@@ -187,7 +189,7 @@ These can be changed via `output.targets`.
 
 A practical rollout sequence for existing code:
 
-1. Keep existing `from("table")` call sites untouched for now.
+1. Keep existing `from("table")` or `from("table", { schema: "..." })` call sites untouched for now.
 2. Add `defineModel` declarations per bounded domain.
 3. Build a local registry from manual contracts.
 4. Move call sites to `fromModel(...)` only where stability gains are high.

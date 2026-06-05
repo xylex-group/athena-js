@@ -135,6 +135,7 @@ export async function runSchemaGenerator(
 
 export type {
   AthenaClientExperimentalOptions,
+  AthenaFromOptions,
   RpcQueryBuilder,
   RpcOrderOptions,
   AthenaCreateClientOptions,

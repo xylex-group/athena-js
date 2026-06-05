@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `2.3.0`
+current version: `2.4.0`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments plus Athena-native React hooks for client-side use.
 
 ## Install
@@ -47,7 +47,7 @@ if (error) {
 }
 ```
 
-Example version baseline: SDK `@xylex-group/athena` `2.3.0`, Athena server `3.12.3` verified on 2026-06-04.
+Example version baseline: SDK `@xylex-group/athena` `2.4.0`, Athena server `3.12.3` verified on 2026-06-04.
 
 `.findMany({ select, where, orderBy, limit })` is the clean canonical read surface.
 The existing string-based `.select(...)` chain remains fully supported for compatibility,
@@ -583,15 +583,33 @@ const { data: user } = await athena
 
 ### Table schema targeting
 
-Use `schema` in table call options to qualify unqualified table names:
+Use `schema` either on `from(...)` itself or in table call options to qualify unqualified table names:
 
 ```ts
 const { data } = await athena
+  .from("users", { schema: "public" })
+  .select("id,email");
+
+const { data: sameTarget } = await athena
   .from("users")
   .select("id,email", { schema: "public" });
+
+const { data: crossSchema } = await athena
+  .from("chat_subscriptions", { schema: "private" })
+  .findMany({
+    select: {
+      user_id: true,
+      user: {
+        schema: "athena",
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
 ```
 
-This resolves the table target to `public.users`.
+Both resolve the table target to `public.users`.
 
 ### RPC
 

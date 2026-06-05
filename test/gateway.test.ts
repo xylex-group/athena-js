@@ -40,12 +40,15 @@ test('AthenaFetchPayload accepts full options', () => {
     limit: 10,
     offset: 0,
     strip_nulls: true,
+    count: 'exact',
+    head: false,
     group_by: 'role',
     time_granularity: 'day',
   }
   assert.equal(payload.table_name, 'users')
   assert.deepEqual(payload.conditions, [condition])
   assert.equal(payload.limit, 10)
+  assert.equal(payload.count, 'exact')
 })
 
 test('AthenaInsertPayload requires table_name and insert_body', () => {

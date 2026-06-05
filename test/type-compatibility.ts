@@ -117,13 +117,17 @@ builderAuthSessionResult.then(result => {
   }
 })
 const users = client.from<UserRow>("users")
+const usersInAuth = client.from<UserRow>("users", { schema: "auth" })
 const dbUsers = client.db.from<UserRow>('users')
+const dbUsersInAuth = client.db.from<UserRow>('users', { schema: 'auth' })
 
 users.eq('id', '1')
 users.order('name')
 users.select('id').eq('name', 'Alice')
+usersInAuth.select('id')
 dbUsers.eq('id', '1')
 dbUsers.select('id').eq('name', 'Alice')
+dbUsersInAuth.select('id')
 
 // @ts-expect-error unknown filter column should be rejected
 users.eq('missing_column', 'x')

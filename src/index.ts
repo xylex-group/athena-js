@@ -74,6 +74,7 @@ export type {
   AthenaQueryTraceOptions,
   AthenaQueryTraceCallsite,
   AthenaQueryTraceEvent,
+  AthenaFromOptions,
   RpcQueryBuilder,
   RpcOrderOptions,
   AthenaCreateClientOptions,

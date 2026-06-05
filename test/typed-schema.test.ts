@@ -191,6 +191,18 @@ test('typed client still supports regular from() calls', async () => {
   }
 })
 
+test('typed client regular from() supports base schema options', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createTypedClient(registry, 'https://athena-db.com', 'secret')
+    await client.from<UserRow>('users', { schema: 'public' }).eq('id', 'u2').select('*')
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'public.users')
+  } finally {
+    restore()
+  }
+})
+
 test('typed client throws precise errors for unknown database/schema/model', () => {
   const client = createTypedClient(registry, 'https://athena-db.com', 'secret')
   assert.throws(

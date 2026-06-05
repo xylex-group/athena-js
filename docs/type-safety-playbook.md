@@ -222,7 +222,7 @@ This keeps tenancy behavior consistent and testable.
 
 ### Phase 0: Baseline
 
-- keep existing `from("table")` usage
+- keep existing `from("table")` or `from("table", { schema: "..." })` usage
 - add tests around critical read/write paths
 
 ### Phase 1: Contract introduction

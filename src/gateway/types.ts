@@ -87,6 +87,8 @@ export interface AthenaFetchPayload {
   page_size?: number
   total_pages?: number
   strip_nulls?: boolean
+  count?: AthenaCountOption
+  head?: boolean
   group_by?: string
   time_granularity?: 'day' | 'hour' | 'minute'
   aggregation_column?: string
