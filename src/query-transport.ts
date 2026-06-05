@@ -3,9 +3,17 @@ import type {
   AthenaFetchPayload,
   AthenaGatewayCallOptions,
   AthenaGatewayCondition,
+  AthenaJsonObject,
   AthenaSortBy,
 } from './gateway/types.ts'
-import type { AthenaOrderBy, AthenaSelectShape, AthenaWhere } from './query-ast.ts'
+import { shouldUseUuidTextComparison } from './query-ast.ts'
+import type {
+  AthenaOrderBy,
+  AthenaSelectShape,
+  AthenaWhere,
+  AthenaWhereBooleanOperand,
+  AthenaWhereOperatorInput,
+} from './query-ast.ts'
 
 type AthenaFindManyAstOrderColumn<Row> =
   [Extract<keyof NonNullable<Row>, string>] extends [never] ? string : Extract<keyof NonNullable<Row>, string>
@@ -91,6 +99,133 @@ export function toFindManyAstOrder<Row>(order?: AthenaSortBy): AthenaOrderBy<Row
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizeFindManyAstColumnPredicate(
+  value: unknown,
+): AthenaWhereOperatorInput {
+  if (!isRecord(value)) {
+    return {
+      eq: value as AthenaWhereOperatorInput['eq'],
+    }
+  }
+
+  const normalized: AthenaWhereOperatorInput = {}
+  for (const [key, operand] of Object.entries(value)) {
+    if (operand !== undefined) {
+      normalized[key as keyof AthenaWhereOperatorInput] = operand as never
+    }
+  }
+  return normalized
+}
+
+function normalizeFindManyAstBooleanOperand<Row>(
+  clause: AthenaWhereBooleanOperand<Row>,
+): AthenaWhereBooleanOperand<Row> {
+  const normalized: Record<string, unknown> = {}
+  for (const [column, value] of Object.entries(clause as Record<string, unknown>)) {
+    if (value === undefined) {
+      continue
+    }
+    normalized[column] = normalizeFindManyAstColumnPredicate(value)
+  }
+  return normalized as AthenaWhereBooleanOperand<Row>
+}
+
+export function normalizeFindManyAstWhere<Row>(
+  where?: AthenaWhere<Row>,
+): AthenaWhere<Row> | undefined {
+  if (!where || !isRecord(where)) {
+    return where
+  }
+
+  const normalized: AthenaJsonObject = {}
+  for (const [key, value] of Object.entries(where as Record<string, unknown>)) {
+    if (value === undefined) {
+      continue
+    }
+    if (key === 'or' && Array.isArray(value)) {
+      normalized.or = value.map(clause =>
+        normalizeFindManyAstBooleanOperand(clause as AthenaWhereBooleanOperand<Row>),
+      ) as unknown as AthenaJsonObject['or']
+      continue
+    }
+    if (key === 'not' && isRecord(value)) {
+      normalized.not = normalizeFindManyAstBooleanOperand(
+        value as AthenaWhereBooleanOperand<Row>,
+      ) as unknown as AthenaJsonObject['not']
+      continue
+    }
+    normalized[key] = normalizeFindManyAstColumnPredicate(value)
+  }
+
+  return normalized as AthenaWhere<Row>
+}
+
+function predicateRequiresUuidQueryFallback(
+  column: string,
+  value: unknown,
+): boolean {
+  if (!isRecord(value)) {
+    return shouldUseUuidTextComparison(column, value as Parameters<typeof shouldUseUuidTextComparison>[1])
+  }
+
+  const eqValue = value.eq
+  return eqValue !== undefined
+    && shouldUseUuidTextComparison(column, eqValue as Parameters<typeof shouldUseUuidTextComparison>[1])
+}
+
+function booleanOperandRequiresUuidQueryFallback<Row>(
+  clause: AthenaWhereBooleanOperand<Row>,
+): boolean {
+  for (const [column, value] of Object.entries(clause as Record<string, unknown>)) {
+    if (value === undefined) {
+      continue
+    }
+    if (predicateRequiresUuidQueryFallback(column, value)) {
+      return true
+    }
+  }
+  return false
+}
+
+export function findManyAstWhereRequiresLegacyTransport<Row>(
+  where?: AthenaWhere<Row>,
+): boolean {
+  if (!where || !isRecord(where)) {
+    return false
+  }
+
+  for (const [key, value] of Object.entries(where as Record<string, unknown>)) {
+    if (value === undefined) {
+      continue
+    }
+    if (key === 'or' && Array.isArray(value)) {
+      if (
+        value.some(clause =>
+          booleanOperandRequiresUuidQueryFallback(clause as AthenaWhereBooleanOperand<Row>),
+        )
+      ) {
+        return true
+      }
+      continue
+    }
+    if (key === 'not' && isRecord(value)) {
+      if (booleanOperandRequiresUuidQueryFallback(value as AthenaWhereBooleanOperand<Row>)) {
+        return true
+      }
+      continue
+    }
+    if (predicateRequiresUuidQueryFallback(key, value)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export function resolvePagination(input: {
   limit?: number
   offset?: number
@@ -136,26 +271,6 @@ export function createSelectTransportPlan(input: {
     ? input.state.conditions.map(condition => ({ ...condition }))
     : undefined
 
-  if (hasTypedEqualityComparison(conditions) && !input.options?.head && !input.options?.count && conditions) {
-    const query = input.buildTypedSelectQuery({
-      tableName: input.tableName,
-      columns: input.columns,
-      conditions,
-      limit: input.state.limit,
-      offset: input.state.offset,
-      currentPage: input.state.currentPage,
-      pageSize: input.state.pageSize,
-      order: input.state.order,
-    })
-    if (query) {
-      return {
-        kind: 'query',
-        query,
-        payload: { query },
-      }
-    }
-  }
-
   const pagination = resolvePagination({
     limit: input.state.limit,
     offset: input.state.offset,
@@ -189,6 +304,26 @@ export function createSelectTransportPlan(input: {
         offset: pagination.offset,
         order: input.state.order,
       },
+    }
+  }
+
+  if (hasTypedEqualityComparison(conditions) && !input.options?.head && !input.options?.count && conditions) {
+    const query = input.buildTypedSelectQuery({
+      tableName: input.tableName,
+      columns: input.columns,
+      conditions,
+      limit: input.state.limit,
+      offset: input.state.offset,
+      currentPage: input.state.currentPage,
+      pageSize: input.state.pageSize,
+      order: input.state.order,
+    })
+    if (query) {
+      return {
+        kind: 'query',
+        query,
+        payload: { query },
+      }
     }
   }
 

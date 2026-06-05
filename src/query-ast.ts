@@ -72,6 +72,33 @@ export interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = At
 
 export type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<AthenaSelectShape>>
 
+type AthenaAllowedRelationSelectNodeKey = 'select' | 'as' | 'via' | 'schema'
+
+type AthenaValidatedRelationSelectNode<TNode> =
+  TNode extends { select: infer TChild }
+    ? Exclude<keyof TNode, AthenaAllowedRelationSelectNodeKey> extends never
+      ? TNode extends { schema: string; via: string }
+        ? never
+        : TChild extends Record<string, unknown>
+          ? {
+              [K in keyof TNode]:
+                K extends 'select'
+                  ? AthenaValidatedSelectShape<TChild>
+                  : K extends AthenaAllowedRelationSelectNodeKey
+                    ? TNode[K]
+                    : never
+            }
+          : never
+      : never
+    : never
+
+export type AthenaValidatedSelectShape<TSelect> = {
+  [K in keyof TSelect]:
+    TSelect[K] extends true
+      ? true
+      : AthenaValidatedRelationSelectNode<TSelect[K]>
+}
+
 type GenericRegistryDef = RegistryDef<
   Record<string, DatabaseDef<Record<string, SchemaDef<Record<string, AnyModelDef>>>>>
 >

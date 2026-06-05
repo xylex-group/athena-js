@@ -1174,6 +1174,12 @@ This is optional, not required for v1.
 
 `athena-js` now exposes an opt-in `createClient(..., { experimental: { findManyAst: true } })` path for gateways that explicitly support direct AST bodies, but the default SDK transport still stays on the compiled `columns`/`conditions` contract described above.
 
+When this flag is enabled today:
+
+- shorthand `where` values like `{ status: "open" }` are normalized to explicit operator objects before `/gateway/fetch`
+- UUID-like equality filters that need the SDK's `::text` comparison still fall back to the legacy compiled/query path
+- nested relation select strings stay on `/gateway/fetch` and do not use the SQL query fallback
+
 If Athena server later wants to accept AST directly, the clean shape would be something like:
 
 ```json

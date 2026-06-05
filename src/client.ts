@@ -40,10 +40,13 @@ import type {
   AthenaFindManyOptions,
   AthenaFindManyResult,
   AthenaSelectShape,
+  AthenaValidatedSelectShape,
 } from './query-ast.ts'
 import {
   canUseFindManyAstTransport,
   createSelectTransportPlan,
+  findManyAstWhereRequiresLegacyTransport,
+  normalizeFindManyAstWhere,
   resolvePagination,
   toFindManyAstOrder,
 } from './query-transport.ts'
@@ -736,7 +739,9 @@ export interface TableQueryBuilder<
 > extends FilterChain<TableQueryBuilder<Row, Insert, Update, TContext>, Row> {
   select<T = Row>(columns?: string | string[], options?: AthenaGatewayCallOptions): SelectChain<Row, T>
   findMany<const TSelect extends AthenaSelectShape>(
-    options: AthenaFindManyOptions<Row, TSelect>,
+    options: AthenaFindManyOptions<Row, TSelect> & {
+      select: AthenaValidatedSelectShape<TSelect>
+    },
   ): Promise<AthenaResult<Array<AthenaFindManyResult<Row, TSelect, TContext>>>>
   insert(values: Insert, options?: AthenaGatewayCallOptions): MutationQuery<Row>
   insert(values: Insert[], options?: AthenaGatewayCallOptions): MutationQuery<Row[]>
@@ -1779,7 +1784,11 @@ function createTableBuilder<
     select<T = Row>(columns: string | string[] = DEFAULT_COLUMNS, options?: AthenaGatewayCallOptions) {
       return createSelectChain<T>(columns, options, captureTraceCallsite(tracer))
     },
-    async findMany<const TSelect extends AthenaSelectShape>(options: AthenaFindManyOptions<Row, TSelect>) {
+    async findMany<const TSelect extends AthenaSelectShape>(
+      options: AthenaFindManyOptions<Row, TSelect> & {
+        select: AthenaValidatedSelectShape<TSelect>
+      },
+    ) {
       const columns = compileSelectShape(options.select)
       const baseState = snapshotState()
       const executionState = snapshotState()
@@ -1797,7 +1806,8 @@ function createTableBuilder<
       if (
         experimental?.findManyAst &&
         canUseFindManyAstTransport(baseState) &&
-        !selectShapeUsesRelationSchema(options.select)
+        !selectShapeUsesRelationSchema(options.select) &&
+        !findManyAstWhereRequiresLegacyTransport(options.where)
       ) {
         const resolvedTableName = resolveTableNameForCall(tableName, undefined)
         const payload: AthenaFindManyAstPayload<Row, TSelect> = {
@@ -1805,7 +1815,7 @@ function createTableBuilder<
           select: options.select,
         }
         if (options.where !== undefined) {
-          payload.where = options.where
+          payload.where = normalizeFindManyAstWhere(options.where)
         }
         const astOrder = toFindManyAstOrder<Row>(executionState.order)
         if (astOrder !== undefined) {

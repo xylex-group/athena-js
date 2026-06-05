@@ -102,7 +102,7 @@ function buildStructuredWhere(
     if (!condition.column) {
       return null
     }
-    if (condition.column_cast !== undefined || condition.value_cast !== undefined) {
+    if (condition.value_cast !== undefined) {
       return null
     }
 

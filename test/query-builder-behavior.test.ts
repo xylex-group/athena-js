@@ -515,6 +515,32 @@ test('structured select transport forwards simple filters and ordering for schem
   }
 })
 
+test('schema-qualified relation selects stay off query fallback for uuid-aware equality filters', async () => {
+  const { calls, restore } = mockFetch()
+  const userId = 'ce005658-dab5-438c-9814-6fecc796dd15'
+  try {
+    await client
+      .from('public.chat_subscriptions')
+      .eq('user_id', userId)
+      .select('user_id,user:athena.user(id)')
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'public.chat_subscriptions')
+    assert.equal(payload.select, 'user_id,user:athena.user(id)')
+    assert.deepEqual(payload.where, {
+      user_id: {
+        eq: userId,
+      },
+    })
+    assert.equal(payload.strip_nulls, true)
+    assert.equal(payload.columns, undefined)
+  } finally {
+    restore()
+  }
+})
+
 test('schema-qualified relation select rejects unsupported structured-filter operators clearly', async () => {
   await assert.rejects(
     () =>
@@ -698,7 +724,52 @@ test('findMany preserves uuid-aware equality fallback inside where objects', asy
   }
 })
 
-test('findManyAst experimental flag sends the original AST body through fetch', async () => {
+test('findManyAst experimental flag normalizes shorthand where filters before fetch', async () => {
+  const { calls, restore } = mockFetch()
+  const client = createClient('https://athena-db.com', 'secret', {
+    experimental: {
+      findManyAst: true,
+    },
+  })
+  try {
+    await client.from('orders').findMany({
+      select: {
+        id: true,
+      },
+      where: {
+        status: 'open',
+      },
+      orderBy: {
+        created_at: 'asc',
+      },
+      limit: 1,
+    })
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload, {
+      table_name: 'orders',
+      select: {
+        id: true,
+      },
+      where: {
+        status: {
+          eq: 'open',
+        },
+      },
+      orderBy: {
+        column: 'created_at',
+        ascending: true,
+      },
+      limit: 1,
+    })
+  } finally {
+    restore()
+  }
+})
+
+test('findManyAst experimental flag preserves uuid-aware equality fallback inside where objects', async () => {
   const { calls, restore } = mockFetch()
   const client = createClient('https://athena-db.com', 'secret', {
     experimental: {
@@ -714,29 +785,13 @@ test('findManyAst experimental flag sends the original AST body through fetch', 
       where: {
         session_id: sessionId,
       },
-      orderBy: {
-        session_id: 'asc',
-      },
       limit: 1,
     })
 
     assert.equal(calls.length, 1)
-    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    assert.ok(calls[0].url.endsWith('/gateway/query'))
     const payload = JSON.parse(calls[0].init?.body as string)
-    assert.deepEqual(payload, {
-      table_name: 'form_sessions',
-      select: {
-        session_id: true,
-      },
-      where: {
-        session_id: sessionId,
-      },
-      orderBy: {
-        column: 'session_id',
-        ascending: true,
-      },
-      limit: 1,
-    })
+    assert.ok(payload.query.includes(`"session_id"::text = '${sessionId}'`))
   } finally {
     restore()
   }

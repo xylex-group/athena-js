@@ -3,6 +3,8 @@ import { test } from 'node:test'
 import {
   canUseFindManyAstTransport,
   createSelectTransportPlan,
+  findManyAstWhereRequiresLegacyTransport,
+  normalizeFindManyAstWhere,
   resolvePagination,
   toFindManyAstOrder,
 } from '../src/query-transport.ts'
@@ -118,6 +120,44 @@ test('createSelectTransportPlan keeps typed equality reads on fetch when count i
   })
 })
 
+test('createSelectTransportPlan keeps typed equality reads on fetch for nested relation select strings', () => {
+  const plan = createSelectTransportPlan({
+    tableName: 'public.chat_subscriptions',
+    columns: 'user_id,user:athena.user(id)',
+    state: {
+      conditions: [
+        {
+          operator: 'eq',
+          column: 'user_id',
+          value: '550e8400-e29b-41d4-a716-446655440000',
+          eq_column: 'user_id',
+          eq_value: '550e8400-e29b-41d4-a716-446655440000',
+          column_cast: 'text',
+          eq_column_cast: 'text',
+        },
+      ],
+    },
+    buildTypedSelectQuery() {
+      throw new Error('typed query fallback should not run for nested relation selects')
+    },
+  })
+
+  assert.equal(plan.kind, 'fetch')
+  assert.deepEqual(plan.payload, {
+    table_name: 'public.chat_subscriptions',
+    select: 'user_id,user:athena.user(id)',
+    where: {
+      user_id: {
+        eq: '550e8400-e29b-41d4-a716-446655440000',
+      },
+    },
+    orderBy: undefined,
+    limit: undefined,
+    offset: undefined,
+    strip_nulls: true,
+  })
+})
+
 test('createSelectTransportPlan uses structured fetch transport for schema-qualified nested select strings', () => {
   const plan = createSelectTransportPlan({
     tableName: 'chat_subscriptions',
@@ -226,5 +266,67 @@ test('toFindManyAstOrder maps Athena sort state to AST orderBy input', () => {
       column: 'created_at',
       ascending: false,
     },
+  )
+})
+
+test('normalizeFindManyAstWhere expands shorthand equality into explicit operator objects', () => {
+  assert.deepEqual(
+    normalizeFindManyAstWhere({
+      status: 'open',
+      active: true,
+      or: [
+        {
+          priority: 'high',
+        },
+      ],
+      not: {
+        archived_at: {
+          is: null,
+        },
+      },
+    }),
+    {
+      status: {
+        eq: 'open',
+      },
+      active: {
+        eq: true,
+      },
+      or: [
+        {
+          priority: {
+            eq: 'high',
+          },
+        },
+      ],
+      not: {
+        archived_at: {
+          is: null,
+        },
+      },
+    },
+  )
+})
+
+test('findManyAstWhereRequiresLegacyTransport detects UUID equality filters that need query fallback', () => {
+  assert.equal(
+    findManyAstWhereRequiresLegacyTransport({
+      session_id: '550e8400-e29b-41d4-a716-446655440000',
+    }),
+    true,
+  )
+  assert.equal(
+    findManyAstWhereRequiresLegacyTransport({
+      session_id: {
+        eq: '550e8400-e29b-41d4-a716-446655440000',
+      },
+    }),
+    true,
+  )
+  assert.equal(
+    findManyAstWhereRequiresLegacyTransport({
+      status: 'open',
+    }),
+    false,
   )
 })

@@ -200,6 +200,40 @@ users.findMany({
   },
 })
 
+users.findMany({
+  select: {
+    id: true,
+    // @ts-expect-error relation nodes do not support explicit `on` clauses
+    users: {
+      schema: 'athena',
+      select: {
+        id: true,
+      },
+      on: {
+        id: {
+          $eq: {
+            $parent: 'user_id',
+          },
+        },
+      },
+    },
+  },
+})
+
+users.findMany({
+  select: {
+    id: true,
+    // @ts-expect-error relation nodes cannot combine schema and via
+    users: {
+      schema: 'athena',
+      via: 'user_id',
+      select: {
+        id: true,
+      },
+    },
+  },
+})
+
 acceptsMaybeUserPromise(users.single())
 acceptsMaybeUserPromise(users.maybeSingle())
 

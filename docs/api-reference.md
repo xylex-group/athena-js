@@ -89,7 +89,7 @@ function createClient(
 ```
 
 `experimental.enableErrorNormalization` is deprecated and retained as a no-op compatibility flag because failed `AthenaResult` values now expose structured normalized `error` objects by default.
-`experimental.findManyAst` opt-ins clean `findMany(...)` calls to send the original object AST through `/gateway/fetch` for gateways that support direct AST bodies.
+`experimental.findManyAst` opt-ins clean `findMany(...)` calls to use direct AST bodies on `/gateway/fetch` when the request is lossless there; shorthand `where` values are normalized, UUID-like equality filters still fall back to the legacy query path, and nested relation select strings stay off SQL query fallback.
 `experimental.traceQueries` emits detailed query execution diagnostics for every runtime call.
 For deferred builders, trace callsites are captured from the public SDK seam that declared or finalized the operation and are memoized through the eventual execution, so traces stay anchored to user code across local and CI stack differences.
 
