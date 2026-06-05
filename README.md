@@ -350,6 +350,23 @@ const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
 });
 ```
 
+### findMany AST transport (experimental)
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  experimental: {
+    findManyAst: true,
+  },
+});
+```
+
+With `findManyAst: true`, clean `findMany(...)` calls send the original object AST body to `/gateway/fetch` instead of compiling the select tree down to `columns` and `conditions` first.
+
+- this is opt-in and meant for gateways that explicitly support direct AST bodies
+- existing compiled `findMany(...)` transport remains the default
+- chained builder filters or pagination state that the AST body cannot represent losslessly yet continue to use the legacy compiled path
+- trace output still includes synthesized SQL so diagnostics stay readable
+
 ### Numeric coercion
 
 ```ts

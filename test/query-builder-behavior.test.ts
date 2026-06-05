@@ -592,6 +592,76 @@ test('findMany preserves uuid-aware equality fallback inside where objects', asy
   }
 })
 
+test('findManyAst experimental flag sends the original AST body through fetch', async () => {
+  const { calls, restore } = mockFetch()
+  const client = createClient('https://athena-db.com', 'secret', {
+    experimental: {
+      findManyAst: true,
+    },
+  })
+  const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+  try {
+    await client.from('form_sessions').findMany({
+      select: {
+        session_id: true,
+      },
+      where: {
+        session_id: sessionId,
+      },
+      orderBy: {
+        session_id: 'asc',
+      },
+      limit: 1,
+    })
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.deepEqual(payload, {
+      table_name: 'form_sessions',
+      select: {
+        session_id: true,
+      },
+      where: {
+        session_id: sessionId,
+      },
+      orderBy: {
+        column: 'session_id',
+        ascending: true,
+      },
+      limit: 1,
+    })
+  } finally {
+    restore()
+  }
+})
+
+test('findManyAst experimental flag falls back when chained filters already exist', async () => {
+  const { calls, restore } = mockFetch()
+  const client = createClient('https://athena-db.com', 'secret', {
+    experimental: {
+      findManyAst: true,
+    },
+  })
+  try {
+    await client.from('orders').eq('status', 'open').findMany({
+      select: {
+        id: true,
+      },
+    })
+
+    assert.equal(calls.length, 1)
+    assert.ok(calls[0].url.endsWith('/gateway/fetch'))
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.columns, 'id')
+    assert.deepEqual(payload.conditions, [
+      { operator: 'eq', column: 'status', value: 'open', eq_column: 'status', eq_value: 'open' },
+    ])
+  } finally {
+    restore()
+  }
+})
+
 test('findMany rejects unsupported boolean AST shapes', async () => {
   await assert.rejects(
     () =>

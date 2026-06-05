@@ -125,7 +125,34 @@ const tracedClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_AP
 });
 ```
 
-## 3.2) Utility helpers from subpath exports
+## 3.2) Optional `findMany(...)` AST transport (experimental)
+
+Use this only when your Athena gateway supports direct `findMany` AST bodies.
+
+```ts
+const astClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+  experimental: {
+    findManyAst: true,
+  },
+});
+
+await astClient.from('orchestral_sections').findMany({
+  select: {
+    name: true,
+    instruments: {
+      select: {
+        name: true,
+      },
+    },
+  },
+  limit: 10,
+});
+```
+
+When enabled, clean `findMany(...)` calls send the original object AST to `/gateway/fetch`.
+Legacy compiled transport remains the default and is still used when a chain already carries filters or pagination state that the direct AST body cannot express exactly yet.
+
+## 3.3) Utility helpers from subpath exports
 
 Use `@xylex-group/athena/utils` for runtime helpers that are intentionally not in the root package export.
 

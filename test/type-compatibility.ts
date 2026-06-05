@@ -83,6 +83,7 @@ const builderDropIn: ReturnType<typeof createClient> = fluentBuilderClient
 const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     enableErrorNormalization: true,
+    findManyAst: true,
     traceQueries: {
       logger: event => {
         acceptsString(event.operation)

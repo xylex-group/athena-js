@@ -1147,6 +1147,8 @@ The server should have explicit tests for:
 
 This is optional, not required for v1.
 
+`athena-js` now exposes an opt-in `createClient(..., { experimental: { findManyAst: true } })` path for gateways that explicitly support direct AST bodies, but the default SDK transport still stays on the compiled `columns`/`conditions` contract described above.
+
 If Athena server later wants to accept AST directly, the clean shape would be something like:
 
 ```json

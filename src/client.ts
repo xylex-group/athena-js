@@ -36,7 +36,9 @@ import {
 import type {
   AthenaFindManyOptions,
   AthenaFindManyResult,
+  AthenaOrderBy,
   AthenaSelectShape,
+  AthenaWhere,
 } from './query-ast.ts'
 
 export interface AthenaResult<T> {
@@ -85,6 +87,13 @@ export interface AthenaClientExperimentalOptions {
    * Includes payload, synthesized SQL, full outcome, and best-effort callsite metadata.
    */
   traceQueries?: boolean | AthenaQueryTraceOptions
+  /**
+   * Send the original `findMany(...)` AST body for clean object-select reads.
+   * This requires gateway support and falls back to legacy compiled transport
+   * when a chain carries filter/pagination state that the AST payload cannot
+   * represent losslessly yet.
+   */
+  findManyAst?: boolean
 }
 
 export interface AthenaQueryTraceOptions {
@@ -144,6 +153,16 @@ type MutationSingleResult<Result> = Result extends Array<infer Item> ? Item | nu
 type AthenaRowShape = Record<string, AthenaJsonValue | undefined>
 type FilterColumnKey<Row> = Extract<keyof NonNullable<Row>, string>
 type ResolvedFilterColumnKey<Row> = [FilterColumnKey<Row>] extends [never] ? string : FilterColumnKey<Row>
+type AthenaFindManyAstPayload<
+  Row,
+  TSelect extends AthenaSelectShape,
+> = {
+  table_name: string
+  select: TSelect
+  where?: AthenaWhere<Row>
+  orderBy?: AthenaOrderBy<Row>
+  limit?: number
+}
 const DEFAULT_COLUMNS = '*'
 const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
 const ATHENA_NORMALIZED_ERROR_KEY = '__athenaNormalizedError' as const
@@ -160,6 +179,26 @@ const QUERY_TRACE_STACK_SKIP_PATTERNS = [
 
 type AthenaTraceOperation = AthenaQueryTraceEvent['operation']
 type AthenaTraceEndpoint = AthenaQueryTraceEvent['endpoint']
+
+function canUseFindManyAstTransport(state: TableBuilderState): boolean {
+  return (
+    state.conditions.length === 0 &&
+    state.offset === undefined &&
+    state.currentPage === undefined &&
+    state.pageSize === undefined &&
+    state.totalPages === undefined
+  )
+}
+
+function toFindManyAstOrder<Row>(order?: AthenaSortBy): AthenaOrderBy<Row> | undefined {
+  if (!order) {
+    return undefined
+  }
+  return {
+    column: order.field as ResolvedFilterColumnKey<Row>,
+    ascending: order.direction !== 'descending',
+  }
+}
 
 interface AthenaTraceContext {
   operation: AthenaTraceOperation
@@ -1605,6 +1644,7 @@ function createTableBuilder<
   client: ReturnType<typeof createAthenaGatewayClient>,
   formatGatewayResult: AthenaResultFormatter,
   tracer?: AthenaQueryTracer,
+  experimental?: AthenaClientExperimentalOptions,
 ): TableQueryBuilder<Row, Insert, Update, TContext> {
   const state: TableBuilderState = {
     conditions: [],
@@ -1816,6 +1856,7 @@ function createTableBuilder<
     },
     async findMany<const TSelect extends AthenaSelectShape>(options: AthenaFindManyOptions<Row, TSelect>) {
       const columns = compileSelectShape(options.select)
+      const baseState = snapshotState()
       const executionState = snapshotState()
       const callsite = captureTraceCallsite(tracer)
       const compiledWhere = compileWhere(options.where)
@@ -1827,6 +1868,47 @@ function createTableBuilder<
       }
       if (options.limit !== undefined) {
         executionState.limit = options.limit
+      }
+      if (experimental?.findManyAst && canUseFindManyAstTransport(baseState)) {
+        const resolvedTableName = resolveTableNameForCall(tableName, undefined)
+        const payload: AthenaFindManyAstPayload<Row, TSelect> = {
+          table_name: resolvedTableName,
+          select: options.select,
+        }
+        if (options.where !== undefined) {
+          payload.where = options.where
+        }
+        const astOrder = toFindManyAstOrder<Row>(executionState.order)
+        if (astOrder !== undefined) {
+          payload.orderBy = astOrder
+        }
+        if (executionState.limit !== undefined) {
+          payload.limit = executionState.limit
+        }
+        const sql = buildDebugSelectQuery({
+          tableName: resolvedTableName,
+          columns,
+          conditions: executionState.conditions,
+          limit: executionState.limit,
+          order: executionState.order,
+        })
+        return executeWithQueryTrace(
+          tracer,
+          {
+            operation: 'select',
+            endpoint: '/gateway/fetch',
+            table: resolvedTableName,
+            sql,
+            payload,
+          },
+          async () => {
+            const response = await client.fetchGateway<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
+              payload,
+            )
+            return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
+          },
+          callsite,
+        )
       }
       return runSelect<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
         columns,
@@ -2181,7 +2263,8 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
     Row = AthenaRowShape,
     Insert = Partial<Row>,
     Update = Partial<Insert>,
-  >(table: string) => createTableBuilder<Row, Insert, Update>(table, gateway, formatGatewayResult, queryTracer)
+  >(table: string) =>
+    createTableBuilder<Row, Insert, Update>(table, gateway, formatGatewayResult, queryTracer, config.experimental)
   const rpc: AthenaSdkClient['rpc'] = <Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
     args?: Args,
@@ -2226,7 +2309,7 @@ export interface AthenaClientBuilder {
   headers(headers: Record<string, string>): AthenaClientBuilder
   /** Configure Athena Auth client behavior for `client.auth.*` methods. */
   auth(config: AthenaAuthClientConfig): AthenaClientBuilder
-  /** Configure experimental client options (for example error normalization or query tracing). */
+  /** Configure experimental client options (for example query tracing or findMany AST transport). */
   experimental(options: AthenaClientExperimentalOptions): AthenaClientBuilder
   /** Apply the same options object accepted by `createClient(url, key, options)`. */
   options(options: AthenaCreateClientOptions): AthenaClientBuilder

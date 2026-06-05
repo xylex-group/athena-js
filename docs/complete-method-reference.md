@@ -176,7 +176,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `AthenaClient.builder.backend` | `(backend: BackendConfig \| BackendType) => AthenaClientBuilder` | `AthenaClient.builder().backend(/* ... */)` | Set the default backend routing strategy. |
 | `AthenaClient.builder.build` | `() => AthenaSdkClientWithAuth` | `const client = AthenaClient.builder().url("https://...").key("...").build()` | Build the immutable Athena SDK client. |
 | `AthenaClient.builder.client` | `(clientName: string) => AthenaClientBuilder` | `AthenaClient.builder().client(/* ... */)` | Set the default Athena client routing key. |
-| `AthenaClient.builder.experimental` | `(options: AthenaClientExperimentalOptions) => AthenaClientBuilder` | `AthenaClient.builder().experimental(/* ... */)` | Configure experimental client options (for example error normalization or query tracing). |
+| `AthenaClient.builder.experimental` | `(options: AthenaClientExperimentalOptions) => AthenaClientBuilder` | `AthenaClient.builder().experimental(/* ... */)` | Configure experimental client options (for example query tracing or `findMany(...)` AST transport). |
 | `AthenaClient.builder.headers` | `(headers: Record<string, string>) => AthenaClientBuilder` | `AthenaClient.builder().headers(/* ... */)` | Attach static headers to every request. |
 | `AthenaClient.builder.healthTracking` | `(enabled: boolean) => AthenaClientBuilder` | `AthenaClient.builder().healthTracking(/* ... */)` | Enable or disable health tracking metadata. |
 | `AthenaClient.builder.key` | `(apiKey: string) => AthenaClientBuilder` | `AthenaClient.builder().key(/* ... */)` | Set the API key used for all requests. |
@@ -362,4 +362,3 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `utils.proxyRequestHeaders` | `(request: Request) => Headers` | `utils.proxyRequestHeaders(/* ... */)` | — |
 | `utils.slugify` | `(input: string) => string` | `utils.slugify(/* ... */)` | — |
 | `utils.trimTrailingSlashes` | `(value: string) => string` | `utils.trimTrailingSlashes(/* ... */)` | — |
-

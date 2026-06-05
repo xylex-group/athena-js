@@ -12,6 +12,7 @@ import type {
   AthenaDeletePayload,
   AthenaFetchPayload,
   AthenaInsertPayload,
+  AthenaJsonObject,
   AthenaRpcFilter,
   AthenaUpdatePayload,
   AthenaQueryPayload,
@@ -106,6 +107,14 @@ function resolveStatusText(response: Response, payload: unknown): string | null 
 
 function detailsFromError(error: AthenaGatewayError): AthenaGatewayErrorDetails {
   return error.toDetails();
+}
+
+interface AthenaFindManyAstPayload {
+  table_name: string;
+  select: AthenaJsonObject;
+  where?: AthenaJsonObject;
+  orderBy?: AthenaJsonObject;
+  limit?: number;
 }
 
 function toQueryScalar(value: unknown): string {
@@ -406,7 +415,7 @@ export interface AthenaGatewayClient {
   baseUrl: string;
   buildHeaders(options?: AthenaGatewayCallOptions): Record<string, string>;
   fetchGateway<T>(
-    payload: AthenaFetchPayload,
+    payload: AthenaFetchPayload | AthenaFindManyAstPayload,
     options?: AthenaGatewayCallOptions,
   ): Promise<AthenaGatewayResponse<T>>;
   insertGateway<T>(
