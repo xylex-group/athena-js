@@ -1,6 +1,8 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
-import { createAthenaGatewayClient } from '../src/gateway/client.ts'
+import { createAthenaGatewayClient, verifyAthenaGatewayUrl } from '../src/gateway/client.ts'
+import { AthenaGatewayError } from '../src/gateway/errors.ts'
+import { normalizeAthenaGatewayBaseUrl } from '../src/gateway/url.ts'
 
 type Captured = { url: string; init?: RequestInit }
 
@@ -377,6 +379,90 @@ test('default baseUrl is used when not provided', async () => {
     const client = createAthenaGatewayClient()
     await client.fetchGateway({ table_name: 't' })
     assert.ok(calls[0].url.startsWith('https://athena-db.com'))
+  } finally {
+    restore()
+  }
+})
+
+test('createAthenaGatewayClient throws on malformed baseUrl', () => {
+  assert.throws(
+    () => createAthenaGatewayClient({ baseUrl: 'not-a-url' }),
+    (error: unknown) =>
+      error instanceof AthenaGatewayError &&
+      error.code === 'INVALID_URL' &&
+      /valid absolute http\(s\) URL/.test(error.message),
+  )
+})
+
+test('normalizeAthenaGatewayBaseUrl rejects missing values', () => {
+  assert.throws(
+    () => normalizeAthenaGatewayBaseUrl(undefined),
+    /non-empty absolute http\(s\) URL/,
+  )
+})
+
+test('fetchGateway returns INVALID_URL for malformed per-call baseUrl override', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com' })
+    const response = await client.fetchGateway(
+      { table_name: 'users' },
+      { baseUrl: 'not-a-url' },
+    )
+    assert.equal(response.ok, false)
+    assert.equal(response.status, 0)
+    assert.equal(response.errorDetails?.code, 'INVALID_URL')
+    assert.match(response.error ?? '', /valid absolute http\(s\) URL/)
+    assert.equal(calls.length, 0)
+  } finally {
+    restore()
+  }
+})
+
+test('verifyConnection probes the configured baseUrl root', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena-db.com/' })
+    const response = await client.verifyConnection()
+    assert.equal(response.ok, true)
+    assert.equal(response.reachable, true)
+    assert.equal(response.baseUrl, 'https://athena-db.com')
+    assert.equal(response.url, 'https://athena-db.com/')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://athena-db.com/')
+    assert.equal(calls[0].init?.method, 'GET')
+  } finally {
+    restore()
+  }
+})
+
+test('verifyConnection reports unreachable hosts as network failures', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => {
+    throw new Error('getaddrinfo ENOTFOUND athena.invalid')
+  }
+  try {
+    const client = createAthenaGatewayClient({ baseUrl: 'https://athena.invalid' })
+    const response = await client.verifyConnection()
+    assert.equal(response.ok, false)
+    assert.equal(response.reachable, false)
+    assert.equal(response.status, 0)
+    assert.equal(response.errorDetails?.code, 'NETWORK_ERROR')
+    assert.match(response.error ?? '', /Network error while probing Athena gateway/)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('verifyAthenaGatewayUrl normalizes trailing slashes and probes root', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const response = await verifyAthenaGatewayUrl('https://athena-db.com/')
+    assert.equal(response.ok, true)
+    assert.equal(response.reachable, true)
+    assert.equal(response.baseUrl, 'https://athena-db.com')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://athena-db.com/')
   } finally {
     restore()
   }

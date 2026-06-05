@@ -417,6 +417,7 @@ interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = AthenaSel
   select: TSelect
   as?: string
   via?: string
+  schema?: string
 }
 
 type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<any>>
@@ -460,6 +461,22 @@ interface AthenaFindManyOptions<Row, TSelect extends AthenaSelectShape> {
   orderBy?: AthenaOrderBy<Row>
   limit?: number
 }
+```
+
+Schema-qualified relation example:
+
+```ts
+await athena.from("chat_subscriptions").findMany({
+  select: {
+    user_id: true,
+    user: {
+      schema: "athena",
+      select: {
+        id: true,
+      },
+    },
+  },
+})
 ```
 
 Notes:

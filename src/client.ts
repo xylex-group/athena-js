@@ -5,6 +5,8 @@ import type {
   AthenaConditionValue,
   AthenaDeletePayload,
   AthenaGatewayCallOptions,
+  AthenaGatewayConnectionOptions,
+  AthenaGatewayConnectionResult,
   AthenaGatewayCondition,
   AthenaGatewayErrorDetails,
   AthenaGatewayResponse,
@@ -20,6 +22,7 @@ import type {
 } from './gateway/types.ts'
 import type { BackendConfig, BackendType } from './gateway/types.ts'
 import { createAthenaGatewayClient } from './gateway/client.ts'
+import { buildStructuredSelectTransport } from './gateway/structured-select.ts'
 import { quoteQualifiedIdentifier, quoteSelectColumnToken, quoteSelectColumnsExpression } from './sql-identifiers.ts'
 import { createAuthClient } from './auth/client.ts'
 import type { AthenaAuthBindings, AthenaAuthClientConfig } from './auth/types.ts'
@@ -30,6 +33,7 @@ import type { AthenaDbModule } from './db/module.ts'
 import {
   compileOrderBy,
   compileSelectShape,
+  selectShapeUsesRelationSchema,
   compileWhere,
   shouldUseUuidTextComparison,
 } from './query-ast.ts'
@@ -1752,6 +1756,55 @@ function createTableBuilder<
       }
     }
 
+    const pagination = resolvePagination({
+      limit: executionState.limit,
+      offset: executionState.offset,
+      currentPage: executionState.currentPage,
+      pageSize: executionState.pageSize,
+    })
+    const stripNulls = options?.stripNulls ?? true
+    const structuredSelectTransport = buildStructuredSelectTransport({
+      tableName: resolvedTableName,
+      columns,
+      conditions,
+      limit: pagination.limit,
+      offset: pagination.offset,
+      order: executionState.order,
+      stripNulls,
+      count: options?.count,
+      head: options?.head,
+    })
+    if (structuredSelectTransport && 'error' in structuredSelectTransport) {
+      throw new Error(structuredSelectTransport.error)
+    }
+    if (structuredSelectTransport) {
+      const { payload, select } = structuredSelectTransport
+      const sql = buildDebugSelectQuery({
+        tableName: resolvedTableName,
+        columns: select,
+        conditions,
+        limit: pagination.limit,
+        offset: pagination.offset,
+        order: executionState.order,
+      })
+      return executeWithQueryTrace(
+        tracer,
+        {
+          operation: 'select',
+          endpoint: '/gateway/fetch',
+          table: resolvedTableName,
+          sql,
+          payload,
+          options,
+        },
+        async () => {
+          const response = await client.fetchGateway<T>(payload, options)
+          return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
+        },
+        callsite,
+      )
+    }
+
     const payload = {
       table_name: resolvedTableName,
       columns,
@@ -1762,7 +1815,7 @@ function createTableBuilder<
       page_size: executionState.pageSize,
       total_pages: executionState.totalPages,
       sort_by: executionState.order,
-      strip_nulls: options?.stripNulls ?? true,
+      strip_nulls: stripNulls,
       count: options?.count,
       head: options?.head,
     }
@@ -1869,7 +1922,11 @@ function createTableBuilder<
       if (options.limit !== undefined) {
         executionState.limit = options.limit
       }
-      if (experimental?.findManyAst && canUseFindManyAstTransport(baseState)) {
+      if (
+        experimental?.findManyAst &&
+        canUseFindManyAstTransport(baseState) &&
+        !selectShapeUsesRelationSchema(options.select)
+      ) {
         const resolvedTableName = resolveTableNameForCall(tableName, undefined)
         const payload: AthenaFindManyAstPayload<Row, TSelect> = {
           table_name: resolvedTableName,
@@ -2230,6 +2287,7 @@ export interface AthenaSdkClient {
     options?: AthenaRpcCallOptions,
   ): RpcQueryBuilder<Row>
   query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
+  verifyConnection(options?: AthenaGatewayConnectionOptions): Promise<AthenaGatewayConnectionResult>
 }
 
 export interface AthenaSdkClientWithAuth extends AthenaSdkClient {
@@ -2292,6 +2350,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
     db,
     rpc,
     query,
+    verifyConnection: gateway.verifyConnection,
     auth: auth.auth,
   }
 }

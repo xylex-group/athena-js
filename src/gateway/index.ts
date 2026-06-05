@@ -6,10 +6,14 @@
 
 export { useAthenaGateway } from "./use-athena-gateway.js";
 export { AthenaGatewayError, isAthenaGatewayError } from "./errors.ts";
+export { createAthenaGatewayClient, verifyAthenaGatewayUrl } from "./client.ts";
+export { normalizeAthenaGatewayBaseUrl } from "./url.ts";
 export type {
   AthenaGatewayHookConfig,
   AthenaGatewayHookResult,
   AthenaGatewayCallOptions,
+  AthenaGatewayConnectionOptions,
+  AthenaGatewayConnectionResult,
   AthenaGatewayErrorCode,
   AthenaGatewayErrorDetails,
   AthenaRpcFilter,

@@ -67,6 +67,7 @@ export interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = At
   select: TSelect
   as?: string
   via?: string
+  schema?: string
 }
 
 export type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<AthenaSelectShape>>
@@ -329,7 +330,23 @@ function compileRelationToken(
 ): string {
   const nested = compileSelectShape(node.select)
   const propertyKey = normalizeIdentifier(key, 'select relation key')
-  const relationToken = normalizeIdentifier(node.via ?? propertyKey, 'select relation token')
+  if (node.schema && node.via) {
+    throw new Error(
+      `findMany relation "${propertyKey}" cannot combine schema and via yet; use schema with the relation key, or use via without schema`,
+    )
+  }
+
+  const relationTokenBase = normalizeIdentifier(node.via ?? propertyKey, 'select relation token')
+  if (node.schema && relationTokenBase.includes('.')) {
+    throw new Error(
+      `findMany relation "${propertyKey}" already resolves to a qualified relation token; do not also set schema`,
+    )
+  }
+
+  const relationSchema = node.schema?.trim()
+  const relationToken = relationSchema
+    ? `${normalizeIdentifier(relationSchema, 'select relation schema')}.${relationTokenBase}`
+    : relationTokenBase
   const alias = node.as?.trim() || (relationToken !== propertyKey ? propertyKey : '')
   const prefix = alias ? `${alias}:` : ''
   return `${prefix}${relationToken}(${nested})`
@@ -364,6 +381,26 @@ export function compileSelectShape(select: AthenaSelectShape): string {
   }
 
   return tokens.join(',')
+}
+
+export function selectShapeUsesRelationSchema(select: AthenaSelectShape): boolean {
+  if (!isRecord(select)) {
+    return false
+  }
+
+  for (const rawValue of Object.values(select)) {
+    if (!isRelationSelectNode(rawValue)) {
+      continue
+    }
+    if (typeof rawValue.schema === 'string' && rawValue.schema.trim().length > 0) {
+      return true
+    }
+    if (selectShapeUsesRelationSchema(rawValue.select)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function compileColumnWhere(

@@ -8,6 +8,7 @@ import {
   defineModel,
   defineRegistry,
   defineSchema,
+  normalizeAthenaGatewayBaseUrl,
   isOk,
   requireAffected,
   requireSuccess,
@@ -16,8 +17,10 @@ import {
   unwrap,
   unwrapOne,
   unwrapRows,
+  verifyAthenaGatewayUrl,
   type RequireAffectedOptions,
   type AthenaResult,
+  type AthenaGatewayConnectionResult,
   type ModelFormDefaults,
   type ModelFormValues,
 } from "../src/index.ts"
@@ -53,6 +56,9 @@ declare function acceptsNullableUserRow(value: UserRow | null): void
 declare function acceptsNumber(value: number): void
 declare function acceptsString(value: string): void
 declare function acceptsUnknown(value: unknown): void
+declare function acceptsGatewayConnectionPromise(
+  value: Promise<AthenaGatewayConnectionResult>,
+): void
 
 declare function acceptsUserInsertMutation(
   value: PromiseLike<AthenaResult<UserRow>>,
@@ -92,6 +98,10 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
     },
   },
 })
+const normalizedGatewayUrl = normalizeAthenaGatewayBaseUrl('https://mirror3.athena-db.com/')
+acceptsString(normalizedGatewayUrl)
+acceptsGatewayConnectionPromise(client.verifyConnection())
+acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-db.com'))
 const authSessionResult = client.auth.getSession()
 const builderAuthSessionResult = fluentBuilderClient.auth.getSession()
 authSessionResult.then(result => {
@@ -173,6 +183,18 @@ users
       acceptsUnknown(result.data[0].profile)
     }
   })
+
+users.findMany({
+  select: {
+    id: true,
+    user: {
+      schema: 'athena',
+      select: {
+        id: true,
+      },
+    },
+  },
+})
 
 acceptsMaybeUserPromise(users.single())
 acceptsMaybeUserPromise(users.maybeSingle())

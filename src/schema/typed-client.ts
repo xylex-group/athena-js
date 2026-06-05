@@ -5,7 +5,13 @@ import {
   type RpcQueryBuilder,
   type TableQueryBuilder,
 } from '../client.ts'
-import type { AthenaGatewayCallOptions, AthenaJsonObject, AthenaRpcCallOptions } from '../gateway/types.ts'
+import type {
+  AthenaGatewayCallOptions,
+  AthenaGatewayConnectionOptions,
+  AthenaGatewayConnectionResult,
+  AthenaJsonObject,
+  AthenaRpcCallOptions,
+} from '../gateway/types.ts'
 import type {
   AnyModelDef,
   DatabaseDef,
@@ -202,6 +208,12 @@ class TypedAthenaClientImpl<
     options?: AthenaGatewayCallOptions,
   ): Promise<AthenaResult<Row[]>> {
     return this.baseClient.query<Row>(query, options)
+  }
+
+  verifyConnection(
+    options?: AthenaGatewayConnectionOptions,
+  ): Promise<AthenaGatewayConnectionResult> {
+    return this.baseClient.verifyConnection(options)
   }
 
   withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap> {

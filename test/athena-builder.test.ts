@@ -55,6 +55,35 @@ test('createClient(url, key, { client }) still works', async () => {
   }
 })
 
+test('createClient throws early for malformed gateway URLs', () => {
+  assert.throws(
+    () => createClient('not-a-url', 'secret'),
+    /valid absolute http\(s\) URL/,
+  )
+})
+
+test('client.verifyConnection probes the configured gateway root', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse({ ok: true }, 200)
+  }
+
+  try {
+    const client = createClient('https://athena-db.com/', 'secret')
+    const response = await client.verifyConnection()
+    assert.equal(response.ok, true)
+    assert.equal(response.reachable, true)
+    assert.equal(response.baseUrl, 'https://athena-db.com')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://athena-db.com/')
+    assert.equal(calls[0].init?.method, 'GET')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('select builder honors filters, range, and options', async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = []
   const originalFetch = globalThis.fetch

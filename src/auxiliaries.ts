@@ -368,6 +368,7 @@ function classifyKind(status: number | undefined, code: AthenaGatewayErrorCode |
   if (status === 404 || hasNotFoundPattern) return 'not_found'
   if (status === 401 || status === 403 || hasAuthPattern) return 'auth'
   if (status === 429 || hasRateLimitPattern) return 'rate_limit'
+  if (code === 'INVALID_URL') return 'validation'
   if (status === 400 || status === 422 || hasValidationPattern) return 'validation'
   if (code === 'NETWORK_ERROR' || status === 0 || (status !== undefined && status >= 500) || hasTransientPattern) {
     return 'transient'
@@ -380,6 +381,10 @@ function toAthenaErrorCode(
   status: number | undefined,
   gatewayCode?: AthenaGatewayErrorCode,
 ): AthenaErrorCode {
+  if (gatewayCode === 'INVALID_URL') {
+    return AthenaErrorCode.ValidationFailed
+  }
+
   if (gatewayCode === 'NETWORK_ERROR' || (kind === 'transient' && status === 0)) {
     return AthenaErrorCode.NetworkUnavailable
   }

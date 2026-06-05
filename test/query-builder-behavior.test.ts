@@ -473,6 +473,59 @@ test('canonical chained range filters work: gte + lt after select', async () => 
   }
 })
 
+test('select switches to structured transport for schema-qualified relation strings', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('chat_subscriptions').select('user_id,athena.user(id)')
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'chat_subscriptions')
+    assert.equal(payload.select, 'user_id,athena.user(id)')
+    assert.equal(payload.columns, undefined)
+    assert.equal(payload.where, undefined)
+  } finally {
+    restore()
+  }
+})
+
+test('structured select transport forwards simple filters and ordering for schema-qualified relations', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client
+      .from('chat_subscriptions')
+      .eq('chat_id', 'chat_1')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .select('user_id,athena.user(id)')
+
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.select, 'user_id,athena.user(id)')
+    assert.deepEqual(payload.where, {
+      chat_id: {
+        eq: 'chat_1',
+      },
+    })
+    assert.deepEqual(payload.orderBy, {
+      created_at: 'desc',
+    })
+    assert.equal(payload.limit, 5)
+    assert.equal(payload.offset, undefined)
+  } finally {
+    restore()
+  }
+})
+
+test('schema-qualified relation select rejects unsupported structured-filter operators clearly', async () => {
+  await assert.rejects(
+    () =>
+      client
+        .from('chat_subscriptions')
+        .gte('created_at', '2026-01-01T00:00:00Z')
+        .select('user_id,athena.user(id)'),
+    /only support eq, neq, gt, lt, and in filters/,
+  )
+})
+
 test('findMany compiles nested select trees into gateway columns', async () => {
   const { calls, restore } = mockFetch()
   try {
@@ -515,6 +568,31 @@ test('findMany supports aliased via relation nodes', async () => {
     assert.equal(calls.length, 1)
     const payload = JSON.parse(calls[0].init?.body as string)
     assert.equal(payload.columns, 'from:sender_id(name)')
+  } finally {
+    restore()
+  }
+})
+
+test('findMany relation nodes support explicit schema targeting', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    await client.from('chat_subscriptions').findMany({
+      select: {
+        user_id: true,
+        user: {
+          schema: 'athena',
+          select: {
+            id: true,
+          },
+        },
+      },
+    })
+
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.table_name, 'chat_subscriptions')
+    assert.equal(payload.select, 'user_id,user:athena.user(id)')
+    assert.equal(payload.columns, undefined)
   } finally {
     restore()
   }
@@ -631,6 +709,36 @@ test('findManyAst experimental flag sends the original AST body through fetch', 
       },
       limit: 1,
     })
+  } finally {
+    restore()
+  }
+})
+
+test('findManyAst experimental flag falls back when relation nodes target an explicit schema', async () => {
+  const { calls, restore } = mockFetch()
+  const client = createClient('https://athena-db.com', 'secret', {
+    experimental: {
+      findManyAst: true,
+    },
+  })
+  try {
+    await client.from('chat_subscriptions').findMany({
+      select: {
+        user_id: true,
+        user: {
+          schema: 'athena',
+          select: {
+            id: true,
+          },
+        },
+      },
+    })
+
+    assert.equal(calls.length, 1)
+    const payload = JSON.parse(calls[0].init?.body as string)
+    assert.equal(payload.select, 'user_id,user:athena.user(id)')
+    assert.equal(typeof payload.select, 'string')
+    assert.equal(payload.columns, undefined)
   } finally {
     restore()
   }

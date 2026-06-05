@@ -178,6 +178,7 @@ interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = AthenaSel
   select: TSelect
   as?: string
   via?: string
+  schema?: string
 }
 
 type AthenaSelectShape = Record<string, true | AthenaRelationSelectNode<any>>
@@ -222,6 +223,22 @@ interface AthenaFindManyOptions<Row, TSelect extends AthenaSelectShape> {
   orderBy?: AthenaOrderBy<Row>
   limit?: number
 }
+```
+
+When a nested relation table lives in another schema, set `schema` on that relation node:
+
+```ts
+await athena.from("chat_subscriptions").findMany({
+  select: {
+    user_id: true,
+    user: {
+      schema: "athena",
+      select: {
+        id: true,
+      },
+    },
+  },
+})
 ```
 
 ## How `findMany(...)` works

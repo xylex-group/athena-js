@@ -74,9 +74,12 @@ export interface AthenaSortBy {
 }
 
 export interface AthenaFetchPayload {
+  select?: string | AthenaJsonObject
   view_name?: string
   table_name?: string
   columns?: string[] | string
+  where?: AthenaJsonObject
+  orderBy?: AthenaJsonObject | AthenaJsonArray
   conditions?: AthenaGatewayCondition[]
   limit?: number
   offset?: number
@@ -223,6 +226,7 @@ export interface AthenaGatewayResponse<T = unknown> {
 
 export type AthenaGatewayErrorCode =
   | 'NETWORK_ERROR'
+  | 'INVALID_URL'
   | 'HTTP_ERROR'
   | 'INVALID_JSON'
   | 'UNKNOWN_ERROR'
@@ -236,6 +240,24 @@ export interface AthenaGatewayErrorDetails {
   requestId?: string
   hint?: string
   cause?: string
+}
+
+export interface AthenaGatewayConnectionOptions {
+  path?: `/${string}`
+  headers?: Record<string, string>
+  signal?: AbortSignal
+}
+
+export interface AthenaGatewayConnectionResult {
+  ok: boolean
+  reachable: boolean
+  status: number
+  statusText?: string | null
+  baseUrl: string
+  url: string
+  error?: string
+  errorDetails?: AthenaGatewayErrorDetails | null
+  raw: unknown
 }
 
 export interface AthenaGatewayResponseLog extends AthenaGatewayResponse {

@@ -9,6 +9,8 @@
 export { createClient, AthenaClient } from './client.js'
 export { Backend } from './gateway/types.js'
 export { AthenaGatewayError, isAthenaGatewayError } from './gateway/errors.ts'
+export { verifyAthenaGatewayUrl } from './gateway/client.ts'
+export { normalizeAthenaGatewayBaseUrl } from './gateway/url.ts'
 export {
   isOk,
   unwrap,
@@ -282,6 +284,8 @@ export type {
   AthenaRpcPayload,
   AthenaGatewayErrorCode,
   AthenaGatewayErrorDetails,
+  AthenaGatewayConnectionOptions,
+  AthenaGatewayConnectionResult,
   BackendType,
   BackendConfig,
   AthenaGatewayCallOptions,

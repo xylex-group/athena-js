@@ -1,6 +1,8 @@
 import type {
   AthenaGatewayBaseOptions,
   AthenaGatewayCallOptions,
+  AthenaGatewayConnectionOptions,
+  AthenaGatewayConnectionResult,
   AthenaGatewayEndpointPath,
   AthenaGatewayErrorDetails,
   AthenaGatewayMethod,
@@ -12,14 +14,17 @@ import type {
   AthenaDeletePayload,
   AthenaFetchPayload,
   AthenaInsertPayload,
-  AthenaJsonObject,
   AthenaRpcFilter,
   AthenaUpdatePayload,
   AthenaQueryPayload,
 } from "./types.js";
 import { AthenaGatewayError } from "./errors.ts";
+import {
+  ATHENA_DEFAULT_BASE_URL,
+  buildAthenaGatewayUrl,
+  normalizeAthenaGatewayBaseUrl,
+} from "./url.ts";
 
-const DEFAULT_BASE_URL = "https://athena-db.com";
 const DEFAULT_CLIENT = "railway_direct";
 const FALLBACK_SDK_VERSION = "1.3.0";
 const SDK_NAME = "xylex-group/athena";
@@ -111,9 +116,9 @@ function detailsFromError(error: AthenaGatewayError): AthenaGatewayErrorDetails 
 
 interface AthenaFindManyAstPayload {
   table_name: string;
-  select: AthenaJsonObject;
-  where?: AthenaJsonObject;
-  orderBy?: AthenaJsonObject;
+  select: Record<string, unknown>;
+  where?: Record<string, unknown>;
+  orderBy?: Record<string, unknown>;
   limit?: number;
 }
 
@@ -283,6 +288,195 @@ function buildHeaders(
   return headers;
 }
 
+function toInvalidUrlResponse<T>(
+  error: unknown,
+  endpoint: AthenaGatewayEndpointPath,
+  method: AthenaGatewayMethod,
+): AthenaGatewayResponse<T> {
+  const message = error instanceof Error ? error.message : String(error);
+  const gatewayError =
+    error instanceof AthenaGatewayError
+      ? error
+      : new AthenaGatewayError({
+          code: "INVALID_URL",
+          message,
+          status: 0,
+          endpoint,
+          method,
+          cause: message,
+          hint: "Set ATHENA_URL to a full http(s) URL before running queries.",
+        });
+
+  return {
+    ok: false,
+    status: 0,
+    statusText: null,
+    data: null,
+    error: gatewayError.message,
+    errorDetails: detailsFromError(
+      new AthenaGatewayError({
+        code: gatewayError.code,
+        message: gatewayError.message,
+        status: gatewayError.status,
+        endpoint,
+        method,
+        requestId: gatewayError.requestId,
+        hint: gatewayError.hint,
+        cause: gatewayError.causeDetail,
+      }),
+    ),
+    raw: null,
+  };
+}
+
+function resolveGatewayBaseUrl(input?: string | null) {
+  return normalizeAthenaGatewayBaseUrl(input, {
+    defaultBaseUrl: ATHENA_DEFAULT_BASE_URL,
+  });
+}
+
+function resolveProbePath(path?: string) {
+  if (!path) return "/";
+  if (!path.startsWith("/")) {
+    throw new AthenaGatewayError({
+      code: "INVALID_URL",
+      message: `Athena gateway probe path must start with "/". Received ${JSON.stringify(path)}.`,
+      status: 0,
+      hint: 'Use a leading slash such as "/" or "/health".',
+    });
+  }
+  return path;
+}
+
+function mergeConnectionHeaders(
+  baseHeaders: Record<string, string>,
+  headers?: Record<string, string>,
+): Record<string, string> {
+  const merged = {
+    ...baseHeaders,
+    ...(headers ?? {}),
+  };
+
+  if (!merged["X-Athena-Sdk"] && !merged["x-athena-sdk"]) {
+    merged["X-Athena-Sdk"] = SDK_HEADER_VALUE;
+  }
+
+  return merged;
+}
+
+async function performConnectionCheck(
+  baseUrl: string,
+  requestHeaders: Record<string, string>,
+  options?: AthenaGatewayConnectionOptions,
+): Promise<AthenaGatewayConnectionResult> {
+  const path = resolveProbePath(options?.path);
+  const url = buildAthenaGatewayUrl(baseUrl, path);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: mergeConnectionHeaders(requestHeaders, options?.headers),
+      signal: options?.signal,
+    });
+    const rawText = await response.text();
+    const requestId = resolveRequestId(response.headers);
+    const parsedBody = parseResponseBody(
+      rawText ?? "",
+      response.headers.get("content-type"),
+    );
+
+    if (parsedBody.parseFailed) {
+      const invalidJsonError = new AthenaGatewayError({
+        code: "INVALID_JSON",
+        message: "Gateway probe returned malformed JSON",
+        status: response.status,
+        method: "GET",
+        requestId,
+        hint: "Verify the gateway response body is valid JSON.",
+        cause: rawText.slice(0, 300),
+      });
+      return {
+        ok: false,
+        reachable: true,
+        status: response.status,
+        statusText: resolveStatusText(response, parsedBody.parsed),
+        baseUrl,
+        url,
+        error: invalidJsonError.message,
+        errorDetails: detailsFromError(invalidJsonError),
+        raw: parsedBody.parsed,
+      };
+    }
+
+    const parsed = parsedBody.parsed;
+    if (!response.ok) {
+      const httpError = new AthenaGatewayError({
+        code: "HTTP_ERROR",
+        message: resolveErrorMessage(
+          parsed,
+          `Athena gateway GET ${path} failed with status ${response.status}`,
+        ),
+        status: response.status,
+        method: "GET",
+        requestId,
+        hint: resolveErrorHint(parsed),
+      });
+
+      return {
+        ok: false,
+        reachable: true,
+        status: response.status,
+        statusText: resolveStatusText(response, parsed),
+        baseUrl,
+        url,
+        error: httpError.message,
+        errorDetails: detailsFromError(httpError),
+        raw: parsed,
+      };
+    }
+
+    return {
+      ok: true,
+      reachable: true,
+      status: response.status,
+      statusText: resolveStatusText(response, parsed),
+      baseUrl,
+      url,
+      error: undefined,
+      errorDetails: null,
+      raw: parsed,
+    };
+  } catch (callError) {
+    const message = callError instanceof Error ? callError.message : String(callError);
+    const networkError = new AthenaGatewayError({
+      code: "NETWORK_ERROR",
+      message: `Network error while probing Athena gateway ${url}: ${message}`,
+      method: "GET",
+      cause: message,
+      hint: "Check gateway URL, DNS, and network reachability.",
+    });
+    return {
+      ok: false,
+      reachable: false,
+      status: 0,
+      statusText: null,
+      baseUrl,
+      url,
+      error: networkError.message,
+      errorDetails: detailsFromError(networkError),
+      raw: null,
+    };
+  }
+}
+
+export async function verifyAthenaGatewayUrl(
+  baseUrl: string,
+  options?: AthenaGatewayConnectionOptions,
+): Promise<AthenaGatewayConnectionResult> {
+  const normalizedBaseUrl = normalizeAthenaGatewayBaseUrl(baseUrl);
+  return performConnectionCheck(normalizedBaseUrl, { "X-Athena-Sdk": SDK_HEADER_VALUE }, options);
+}
+
 async function callAthena<T>(
   config: AthenaGatewayBaseOptions,
   endpoint: AthenaGatewayEndpointPath,
@@ -290,12 +484,14 @@ async function callAthena<T>(
   payload: unknown,
   options?: AthenaGatewayCallOptions,
 ): Promise<AthenaGatewayResponse<T>> {
-  const baseUrl = (
-    options?.baseUrl ??
-    config.baseUrl ??
-    DEFAULT_BASE_URL
-  ).replace(/\/$/, "");
-  const url = `${baseUrl}${endpoint}`;
+  let baseUrl: string;
+  try {
+    baseUrl = resolveGatewayBaseUrl(options?.baseUrl ?? config.baseUrl);
+  } catch (error) {
+    return toInvalidUrlResponse<T>(error, endpoint, method);
+  }
+
+  const url = buildAthenaGatewayUrl(baseUrl, endpoint);
   const headers = buildHeaders(config, options);
 
   try {
@@ -414,6 +610,9 @@ async function callAthena<T>(
 export interface AthenaGatewayClient {
   baseUrl: string;
   buildHeaders(options?: AthenaGatewayCallOptions): Record<string, string>;
+  verifyConnection(
+    options?: AthenaGatewayConnectionOptions,
+  ): Promise<AthenaGatewayConnectionResult>;
   fetchGateway<T>(
     payload: AthenaFetchPayload | AthenaFindManyAstPayload,
     options?: AthenaGatewayCallOptions,
@@ -443,32 +642,45 @@ export interface AthenaGatewayClient {
 export function createAthenaGatewayClient(
   config: AthenaGatewayBaseOptions = {},
 ): AthenaGatewayClient {
+  const normalizedBaseUrl = resolveGatewayBaseUrl(config.baseUrl);
+  const normalizedConfig: AthenaGatewayBaseOptions = {
+    ...config,
+    baseUrl: normalizedBaseUrl,
+  };
+
   return {
-    baseUrl: (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, ""),
+    baseUrl: normalizedBaseUrl,
     buildHeaders(options) {
-      return buildHeaders(config, options);
+      return buildHeaders(normalizedConfig, options);
+    },
+    verifyConnection(options) {
+      return performConnectionCheck(
+        normalizedBaseUrl,
+        buildHeaders(normalizedConfig),
+        options,
+      );
     },
     fetchGateway(payload, options) {
-      return callAthena(config, "/gateway/fetch", "POST", payload, options);
+      return callAthena(normalizedConfig, "/gateway/fetch", "POST", payload, options);
     },
     insertGateway(payload, options) {
-      return callAthena(config, "/gateway/insert", "PUT", payload, options);
+      return callAthena(normalizedConfig, "/gateway/insert", "PUT", payload, options);
     },
     updateGateway(payload, options) {
-      return callAthena(config, "/gateway/update", "POST", payload, options);
+      return callAthena(normalizedConfig, "/gateway/update", "POST", payload, options);
     },
     deleteGateway(payload, options) {
-      return callAthena(config, "/gateway/delete", "DELETE", payload, options);
+      return callAthena(normalizedConfig, "/gateway/delete", "DELETE", payload, options);
     },
     rpcGateway(payload, options) {
       if (options?.get) {
         const endpoint = buildRpcGetEndpoint(payload);
-        return callAthena(config, endpoint, "GET", null, options);
+        return callAthena(normalizedConfig, endpoint, "GET", null, options);
       }
-      return callAthena(config, "/gateway/rpc", "POST", payload, options);
+      return callAthena(normalizedConfig, "/gateway/rpc", "POST", payload, options);
     },
     queryGateway(payload, options) {
-      return callAthena(config, "/gateway/query", "POST", payload, options);
+      return callAthena(normalizedConfig, "/gateway/query", "POST", payload, options);
     },
   };
 }
