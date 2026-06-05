@@ -38,71 +38,71 @@
   "exports": {
     ".": {
       "browser": {
+        "default": "./dist/browser.js",
         "import": {
-          "types": "./dist/browser.d.ts",
-          "default": "./dist/browser.js"
+          "default": "./dist/browser.js",
+          "types": "./dist/browser.d.ts"
         },
         "require": {
-          "types": "./dist/browser.d.cts",
-          "default": "./dist/browser.cjs"
-        },
-        "default": "./dist/browser.js"
+          "default": "./dist/browser.cjs",
+          "types": "./dist/browser.d.cts"
+        }
       },
+      "default": "./dist/index.js",
       "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
+        "default": "./dist/index.js",
+        "types": "./dist/index.d.ts"
       },
       "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      },
-      "default": "./dist/index.js"
+        "default": "./dist/index.cjs",
+        "types": "./dist/index.d.cts"
+      }
     },
     "./browser": {
+      "default": "./dist/browser.js",
       "import": {
-        "types": "./dist/browser.d.ts",
-        "default": "./dist/browser.js"
+        "default": "./dist/browser.js",
+        "types": "./dist/browser.d.ts"
       },
       "require": {
-        "types": "./dist/browser.d.cts",
-        "default": "./dist/browser.cjs"
-      },
-      "default": "./dist/browser.js"
+        "default": "./dist/browser.cjs",
+        "types": "./dist/browser.d.cts"
+      }
     },
     "./cookies": {
+      "default": "./dist/cookies.js",
       "import": {
-        "types": "./dist/cookies.d.ts",
-        "default": "./dist/cookies.js"
+        "default": "./dist/cookies.js",
+        "types": "./dist/cookies.d.ts"
       },
       "require": {
-        "types": "./dist/cookies.d.cts",
-        "default": "./dist/cookies.cjs"
-      },
-      "default": "./dist/cookies.js"
+        "default": "./dist/cookies.cjs",
+        "types": "./dist/cookies.d.cts"
+      }
     },
+    "./package.json": "./package.json",
     "./react": {
+      "default": "./dist/react.js",
       "import": {
-        "types": "./dist/react.d.ts",
-        "default": "./dist/react.js"
+        "default": "./dist/react.js",
+        "types": "./dist/react.d.ts"
       },
       "require": {
-        "types": "./dist/react.d.cts",
-        "default": "./dist/react.cjs"
-      },
-      "default": "./dist/react.js"
+        "default": "./dist/react.cjs",
+        "types": "./dist/react.d.cts"
+      }
     },
     "./utils": {
+      "default": "./dist/utils.js",
       "import": {
-        "types": "./dist/utils.d.ts",
-        "default": "./dist/utils.js"
+        "default": "./dist/utils.js",
+        "types": "./dist/utils.d.ts"
       },
       "require": {
-        "types": "./dist/utils.d.cts",
-        "default": "./dist/utils.cjs"
-      },
-      "default": "./dist/utils.js"
-    },
-    "./package.json": "./package.json"
+        "default": "./dist/utils.cjs",
+        "types": "./dist/utils.d.cts"
+      }
+    }
   },
   "files": [
     "dist",
@@ -125,7 +125,6 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "name": "@xylex-group/athena",
-  "sideEffects": false,
   "peerDependencies": {
     "@react-email/components": ">=1.0.0",
     "@react-email/render": ">=2.0.0",
@@ -168,6 +167,7 @@
     "test:watch": "node --preserve-symlinks --import tsx --test --watch test/*.test.ts",
     "typecheck": "tsc -p tsconfig.typecheck.json"
   },
+  "sideEffects": false,
   "type": "module",
   "types": "./dist/index.d.ts",
   "typesVersions": {
