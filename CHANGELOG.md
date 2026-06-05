@@ -2,16 +2,14 @@
 
 ## Unreleased
 
+### Notes
+
+- _No unreleased changes yet._
+
 ## [2.3.0](https://github.com/xylex-group/athena-js/compare/v2.2.0...v2.3.0) (2026-06-05)
 
 - Release channel: stable
 - Tag: `v2.3.0`
-
-### Notes
-
-- Runtime query/mutation/RPC results now expose structured `error` objects on `AthenaResult<T>` by default, including `message`, `code`, `details`, `hint`, `status`, `statusText`, and normalized metadata such as `kind`/`table`/`operation`.
-- `experimental.enableErrorNormalization` is now deprecated and retained as a no-op compatibility flag because failed results inline normalized error data automatically.
-- `experimental.findManyAst` now opt-ins clean `findMany(...)` calls to send the original AST body through `/gateway/fetch` for gateways that support direct AST transport.
 
 ## [2.2.0](https://github.com/xylex-group/athena-js/compare/v2.1.2...v2.2.0) (2026-06-01)
 
@@ -122,3 +120,4 @@
 
 - Release channel: stable
 - Tag: `v0.2.1`
+
