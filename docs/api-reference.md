@@ -82,6 +82,7 @@ function createClient(
     experimental?: {
       enableErrorNormalization?: boolean
       findManyAst?: boolean
+      retryReads?: boolean
       traceQueries?: boolean | AthenaQueryTraceOptions
     }
   },
@@ -90,6 +91,7 @@ function createClient(
 
 `experimental.enableErrorNormalization` is deprecated and retained as a no-op compatibility flag because failed `AthenaResult` values now expose structured normalized `error` objects by default.
 `experimental.findManyAst` opt-ins clean `findMany(...)` calls to use direct AST bodies on `/gateway/fetch` when the request is lossless there; shorthand `where` values are normalized, UUID-like equality filters still fall back to the legacy query path, and nested relation select strings stay off SQL query fallback.
+`experimental.retryReads` enables fixed-policy retries for retryable read failures on `select`, `findMany(...)`, and `query(...)`. It performs two additional attempts internally and does not retry writes.
 `experimental.traceQueries` emits detailed query execution diagnostics for every runtime call.
 For deferred builders, trace callsites are captured from the public SDK seam that declared or finalized the operation and are memoized through the eventual execution, so traces stay anchored to user code across local and CI stack differences.
 
@@ -146,7 +148,29 @@ interface AthenaQueryTraceCallsite {
 ### `@xylex-group/athena/utils` subpath
 
 ```ts
-import { slugify, trimTrailingSlashes, parseBooleanFlag, isLocalHostname, clearAuthCookies, proxyRequestHeaders } from "@xylex-group/athena/utils"
+import {
+  asString,
+  asBoolean,
+  asBooleanOrNull,
+  asRecord,
+  asIdentifier,
+  firstString,
+  readTrimmedString,
+  asNumber,
+  asStringArray,
+  slugify,
+  trimTrailingSlashes,
+  parseBooleanFlag,
+  isLocalHostname,
+  clearAuthCookies,
+  proxyRequestHeaders,
+  sqlText,
+  escapeLikePatternValue,
+  quoteSqlStringLiteral,
+  sqlNullableText,
+  sqlJsonbLiteral,
+  sqlBigInt,
+} from "@xylex-group/athena/utils"
 ```
 
 ```ts
@@ -165,6 +189,60 @@ function trimTrailingSlashes(value: string): string
 Removes one or more trailing `/` characters from a string.
 
 ```ts
+function asString(value: unknown): string | null
+```
+
+Coerces finite numbers, bigint values, and non-empty trimmed strings to strings.
+
+```ts
+function asBoolean(value: unknown): boolean
+```
+
+Coerces booleans, numbers, and common string tokens (`true/false`, `1/0`, `yes/no`, `y/n`, `on/off`) to a boolean. Unrecognized values return `false`.
+
+```ts
+function asBooleanOrNull(value: unknown): boolean | null
+```
+
+Same coercion rules as `asBoolean`, but returns `null` for unrecognized values.
+
+```ts
+function asRecord(value: unknown): Record<string, unknown> | null
+```
+
+Returns plain object-like records and rejects arrays, null, and primitives.
+
+```ts
+function asIdentifier(value: unknown): string | null
+```
+
+Coerces id-like values to a string. This is for payload values, not SQL quoting; use `identifier(...)` for SQL identifiers.
+
+```ts
+function firstString(record: Record<string, unknown> | null | undefined, keys: readonly string[]): string | null
+```
+
+Returns the first present non-empty string-like value from the provided keys.
+
+```ts
+function readTrimmedString(value: unknown): string | null
+```
+
+Returns a trimmed string or `null` when the input is not a non-empty string.
+
+```ts
+function asNumber(value: unknown): number | null
+```
+
+Returns finite numbers from numeric inputs or numeric strings.
+
+```ts
+function asStringArray(value: unknown): string[]
+```
+
+Trims string array entries and drops empty or non-string values.
+
+```ts
 function parseBooleanFlag(rawValue: string | undefined, fallback: boolean): boolean
 ```
 
@@ -179,6 +257,42 @@ Returns `true` for local/loopback hosts such as:
 - `localhost` and `*.localhost`
 - `127.0.0.1` and `127.*.*.*`
 - `::1`, `[::1]`, `0:0:0:0:0:0:0:1`
+
+```ts
+function sqlText(value: string): string
+```
+
+Returns a PostgreSQL dollar-quoted literal safe for raw SQL value interpolation.
+
+```ts
+function escapeLikePatternValue(value: string): string
+```
+
+Escapes `%`, `_`, and `\` for SQL `LIKE` / `ILIKE` pattern literals.
+
+```ts
+function quoteSqlStringLiteral(value: string): string
+```
+
+Returns a single-quoted SQL string literal with embedded apostrophes escaped as `''`.
+
+```ts
+function sqlNullableText(value: string | null | undefined): string
+```
+
+Returns `NULL` for nullish inputs, otherwise a dollar-quoted string literal.
+
+```ts
+function sqlJsonbLiteral(value: unknown): string
+```
+
+JSON-serializes a value, wraps it as a dollar-quoted literal, and appends `::jsonb`.
+
+```ts
+function sqlBigInt(value: bigint | number): string
+```
+
+Returns an explicit `::bigint` SQL literal.
 
 ```ts
 interface ClearAuthCookiesOptions {

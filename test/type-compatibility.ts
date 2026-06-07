@@ -90,6 +90,7 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
   experimental: {
     enableErrorNormalization: true,
     findManyAst: true,
+    retryReads: true,
     traceQueries: {
       logger: event => {
         acceptsString(event.operation)

@@ -1583,3 +1583,117 @@ test('query handles error propagation', async () => {
     globalThis.fetch = original
   }
 })
+
+test('experimental.retryReads retries select after a retryable network failure', async () => {
+  let attempts = 0
+  const original = globalThis.fetch
+  globalThis.fetch = async () => {
+    attempts += 1
+    if (attempts === 1) {
+      throw new Error('temporary network issue')
+    }
+    return new Response(JSON.stringify([{ id: 1 }]), { status: 200 })
+  }
+
+  try {
+    const retryingClient = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        retryReads: true,
+      },
+    })
+    const result = await retryingClient.from('characters').select('id').limit(1)
+
+    assert.equal(attempts, 2)
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data, [{ id: 1 }])
+    assert.equal(result.error, null)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('experimental.retryReads retries query after a retryable network failure', async () => {
+  let attempts = 0
+  const original = globalThis.fetch
+  globalThis.fetch = async () => {
+    attempts += 1
+    if (attempts === 1) {
+      throw new Error('temporary network issue')
+    }
+    return new Response(JSON.stringify([{ id: 1 }]), { status: 200 })
+  }
+
+  try {
+    const retryingClient = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        retryReads: true,
+      },
+    })
+    const result = await retryingClient.query('select id from characters')
+
+    assert.equal(attempts, 2)
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data, [{ id: 1 }])
+    assert.equal(result.error, null)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('experimental.retryReads retries findManyAst reads after a retryable network failure', async () => {
+  let attempts = 0
+  const original = globalThis.fetch
+  globalThis.fetch = async () => {
+    attempts += 1
+    if (attempts === 1) {
+      throw new Error('temporary network issue')
+    }
+    return new Response(JSON.stringify([{ id: 1 }]), { status: 200 })
+  }
+
+  try {
+    const retryingClient = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        retryReads: true,
+        findManyAst: true,
+      },
+    })
+    const result = await retryingClient.from('characters').findMany({
+      select: {
+        id: true,
+      },
+      limit: 1,
+    })
+
+    assert.equal(attempts, 2)
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data, [{ id: 1 }])
+    assert.equal(result.error, null)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('experimental.retryReads does not retry writes by default', async () => {
+  let attempts = 0
+  const original = globalThis.fetch
+  globalThis.fetch = async () => {
+    attempts += 1
+    throw new Error('temporary network issue')
+  }
+
+  try {
+    const retryingClient = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        retryReads: true,
+      },
+    })
+    const result = await retryingClient.from('characters').insert({ id: 1 }).select('id')
+
+    assert.equal(attempts, 1)
+    assert.equal(result.status, 0)
+    assert.equal(result.error?.retryable, true)
+  } finally {
+    globalThis.fetch = original
+  }
+})

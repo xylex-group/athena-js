@@ -176,7 +176,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `AthenaClient.builder.backend` | `(backend: BackendConfig \| BackendType) => AthenaClientBuilder` | `AthenaClient.builder().backend(/* ... */)` | Set the default backend routing strategy. |
 | `AthenaClient.builder.build` | `() => AthenaSdkClientWithAuth` | `const client = AthenaClient.builder().url("https://...").key("...").build()` | Build the immutable Athena SDK client. |
 | `AthenaClient.builder.client` | `(clientName: string) => AthenaClientBuilder` | `AthenaClient.builder().client(/* ... */)` | Set the default Athena client routing key. |
-| `AthenaClient.builder.experimental` | `(options: AthenaClientExperimentalOptions) => AthenaClientBuilder` | `AthenaClient.builder().experimental(/* ... */)` | Configure experimental client options (for example query tracing or `findMany(...)` AST transport). |
+| `AthenaClient.builder.experimental` | `(options: AthenaClientExperimentalOptions) => AthenaClientBuilder` | `AthenaClient.builder().experimental(/* ... */)` | Configure experimental client options (for example query tracing, retryable read retries, or `findMany(...)` AST transport). |
 | `AthenaClient.builder.headers` | `(headers: Record<string, string>) => AthenaClientBuilder` | `AthenaClient.builder().headers(/* ... */)` | Attach static headers to every request. |
 | `AthenaClient.builder.healthTracking` | `(enabled: boolean) => AthenaClientBuilder` | `AthenaClient.builder().healthTracking(/* ... */)` | Enable or disable health tracking metadata. |
 | `AthenaClient.builder.key` | `(apiKey: string) => AthenaClientBuilder` | `AthenaClient.builder().key(/* ... */)` | Set the API key used for all requests. |
@@ -357,8 +357,23 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | Method | Signature | Example | Notes |
 |---|---|---|---|
 | `utils.clearAuthCookies` | `(options?: ClearAuthCookiesOptions) => string[]` | `utils.clearAuthCookies()` | Clears Athena/Better Auth browser cookies by prefix. Returns the cookie names that matched and were targeted for deletion. |
+| `utils.asBoolean` | `(value: unknown) => boolean` | `utils.asBoolean(/* ... */)` | Coerces booleans, numbers, and common string tokens to a boolean; unrecognized values return `false`. |
+| `utils.asBooleanOrNull` | `(value: unknown) => boolean \| null` | `utils.asBooleanOrNull(/* ... */)` | Same coercion rules as `utils.asBoolean`, but returns `null` for unrecognized values. |
+| `utils.asIdentifier` | `(value: unknown) => string \| null` | `utils.asIdentifier(/* ... */)` | Coerces id-like values to strings. Use `identifier(...)` for SQL identifiers. |
+| `utils.asNumber` | `(value: unknown) => number \| null` | `utils.asNumber(/* ... */)` | Returns finite numbers from numeric values or numeric strings. |
+| `utils.asRecord` | `(value: unknown) => Record<string, unknown> \| null` | `utils.asRecord(/* ... */)` | Returns object-like records and rejects arrays, null, and primitives. |
+| `utils.asString` | `(value: unknown) => string \| null` | `utils.asString(/* ... */)` | Coerces finite numbers, bigint values, and non-empty trimmed strings to strings. |
+| `utils.asStringArray` | `(value: unknown) => string[]` | `utils.asStringArray(/* ... */)` | Trims array string entries and drops empty/non-string values. |
 | `utils.isLocalHostname` | `(hostname: string) => boolean` | `utils.isLocalHostname(/* ... */)` | — |
+| `utils.firstString` | `(record: Record<string, unknown> \| null \| undefined, keys: readonly string[]) => string \| null` | `utils.firstString(/* ... */)` | Returns the first present non-empty string-like value across the provided keys. |
 | `utils.parseBooleanFlag` | `(rawValue: string \| undefined, fallback: boolean) => boolean` | `utils.parseBooleanFlag(/* ... */)` | — |
 | `utils.proxyRequestHeaders` | `(request: Request) => Headers` | `utils.proxyRequestHeaders(/* ... */)` | — |
+| `utils.escapeLikePatternValue` | `(value: string) => string` | `utils.escapeLikePatternValue(/* ... */)` | Escapes `%`, `_`, and `\` for SQL `LIKE` / `ILIKE` pattern literals. |
+| `utils.quoteSqlStringLiteral` | `(value: string) => string` | `utils.quoteSqlStringLiteral(/* ... */)` | Returns a single-quoted SQL string literal with embedded apostrophes escaped. |
+| `utils.readTrimmedString` | `(value: unknown) => string \| null` | `utils.readTrimmedString(/* ... */)` | Returns a trimmed string or `null` for non-string or empty inputs. |
+| `utils.sqlBigInt` | `(value: bigint \| number) => string` | `utils.sqlBigInt(/* ... */)` | Renders an explicit `::bigint` SQL literal for raw query values. |
+| `utils.sqlJsonbLiteral` | `(value: unknown) => string` | `utils.sqlJsonbLiteral(/* ... */)` | JSON-serializes a value, dollar-quotes it, and appends `::jsonb`. |
+| `utils.sqlNullableText` | `(value: string \| null \| undefined) => string` | `utils.sqlNullableText(/* ... */)` | Returns `NULL` for nullish inputs, otherwise a dollar-quoted string literal. |
+| `utils.sqlText` | `(value: string) => string` | `utils.sqlText(/* ... */)` | Returns a PostgreSQL dollar-quoted literal for raw query values. Use `identifier(...)` for identifiers. |
 | `utils.slugify` | `(input: string) => string` | `utils.slugify(/* ... */)` | — |
 | `utils.trimTrailingSlashes` | `(value: string) => string` | `utils.trimTrailingSlashes(/* ... */)` | — |

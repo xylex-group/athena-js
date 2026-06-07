@@ -25,8 +25,8 @@ import { createAthenaGatewayClient } from './gateway/client.ts'
 import { quoteQualifiedIdentifier, quoteSelectColumnToken, quoteSelectColumnsExpression } from './sql-identifiers.ts'
 import { createAuthClient } from './auth/client.ts'
 import type { AthenaAuthBindings, AthenaAuthClientConfig } from './auth/types.ts'
-import { normalizeAthenaError } from './auxiliaries.ts'
-import type { AthenaOperationContext, NormalizedAthenaError } from './auxiliaries.ts'
+import { normalizeAthenaError, withRetry } from './auxiliaries.ts'
+import type { AthenaOperationContext, NormalizedAthenaError, RetryConfig } from './auxiliaries.ts'
 import { createDbModule } from './db/module.ts'
 import type { AthenaDbModule } from './db/module.ts'
 import {
@@ -93,6 +93,12 @@ export interface AthenaClientExperimentalOptions {
    * envelopes by default. This flag is retained as a no-op compatibility switch.
    */
   enableErrorNormalization?: boolean
+  /**
+   * Retry retryable read failures (`select`, `findMany`, `query`) with a fixed internal policy.
+   *
+   * Applies two additional attempts with exponential backoff and jitter.
+   */
+  retryReads?: boolean
   /**
    * Emit execution diagnostics for every query/mutation/RPC invocation.
    * Includes payload, synthesized SQL, full outcome, and best-effort callsite metadata.
@@ -252,6 +258,14 @@ type AthenaResultFormatter = <T>(
   context?: AthenaOperationContext,
 ) => AthenaResult<T>
 
+const EXPERIMENTAL_READ_RETRY_CONFIG: RetryConfig = {
+  retries: 2,
+  baseDelayMs: 100,
+  maxDelayMs: 1_000,
+  backoff: 'exponential',
+  jitter: true,
+}
+
 function attachNormalizedError<T>(
   result: AthenaResult<T>,
   normalizedError: NormalizedAthenaError,
@@ -283,6 +297,41 @@ function createResultFormatter(
     result.error = createResultError(response, result, normalizedError)
     attachNormalizedError(result, normalizedError)
     return result
+  }
+}
+
+async function executeExperimentalRead<T>(
+  experimental: AthenaClientExperimentalOptions | undefined,
+  runner: () => Promise<AthenaResult<T>>,
+): Promise<AthenaResult<T>> {
+  if (!experimental?.retryReads) {
+    return runner()
+  }
+
+  let lastRetryableResult: AthenaResult<T> | undefined
+  let lastRetrySignal: AthenaResultError | null = null
+  try {
+    return await withRetry(
+      {
+        ...EXPERIMENTAL_READ_RETRY_CONFIG,
+        shouldRetry: error =>
+          error === lastRetrySignal || normalizeAthenaError(error).retryable,
+      },
+      async () => {
+      const result = await runner()
+      if (result.error?.retryable) {
+        lastRetryableResult = result
+        lastRetrySignal = result.error
+        throw lastRetrySignal
+      }
+      return result
+      },
+    )
+  } catch (error) {
+    if (lastRetryableResult && error === lastRetrySignal) {
+      return lastRetryableResult
+    }
+    throw error
   }
 }
 
@@ -1684,21 +1733,23 @@ function createTableBuilder<
     })
 
     if (plan.kind === 'query') {
-      return executeWithQueryTrace(
-        tracer,
-        {
-          operation: 'select',
-          endpoint: '/gateway/query',
-          table: resolvedTableName,
-          sql: plan.query,
-          payload: plan.payload,
-          options,
-        },
-        async () => {
-          const queryResponse = await client.queryGateway<T>(plan.payload, options)
-          return formatGatewayResult(queryResponse, { table: resolvedTableName, operation: 'select' })
-        },
-        callsite,
+      return executeExperimentalRead(experimental, () =>
+        executeWithQueryTrace(
+          tracer,
+          {
+            operation: 'select',
+            endpoint: '/gateway/query',
+            table: resolvedTableName,
+            sql: plan.query,
+            payload: plan.payload,
+            options,
+          },
+          async () => {
+            const queryResponse = await client.queryGateway<T>(plan.payload, options)
+            return formatGatewayResult(queryResponse, { table: resolvedTableName, operation: 'select' })
+          },
+          callsite,
+        ),
       )
     }
 
@@ -1706,21 +1757,23 @@ function createTableBuilder<
       tableName: resolvedTableName,
       ...plan.debug,
     })
-    return executeWithQueryTrace(
-      tracer,
-      {
-        operation: 'select',
-        endpoint: '/gateway/fetch',
-        table: resolvedTableName,
-        sql,
-        payload: plan.payload,
-        options,
-      },
-      async () => {
-        const response = await client.fetchGateway<T>(plan.payload, options)
-        return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
-      },
-      callsite,
+    return executeExperimentalRead(experimental, () =>
+      executeWithQueryTrace(
+        tracer,
+        {
+          operation: 'select',
+          endpoint: '/gateway/fetch',
+          table: resolvedTableName,
+          sql,
+          payload: plan.payload,
+          options,
+        },
+        async () => {
+          const response = await client.fetchGateway<T>(plan.payload, options)
+          return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
+        },
+        callsite,
+      ),
     )
   }
 
@@ -1831,22 +1884,24 @@ function createTableBuilder<
           limit: executionState.limit,
           order: executionState.order,
         })
-        return executeWithQueryTrace(
-          tracer,
-          {
-            operation: 'select',
-            endpoint: '/gateway/fetch',
-            table: resolvedTableName,
-            sql,
-            payload,
-          },
-          async () => {
-            const response = await client.fetchGateway<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
+        return executeExperimentalRead(experimental, () =>
+          executeWithQueryTrace(
+            tracer,
+            {
+              operation: 'select',
+              endpoint: '/gateway/fetch',
+              table: resolvedTableName,
+              sql,
               payload,
-            )
-            return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
-          },
-          callsite,
+            },
+            async () => {
+              const response = await client.fetchGateway<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
+                payload,
+              )
+              return formatGatewayResult(response, { table: resolvedTableName, operation: 'select' })
+            },
+            callsite,
+          ),
         )
       }
       return runSelect<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
@@ -2126,6 +2181,7 @@ function createTableBuilder<
 function createQueryBuilder(
   client: ReturnType<typeof createAthenaGatewayClient>,
   formatGatewayResult: AthenaResultFormatter,
+  experimental?: AthenaClientExperimentalOptions,
   tracer?: AthenaQueryTracer,
 ) {
   return async function query<Row = unknown>(
@@ -2138,20 +2194,22 @@ function createQueryBuilder(
     }
     const payload = { query: normalizedQuery }
     const callsite = captureTraceCallsite(tracer)
-    return executeWithQueryTrace(
-      tracer,
-      {
-        operation: 'query',
-        endpoint: '/gateway/query',
-        sql: normalizedQuery,
-        payload,
-        options,
-      },
-      async () => {
-        const response = await client.queryGateway<Row[]>(payload, options)
-        return formatGatewayResult(response, { operation: 'query' })
-      },
-      callsite,
+    return executeExperimentalRead(experimental, () =>
+      executeWithQueryTrace(
+        tracer,
+        {
+          operation: 'query',
+          endpoint: '/gateway/query',
+          sql: normalizedQuery,
+          payload,
+          options,
+        },
+        async () => {
+          const response = await client.queryGateway<Row[]>(payload, options)
+          return formatGatewayResult(response, { operation: 'query' })
+        },
+        callsite,
+      ),
     )
   }
 }
@@ -2233,7 +2291,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
       captureTraceCallsite(queryTracer),
     )
   }
-  const query = createQueryBuilder(gateway, formatGatewayResult, queryTracer) as AthenaSdkClient['query']
+  const query = createQueryBuilder(gateway, formatGatewayResult, config.experimental, queryTracer) as AthenaSdkClient['query']
   const db = createDbModule({ from, rpc, query })
 
   return {

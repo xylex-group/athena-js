@@ -3,10 +3,25 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { applyNamingStyle } from '../src/generator/naming.ts'
 import {
+  asBoolean,
+  asBooleanOrNull,
+  asIdentifier,
+  asNumber,
+  asRecord,
+  asString,
+  asStringArray,
   clearAuthCookies,
+  escapeLikePatternValue,
+  firstString,
   isLocalHostname,
   parseBooleanFlag,
   proxyRequestHeaders,
+  quoteSqlStringLiteral,
+  readTrimmedString,
+  sqlBigInt,
+  sqlJsonbLiteral,
+  sqlNullableText,
+  sqlText,
   slugify,
   trimTrailingSlashes,
 } from '../src/utils/index.ts'
@@ -39,6 +54,38 @@ function withMockDocument(
       Object.defineProperty(globalThis, 'document', originalDocumentDescriptor)
     } else {
       delete (globalThis as Record<string, unknown>).document
+    }
+  }
+}
+
+function withMockCrypto(
+  fill: (bytes: Uint8Array) => void,
+  run: () => void,
+) {
+  const originalCryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto')
+
+  const cryptoMock = {
+    getRandomValues<T extends ArrayBufferView | null>(array: T): T {
+      if (array == null) {
+        return array
+      }
+      fill(array as unknown as Uint8Array)
+      return array
+    },
+  }
+
+  Object.defineProperty(globalThis, 'crypto', {
+    configurable: true,
+    value: cryptoMock,
+  })
+
+  try {
+    run()
+  } finally {
+    if (originalCryptoDescriptor) {
+      Object.defineProperty(globalThis, 'crypto', originalCryptoDescriptor)
+    } else {
+      delete (globalThis as Record<string, unknown>).crypto
     }
   }
 }
@@ -79,6 +126,143 @@ test('parseBooleanFlag supports common truthy/falsey values with fallback', () =
 test('generator kebab naming uses shared slugify behavior', () => {
   const input = 'Feature Name: Internal Analytics + Growth'
   assert.equal(applyNamingStyle(input, 'kebab'), slugify(input))
+})
+
+test('asString coerces finite numbers, bigint, and trimmed strings', () => {
+  assert.equal(asString(42), '42')
+  assert.equal(asString(42n), '42')
+  assert.equal(asString('  hello  '), 'hello')
+  assert.equal(asString('   '), null)
+  assert.equal(asString(Number.POSITIVE_INFINITY), null)
+  assert.equal(asString(false), null)
+})
+
+test('asBoolean and asBooleanOrNull coerce booleans, numbers, and string tokens', () => {
+  assert.equal(asBoolean(true), true)
+  assert.equal(asBoolean(1), true)
+  assert.equal(asBoolean(0), false)
+  assert.equal(asBoolean(' YES '), true)
+  assert.equal(asBoolean('n'), false)
+  assert.equal(asBoolean('maybe'), false)
+  assert.equal(asBoolean(null), false)
+
+  assert.equal(asBooleanOrNull(false), false)
+  assert.equal(asBooleanOrNull(3), true)
+  assert.equal(asBooleanOrNull('off'), false)
+  assert.equal(asBooleanOrNull('y'), true)
+  assert.equal(asBooleanOrNull('maybe'), null)
+  assert.equal(asBooleanOrNull({}), null)
+})
+
+test('asRecord returns plain records and rejects arrays/null/primitives', () => {
+  const record = { id: 1, name: 'Athena' }
+  assert.deepEqual(asRecord(record), record)
+  assert.equal(asRecord(null), null)
+  assert.equal(asRecord(['a']), null)
+  assert.equal(asRecord('value'), null)
+})
+
+test('asIdentifier and firstString expose id-like and first-present string values', () => {
+  assert.equal(asIdentifier(7), '7')
+  assert.equal(asIdentifier(7n), '7')
+  assert.equal(asIdentifier('  abc  '), 'abc')
+  assert.equal(asIdentifier(undefined), null)
+
+  assert.equal(
+    firstString(
+      {
+        name: '   ',
+        slug: 'athena-js',
+        title: 'Athena',
+      },
+      ['name', 'slug', 'title'],
+    ),
+    'athena-js',
+  )
+  assert.equal(firstString(null, ['id']), null)
+})
+
+test('readTrimmedString, asNumber, and asStringArray coerce utility payloads safely', () => {
+  assert.equal(readTrimmedString('  hello  '), 'hello')
+  assert.equal(readTrimmedString(42), null)
+  assert.equal(readTrimmedString('   '), null)
+
+  assert.equal(asNumber(12), 12)
+  assert.equal(asNumber(' 12.5 '), 12.5)
+  assert.equal(asNumber('nope'), null)
+  assert.equal(asNumber(Number.NaN), null)
+
+  assert.deepEqual(asStringArray([' a ', 'b', 3, '', '   ', 'c']), ['a', 'b', 'c'])
+  assert.deepEqual(asStringArray('not-an-array'), [])
+})
+
+test('sqlText wraps values in a deterministic dollar-quoted literal', () => {
+  withMockCrypto(
+    bytes => {
+      bytes.fill(0)
+    },
+    () => {
+      assert.equal(sqlText('hello world'), '$s000000000000$hello world$s000000000000$')
+    },
+  )
+})
+
+test('sqlText preserves payload contents when the initial tag collides with the value', () => {
+  withMockCrypto(
+    bytes => {
+      bytes.fill(0)
+    },
+    () => {
+      const value = 'before $s000000000000$ after'
+      const literal = sqlText(value)
+      assert.equal(literal, '$s000000000000_$before $s000000000000$ after$s000000000000_$')
+      assert.equal(literal.includes(value), true)
+    },
+  )
+})
+
+test('escapeLikePatternValue escapes backslash, percent, and underscore', () => {
+  assert.equal(
+    escapeLikePatternValue(String.raw`100%\_ready`),
+    String.raw`100\%\\\_ready`,
+  )
+})
+
+test('quoteSqlStringLiteral wraps and escapes apostrophes', () => {
+  assert.equal(quoteSqlStringLiteral(`Athena's "SDK"`), `'Athena''s "SDK"'`)
+})
+
+test('sqlNullableText returns NULL for nullish values and quotes strings', () => {
+  assert.equal(sqlNullableText(null), 'NULL')
+  assert.equal(sqlNullableText(undefined), 'NULL')
+
+  withMockCrypto(
+    bytes => {
+      bytes.fill(0)
+    },
+    () => {
+      assert.equal(sqlNullableText('value'), '$s000000000000$value$s000000000000$')
+    },
+  )
+})
+
+test('sqlJsonbLiteral serializes payloads and casts to jsonb', () => {
+  withMockCrypto(
+    bytes => {
+      bytes.fill(0)
+    },
+    () => {
+      assert.equal(
+        sqlJsonbLiteral({ ok: true, count: 2 }),
+        '$s000000000000${"ok":true,"count":2}$s000000000000$::jsonb',
+      )
+    },
+  )
+})
+
+test('sqlBigInt renders explicit bigint casts for bigint and number inputs', () => {
+  assert.equal(sqlBigInt(42n), '42::bigint')
+  assert.equal(sqlBigInt(42), '42::bigint')
 })
 
 test('isLocalHostname detects localhost, loopback ipv4 and ipv6', () => {

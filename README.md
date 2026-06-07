@@ -350,6 +350,22 @@ const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
 });
 ```
 
+### Read retries (experimental)
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  experimental: {
+    retryReads: true,
+  },
+});
+```
+
+With `retryReads: true`, the SDK automatically retries retryable read failures for `select`, `findMany(...)`, and `query(...)`.
+
+- two additional attempts are applied internally
+- retry classification follows the SDK's normalized `retryable` signal
+- writes (`insert`, `upsert`, `update`, `delete`) are not retried by this flag
+
 ### findMany AST transport (experimental)
 
 ```ts
@@ -387,12 +403,27 @@ Utilities that are intentionally not exported from the root package are availabl
 
 ```ts
 import {
+  asString,
+  asBoolean,
+  asBooleanOrNull,
+  asRecord,
+  asIdentifier,
+  firstString,
+  readTrimmedString,
+  asNumber,
+  asStringArray,
   slugify,
   trimTrailingSlashes,
   parseBooleanFlag,
   isLocalHostname,
   clearAuthCookies,
   proxyRequestHeaders,
+  sqlText,
+  escapeLikePatternValue,
+  quoteSqlStringLiteral,
+  sqlNullableText,
+  sqlJsonbLiteral,
+  sqlBigInt,
 } from "@xylex-group/athena/utils";
 ```
 
@@ -403,15 +434,27 @@ const slug = slugify("Customer Success / Q4 Report"); // customer-success-q4-rep
 const local = isLocalHostname("api.localhost"); // true
 const normalized = trimTrailingSlashes("https://example.com///"); // https://example.com
 const enabled = parseBooleanFlag(process.env.FEATURE_FLAG, false);
+const count = asNumber("42"); // 42
+const label = asString("  ready "); // ready
+const active = asBooleanOrNull("yes"); // true
+const tags = asStringArray([" alpha ", "", "beta"]); // ["alpha", "beta"]
+const likePattern = escapeLikePatternValue("%admin_"); // \%admin\_
 
 // Browser-only helper (safe no-op on server runtimes)
 clearAuthCookies();
 
 // Preserve forwarded headers when proxying auth requests
 const upstreamHeaders = proxyRequestHeaders(request);
+
+// Safely embed raw SQL values when using athena.query(...)
+const emailLiteral = sqlText("floris@example.com");
+const metadataLiteral = sqlJsonbLiteral({ role: "admin" });
+const actorIdLiteral = sqlBigInt(42);
+const exactLiteral = quoteSqlStringLiteral("Athena's SDK");
 ```
 
 `clearAuthCookies()` clears cookies matching Athena/Better Auth prefixes (`athena-auth`, `__Secure-athena-auth`, `better-auth`, `__Secure-better-auth`) and also attempts parent-domain cleanup for subdomain deployments.
+For SQL identifiers, keep using `identifier(...)`; `sqlText(...)`-style helpers are for literal values only.
 
 ### Retry helper
 

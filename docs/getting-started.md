@@ -73,7 +73,7 @@ Builder output is a drop-in `createClient(...)` replacement:
 
 - same runtime surface: `from`, `db`, `rpc`, `query`, `auth`
 - same auth bindings/types under `client.auth.*`
-- same `experimental` tracing support (`traceQueries`) plus compatibility acceptance of deprecated `enableErrorNormalization`
+- same `experimental` flags support (`traceQueries`, `retryReads`, `findManyAst`) plus compatibility acceptance of deprecated `enableErrorNormalization`
 
 Repeated fluent configuration calls compose:
 
@@ -125,7 +125,25 @@ const tracedClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_AP
 });
 ```
 
-## 3.2) Optional `findMany(...)` AST transport (experimental)
+## 3.2) Optional read retries (experimental)
+
+Use this when you want the SDK to automatically retry retryable read failures without wrapping each call manually.
+
+```ts
+const retryingClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+  experimental: {
+    retryReads: true,
+  },
+});
+```
+
+This applies to `select`, `findMany(...)`, and `query(...)`.
+
+- Athena performs two additional attempts internally
+- retry decisions follow the normalized `retryable` classification on failed results
+- writes are intentionally excluded from this flag
+
+## 3.3) Optional `findMany(...)` AST transport (experimental)
 
 Use this only when your Athena gateway supports direct `findMany` AST bodies.
 
@@ -157,16 +175,51 @@ Legacy compiled transport remains the default and is still used when a chain alr
 Use `@xylex-group/athena/utils` for runtime helpers that are intentionally not in the root package export.
 
 ```ts
-import { slugify, trimTrailingSlashes, parseBooleanFlag, isLocalHostname, clearAuthCookies, proxyRequestHeaders } from "@xylex-group/athena/utils";
+import {
+  asString,
+  asBoolean,
+  asBooleanOrNull,
+  asRecord,
+  asIdentifier,
+  firstString,
+  readTrimmedString,
+  asNumber,
+  asStringArray,
+  slugify,
+  trimTrailingSlashes,
+  parseBooleanFlag,
+  isLocalHostname,
+  clearAuthCookies,
+  proxyRequestHeaders,
+  sqlText,
+  escapeLikePatternValue,
+  quoteSqlStringLiteral,
+  sqlNullableText,
+  sqlJsonbLiteral,
+  sqlBigInt,
+} from "@xylex-group/athena/utils";
 
 const modelSlug = slugify("Internal User Sessions");
 const normalizedBase = trimTrailingSlashes("https://api.example.com///");
 const useNewAuthFlow = parseBooleanFlag(process.env.NEW_AUTH_FLOW, false);
+const isEnabled = asBoolean('yes');
+const maybeArchived = asBooleanOrNull('off');
+const displayName = asString('  Athena  ');
+const tenantId = asIdentifier(42);
+const score = asNumber('12.5');
+const tags = asStringArray([' alpha ', '', 'beta']);
 const localHost = isLocalHostname("api.localhost");
 const upstreamHeaders = proxyRequestHeaders(request);
+const likePattern = escapeLikePatternValue('%admin_');
+const emailLiteral = sqlText("user@example.com");
+const exactLiteral = quoteSqlStringLiteral("Athena's SDK");
+const deletedAtLiteral = sqlNullableText(null);
+const metadataLiteral = sqlJsonbLiteral({ plan: "pro" });
+const tenantIdLiteral = sqlBigInt(42);
 ```
 
 `clearAuthCookies()` is browser-oriented and safely no-ops in server runtimes.
+Use `identifier(...)` from the root package for SQL identifiers and `sqlText(...)`-style helpers for literal values.
 
 ## 4) Read data with table builders
 
