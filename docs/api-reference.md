@@ -4,6 +4,7 @@ This page documents the exported contract surfaces of `@xylex-group/athena` and 
 
 For workflow-first onboarding, start with [`getting-started.md`](getting-started.md).
 For the full `findMany(...)` AST explanation, live route payloads, and Athena server implications, use [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md).
+For method-by-method runtime AST/state/payload models, use [`runtime-method-ast-models.md`](runtime-method-ast-models.md).
 For detailed auth-session and bearer forwarding semantics on gateway/query requests, use [`auth-session-forwarding.md`](auth-session-forwarding.md).
 For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
 For Athena Auth endpoint parity and per-endpoint examples, use [`auth/index.mdx`](auth/index.mdx) and [`auth-client-bindings.md`](auth-client-bindings.md).

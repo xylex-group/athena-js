@@ -54,6 +54,9 @@ The existing string-based `.select(...)` chain remains fully supported for compa
 including alias/FK patterns like `from:sender_id(name)`.
 For the full AST model, route contract, error behavior, and Athena server implications,
 see [`docs/findmany-ast-and-server-contract.md`](docs/findmany-ast-and-server-contract.md).
+For method-by-method runtime AST/state/payload models across `select(...)`, mutations,
+`rpc(...)`, `query(...)`, and fluent builder filters, see
+[`docs/runtime-method-ast-models.md`](docs/runtime-method-ast-models.md).
 
 ### Gateway auth-session forwarding
 

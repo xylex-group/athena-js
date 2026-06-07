@@ -310,6 +310,7 @@ const sections = await athena.from("orchestral_sections").findMany({
 ```
 
 For the full `findMany(...)` AST model, transport mapping, live Athena route examples, and server compatibility notes, read [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md).
+For the normalized method/state/payload models behind `select(...)`, mutations, `rpc(...)`, `query(...)`, and the fluent filter chain, read [`runtime-method-ast-models.md`](runtime-method-ast-models.md).
 
 ```ts
 const one = await athena.from<UserRow>("users").eq("id", "u-1").single("id, email");
