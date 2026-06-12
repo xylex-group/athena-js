@@ -67,4 +67,9 @@ export type {
   AthenaAuthUser,
   AthenaEmailSignInRequest,
   AthenaEmailSignUpRequest,
+  AthenaAuthSearchOperator,
+  AthenaAuthFilterOperator,
+  AthenaAdminListUsersSearchOperator,
+  AthenaAdminListUsersFilterOperator,
+  AthenaAdminListUsersQuery,
 } from './types.ts'
