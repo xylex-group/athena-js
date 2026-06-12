@@ -612,17 +612,35 @@ export interface AthenaAdminBanUserRequest extends AthenaAdminTargetUserRequest 
   banExpiresIn?: string
 }
 
+export type AthenaAuthSearchOperator = 'contains' | 'starts_with' | 'ends_with'
+
+export type AthenaAuthFilterOperator =
+  | 'eq'
+  | 'ne'
+  | 'lt'
+  | 'lte'
+  | 'gt'
+  | 'gte'
+  | 'in'
+  | 'not_in'
+  | 'contains'
+  | 'starts_with'
+  | 'ends_with'
+
+export type AthenaAdminListUsersSearchOperator = AthenaAuthSearchOperator
+export type AthenaAdminListUsersFilterOperator = AthenaAuthFilterOperator
+
 export interface AthenaAdminListUsersQuery {
   searchValue?: string
   searchField?: string
-  searchOperator?: string
+  searchOperator?: AthenaAdminListUsersSearchOperator
   limit?: number | string
   offset?: number | string
   sortBy?: string
   sortDirection?: string
   filterField?: string
   filterValue?: string
-  filterOperator?: string
+  filterOperator?: AthenaAdminListUsersFilterOperator
 }
 
 export interface AthenaAdminListUsersResponse {
@@ -1102,18 +1120,7 @@ export interface AthenaAuthOrganizationListUserInvitationsQuery {
   email?: string
 }
 
-export type AthenaAuthOrganizationListMembersFilterOperator =
-  | 'eq'
-  | 'ne'
-  | 'lt'
-  | 'lte'
-  | 'gt'
-  | 'gte'
-  | 'in'
-  | 'not_in'
-  | 'contains'
-  | 'starts_with'
-  | 'ends_with'
+export type AthenaAuthOrganizationListMembersFilterOperator = AthenaAuthFilterOperator
 
 export interface AthenaAuthOrganizationListMembersQuery {
   organizationId?: string

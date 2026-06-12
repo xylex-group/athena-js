@@ -23,6 +23,9 @@ import {
   type AthenaGatewayConnectionResult,
   type ModelFormDefaults,
   type ModelFormValues,
+  type AthenaAdminListUsersQuery,
+  type AthenaAdminListUsersSearchOperator,
+  type AthenaAdminListUsersFilterOperator,
 } from "../src/index.ts"
 import type {
   AthenaStateAdapter,
@@ -105,6 +108,20 @@ acceptsGatewayConnectionPromise(client.verifyConnection())
 acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-db.com'))
 const authSessionResult = client.auth.getSession()
 const builderAuthSessionResult = fluentBuilderClient.auth.getSession()
+const validSearchOperator: AthenaAdminListUsersSearchOperator = 'contains'
+const validFilterOperator: AthenaAdminListUsersFilterOperator = 'eq'
+const validAdminListUsersQuery = {
+  filterField: 'id',
+  filterOperator: validFilterOperator,
+  searchField: 'email',
+  searchOperator: validSearchOperator,
+} satisfies AthenaAdminListUsersQuery
+client.auth.admin.user.list({ query: validAdminListUsersQuery })
+
+// @ts-expect-error searchOperator only accepts contains, starts_with, or ends_with
+client.auth.admin.user.list({ query: { searchOperator: 'eq' } })
+// @ts-expect-error filterOperator rejects empty-string drift
+client.auth.admin.user.list({ query: { filterOperator: '' } })
 authSessionResult.then(result => {
   if (result.ok) {
     const sessionId = result.data?.session.id

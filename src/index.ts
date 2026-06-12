@@ -211,6 +211,11 @@ export type {
   AthenaAuthUser,
   AthenaEmailSignInRequest,
   AthenaEmailSignUpRequest,
+  AthenaAuthSearchOperator,
+  AthenaAuthFilterOperator,
+  AthenaAdminListUsersSearchOperator,
+  AthenaAdminListUsersFilterOperator,
+  AthenaAdminListUsersQuery,
 } from './auth/index.ts'
 export type {
   AthenaJsonPrimitive,
