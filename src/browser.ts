@@ -59,6 +59,7 @@ export {
   defineAuthEmailTemplate,
   tanstackStartCookies,
 } from './auth/index.ts'
+export { storageSdkManifest, AthenaStorageError } from './storage/module.ts'
 
 import type {
   PostgresIntrospectionProviderOptions,
@@ -147,10 +148,37 @@ export type {
   AthenaCreateClientOptions,
   AthenaSdkClient,
   AthenaSdkClientWithAuth,
+  AthenaSdkClientWithStorage,
   TableQueryBuilder,
   AthenaResult,
+  AthenaCreateClientOptionsWithStorage,
 } from './client.js'
 export type { AthenaDbModule } from './db/module.js'
+export type {
+  AthenaEnvelope,
+  AthenaStorageCallOptions,
+  AthenaStorageErrorCode,
+  AthenaStorageModule,
+  CreateStorageCatalogRequest,
+  CreateStorageUploadUrlRequest,
+  CreateStorageUploadUrlsRequest,
+  DeleteStorageFolderRequest,
+  GetStorageFileUrlQuery,
+  ListStorageFilesRequest,
+  ManagedFileRecord,
+  MoveStorageFolderRequest,
+  PresignedFileUrlResponse,
+  S3CatalogItem,
+  S3CredentialListItem,
+  SetStorageFileVisibilityRequest,
+  StorageBatchUploadUrlResponse,
+  StorageFileMutationResponse,
+  StorageFolderMutationResponse,
+  StorageListFilesResponse,
+  StorageUploadUrlResponse,
+  UpdateStorageCatalogRequest,
+  UpdateStorageFileRequest,
+} from './storage/module.js'
 export type {
   AthenaErrorInput,
   AthenaOperationContext,

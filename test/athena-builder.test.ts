@@ -602,3 +602,125 @@ test('db.from supports base schema options', async () => {
     globalThis.fetch = originalFetch
   }
 })
+
+test('storage module is exposed only behind experimental athenaStorageBackend flag', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  const file = {
+    id: 'file_1',
+    name: 'report.pdf',
+    bucket: 'documents',
+    organization_id: 'org_1',
+    metadata: {},
+    created_at: '2026-06-13T00:00:00.000Z',
+    updated_at: '2026-06-13T00:00:00.000Z',
+    storage_key: 'reports/report.pdf',
+    is_public: false,
+    status: 'pending',
+  }
+
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    const requestUrl = String(url)
+    if (requestUrl.endsWith('/storage/catalogs')) {
+      return createMockResponse({
+        data: [
+          {
+            id: 's3_1',
+            name: 'documents',
+            description: 'Document bucket',
+            endpoint: 'https://s3.example.com',
+            region: 'us-east-1',
+            bucket: 'documents',
+            provider: 's3',
+            is_active: true,
+            created_at: '2026-06-13T00:00:00.000Z',
+            updated_at: '2026-06-13T00:00:00.000Z',
+          },
+        ],
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/files/upload-url')) {
+      return createMockResponse({
+        status: 'ok',
+        message: 'created',
+        data: {
+          file,
+          upload: {
+            file_id: 'file_1',
+            bucket: 'documents',
+            storage_key: 'reports/report.pdf',
+            purpose: 'upload',
+            url: 'https://upload.example.com',
+            expires_at: '2026-06-13T01:00:00.000Z',
+            expires_at_epoch_seconds: 1781312400,
+            expires_in: 3600,
+            cache_hit: false,
+            cache_layer: 'none',
+          },
+        },
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/files/file%201/url?purpose=download')) {
+      return createMockResponse({
+        status: 'ok',
+        message: 'signed',
+        data: {
+          file_id: 'file 1',
+          bucket: 'documents',
+          storage_key: 'reports/report.pdf',
+          purpose: 'download',
+          url: 'https://download.example.com',
+          expires_at: '2026-06-13T01:00:00.000Z',
+          expires_at_epoch_seconds: 1781312400,
+          expires_in: 3600,
+          cache_hit: true,
+          cache_layer: 'memory',
+        },
+      }, 200)
+    }
+    return createMockResponse({ error: 'unexpected endpoint' }, 404)
+  }
+
+  try {
+    const defaultClient = createClient('https://athena-db.com', 'secret')
+    assert.equal('storage' in defaultClient, false)
+
+    const client = createClient('https://athena-db.com', 'secret', {
+      client: 'storage_test',
+      experimental: { athenaStorageBackend: true },
+    })
+
+    const catalogs = await client.storage.listStorageCatalogs()
+    assert.equal(catalogs.data[0].id, 's3_1')
+
+    const uploadUrl = await client.storage.createStorageUploadUrl({
+      s3_id: 's3_1',
+      storage_key: 'reports/report.pdf',
+    })
+    assert.equal(uploadUrl.file.id, 'file_1')
+    assert.equal(uploadUrl.upload.url, 'https://upload.example.com')
+
+    const downloadUrl = await client.storage.getStorageFileUrl('file 1', { purpose: 'download' })
+    assert.equal(downloadUrl.cache_hit, true)
+    assert.equal(downloadUrl.url, 'https://download.example.com')
+
+    assert.equal(calls.length, 3)
+    assert.equal(calls[0].url, 'https://athena-db.com/storage/catalogs')
+    assert.equal(calls[0].init?.method, 'GET')
+
+    assert.equal(calls[1].url, 'https://athena-db.com/storage/files/upload-url')
+    assert.equal(calls[1].init?.method, 'POST')
+    assert.deepEqual(JSON.parse(calls[1].init?.body as string), {
+      s3_id: 's3_1',
+      storage_key: 'reports/report.pdf',
+    })
+    const headers = calls[1].init?.headers as Record<string, string>
+    assert.equal(headers['X-Athena-Client'], 'storage_test')
+
+    assert.equal(calls[2].url, 'https://athena-db.com/storage/files/file%201/url?purpose=download')
+    assert.equal(calls[2].init?.method, 'GET')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

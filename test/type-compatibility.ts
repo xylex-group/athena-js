@@ -31,6 +31,9 @@ import {
   type AthenaAdminListUsersQuery,
   type AthenaAdminListUsersSearchOperator,
   type AthenaAdminListUsersFilterOperator,
+  type AthenaStorageModule,
+  type S3CatalogItem,
+  type StorageUploadUrlResponse,
 } from "../src/index.ts"
 import type {
   AthenaStateAdapter,
@@ -67,6 +70,13 @@ declare function acceptsUnknown(value: unknown): void
 declare function acceptsResponsePromise(value: Promise<Response>): void
 declare function acceptsGatewayConnectionPromise(
   value: Promise<AthenaGatewayConnectionResult>,
+): void
+declare function acceptsStorageModule(value: AthenaStorageModule): void
+declare function acceptsStorageCatalogListPromise(
+  value: Promise<{ data: S3CatalogItem[] }>,
+): void
+declare function acceptsStorageUploadUrlPromise(
+  value: Promise<StorageUploadUrlResponse>,
 ): void
 
 declare function acceptsUserInsertMutation(
@@ -108,11 +118,29 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
     },
   },
 })
+const experimentalStorageClient = createClient("https://mirror3.athena-db.com", "api-key", {
+  experimental: {
+    athenaStorageBackend: true,
+  },
+})
 const normalizedGatewayUrl = normalizeAthenaGatewayBaseUrl('https://mirror3.athena-db.com/')
 acceptsString(normalizedGatewayUrl)
 acceptsGatewayConnectionPromise(client.verifyConnection())
 acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-db.com'))
 const authSessionResult = client.auth.getSession()
+acceptsStorageModule(experimentalStorageClient.storage)
+acceptsStorageCatalogListPromise(experimentalStorageClient.storage.listStorageCatalogs())
+acceptsStorageUploadUrlPromise(
+  experimentalStorageClient.storage.createStorageUploadUrl({
+    s3_id: 's3_1',
+    storage_key: 'reports/report.pdf',
+  }),
+)
+experimentalStorageClient.storage.getStorageFileUrl('file_1', { purpose: 'download' }).then(result => {
+  acceptsString(result.url)
+})
+// @ts-expect-error storage bindings are exposed only with experimental.athenaStorageBackend
+client.storage.listStorageCatalogs()
 const builderAuthSessionResult = fluentBuilderClient.auth.getSession()
 const validSearchOperator: AthenaAdminListUsersSearchOperator = 'contains'
 const validFilterOperator: AthenaAdminListUsersFilterOperator = 'eq'

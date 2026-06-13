@@ -4,7 +4,7 @@
  * type definitions for the athena gateway api client and react hook
  */
 
-export type AthenaGatewayMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
+export type AthenaGatewayMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type AthenaGatewayEndpointPath =
   | '/gateway/fetch'
   | '/gateway/insert'
@@ -13,6 +13,7 @@ export type AthenaGatewayEndpointPath =
   | '/gateway/rpc'
   | '/gateway/query'
   | `/rpc/${string}`
+  | `/storage/${string}`
 
 export type AthenaCountOption = 'exact' | 'planned' | 'estimated'
 

@@ -29,6 +29,8 @@ import { normalizeAthenaError, withRetry } from './auxiliaries.ts'
 import type { AthenaOperationContext, NormalizedAthenaError, RetryConfig } from './auxiliaries.ts'
 import { createDbModule } from './db/module.ts'
 import type { AthenaDbModule } from './db/module.ts'
+import { createStorageModule } from './storage/module.ts'
+import type { AthenaStorageModule } from './storage/module.ts'
 import {
   compileOrderBy,
   compileSelectShape,
@@ -111,6 +113,10 @@ export interface AthenaClientExperimentalOptions {
    * represent losslessly yet.
    */
   findManyAst?: boolean
+  /**
+   * Expose the experimental `client.storage.*` bindings for Athena storage APIs.
+   */
+  athenaStorageBackend?: boolean
 }
 
 export interface AthenaQueryTraceOptions {
@@ -2243,6 +2249,10 @@ export interface AthenaSdkClientWithAuth extends AthenaSdkClient {
   auth: AthenaAuthBindings
 }
 
+export interface AthenaSdkClientWithStorage extends AthenaSdkClientWithAuth {
+  storage: AthenaStorageModule
+}
+
 /** Client config for builder */
 export interface AthenaClientConfig {
   baseUrl: string
@@ -2313,7 +2323,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
   const query = createQueryBuilder(gateway, formatGatewayResult, config.experimental, queryTracer) as AthenaSdkClient['query']
   const db = createDbModule({ from, rpc, query })
 
-  return {
+  const sdkClient: AthenaSdkClientWithAuth = {
     from,
     db,
     rpc,
@@ -2321,6 +2331,16 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
     verifyConnection: gateway.verifyConnection,
     auth: auth.auth,
   }
+
+  if (config.experimental?.athenaStorageBackend) {
+    const storageClient: AthenaSdkClientWithStorage = {
+      ...sdkClient,
+      storage: createStorageModule(gateway),
+    }
+    return storageClient
+  }
+
+  return sdkClient
 }
 
 export interface AthenaClientBuilder {
@@ -2507,7 +2527,23 @@ export interface AthenaCreateClientOptions extends Pick<AthenaGatewayCallOptions
   experimental?: AthenaClientExperimentalOptions
 }
 
+export interface AthenaCreateClientOptionsWithStorage extends AthenaCreateClientOptions {
+  experimental: AthenaClientExperimentalOptions & {
+    athenaStorageBackend: true
+  }
+}
+
 /** Create client (convenience wrapper; use AthenaClient.builder() for full control) */
+export function createClient(
+  url: string,
+  apiKey: string,
+  options: AthenaCreateClientOptionsWithStorage,
+): AthenaSdkClientWithStorage
+export function createClient(
+  url: string,
+  apiKey: string,
+  options?: AthenaCreateClientOptions,
+): AthenaSdkClientWithAuth
 export function createClient(
   url: string,
   apiKey: string,
