@@ -4,8 +4,6 @@
 apps that only need:
 
 - typed auth bootstrap config
-- a native drizzle adapter descriptor
-- native TanStack Start cookie hook wiring
 - a Better Auth-compatible top-level contract from the SDK itself
 
 This is the first step toward removing `better-auth` as an app dependency when
@@ -14,25 +12,19 @@ your runtime is already using Athena Auth semantics elsewhere.
 ## Compatibility setup
 
 ```ts
-import { athenaAuth, drizzleAdapter, tanstackStartCookies } from "@xylex-group/athena";
-import { drizzle } from "drizzle-orm/d1";
-import * as schema from "../db/schema";
+import { athenaAuth } from "@xylex-group/athena";
 
 export function getAuth(env: {
-  DB: D1Database;
+  DB: unknown;
   ATHENA_AUTH_URL: string;
   ATHENA_AUTH_SECRET: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
 }) {
-  const db = drizzle(env.DB, { schema });
-
   return athenaAuth({
     baseURL: env.ATHENA_AUTH_URL,
     secret: env.ATHENA_AUTH_SECRET,
-    database: drizzleAdapter(db, {
-      provider: "sqlite",
-    }),
+    database: env.DB,
     socialProviders: {
       github: {
         clientId: env.GITHUB_CLIENT_ID,
@@ -40,7 +32,6 @@ export function getAuth(env: {
         scope: ["repo", "read:org", "user:email"],
       },
     },
-    plugins: [tanstackStartCookies()],
   });
 }
 ```
@@ -83,7 +74,7 @@ Supported fields:
 - `options`
 - `$context`
 - `$ERROR_CODES`
-- resolved database adapter
+- resolved database value
 - resolved cookie config
 - `createCookieContext(...)`
 - `setSession(...)`
@@ -93,11 +84,8 @@ Supported fields:
 
 The public SDK export is `athenaAuth(...)`.
 
-`drizzleAdapter(...)` is a typed adapter descriptor for drizzle-backed auth
-storage config.
-
-`tanstackStartCookies()` is a native auth plugin that applies session cookie
-writes and clears into `context.responseHeaders` during after hooks.
+`database` is intentionally unopinionated. Pass your raw database/dialect/adapter
+value directly, or a factory if you need runtime-aware construction.
 
 ## Native handler seam
 
@@ -110,9 +98,8 @@ const auth = athenaAuth({
     allowedHosts: ["app.example.com"],
   },
   secret: env.ATHENA_AUTH_SECRET,
-  database: drizzleAdapter(db, { provider: "sqlite" }),
+  database: env.DB,
   trustedOrigins: ["https://frontend.example.com"],
-  plugins: [tanstackStartCookies()],
   handler: async (ctx) => {
     if (ctx.path === "/api/auth/session") {
       return {
@@ -174,7 +161,33 @@ trustedOrigins: async (request) => {
 As with Better Auth, requestless calls such as `$context` initialization should
 handle the `request === undefined` case.
 
-## TanStack Start cookie flow
+## Cookie hook flow
+
+If your runtime wants a plugin-style after hook for session writes:
+
+```ts
+const auth = athenaAuth({
+  baseURL: env.ATHENA_AUTH_URL,
+  secret: env.ATHENA_AUTH_SECRET,
+  database: env.DB,
+  plugins: [
+    {
+      id: "cookie-after-hook",
+      version: "1",
+      hooks: {
+        after: [
+          {
+            matcher: () => true,
+            handler: async (ctx) => {
+              await ctx.auth.applyResponseCookies(ctx);
+            },
+          },
+        ],
+      },
+    },
+  ],
+});
+```
 
 If your server action or route has a new session pair:
 
@@ -218,8 +231,7 @@ Today it covers:
 
 - bootstrap config typing
 - native cookie/session wiring
-- drizzle adapter metadata
-- plugin-style TanStack Start cookie handling
+- generic plugin-style after hooks
 
 If you already use Athena Auth on the server side, this removes the dependency
 for the app-local bootstrap and cookie-hook seam first.

@@ -3,17 +3,35 @@ import { test } from 'node:test'
 import {
   athenaAuth,
   defineAthenaAuthConfig,
-  drizzleAdapter,
-  tanstackStartCookies,
 } from '../src/index.ts'
 import { parseSetCookieHeader } from '../src/cookies/index.ts'
+
+function createCookieAfterPlugin() {
+  return {
+    id: 'cookie-after-plugin',
+    version: 'test',
+    hooks: {
+      after: [
+        {
+          matcher: () => true,
+          async handler(ctx: { auth: ReturnType<typeof athenaAuth>; headers?: Headers; context: Record<string, unknown> }) {
+            await ctx.auth.applyResponseCookies({
+              headers: ctx.headers,
+              context: ctx.context,
+            })
+          },
+        },
+      ],
+    },
+  }
+}
 
 test('defineAthenaAuthConfig keeps auth bootstrap config typed', () => {
   const db = { kind: 'd1' }
   const config = defineAthenaAuthConfig({
     baseURL: 'https://app.example.com',
     secret: 'secret',
-    database: drizzleAdapter(db, { provider: 'sqlite' }),
+    database: db,
     socialProviders: {
       github: {
         clientId: 'github-client-id',
@@ -21,10 +39,10 @@ test('defineAthenaAuthConfig keeps auth bootstrap config typed', () => {
         scope: ['repo', 'read:org', 'user:email'],
       },
     },
-    plugins: [tanstackStartCookies()],
+    plugins: [createCookieAfterPlugin()],
   })
 
-  assert.equal(config.database.kind, 'drizzle')
+  assert.equal(config.database.kind, 'd1')
   assert.equal(config.socialProviders.github.scope?.[0], 'repo')
 })
 
@@ -33,28 +51,27 @@ test('athenaAuth resolves database factories and secure cookie defaults from bas
   const auth = athenaAuth({
     baseURL: 'https://app.example.com',
     secret: 'secret',
-    database: () => drizzleAdapter(db, { provider: 'sqlite' }),
+    database: () => db,
   })
 
-  assert.equal(auth.database.kind, 'drizzle')
-  assert.equal(auth.database.db, db)
+  assert.equal(auth.database, db)
   assert.equal(auth.cookies.sessionToken.name, '__Secure-athena-auth.session_token')
 })
 
 test('athenaAuth exposes the Better Auth-style top-level contract', () => {
-  const database = drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' })
+  const database = { binding: 'DB' }
   const auth = athenaAuth({
     baseURL: 'https://app.example.com',
     secret: 'secret',
     database,
-    plugins: [tanstackStartCookies()],
+    plugins: [createCookieAfterPlugin()],
   })
 
-  assert.equal(auth.database.kind, 'drizzle')
+  assert.equal(auth.database, database)
   assert.equal(auth.options, auth.config)
   assert.equal(typeof auth.handler, 'function')
   assert.equal(typeof auth.api.setSession, 'function')
-  assert.equal(auth.plugins[0]?.id, 'tanstack-start-cookies')
+  assert.equal(auth.plugins[0]?.id, 'cookie-after-plugin')
   assert.equal(auth.cookies.sessionToken.name, '__Secure-athena-auth.session_token')
   assert.equal(auth.$ERROR_CODES.HANDLER_NOT_CONFIGURED, 'HANDLER_NOT_CONFIGURED')
 })
@@ -63,7 +80,7 @@ test('athenaAuth context resolves trusted origins/providers', async () => {
   const auth = athenaAuth({
     baseURL: 'https://app.example.com',
     secret: 'secret',
-    database: drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' }),
+    database: { binding: 'DB' },
     socialProviders: {
       github: {
         clientId: 'github-client-id',
@@ -91,9 +108,9 @@ test('athenaAuth handler resolves dynamic baseURL and applies cookie hooks to ha
       allowedHosts: ['app.example.com'],
     },
     secret: 'secret',
-    database: drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' }),
+    database: { binding: 'DB' },
     trustedOrigins: async request => [request?.headers.get('origin') ?? 'https://frontend.example.com'],
-    plugins: [tanstackStartCookies()],
+    plugins: [createCookieAfterPlugin()],
     handler: async ctx => {
       assert.equal(ctx.baseURL, 'https://app.example.com')
       assert.deepEqual(ctx.trustedOrigins, ['https://app.example.com', 'https://frontend.example.com'])
@@ -128,7 +145,7 @@ test('athenaAuth applyResponseCookies sets session cookies using native cookie h
   const auth = athenaAuth({
     baseURL: 'https://app.example.com',
     secret: 'secret',
-    database: drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' }),
+    database: { binding: 'DB' },
     session: {
       cookieCache: {
         enabled: true,
@@ -160,12 +177,12 @@ test('athenaAuth applyResponseCookies sets session cookies using native cookie h
   assert.equal(parsed.has('__Secure-athena-auth.session_data'), true)
 })
 
-test('tanstackStartCookies plugin applies auth response cookies through after hooks', async () => {
+test('custom after plugin can apply auth response cookies through after hooks', async () => {
   const auth = athenaAuth({
     baseURL: 'https://app.example.com',
     secret: 'secret',
-    database: drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' }),
-    plugins: [tanstackStartCookies()],
+    database: { binding: 'DB' },
+    plugins: [createCookieAfterPlugin()],
   })
   const responseHeaders = new Headers()
 
@@ -190,12 +207,12 @@ test('tanstackStartCookies plugin applies auth response cookies through after ho
   assert.equal(parsed.get('__Secure-athena-auth.session_token')?.value, 'session_token_value')
 })
 
-test('tanstackStartCookies plugin can clear auth cookies through after hooks', async () => {
+test('custom after plugin can clear auth cookies through after hooks', async () => {
   const auth = athenaAuth({
     baseURL: 'https://app.example.com',
     secret: 'secret',
-    database: drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' }),
-    plugins: [tanstackStartCookies()],
+    database: { binding: 'DB' },
+    plugins: [createCookieAfterPlugin()],
   })
   const responseHeaders = new Headers()
 

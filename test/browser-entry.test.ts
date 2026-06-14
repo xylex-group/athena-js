@@ -17,8 +17,6 @@ test('browser entry keeps generator config identity helper', () => {
   assert.equal(typeof browserEntry.generatorEnv, 'function')
   assert.equal(typeof browserEntry.athenaAuth, 'function')
   assert.equal(typeof browserEntry.ATHENA_AUTH_BASE_ERROR_CODES, 'object')
-  assert.equal(typeof browserEntry.drizzleAdapter, 'function')
-  assert.equal(typeof browserEntry.tanstackStartCookies, 'function')
 
   const config = browserEntry.defineGeneratorConfig({
     provider: {

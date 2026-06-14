@@ -7,8 +7,6 @@ import {
   generatorEnv,
   athenaAuth,
   defineAthenaAuthConfig,
-  drizzleAdapter,
-  tanstackStartCookies,
   defineDatabase,
   defineModel,
   defineRegistry,
@@ -127,7 +125,6 @@ const normalizedGatewayUrl = normalizeAthenaGatewayBaseUrl('https://mirror3.athe
 acceptsString(normalizedGatewayUrl)
 acceptsGatewayConnectionPromise(client.verifyConnection())
 acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-db.com'))
-const authSessionResult = client.auth.getSession()
 acceptsStorageModule(experimentalStorageClient.storage)
 acceptsStorageCatalogListPromise(experimentalStorageClient.storage.listStorageCatalogs())
 acceptsStorageUploadUrlPromise(
@@ -141,6 +138,7 @@ experimentalStorageClient.storage.getStorageFileUrl('file_1', { purpose: 'downlo
 })
 // @ts-expect-error storage bindings are exposed only with experimental.athenaStorageBackend
 client.storage.listStorageCatalogs()
+const authSessionResult = client.auth.getSession()
 const builderAuthSessionResult = fluentBuilderClient.auth.getSession()
 const validSearchOperator: AthenaAdminListUsersSearchOperator = 'contains'
 const validFilterOperator: AthenaAdminListUsersFilterOperator = 'eq'
@@ -933,7 +931,7 @@ acceptsPostgresProviderKind(generatorConfigFromEnv.provider.kind)
 const authBootstrapConfig = defineAthenaAuthConfig({
   baseURL: 'https://app.example.com',
   secret: 'top-secret',
-  database: drizzleAdapter({ binding: 'DB' }, { provider: 'sqlite' }),
+  database: { binding: 'DB' },
   socialProviders: {
     github: {
       clientId: 'github-client-id',
@@ -941,11 +939,16 @@ const authBootstrapConfig = defineAthenaAuthConfig({
       scope: ['repo', 'read:org', 'user:email'],
     },
   },
-  plugins: [tanstackStartCookies()],
+  plugins: [
+    {
+      id: 'cookie-after-plugin',
+      version: 'test',
+    },
+  ],
 })
 
 const nativeAuth = athenaAuth(authBootstrapConfig)
-acceptsString(nativeAuth.database.provider)
+acceptsUnknown(nativeAuth.database)
 acceptsString(nativeAuth.cookies.sessionToken.name)
 acceptsString(nativeAuth.$ERROR_CODES.HANDLER_NOT_CONFIGURED)
 acceptsUnknown(nativeAuth.api)

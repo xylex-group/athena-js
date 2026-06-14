@@ -2,7 +2,7 @@
 
 This file is generated from the TypeScript source and is intended to document every public SDK method surface with a usage example.
 
-Total documented method paths: **349**
+Total documented method paths: **347**
 
 Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 
@@ -28,7 +28,6 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `root.defineModel` | `<Row, Insert = Partial<Row>, Update = Partial<Insert>, Meta extends ModelMetadata<Row> = ModelMetadata<Row>>(input: {    meta: Meta;}) => ModelDef<Row, Insert, Update, Meta>` | `const model = defineModel<{ id: string }>({ meta: { primaryKey: ["id"], nullable: { id: false } } })` | Declares a model contract with explicit metadata and typed row/insert/update shapes. |
 | `root.defineRegistry` | `<Databases extends Record<string, DatabaseDef<Record<string, SchemaDef<Record<string, AnyModelDef>>>>>>(databases: Databases) => RegistryDef<Databases>` | `const registry = defineRegistry({ primary: defineDatabase({ public: defineSchema({}) }) })` | Declares a top-level multi-database registry. |
 | `root.defineSchema` | `<Models extends Record<string, AnyModelDef>>(models: Models) => SchemaDef<Models>` | `const schema = defineSchema({ users: defineModel<{ id: string }>({ meta: { primaryKey: ["id"], nullable: { id: false } } }) })` | Declares a schema-level model map. |
-| `root.drizzleAdapter` | `<TDatabase>(db: TDatabase, options: AthenaDrizzleAdapterOptions) => AthenaAuthDatabaseAdapter<TDatabase, "drizzle">` | `drizzleAdapter(/* ... */)` | — |
 | `root.findGeneratorConfigPath` | `(cwd?: string) => string \| undefined` | `findGeneratorConfigPath()` | Finds a supported generator config filename in the provided directory. |
 | `root.generateArtifactsFromSnapshot` | `(snapshot: IntrospectionSnapshot, config: AthenaGeneratorConfig \| NormalizedAthenaGeneratorConfig) => GeneratedArtifacts` | `generateArtifactsFromSnapshot(/* ... */)` | Generates model/schema/database/registry source artifacts from an introspection snapshot. |
 | `root.generatorEnv` | `GeneratorEnvHelper` | `generatorEnv(/* ... */)` | Typed env reader for generator configs. This keeps `athena.config.*` files declarative while preserving exact field types for booleans, lists, unions, and JSON-backed objects. |
@@ -48,7 +47,6 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `root.resolvePostgresColumnType` | `(column: IntrospectionColumn) => string` | `resolvePostgresColumnType(/* ... */)` | — |
 | `root.resolveProviderSchemas` | `(providerConfig: GeneratorProviderConfig) => string[]` | `resolveProviderSchemas(/* ... */)` | Resolves the effective schema list for provider-backed generator runs. |
 | `root.runSchemaGenerator` | `(options?: RunGeneratorOptions) => Promise<RunGeneratorResult>` | `await runSchemaGenerator({ configPath: "./athena.config.ts" })` | End-to-end generator execution: load config, introspect, render, and optionally write files. |
-| `root.tanstackStartCookies` | `() => AthenaAuthPlugin` | `tanstackStartCookies()` | — |
 | `root.toModelFormDefaults` | `<TModel extends AnyModelDef, TMode extends ModelFormNullishMode = "empty-string">(model: TModel, values?: Partial<RowOf<TModel>> \| Partial<InsertOf<TModel>> \| null, options?: ToModelFormDefaultsOptions<TMode>) => ModelFormDefaults<TModel, TMode>` | `const defaults = toModelFormDefaults(model, row)` | Normalizes model data into form-safe defaults using model nullability metadata. |
 | `root.toModelPayload` | `<TModel extends AnyModelDef>(model: TModel, formValues: Partial<ModelFormValues<TModel, "empty-string" \| "undefined" \| "null">>, options?: ToModelPayloadOptions) => Partial<InsertOf<TModel>>` | `const payload = toModelPayload(model, values)` | Normalizes form values back into model-compatible insert/update payloads. |
 | `root.unwrap` | `{    <T>(result: AthenaResult<T \| null>, options: UnwrapOptions & {        allowNull: true;    }): T \| null;    <T>(result: AthenaResult<T \| null>, options?: UnwrapOptions): T;}` | `unwrap(/* ... */)` | Unwraps successful result data from `AthenaResult<T \| null>`. By default, `null` data throws. Pass `{ allowNull: true }` to permit nullable payloads. |

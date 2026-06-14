@@ -53,11 +53,9 @@ export {
   athenaAuth,
   createAuthClient,
   defineAthenaAuthConfig,
-  drizzleAdapter,
   renderAthenaReactEmail,
   createAuthReactEmailInput,
   defineAuthEmailTemplate,
-  tanstackStartCookies,
 } from './auth/index.ts'
 export { storageSdkManifest, AthenaStorageError } from './storage/module.ts'
 

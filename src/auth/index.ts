@@ -3,8 +3,6 @@ export {
   ATHENA_AUTH_BASE_ERROR_CODES,
   athenaAuth,
   defineAthenaAuthConfig,
-  drizzleAdapter,
-  tanstackStartCookies,
 } from './server.ts'
 export {
   renderAthenaReactEmail,
@@ -84,7 +82,6 @@ export type {
   AthenaAuthBaseURLConfig,
   AthenaAuthCookieRuntimeInput,
   AthenaAuthContext,
-  AthenaAuthDatabaseAdapter,
   AthenaAuthDatabaseFactory,
   AthenaAuthHandlerResult,
   AthenaAuthPlugin,
@@ -98,5 +95,4 @@ export type {
   AthenaAuthSocialProviderConfig,
   AthenaAuthTrustedOrigins,
   AthenaAuthTrustedProviders,
-  AthenaDrizzleAdapterOptions,
 } from './server.ts'

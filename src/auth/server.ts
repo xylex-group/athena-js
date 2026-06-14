@@ -11,7 +11,6 @@ import {
   type AthenaCookiesOptions,
 } from '../cookies/index.ts'
 import type { AthenaSessionPair } from '../cookies/types.ts'
-import { PACKAGE_VERSION } from '../sdk-version.ts'
 
 type AthenaMaybePromise<T> = T | Promise<T>
 type AthenaAuthServerCookieOptions = Pick<AthenaCookiesOptions, 'session' | 'advanced'>
@@ -23,19 +22,6 @@ export const ATHENA_AUTH_BASE_ERROR_CODES = {
   INVALID_BASE_URL: 'INVALID_BASE_URL',
   UNTRUSTED_HOST: 'UNTRUSTED_HOST',
 } as const
-
-export interface AthenaAuthDatabaseAdapter<
-  TDatabase = unknown,
-  TKind extends string = string,
-> {
-  kind: TKind
-  provider: string
-  db: TDatabase
-}
-
-export interface AthenaDrizzleAdapterOptions {
-  provider: string
-}
 
 export interface AthenaAuthSocialProviderConfig {
   clientId: string
@@ -93,9 +79,9 @@ export interface AthenaAuthServerRuntimeOptions {
   cookies: AthenaAuthServerCookieOptions
 }
 
-export type AthenaAuthDatabaseFactory<TAdapter extends AthenaAuthDatabaseAdapter = AthenaAuthDatabaseAdapter> = (
+export type AthenaAuthDatabaseFactory<TDatabase = unknown> = (
   options: AthenaAuthServerRuntimeOptions,
-) => TAdapter
+) => TDatabase
 
 export type AthenaAuthBaseURLConfig = AthenaCookiesOptions['baseURL']
 
@@ -117,12 +103,12 @@ export interface AthenaAuthHandlerResult {
 }
 
 export interface AthenaAuthServerConfig<
-  TAdapter extends AthenaAuthDatabaseAdapter = AthenaAuthDatabaseAdapter,
+  TDatabase = unknown,
 > extends AthenaAuthServerCookieOptions {
   baseURL?: AthenaAuthBaseURLConfig
   basePath?: string
   secret: string
-  database: TAdapter | AthenaAuthDatabaseFactory<TAdapter>
+  database: TDatabase | AthenaAuthDatabaseFactory<TDatabase>
   socialProviders?: Record<string, AthenaAuthSocialProviderConfig>
   trustedOrigins?: AthenaAuthTrustedOrigins
   trustedProviders?: AthenaAuthTrustedProviders
@@ -488,17 +474,6 @@ export function defineAthenaAuthConfig<TConfig extends AthenaAuthServerConfig>(
   return config
 }
 
-export function drizzleAdapter<TDatabase>(
-  db: TDatabase,
-  options: AthenaDrizzleAdapterOptions,
-): AthenaAuthDatabaseAdapter<TDatabase, 'drizzle'> {
-  return {
-    kind: 'drizzle',
-    provider: options.provider,
-    db,
-  }
-}
-
 export function athenaAuth<TConfig extends AthenaAuthServerConfig>(
   config: TConfig,
 ): AthenaAuthServer<TConfig> {
@@ -777,21 +752,4 @@ export function athenaAuth<TConfig extends AthenaAuthServerConfig>(
   }))
 
   return auth
-}
-
-export function tanstackStartCookies(): AthenaAuthPlugin {
-  return {
-    id: 'tanstack-start-cookies',
-    version: PACKAGE_VERSION,
-    hooks: {
-      after: [
-        {
-          matcher: () => true,
-          async handler(ctx) {
-            await ctx.auth.applyResponseCookies(ctx)
-          },
-        },
-      ],
-    },
-  }
 }
