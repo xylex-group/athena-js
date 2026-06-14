@@ -30,7 +30,7 @@ import type { AthenaOperationContext, NormalizedAthenaError, RetryConfig } from 
 import { createDbModule } from './db/module.ts'
 import type { AthenaDbModule } from './db/module.ts'
 import { createStorageModule } from './storage/module.ts'
-import type { AthenaStorageModule } from './storage/module.ts'
+import type { AthenaStorageClientConfig, AthenaStorageModule } from './storage/module.ts'
 import {
   compileOrderBy,
   compileSelectShape,
@@ -117,6 +117,10 @@ export interface AthenaClientExperimentalOptions {
    * Expose the experimental `client.storage.*` bindings for Athena storage APIs.
    */
   athenaStorageBackend?: boolean
+  /**
+   * Optional storage SDK runtime hooks. Only used when `athenaStorageBackend` is enabled.
+   */
+  storage?: AthenaStorageClientConfig
 }
 
 export interface AthenaQueryTraceOptions {
@@ -2346,7 +2350,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
   if (config.experimental?.athenaStorageBackend) {
     const storageClient: AthenaSdkClientWithStorage = {
       ...sdkClient,
-      storage: createStorageModule(gateway),
+      storage: createStorageModule(gateway, config.experimental.storage),
     }
     return storageClient
   }
@@ -2418,6 +2422,12 @@ function mergeExperimentalOptions(
     merged.traceQueries = {
       ...current.traceQueries,
       ...next.traceQueries,
+    }
+  }
+  if (current?.storage || next.storage) {
+    merged.storage = {
+      ...(current?.storage ?? {}),
+      ...(next.storage ?? {}),
     }
   }
   return merged

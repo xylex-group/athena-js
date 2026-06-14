@@ -21,6 +21,8 @@ import {
   unwrapOne,
   unwrapRows,
   verifyAthenaGatewayUrl,
+  AthenaStorageErrorCode,
+  createAthenaStorageError,
   type RequireAffectedOptions,
   type AthenaResult,
   type AthenaGatewayConnectionResult,
@@ -30,7 +32,12 @@ import {
   type AthenaAdminListUsersSearchOperator,
   type AthenaAdminListUsersFilterOperator,
   type AthenaStorageModule,
+  type AthenaStorageBinaryCallOptions,
+  type AthenaStorageClientConfig,
+  type AthenaStorageErrorDetails,
+  type AthenaStorageErrorHandler,
   type S3CatalogItem,
+  type StorageFileAccessPurpose,
   type StorageUploadUrlResponse,
 } from "../src/index.ts"
 import type {
@@ -64,12 +71,17 @@ declare function acceptsUserRows(value: UserRow[]): void
 declare function acceptsNullableUserRow(value: UserRow | null): void
 declare function acceptsNumber(value: number): void
 declare function acceptsString(value: string): void
+declare function acceptsStorageFileAccessPurpose(value: StorageFileAccessPurpose): void
 declare function acceptsUnknown(value: unknown): void
 declare function acceptsResponsePromise(value: Promise<Response>): void
 declare function acceptsGatewayConnectionPromise(
   value: Promise<AthenaGatewayConnectionResult>,
 ): void
+declare function acceptsStorageBinaryCallOptions(value: AthenaStorageBinaryCallOptions): void
 declare function acceptsStorageModule(value: AthenaStorageModule): void
+declare function acceptsStorageConfig(value: AthenaStorageClientConfig): void
+declare function acceptsStorageErrorDetails(value: AthenaStorageErrorDetails): void
+declare function acceptsStorageErrorHandler(value: AthenaStorageErrorHandler): void
 declare function acceptsStorageCatalogListPromise(
   value: Promise<{ data: S3CatalogItem[] }>,
 ): void
@@ -119,6 +131,11 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
 const experimentalStorageClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     athenaStorageBackend: true,
+    storage: {
+      onError(error) {
+        acceptsStorageErrorDetails(error.toDetails())
+      },
+    },
   },
 })
 const experimentalStorageBuilderClient = AthenaClient.builder()
@@ -144,6 +161,29 @@ acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-d
 acceptsStorageModule(experimentalStorageClient.storage)
 acceptsStorageModule(experimentalStorageBuilderClient.storage)
 acceptsStorageModule(experimentalStorageOptionsBuilderClient.storage)
+acceptsStorageFileAccessPurpose('stream')
+acceptsStorageErrorHandler(error => {
+  acceptsStorageErrorDetails(error.toDetails())
+})
+acceptsStorageConfig({
+  onError(error) {
+    acceptsStorageErrorDetails(error.toDetails())
+  },
+})
+acceptsStorageBinaryCallOptions({
+  onError(error) {
+    acceptsStorageErrorDetails(error.toDetails())
+  },
+})
+acceptsStorageErrorDetails(
+  createAthenaStorageError({
+    code: AthenaStorageErrorCode.InvalidUrl,
+    message: "invalid storage URL",
+    status: 0,
+    endpoint: "/storage/catalogs",
+    method: "GET",
+  }).toDetails(),
+)
 acceptsStorageCatalogListPromise(experimentalStorageClient.storage.listStorageCatalogs())
 acceptsStorageUploadUrlPromise(
   experimentalStorageClient.storage.createStorageUploadUrl({
@@ -154,6 +194,9 @@ acceptsStorageUploadUrlPromise(
 experimentalStorageClient.storage.getStorageFileUrl('file_1', { purpose: 'download' }).then(result => {
   acceptsString(result.url)
 })
+acceptsResponsePromise(
+  experimentalStorageClient.storage.getStorageFileProxy('file_1', { purpose: 'stream' }),
+)
 // @ts-expect-error storage bindings are exposed only with experimental.athenaStorageBackend
 client.storage.listStorageCatalogs()
 const authSessionResult = client.auth.getSession()

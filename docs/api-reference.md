@@ -87,12 +87,14 @@ function createClient(
       findManyAst?: boolean
       retryReads?: boolean
       traceQueries?: boolean | AthenaQueryTraceOptions
+      storage?: AthenaStorageClientConfig
     }
   },
 ): AthenaSdkClientWithAuth
 ```
 
 `experimental.athenaStorageBackend` exposes the experimental `client.storage.*` bindings. Default clients do not include `.storage`; `createClient(..., { experimental: { athenaStorageBackend: true } })`, `AthenaClient.builder().experimental(...)`, and `AthenaClient.builder().options(...)` narrow the returned client type to `AthenaSdkClientWithStorage`.
+`experimental.storage.onError` registers a client-level observer for storage request failures. It receives the same `AthenaStorageError` instance that will be thrown, and observer failures do not mask the original request error.
 `experimental.enableErrorNormalization` is deprecated and retained as a no-op compatibility flag because failed `AthenaResult` values now expose structured normalized `error` objects by default.
 `experimental.findManyAst` opt-ins clean `findMany(...)` calls to use direct AST bodies on `/gateway/fetch` when the request is lossless there; shorthand `where` values are normalized, UUID-like equality filters still fall back to the legacy query path, and nested relation select strings stay off SQL query fallback.
 `experimental.retryReads` enables fixed-policy retries for retryable read failures on `select`, `findMany(...)`, and `query(...)`. It performs two additional attempts internally and does not retry writes.
@@ -462,7 +464,14 @@ Storage bindings are only available when `experimental.athenaStorageBackend` is 
 
 ```ts
 const athena = createClient(url, apiKey, {
-  experimental: { athenaStorageBackend: true },
+  experimental: {
+    athenaStorageBackend: true,
+    storage: {
+      onError(error) {
+        console.error(error.code, error.athenaCode, error.kind, error.toDetails())
+      },
+    },
+  },
 })
 
 const { file, upload } = await athena.storage.createStorageUploadUrl({
@@ -470,6 +479,11 @@ const { file, upload } = await athena.storage.createStorageUploadUrl({
   bucket: "documents",
   storage_key: "reports/report.pdf",
 })
+
+const response = await athena.storage.getStorageFileProxy("file_1", {
+  purpose: "download",
+})
+const bytes = await response.arrayBuffer()
 ```
 
 ```ts
@@ -484,6 +498,7 @@ interface AthenaStorageModule {
   listStorageFiles(input: ListStorageFilesRequest, options?: AthenaStorageCallOptions): Promise<StorageListFilesResponse>
   getStorageFile(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
   getStorageFileUrl(fileId: string, query?: GetStorageFileUrlQuery, options?: AthenaStorageCallOptions): Promise<PresignedFileUrlResponse>
+  getStorageFileProxy(fileId: string, query?: GetStorageFileUrlQuery, options?: AthenaStorageBinaryCallOptions): Promise<Response>
   updateStorageFile(fileId: string, input: UpdateStorageFileRequest, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
   deleteStorageFile(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
   setStorageFileVisibility(fileId: string, input: SetStorageFileVisibilityRequest, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
@@ -492,7 +507,55 @@ interface AthenaStorageModule {
 }
 ```
 
-Raw storage endpoints return the parsed response body. Athena-envelope storage endpoints unwrap `{ status, message, data }` and return `data`. Storage request failures throw `AthenaStorageError` with `code`, `status`, `endpoint`, `method`, and `raw` fields.
+```ts
+type AthenaStorageErrorCode =
+  | "INVALID_URL"
+  | "NETWORK_ERROR"
+  | "HTTP_ERROR"
+  | "INVALID_JSON"
+  | "INVALID_ATHENA_ENVELOPE"
+  | "UNKNOWN_ERROR"
+
+interface AthenaStorageClientConfig {
+  onError?: AthenaStorageErrorHandler
+}
+
+interface AthenaStorageCallOptions extends AthenaGatewayCallOptions {
+  signal?: AbortSignal
+  onError?: AthenaStorageErrorHandler
+}
+
+type AthenaStorageBinaryCallOptions = AthenaStorageCallOptions
+
+type AthenaStorageErrorHandler = (error: AthenaStorageError) => void | Promise<void>
+
+type StorageFileAccessPurpose = "read" | "download" | "stream"
+
+class AthenaStorageError extends Error {
+  code: AthenaStorageErrorCode
+  athenaCode: AthenaErrorCode
+  kind: AthenaErrorKind
+  category: AthenaErrorCategory
+  retryable: boolean
+  status: number
+  endpoint: AthenaGatewayEndpointPath
+  method: AthenaGatewayMethod
+  requestId?: string
+  hint?: string
+  causeDetail?: string
+  raw: unknown
+  normalized: NormalizedAthenaError
+  toDetails(): AthenaStorageErrorDetails
+}
+
+function createAthenaStorageError(input: AthenaStorageErrorInput): AthenaStorageError
+```
+
+Raw JSON storage endpoints return the parsed response body. Athena-envelope storage endpoints unwrap `{ status, message, data }` and return `data`. `getStorageFileProxy(...)` is the binary exception: it calls `GET /storage/files/{file_id}/proxy`, accepts the current proxy purposes (`"read"`, `"download"`, and `"stream"`) through the same query shape as `getStorageFileUrl(...)`, and returns the untouched `Response` so callers can read headers such as `Content-Type`, `Content-Disposition`, `Content-Length`, `ETag`, and `Cache-Control` before choosing `.blob()`, `.arrayBuffer()`, `.text()`, or streaming.
+
+All storage request failures flow through `createAthenaStorageError(...)` and throw `AthenaStorageError`. The error carries storage-specific `code`, normalized Athena fields (`athenaCode`, `kind`, `category`, `retryable`), request metadata (`status`, `endpoint`, `method`, `requestId`), diagnostic fields (`hint`, `causeDetail`, `raw`), and a hidden normalized error payload so `normalizeAthenaError(error)` returns the same normalized classification.
+
+Storage failures can be observed globally with `experimental.storage.onError` or per call with `options.onError`. Both callbacks receive the thrown `AthenaStorageError`; callback failures are ignored so the original storage error is preserved.
 
 ## Builder contracts
 

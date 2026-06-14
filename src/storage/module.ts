@@ -2,8 +2,17 @@ import type { AthenaGatewayClient } from '../gateway/client.ts'
 import type {
   AthenaGatewayCallOptions,
   AthenaGatewayEndpointPath,
+  AthenaGatewayErrorCode,
   AthenaGatewayMethod,
 } from '../gateway/types.ts'
+import type {
+  AthenaErrorCategory,
+  AthenaErrorCode,
+  AthenaErrorKind,
+  NormalizedAthenaError,
+} from '../auxiliaries.ts'
+import { normalizeAthenaError } from '../auxiliaries.ts'
+import { isAthenaGatewayError } from '../gateway/errors.ts'
 import { buildAthenaGatewayUrl, normalizeAthenaGatewayBaseUrl } from '../gateway/url.ts'
 
 export const storageSdkManifest = {
@@ -93,6 +102,16 @@ export const storageSdkManifest = {
       queryParams: ['purpose'],
       responseEnvelope: 'athena',
       responseType: 'PresignedFileUrlResponse',
+    },
+    {
+      name: 'getStorageFileProxy',
+      method: 'GET',
+      path: '/storage/files/{file_id}/proxy',
+      pathParams: ['file_id'],
+      queryParams: ['purpose'],
+      responseEnvelope: 'raw',
+      responseType: 'Response',
+      binary: true,
     },
     {
       name: 'updateStorageFile',
@@ -305,43 +324,127 @@ export interface AthenaEnvelope<T> {
   data: T
 }
 
+export type StorageFileAccessPurpose = 'read' | 'download' | 'stream'
+
 export interface GetStorageFileUrlQuery {
-  purpose?: string
+  purpose?: StorageFileAccessPurpose | (string & {})
+}
+
+export type AthenaStorageErrorHandler = (error: AthenaStorageError) => void | Promise<void>
+
+export interface AthenaStorageClientConfig {
+  onError?: AthenaStorageErrorHandler
 }
 
 export interface AthenaStorageCallOptions extends AthenaGatewayCallOptions {
   signal?: AbortSignal
+  onError?: AthenaStorageErrorHandler
 }
 
+export type AthenaStorageBinaryCallOptions = AthenaStorageCallOptions
+
 export type AthenaStorageErrorCode =
+  | 'INVALID_URL'
   | 'NETWORK_ERROR'
   | 'HTTP_ERROR'
   | 'INVALID_JSON'
   | 'INVALID_ATHENA_ENVELOPE'
+  | 'UNKNOWN_ERROR'
+
+export const AthenaStorageErrorCode = {
+  InvalidUrl: 'INVALID_URL',
+  NetworkError: 'NETWORK_ERROR',
+  HttpError: 'HTTP_ERROR',
+  InvalidJson: 'INVALID_JSON',
+  InvalidAthenaEnvelope: 'INVALID_ATHENA_ENVELOPE',
+  UnknownError: 'UNKNOWN_ERROR',
+} as const satisfies Record<string, AthenaStorageErrorCode>
+
+export interface AthenaStorageErrorDetails {
+  code: AthenaStorageErrorCode
+  athenaCode: AthenaErrorCode
+  kind: AthenaErrorKind
+  category: AthenaErrorCategory
+  retryable: boolean
+  message: string
+  status: number
+  endpoint: AthenaGatewayEndpointPath
+  method: AthenaGatewayMethod
+  requestId?: string
+  hint?: string
+  cause?: string
+  raw: unknown
+}
+
+export interface AthenaStorageErrorInput {
+  code: AthenaStorageErrorCode
+  message: string
+  status: number
+  endpoint: AthenaGatewayEndpointPath
+  method: AthenaGatewayMethod
+  raw?: unknown
+  requestId?: string
+  hint?: string
+  cause?: unknown
+}
 
 export class AthenaStorageError extends Error {
   readonly code: AthenaStorageErrorCode
+  readonly athenaCode: AthenaErrorCode
+  readonly kind: AthenaErrorKind
+  readonly category: AthenaErrorCategory
+  readonly retryable: boolean
   readonly status: number
   readonly endpoint: AthenaGatewayEndpointPath
   readonly method: AthenaGatewayMethod
+  readonly requestId?: string
+  readonly hint?: string
+  readonly causeDetail?: string
   readonly raw: unknown
+  readonly normalized: NormalizedAthenaError
+  readonly __athenaNormalizedError: NormalizedAthenaError
 
-  constructor(input: {
-    code: AthenaStorageErrorCode
-    message: string
-    status: number
-    endpoint: AthenaGatewayEndpointPath
-    method: AthenaGatewayMethod
-    raw?: unknown
-    cause?: unknown
-  }) {
+  constructor(input: AthenaStorageErrorInput) {
     super(input.message, { cause: input.cause })
     this.name = 'AthenaStorageError'
     this.code = input.code
     this.status = input.status
     this.endpoint = input.endpoint
     this.method = input.method
+    this.requestId = input.requestId
+    this.hint = input.hint
+    this.causeDetail = causeToString(input.cause)
     this.raw = input.raw ?? null
+    this.normalized = normalizeStorageErrorInput(input)
+    this.__athenaNormalizedError = this.normalized
+    this.athenaCode = this.normalized.code
+    this.kind = this.normalized.kind
+    this.category = this.normalized.category
+    this.retryable = this.normalized.retryable
+    Object.defineProperty(this, '__athenaNormalizedError', {
+      value: this.normalized,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    })
+  }
+
+  toDetails(): AthenaStorageErrorDetails {
+    return {
+      code: this.code,
+      athenaCode: this.athenaCode,
+      kind: this.kind,
+      category: this.category,
+      retryable: this.retryable,
+      message: this.message,
+      status: this.status,
+      endpoint: this.endpoint,
+      method: this.method,
+      requestId: this.requestId,
+      hint: this.hint,
+      cause: this.causeDetail,
+      raw: this.raw,
+    }
   }
 }
 
@@ -379,6 +482,11 @@ export interface AthenaStorageModule {
     query?: GetStorageFileUrlQuery,
     options?: AthenaStorageCallOptions,
   ): Promise<PresignedFileUrlResponse>
+  getStorageFileProxy(
+    fileId: string,
+    query?: GetStorageFileUrlQuery,
+    options?: AthenaStorageBinaryCallOptions,
+  ): Promise<Response>
   updateStorageFile(
     fileId: string,
     input: UpdateStorageFileRequest,
@@ -402,8 +510,112 @@ export interface AthenaStorageModule {
 
 type StorageEnvelopeKind = 'raw' | 'athena'
 
+interface StorageModuleRuntimeOptions {
+  onError?: AthenaStorageErrorHandler
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function causeToString(cause: unknown): string | undefined {
+  if (cause === undefined || cause === null) return undefined
+  if (typeof cause === 'string') return cause
+  if (cause instanceof Error && cause.message.trim()) return cause.message.trim()
+  try {
+    return JSON.stringify(cause)
+  } catch {
+    return String(cause)
+  }
+}
+
+function storageGatewayCode(code: AthenaStorageErrorCode): AthenaGatewayErrorCode {
+  if (code === 'INVALID_URL') return 'INVALID_URL'
+  if (code === 'NETWORK_ERROR') return 'NETWORK_ERROR'
+  if (code === 'INVALID_JSON' || code === 'INVALID_ATHENA_ENVELOPE') return 'INVALID_JSON'
+  if (code === 'HTTP_ERROR') return 'HTTP_ERROR'
+  return 'UNKNOWN_ERROR'
+}
+
+function headerValue(headers: Headers, names: readonly string[]): string | undefined {
+  for (const name of names) {
+    const value = headers.get(name)
+    if (value?.trim()) return value.trim()
+  }
+  return undefined
+}
+
+function storageOperationFromEndpoint(
+  endpoint: AthenaGatewayEndpointPath,
+  method: AthenaGatewayMethod,
+): string {
+  const endpointPath = String(endpoint).split('?')[0]
+  for (const candidate of storageSdkManifest.methods) {
+    if (candidate.method !== method) continue
+    const pattern = `^${candidate.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{[^/]+\\\}/g, '[^/]+')}$`
+    if (new RegExp(pattern).test(endpointPath)) {
+      return candidate.name
+    }
+  }
+  return `storage:${method.toLowerCase()}`
+}
+
+function normalizeStorageErrorInput(input: AthenaStorageErrorInput): NormalizedAthenaError {
+  return normalizeAthenaError(
+    {
+      data: null,
+      error: {
+        message: input.message,
+        gatewayCode: storageGatewayCode(input.code),
+        status: input.status,
+        raw: input.raw ?? input.cause ?? null,
+      },
+      errorDetails: {
+        code: storageGatewayCode(input.code),
+        message: input.message,
+        status: input.status,
+        endpoint: input.endpoint,
+        method: input.method,
+        requestId: input.requestId,
+        hint: input.hint,
+        cause: causeToString(input.cause),
+      },
+      raw: input.raw ?? input.cause ?? null,
+      status: input.status,
+    },
+    { operation: storageOperationFromEndpoint(input.endpoint, input.method) },
+  )
+}
+
+export function createAthenaStorageError(input: AthenaStorageErrorInput): AthenaStorageError {
+  return new AthenaStorageError(input)
+}
+
+async function notifyStorageError(
+  error: AthenaStorageError,
+  options: AthenaStorageCallOptions | undefined,
+  runtimeOptions: StorageModuleRuntimeOptions | undefined,
+): Promise<void> {
+  const handlers = [runtimeOptions?.onError, options?.onError].filter(
+    (handler): handler is AthenaStorageErrorHandler => typeof handler === 'function',
+  )
+  for (const handler of handlers) {
+    try {
+      await handler(error)
+    } catch {
+      // Error observers must not mask the original storage failure.
+    }
+  }
+}
+
+async function rejectStorageError(
+  input: AthenaStorageErrorInput,
+  options: AthenaStorageCallOptions | undefined,
+  runtimeOptions: StorageModuleRuntimeOptions | undefined,
+): Promise<never> {
+  const error = createAthenaStorageError(input)
+  await notifyStorageError(error, options, runtimeOptions)
+  throw error
 }
 
 function parseResponseBody(rawText: string, contentType: string | null) {
@@ -459,22 +671,26 @@ function resolveErrorMessage(payload: unknown, fallback: string): string {
   return fallback
 }
 
-function unwrapAthenaEnvelope<T>(
-  payload: unknown,
-  endpoint: AthenaGatewayEndpointPath,
-  method: AthenaGatewayMethod,
-): T {
-  if (!isRecord(payload) || !('data' in payload)) {
-    throw new AthenaStorageError({
-      code: 'INVALID_ATHENA_ENVELOPE',
-      message: `Athena storage ${method} ${endpoint} returned an invalid Athena envelope`,
-      status: 200,
-      endpoint,
-      method,
-      raw: payload,
-    })
+function resolveErrorHint(payload: unknown): string | undefined {
+  if (!isRecord(payload)) return undefined
+  const hint = payload.hint ?? payload.suggestion
+  return typeof hint === 'string' && hint.trim() ? hint.trim() : undefined
+}
+
+function resolveErrorCause(payload: unknown): string | undefined {
+  if (!isRecord(payload)) return undefined
+  const cause = payload.cause ?? payload.reason
+  return typeof cause === 'string' && cause.trim() ? cause.trim() : undefined
+}
+
+function storageCodeFromUnknown(error: unknown): AthenaStorageErrorCode {
+  if (isAthenaGatewayError(error)) {
+    if (error.code === 'INVALID_URL') return 'INVALID_URL'
+    if (error.code === 'NETWORK_ERROR') return 'NETWORK_ERROR'
+    if (error.code === 'INVALID_JSON') return 'INVALID_JSON'
+    if (error.code === 'HTTP_ERROR') return 'HTTP_ERROR'
   }
-  return payload.data as T
+  return 'UNKNOWN_ERROR'
 }
 
 async function callStorageEndpoint<T>(
@@ -484,12 +700,35 @@ async function callStorageEndpoint<T>(
   envelope: StorageEnvelopeKind,
   payload?: unknown,
   options?: AthenaStorageCallOptions,
+  runtimeOptions?: StorageModuleRuntimeOptions,
 ): Promise<T> {
-  const baseUrl = options?.baseUrl
-    ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
-    : gateway.baseUrl
-  const url = buildAthenaGatewayUrl(baseUrl, endpoint)
-  const headers = gateway.buildHeaders(options)
+  let url: string
+  let headers: Record<string, string>
+  try {
+    const baseUrl = options?.baseUrl
+      ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
+      : gateway.baseUrl
+    url = buildAthenaGatewayUrl(baseUrl, endpoint)
+    headers = gateway.buildHeaders(options)
+  } catch (error) {
+    return rejectStorageError(
+      {
+        code: storageCodeFromUnknown(error),
+        message: error instanceof Error
+          ? error.message
+          : `Athena storage ${method} ${endpoint} failed before sending the request`,
+        status: isAthenaGatewayError(error) ? error.status : 0,
+        endpoint,
+        method,
+        raw: error,
+        requestId: isAthenaGatewayError(error) ? error.requestId : undefined,
+        hint: isAthenaGatewayError(error) ? error.hint : undefined,
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
   const requestInit: RequestInit = {
     method,
     headers,
@@ -504,55 +743,213 @@ async function callStorageEndpoint<T>(
     response = await fetch(url, requestInit)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new AthenaStorageError({
-      code: 'NETWORK_ERROR',
-      message: `Network error while calling Athena storage ${method} ${endpoint}: ${message}`,
-      status: 0,
-      endpoint,
-      method,
-      cause: error,
-    })
+    return rejectStorageError(
+      {
+        code: 'NETWORK_ERROR',
+        message: `Network error while calling Athena storage ${method} ${endpoint}: ${message}`,
+        status: 0,
+        endpoint,
+        method,
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
   }
 
-  const rawText = await response.text()
+  let rawText: string
+  try {
+    rawText = await response.text()
+  } catch (error) {
+    return rejectStorageError(
+      {
+        code: 'NETWORK_ERROR',
+        message: `Athena storage ${method} ${endpoint} response body could not be read`,
+        status: response.status,
+        endpoint,
+        method,
+        requestId: headerValue(response.headers, ['x-athena-request-id', 'x-request-id', 'request-id']),
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
   const parsedBody = parseResponseBody(rawText ?? '', response.headers.get('content-type'))
+  const requestId = headerValue(response.headers, ['x-athena-request-id', 'x-request-id', 'request-id'])
   if (parsedBody.parseFailed) {
-    throw new AthenaStorageError({
-      code: 'INVALID_JSON',
-      message: `Athena storage ${method} ${endpoint} returned malformed JSON`,
-      status: response.status,
-      endpoint,
-      method,
-      raw: parsedBody.parsed,
-    })
+    return rejectStorageError(
+      {
+        code: 'INVALID_JSON',
+        message: `Athena storage ${method} ${endpoint} returned malformed JSON`,
+        status: response.status,
+        endpoint,
+        method,
+        requestId,
+        raw: parsedBody.parsed,
+      },
+      options,
+      runtimeOptions,
+    )
   }
 
   if (!response.ok) {
-    throw new AthenaStorageError({
+    return rejectStorageError(
+      {
+        code: 'HTTP_ERROR',
+        message: resolveErrorMessage(
+          parsedBody.parsed,
+          `Athena storage ${method} ${endpoint} failed with status ${response.status}`,
+        ),
+        status: response.status,
+        endpoint,
+        method,
+        requestId,
+        hint: resolveErrorHint(parsedBody.parsed),
+        cause: resolveErrorCause(parsedBody.parsed),
+        raw: parsedBody.parsed,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  if (envelope === 'athena') {
+    if (!isRecord(parsedBody.parsed) || !('data' in parsedBody.parsed)) {
+      return rejectStorageError(
+        {
+          code: 'INVALID_ATHENA_ENVELOPE',
+          message: `Athena storage ${method} ${endpoint} returned an invalid Athena envelope`,
+          status: response.status,
+          endpoint,
+          method,
+          requestId,
+          raw: parsedBody.parsed,
+        },
+        options,
+        runtimeOptions,
+      )
+    }
+    return parsedBody.parsed.data as T
+  }
+
+  return parsedBody.parsed as T
+}
+
+async function callStorageBinaryEndpoint(
+  gateway: AthenaGatewayClient,
+  endpoint: AthenaGatewayEndpointPath,
+  method: AthenaGatewayMethod,
+  options?: AthenaStorageBinaryCallOptions,
+  runtimeOptions?: StorageModuleRuntimeOptions,
+): Promise<Response> {
+  let url: string
+  let headers: Record<string, string>
+  try {
+    const baseUrl = options?.baseUrl
+      ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
+      : gateway.baseUrl
+    url = buildAthenaGatewayUrl(baseUrl, endpoint)
+    headers = gateway.buildHeaders(options)
+  } catch (error) {
+    return rejectStorageError(
+      {
+        code: storageCodeFromUnknown(error),
+        message: error instanceof Error
+          ? error.message
+          : `Athena storage ${method} ${endpoint} failed before sending the request`,
+        status: isAthenaGatewayError(error) ? error.status : 0,
+        endpoint,
+        method,
+        raw: error,
+        requestId: isAthenaGatewayError(error) ? error.requestId : undefined,
+        hint: isAthenaGatewayError(error) ? error.hint : undefined,
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      signal: options?.signal,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return rejectStorageError(
+      {
+        code: 'NETWORK_ERROR',
+        message: `Network error while calling Athena storage ${method} ${endpoint}: ${message}`,
+        status: 0,
+        endpoint,
+        method,
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  if (response.ok) {
+    return response
+  }
+
+  const requestId = headerValue(response.headers, ['x-athena-request-id', 'x-request-id', 'request-id'])
+  let rawErrorBody: unknown = null
+  try {
+    const rawText = await response.text()
+    const parsedBody = parseResponseBody(rawText ?? '', response.headers.get('content-type'))
+    rawErrorBody = parsedBody.parsed
+  } catch (error) {
+    return rejectStorageError(
+      {
+        code: 'NETWORK_ERROR',
+        message: `Athena storage ${method} ${endpoint} error response body could not be read`,
+        status: response.status,
+        endpoint,
+        method,
+        requestId,
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  return rejectStorageError(
+    {
       code: 'HTTP_ERROR',
       message: resolveErrorMessage(
-        parsedBody.parsed,
+        rawErrorBody,
         `Athena storage ${method} ${endpoint} failed with status ${response.status}`,
       ),
       status: response.status,
       endpoint,
       method,
-      raw: parsedBody.parsed,
-    })
-  }
-
-  return envelope === 'athena'
-    ? unwrapAthenaEnvelope<T>(parsedBody.parsed, endpoint, method)
-    : parsedBody.parsed as T
+      requestId,
+      hint: resolveErrorHint(rawErrorBody),
+      cause: resolveErrorCause(rawErrorBody),
+      raw: rawErrorBody,
+    },
+    options,
+    runtimeOptions,
+  )
 }
 
-export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorageModule {
+export function createStorageModule(
+  gateway: AthenaGatewayClient,
+  runtimeOptions?: AthenaStorageClientConfig,
+): AthenaStorageModule {
   return {
     listStorageCatalogs(options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'GET', 'raw', undefined, options)
+      return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'GET', 'raw', undefined, options, runtimeOptions)
     },
     createStorageCatalog(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'POST', 'raw', input, options)
+      return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'POST', 'raw', input, options, runtimeOptions)
     },
     updateStorageCatalog(id, input, options) {
       return callStorageEndpoint(
@@ -562,6 +959,7 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'raw',
         input,
         options,
+        runtimeOptions,
       )
     },
     deleteStorageCatalog(id, options) {
@@ -572,10 +970,11 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'raw',
         undefined,
         options,
+        runtimeOptions,
       )
     },
     listStorageCredentials(options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/credentials'), 'GET', 'raw', undefined, options)
+      return callStorageEndpoint(gateway, storagePath('/storage/credentials'), 'GET', 'raw', undefined, options, runtimeOptions)
     },
     createStorageUploadUrl(input, options) {
       return callStorageEndpoint(
@@ -585,6 +984,7 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'athena',
         input,
         options,
+        runtimeOptions,
       )
     },
     createStorageUploadUrls(input, options) {
@@ -595,10 +995,11 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'athena',
         input,
         options,
+        runtimeOptions,
       )
     },
     listStorageFiles(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/files/list'), 'POST', 'athena', input, options)
+      return callStorageEndpoint(gateway, storagePath('/storage/files/list'), 'POST', 'athena', input, options, runtimeOptions)
     },
     getStorageFile(fileId, options) {
       return callStorageEndpoint(
@@ -608,6 +1009,7 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'athena',
         undefined,
         options,
+        runtimeOptions,
       )
     },
     getStorageFileUrl(fileId, query, options) {
@@ -615,7 +1017,14 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         withPathParam('/storage/files/{file_id}/url', 'file_id', fileId),
         query,
       )
-      return callStorageEndpoint(gateway, storagePath(path), 'GET', 'athena', undefined, options)
+      return callStorageEndpoint(gateway, storagePath(path), 'GET', 'athena', undefined, options, runtimeOptions)
+    },
+    getStorageFileProxy(fileId, query, options) {
+      const path = appendQuery(
+        withPathParam('/storage/files/{file_id}/proxy', 'file_id', fileId),
+        query,
+      )
+      return callStorageBinaryEndpoint(gateway, storagePath(path), 'GET', options, runtimeOptions)
     },
     updateStorageFile(fileId, input, options) {
       return callStorageEndpoint(
@@ -625,6 +1034,7 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'athena',
         input,
         options,
+        runtimeOptions,
       )
     },
     deleteStorageFile(fileId, options) {
@@ -635,6 +1045,7 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'athena',
         undefined,
         options,
+        runtimeOptions,
       )
     },
     setStorageFileVisibility(fileId, input, options) {
@@ -645,13 +1056,14 @@ export function createStorageModule(gateway: AthenaGatewayClient): AthenaStorage
         'athena',
         input,
         options,
+        runtimeOptions,
       )
     },
     deleteStorageFolder(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/folders/delete'), 'POST', 'athena', input, options)
+      return callStorageEndpoint(gateway, storagePath('/storage/folders/delete'), 'POST', 'athena', input, options, runtimeOptions)
     },
     moveStorageFolder(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/folders/move'), 'POST', 'athena', input, options)
+      return callStorageEndpoint(gateway, storagePath('/storage/folders/move'), 'POST', 'athena', input, options, runtimeOptions)
     },
   }
 }

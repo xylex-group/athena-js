@@ -2,6 +2,11 @@ import { strict as assert } from 'assert'
 import { test } from 'node:test'
 import { createClient, AthenaClient } from '../src/client.ts'
 import { normalizeAthenaError } from '../src/auxiliaries.ts'
+import {
+  AthenaStorageError,
+  AthenaStorageErrorCode,
+  createAthenaStorageError,
+} from '../src/storage/module.ts'
 
 function createMockResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
@@ -807,6 +812,17 @@ test('storage module routes every storage method with expected envelopes and pay
     if (requestUrl.pathname === '/storage/files/file%201/url') {
       return createMockResponse(athena({ ...upload, purpose: requestUrl.searchParams.get('purpose') }), 200)
     }
+    if (requestUrl.pathname === '/storage/files/file%201/proxy') {
+      return new Response('proxy-body', {
+        status: 200,
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'inline',
+          etag: '"file-etag"',
+          'cache-control': 'private, no-store',
+        },
+      })
+    }
     if (requestUrl.pathname.startsWith('/storage/files/file%201')) {
       return createMockResponse(athena({ file }), 200)
     }
@@ -847,6 +863,12 @@ test('storage module routes every storage method with expected envelopes and pay
     await client.storage.listStorageFiles({ s3_id: 's3_1', prefix: 'reports/' })
     await client.storage.getStorageFile('file 1')
     await client.storage.getStorageFileUrl('file 1', { purpose: 'download' })
+    const proxyResponse = await client.storage.getStorageFileProxy('file 1', { purpose: 'stream' })
+    assert.equal(proxyResponse.headers.get('content-type'), 'application/pdf')
+    assert.equal(proxyResponse.headers.get('content-disposition'), 'inline')
+    assert.equal(proxyResponse.headers.get('etag'), '"file-etag"')
+    assert.equal(proxyResponse.headers.get('cache-control'), 'private, no-store')
+    assert.equal(await proxyResponse.text(), 'proxy-body')
     await client.storage.updateStorageFile('file 1', { storage_key: 'reports/archive.pdf' })
     await client.storage.deleteStorageFile('file 1')
     await client.storage.setStorageFileVisibility('file 1', { public: true })
@@ -899,6 +921,7 @@ test('storage module routes every storage method with expected envelopes and pay
       },
       { method: 'GET', path: '/storage/files/file%201', body: undefined },
       { method: 'GET', path: '/storage/files/file%201/url?purpose=download', body: undefined },
+      { method: 'GET', path: '/storage/files/file%201/proxy?purpose=stream', body: undefined },
       {
         method: 'PATCH',
         path: '/storage/files/file%201',
@@ -922,6 +945,172 @@ test('storage module routes every storage method with expected envelopes and pay
       },
     ])
     assert.equal((calls[0].init?.headers as Record<string, string>)['X-Athena-Client'], 'storage_matrix')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('storage proxy returns raw binary response and normalizes non-json errors', async () => {
+  const originalFetch = globalThis.fetch
+  const seen: AthenaStorageError[] = []
+  let shouldFail = false
+  globalThis.fetch = async () => {
+    if (shouldFail) {
+      return new Response('proxy forbidden', {
+        status: 403,
+        headers: {
+          'content-type': 'text/plain',
+          'x-request-id': 'req_proxy_403',
+        },
+      })
+    }
+    return new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: {
+        'content-type': 'application/octet-stream',
+        'content-disposition': 'attachment',
+        etag: '"binary-etag"',
+      },
+    })
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        athenaStorageBackend: true,
+        storage: {
+          onError(error) {
+            seen.push(error)
+          },
+        },
+      },
+    })
+
+    const response = await client.storage.getStorageFileProxy('file_1', { purpose: 'download' })
+    assert.equal(response.headers.get('content-type'), 'application/octet-stream')
+    assert.equal(response.headers.get('content-disposition'), 'attachment')
+    assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), [1, 2, 3])
+
+    shouldFail = true
+    let thrown: unknown
+    try {
+      await client.storage.getStorageFileProxy('file_1', { purpose: 'read' })
+    } catch (error) {
+      thrown = error
+    }
+
+    assert.ok(thrown instanceof AthenaStorageError)
+    assert.equal(seen.length, 1)
+    assert.equal(seen[0], thrown)
+    assert.equal(thrown.code, 'HTTP_ERROR')
+    assert.equal(thrown.athenaCode, 'AUTH_FORBIDDEN')
+    assert.equal(thrown.kind, 'auth')
+    assert.equal(thrown.retryable, false)
+    assert.equal(thrown.status, 403)
+    assert.equal(thrown.requestId, 'req_proxy_403')
+    assert.equal(thrown.raw, 'proxy forbidden')
+    assert.equal(thrown.normalized.operation, 'getStorageFileProxy')
+    assert.equal(normalizeAthenaError(thrown).operation, 'getStorageFileProxy')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('createAthenaStorageError produces normalized storage error metadata', () => {
+  const error = createAthenaStorageError({
+    code: AthenaStorageErrorCode.InvalidAthenaEnvelope,
+    message: 'Athena storage GET /storage/files/file_1 returned an invalid Athena envelope',
+    status: 200,
+    endpoint: '/storage/files/file_1',
+    method: 'GET',
+    raw: { status: 'ok', message: 'ok' },
+  })
+
+  assert.ok(error instanceof AthenaStorageError)
+  assert.equal(error.code, 'INVALID_ATHENA_ENVELOPE')
+  assert.equal(error.athenaCode, 'VALIDATION_FAILED')
+  assert.equal(error.kind, 'validation')
+  assert.equal(error.category, 'client')
+  assert.equal(error.retryable, false)
+  assert.equal(error.normalized.operation, 'getStorageFile')
+  assert.equal(normalizeAthenaError(error).operation, 'getStorageFile')
+  assert.deepEqual(error.toDetails(), {
+    code: 'INVALID_ATHENA_ENVELOPE',
+    athenaCode: 'VALIDATION_FAILED',
+    kind: 'validation',
+    category: 'client',
+    retryable: false,
+    message: 'Athena storage GET /storage/files/file_1 returned an invalid Athena envelope',
+    status: 200,
+    endpoint: '/storage/files/file_1',
+    method: 'GET',
+    requestId: undefined,
+    hint: undefined,
+    cause: undefined,
+    raw: { status: 'ok', message: 'ok' },
+  })
+})
+
+test('storage failures invoke global and per-call error callbacks with normalized errors', async () => {
+  const originalFetch = globalThis.fetch
+  const seen: AthenaStorageError[] = []
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        message: 'rate limit exceeded',
+        hint: 'wait and retry',
+        cause: 'storage quota exceeded',
+      }),
+      {
+        status: 429,
+        headers: {
+          'content-type': 'application/json',
+          'x-athena-request-id': 'req_storage_1',
+        },
+      },
+    )
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        athenaStorageBackend: true,
+        storage: {
+          onError(error) {
+            seen.push(error)
+            throw new Error('observer failure should not mask storage error')
+          },
+        },
+      },
+    })
+
+    let thrown: unknown
+    try {
+      await client.storage.listStorageCatalogs({
+        onError(error) {
+          seen.push(error)
+        },
+      })
+    } catch (error) {
+      thrown = error
+    }
+
+    assert.ok(thrown instanceof AthenaStorageError)
+    assert.equal(seen.length, 2)
+    assert.equal(seen[0], thrown)
+    assert.equal(seen[1], thrown)
+    assert.equal(thrown.code, 'HTTP_ERROR')
+    assert.equal(thrown.athenaCode, 'RATE_LIMITED')
+    assert.equal(thrown.kind, 'rate_limit')
+    assert.equal(thrown.category, 'server')
+    assert.equal(thrown.retryable, true)
+    assert.equal(thrown.status, 429)
+    assert.equal(thrown.endpoint, '/storage/catalogs')
+    assert.equal(thrown.method, 'GET')
+    assert.equal(thrown.requestId, 'req_storage_1')
+    assert.equal(thrown.hint, 'wait and retry')
+    assert.equal(thrown.causeDetail, 'storage quota exceeded')
+    assert.equal(thrown.normalized.operation, 'listStorageCatalogs')
+    assert.equal(normalizeAthenaError(thrown).code, 'RATE_LIMITED')
   } finally {
     globalThis.fetch = originalFetch
   }

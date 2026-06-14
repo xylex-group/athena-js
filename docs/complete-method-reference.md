@@ -2,7 +2,7 @@
 
 This file is generated from the TypeScript source and is intended to document every public SDK method surface with a usage example.
 
-Total documented method paths: **347**
+Total documented method paths: **348**
 
 Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 
@@ -15,6 +15,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `root.AthenaClient.builder` | `() => AthenaClientBuilder<false>` | `const athena = AthenaClient.builder().url("https://...").key("api_key").build()` | Create a fluent builder for a strongly-typed Athena SDK client. |
 | `root.AthenaClient.fromEnvironment` | `() => AthenaSdkClientWithAuth` | `const athena = AthenaClient.fromEnvironment()` | Build a client from process environment variables. |
 | `root.coerceInt` | `(value: unknown, options?: IntCoercionOptions) => number \| null` | `coerceInt(/* ... */)` | Safely coerces `unknown` values into finite integers. Returns `null` when coercion fails or bounds/strict bigint checks are violated. |
+| `root.createAthenaStorageError` | `(input: AthenaStorageErrorInput) => AthenaStorageError` | `createAthenaStorageError(/* ... */)` | — |
 | `root.createAuthClient` | `(config?: AthenaAuthClientConfig) => AthenaAuthSdkClient` | `createAuthClient()` | — |
 | `root.createAuthReactEmailInput` | `<TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps>(component: AthenaAuthReactEmailComponent<TProps>, props: TProps, overrides?: Omit<AthenaAuthReactEmailRenderInput, "component" \| "props" \| "element">) => AthenaAuthReactEmailRenderInput` | `createAuthReactEmailInput(/* ... */)` | — |
 | `root.createClient` | `{    (url: string, apiKey: string, options: AthenaCreateClientOptionsWithStorage): AthenaSdkClientWithStorage;    (url: string, apiKey: string, options?: AthenaCreateClientOptions): AthenaSdkClientWithAuth;}` | `const athena = createClient("https://...", "api_key")` | Create client (convenience wrapper; use AthenaClient.builder() for full control) |

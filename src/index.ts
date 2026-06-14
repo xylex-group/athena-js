@@ -73,7 +73,12 @@ export {
   createAuthReactEmailInput,
   defineAuthEmailTemplate,
 } from './auth/index.ts'
-export { storageSdkManifest, AthenaStorageError } from './storage/module.ts'
+export {
+  storageSdkManifest,
+  AthenaStorageError,
+  AthenaStorageErrorCode,
+  createAthenaStorageError,
+} from './storage/module.ts'
 export type {
   AthenaClientExperimentalOptions,
   AthenaClientBuilder,
@@ -95,8 +100,12 @@ export type {
 export type { AthenaDbModule } from './db/module.js'
 export type {
   AthenaEnvelope,
+  AthenaStorageBinaryCallOptions,
   AthenaStorageCallOptions,
-  AthenaStorageErrorCode,
+  AthenaStorageClientConfig,
+  AthenaStorageErrorDetails,
+  AthenaStorageErrorHandler,
+  AthenaStorageErrorInput,
   AthenaStorageModule,
   CreateStorageCatalogRequest,
   CreateStorageUploadUrlRequest,
@@ -110,6 +119,7 @@ export type {
   S3CatalogItem,
   S3CredentialListItem,
   SetStorageFileVisibilityRequest,
+  StorageFileAccessPurpose,
   StorageBatchUploadUrlResponse,
   StorageFileMutationResponse,
   StorageFolderMutationResponse,
