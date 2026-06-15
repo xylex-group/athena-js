@@ -14,6 +14,8 @@ import type {
 import { normalizeAthenaError } from '../auxiliaries.ts'
 import { isAthenaGatewayError } from '../gateway/errors.ts'
 import { buildAthenaGatewayUrl, normalizeAthenaGatewayBaseUrl } from '../gateway/url.ts'
+import { createStorageFileModule } from './file.ts'
+import type { AthenaStorageFileConfig, AthenaStorageFileModule } from './file.ts'
 
 export const storageSdkManifest = {
   namespace: 'storage',
@@ -332,7 +334,7 @@ export interface GetStorageFileUrlQuery {
 
 export type AthenaStorageErrorHandler = (error: AthenaStorageError) => void | Promise<void>
 
-export interface AthenaStorageClientConfig {
+export interface AthenaStorageClientConfig extends AthenaStorageFileConfig {
   onError?: AthenaStorageErrorHandler
 }
 
@@ -448,7 +450,7 @@ export class AthenaStorageError extends Error {
   }
 }
 
-export interface AthenaStorageModule {
+export interface AthenaStorageBaseModule {
   listStorageCatalogs(options?: AthenaStorageCallOptions): Promise<{ data: S3CatalogItem[] }>
   createStorageCatalog(
     input: CreateStorageCatalogRequest,
@@ -506,6 +508,11 @@ export interface AthenaStorageModule {
     input: MoveStorageFolderRequest,
     options?: AthenaStorageCallOptions,
   ): Promise<StorageFolderMutationResponse>
+}
+
+export interface AthenaStorageModule extends AthenaStorageBaseModule {
+  file: AthenaStorageFileModule
+  delete: AthenaStorageFileModule['delete']
 }
 
 type StorageEnvelopeKind = 'raw' | 'athena'
@@ -944,7 +951,7 @@ export function createStorageModule(
   gateway: AthenaGatewayClient,
   runtimeOptions?: AthenaStorageClientConfig,
 ): AthenaStorageModule {
-  return {
+  const base: AthenaStorageBaseModule = {
     listStorageCatalogs(options) {
       return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'GET', 'raw', undefined, options, runtimeOptions)
     },
@@ -1065,5 +1072,11 @@ export function createStorageModule(
     moveStorageFolder(input, options) {
       return callStorageEndpoint(gateway, storagePath('/storage/folders/move'), 'POST', 'athena', input, options, runtimeOptions)
     },
+  }
+  const file = createStorageFileModule(base, runtimeOptions)
+  return {
+    ...base,
+    file,
+    delete: file.delete,
   }
 }

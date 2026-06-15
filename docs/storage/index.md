@@ -19,6 +19,10 @@ const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!
   experimental: {
     athenaStorageBackend: true,
     storage: {
+      prefixPath: "organizations/{organization_id}/documents/{env.APP_ENV}",
+      env: {
+        APP_ENV: process.env.APP_ENV,
+      },
       onError(error) {
         console.error(error.code, error.athenaCode, error.kind, error.toDetails())
       },
@@ -28,6 +32,24 @@ const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!
 ```
 
 The `client` option is important for managed storage. The SDK sends it as `X-Athena-Client`, and Athena uses that client database when resolving storage catalogs, credentials, and managed file metadata.
+
+`experimental.storage.prefixPath` is used by the high-level `athena.storage.file.*` helpers. It is prepended to upload keys and list prefixes. Templates support values from call options, per-call `vars`, config `vars`, and env values:
+
+```ts
+const athena = createClient(url, apiKey, {
+  client: "app_primary",
+  experimental: {
+    athenaStorageBackend: true,
+    storage: {
+      prefixPath: "organizations/{organization_id}/uploads/{env.APP_ENV}",
+      vars: { organization_id: "org_fallback" },
+      env: { APP_ENV: process.env.APP_ENV },
+    },
+  },
+})
+```
+
+Supported token forms are `{organization_id}`, `{organizationId}`, `{user_id}`, `{userId}`, `{resource_id}`, `{resourceId}`, `{env.NAME}`, and `${NAME}`. In browser bundles, pass `env` explicitly because `process.env` is usually not available.
 
 The builder form narrows the returned type as well:
 
@@ -64,6 +86,13 @@ These are the methods currently exposed by `AthenaStorageModule`.
 | `setStorageFileVisibility(fileId, input)` | `PATCH /storage/files/{file_id}/visibility` | Athena envelope | `StorageFileMutationResponse` | Toggle public visibility for a managed file. |
 | `deleteStorageFolder(input)` | `POST /storage/folders/delete` | Athena envelope | `StorageFolderMutationResponse` | Delete every managed file below a prefix. |
 | `moveStorageFolder(input)` | `POST /storage/folders/move` | Athena envelope | `StorageFolderMutationResponse` | Move every managed file below one prefix to another prefix. |
+| `file.upload(input)` | `POST /storage/files/upload-url` or `/upload-urls`, then presigned `PUT` | Athena envelope + binary upload | `AthenaStorageFileUploadResult` | Validate local files, create managed upload URLs, upload bytes, and report progress. |
+| `file.download(fileId, query)` | `GET /storage/files/{file_id}/proxy` | Raw binary response | `Response` | Download or stream one managed file through Athena authorization. |
+| `file.download(fileIds, query)` | `GET /storage/files/{file_id}/proxy` per id | Raw binary response | `Response[]` | Download or stream multiple managed files. |
+| `file.list(input)` | `POST /storage/files/list` | Athena envelope | `StorageListFilesResponse` | List managed files under the configured prefix path. |
+| `file.delete(fileId)` | `DELETE /storage/files/{file_id}` | Athena envelope | `StorageFileMutationResponse` | Delete one managed file by id. |
+| `file.delete(fileIds)` | `DELETE /storage/files/{file_id}` per id | Athena envelope | `StorageFileMutationResponse[]` | Delete multiple managed files. |
+| `delete(fileIdOrIds)` | Same as `file.delete(...)` | Athena envelope | `StorageFileMutationResponse` or array | Short alias for file deletion. |
 
 Raw JSON endpoints return the parsed response body. Athena-envelope endpoints unwrap `{ status, message, data }` and return `data`. The binary proxy endpoint returns the original `Response` on success.
 
@@ -127,6 +156,40 @@ type StorageFileAccessPurpose = "read" | "download" | "stream"
 interface GetStorageFileUrlQuery {
   purpose?: StorageFileAccessPurpose | (string & {})
 }
+
+interface AthenaStorageFileUploadInput {
+  s3_id: string
+  bucket?: string
+  files: Blob | ArrayBuffer | Uint8Array | ArrayLike<Blob | ArrayBuffer | Uint8Array>
+  storage_key?: string
+  storageKey?: string
+  storageKeyTemplate?: string
+  prefixPath?: string
+  fileName?: string
+  maxFiles?: number
+  allowedExtensions?: string[]
+  extensions?: string[]
+  maxFileSizeMb?: number
+  maxFileSizeBytes?: number
+  public?: boolean
+  metadata?: Record<string, unknown>
+  vars?: Record<string, string | number | boolean | null | undefined>
+  env?: Record<string, string | undefined>
+  onProgress?: (progress: AthenaStorageUploadProgress) => void
+}
+
+interface AthenaStorageUploadProgress {
+  phase: "preparing" | "uploading" | "complete"
+  fileIndex: number
+  fileCount: number
+  fileName: string
+  loaded: number
+  total: number
+  percent: number
+  aggregateLoaded: number
+  aggregateTotal: number
+  aggregatePercent: number
+}
 ```
 
 `GetStorageFileUrlQuery` stays string-compatible so existing presigned URL purposes keep working if the server accepts additional purpose values later. For the proxy route, the current known purposes are `read`, `download`, and `stream`.
@@ -174,7 +237,118 @@ for (const credential of credentials.data) {
 }
 ```
 
-## Upload files
+## Convenience file API
+
+Use `athena.storage.file.upload(...)` when the SDK should create the managed file record and perform the presigned upload in one call.
+
+```ts
+const result = await athena.storage.file.upload(
+  {
+    s3_id: "s3_1",
+    bucket: "acme-documents",
+    files: selectedFile,
+    fileName: selectedFile.name,
+    extensions: ["pdf"],
+    maxFileSizeMb: 25,
+    metadata: {
+      source: "reports-ui",
+    },
+    onProgress(progress) {
+      console.log(progress.aggregatePercent)
+    },
+  },
+  { organizationId: "org_1" },
+)
+
+const uploadedFile = result.files[0].file
+console.log(uploadedFile.id, uploadedFile.storage_key)
+```
+
+`maxFiles` defaults to `1`. Raise it for multi-file input:
+
+```ts
+const batch = await athena.storage.file.upload({
+  s3_id: "s3_1",
+  bucket: "acme-documents",
+  files: fileInput.files,
+  maxFiles: 5,
+  extensions: ["pdf", "docx", "txt"],
+  maxFileSizeMb: 25,
+  storageKeyTemplate: "reports/{organization_id}/{index}-{fileName}",
+  vars: {
+    organization_id: "org_1",
+  },
+})
+
+for (const item of batch.files) {
+  console.log(item.file.id, item.storage_key)
+}
+```
+
+The upload helper uses `XMLHttpRequest` in browsers so `onProgress` receives real upload progress. In runtimes without XHR it falls back to `fetch`, reports start and completion, and still returns the presigned upload `Response`.
+
+List, download, and delete through the same facade:
+
+```ts
+const page = await athena.storage.file.list({
+  s3_id: "s3_1",
+  prefix: "reports",
+})
+
+const response = await athena.storage.file.download("file_1", {
+  purpose: "download",
+})
+const bytes = await response.arrayBuffer()
+
+const responses = await athena.storage.file.download(["file_1", "file_2"], {
+  purpose: "stream",
+})
+
+await athena.storage.file.delete("file_1")
+await athena.storage.delete(["file_2", "file_3"])
+```
+
+## React upload hook
+
+React apps can use `useStorageUpload` from `@xylex-group/athena/react`.
+
+```tsx
+import type { AthenaStorageModule } from "@xylex-group/athena"
+import { useStorageUpload } from "@xylex-group/athena/react"
+
+function ReportUpload({ athena }: { athena: { storage: AthenaStorageModule } }) {
+  const upload = useStorageUpload({
+    storage: athena.storage,
+    s3_id: "s3_1",
+    bucket: "acme-documents",
+    maxFileSizeMb: 25,
+    extensions: ["pdf"],
+  })
+
+  return (
+    <form
+      onSubmit={async event => {
+        event.preventDefault()
+        const form = new FormData(event.currentTarget)
+        const file = form.get("file")
+        if (file instanceof Blob) {
+          await upload.upload(file)
+        }
+      }}
+    >
+      <input name="file" type="file" accept=".pdf" />
+      <progress value={upload.percent} max={100} />
+      <button type="submit" disabled={upload.uploading}>
+        Upload
+      </button>
+    </form>
+  )
+}
+```
+
+The hook returns `{ uploading, progress, percent, error, result, upload, abort, reset }`. `progress` is the latest `AthenaStorageUploadProgress` snapshot, and `abort()` cancels the active XHR/fetch when the runtime supports `AbortSignal`.
+
+## Low-level upload URLs
 
 `createStorageUploadUrl(...)` creates managed file metadata and returns the presigned upload target.
 

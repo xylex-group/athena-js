@@ -188,6 +188,25 @@ export type {
   UpdateStorageFileRequest,
 } from './storage/module.js'
 export type {
+  AthenaStorageEnv,
+  AthenaStorageFileConfig,
+  AthenaStorageFileDeleteInput,
+  AthenaStorageFileDownloadInput,
+  AthenaStorageFileListInput,
+  AthenaStorageFileModule,
+  AthenaStorageFileUploadInput,
+  AthenaStorageFileUploadResult,
+  AthenaStoragePathContext,
+  AthenaStoragePrefixPath,
+  AthenaStorageTemplateValue,
+  AthenaStorageTemplateVars,
+  AthenaStorageUploadedFile,
+  AthenaStorageUploadConstraints,
+  AthenaStorageUploadProgress,
+  AthenaStorageUploadProgressHandler,
+  AthenaStorageUploadSource,
+} from './storage/file.js'
+export type {
   AthenaErrorInput,
   AthenaOperationContext,
   NormalizedAthenaError,

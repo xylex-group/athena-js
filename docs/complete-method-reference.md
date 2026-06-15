@@ -2,7 +2,7 @@
 
 This file is generated from the TypeScript source and is intended to document every public SDK method surface with a usage example.
 
-Total documented method paths: **348**
+Total documented method paths: **349**
 
 Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 
@@ -334,6 +334,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `react.useMutation` | `<TVariables, TMutationFnData, TData = TMutationFnData>(options: UseMutationOptions<TVariables, TMutationFnData, TData>) => UseMutationResult<TVariables, TData>` | `const mutation = useMutation({ mutationFn: (v) => athena.from("users").insert(v).select() })` | — |
 | `react.useQuery` | `<TQueryFnData, TData = TQueryFnData>(options: UseQueryOptions<TQueryFnData, TData>) => UseQueryResult<TData>` | `const query = useQuery({ queryKey: ["users"], queryFn: () => athena.from("users").select() })` | — |
 | `react.useSession` | `<TClient extends UseSessionAuthClient>(authClient: TClient, options?: UseSessionOptions) => UseSessionResult<InferSessionData<TClient>>` | `const session = useSession(athena)` | Better Auth style session hook parity for Athena auth clients. |
+| `react.useStorageUpload` | `(options: UseStorageUploadOptions) => UseStorageUploadResult` | `react.useStorageUpload(/* ... */)` | — |
 
 ## Cookie Methods (`@xylex-group/athena/cookies`)
 

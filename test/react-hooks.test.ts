@@ -9,10 +9,14 @@ import {
   useSession,
   useMutation,
   useQuery,
+  useStorageUpload,
   type UseMutationResult,
   type UseSessionResult,
   type UseQueryResult,
+  type UseStorageUploadResult,
 } from '../src/react/index.ts'
+import type { AthenaStorageModule } from '../src/storage/module.ts'
+import type { AthenaStorageFileUploadInput } from '../src/storage/file.ts'
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -48,6 +52,14 @@ function MutationProbe<TVariables, TData>(props: {
 function SessionProbe(props: {
   onChange: (value: UseSessionResult) => void
   hook: () => UseSessionResult
+}) {
+  props.onChange(props.hook())
+  return null
+}
+
+function StorageUploadProbe(props: {
+  onChange: (value: UseStorageUploadResult) => void
+  hook: () => UseStorageUploadResult
 }) {
   props.onChange(props.hook())
   return null
@@ -315,6 +327,73 @@ test('useMutation mutateAsync success and callbacks', async () => {
   assert.equal(latest.status, 'success')
   assert.deepEqual(latest.data, { id: '1', name: 'Product' })
   assert.deepEqual(callOrder, ['onMutate', 'onSuccess', 'onSettled'])
+  renderer?.unmount()
+})
+
+test('useStorageUpload reports upload progress and result state', async () => {
+  const storage = {
+    file: {
+      async upload(input: AthenaStorageFileUploadInput) {
+        input.onProgress?.({
+          phase: 'uploading',
+          fileIndex: 0,
+          fileCount: 1,
+          fileName: 'report.txt',
+          loaded: 5,
+          total: 10,
+          percent: 50,
+          aggregateLoaded: 5,
+          aggregateTotal: 10,
+          aggregatePercent: 50,
+        })
+        input.onProgress?.({
+          phase: 'complete',
+          fileIndex: 0,
+          fileCount: 1,
+          fileName: 'report.txt',
+          loaded: 10,
+          total: 10,
+          percent: 100,
+          aggregateLoaded: 10,
+          aggregateTotal: 10,
+          aggregatePercent: 100,
+        })
+        return { files: [], count: 0 }
+      },
+    },
+  } as Pick<AthenaStorageModule, 'file'>
+  let latest: UseStorageUploadResult | undefined
+  let renderer: ReactTestRenderer | undefined
+
+  await act(async () => {
+    renderer = create(
+      createElement(StorageUploadProbe, {
+        onChange: value => {
+          latest = value
+        },
+        hook: () =>
+          useStorageUpload({
+            storage,
+            s3_id: 's3_1',
+            fileName: 'report.txt',
+          }),
+      }),
+    )
+    await flush()
+  })
+
+  assert(latest)
+  await act(async () => {
+    await latest!.upload(new Blob(['test']))
+    await flush()
+  })
+
+  assert(latest)
+  assert.equal(latest.uploading, false)
+  assert.equal(latest.percent, 100)
+  assert.equal(latest.progress?.phase, 'complete')
+  assert.deepEqual(latest.result, { files: [], count: 0 })
+  assert.equal(latest.error, null)
   renderer?.unmount()
 })
 

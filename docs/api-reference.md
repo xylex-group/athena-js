@@ -481,14 +481,27 @@ const { file, upload } = await athena.storage.createStorageUploadUrl({
   storage_key: "reports/report.pdf",
 })
 
+const uploaded = await athena.storage.file.upload({
+  s3_id: "s3_1",
+  bucket: "documents",
+  files: selectedFile,
+  extensions: ["pdf"],
+  maxFileSizeMb: 25,
+})
+
 const response = await athena.storage.getStorageFileProxy("file_1", {
   purpose: "download",
 })
 const bytes = await response.arrayBuffer()
+
+await athena.storage.delete("file_1")
 ```
 
 ```ts
 interface AthenaStorageModule {
+  file: AthenaStorageFileModule
+  delete(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
+  delete(fileIds: readonly string[], options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse[]>
   listStorageCatalogs(options?: AthenaStorageCallOptions): Promise<{ data: S3CatalogItem[] }>
   createStorageCatalog(input: CreateStorageCatalogRequest, options?: AthenaStorageCallOptions): Promise<S3CatalogItem>
   updateStorageCatalog(id: string, input: UpdateStorageCatalogRequest, options?: AthenaStorageCallOptions): Promise<S3CatalogItem>
@@ -506,6 +519,15 @@ interface AthenaStorageModule {
   deleteStorageFolder(input: DeleteStorageFolderRequest, options?: AthenaStorageCallOptions): Promise<StorageFolderMutationResponse>
   moveStorageFolder(input: MoveStorageFolderRequest, options?: AthenaStorageCallOptions): Promise<StorageFolderMutationResponse>
 }
+
+interface AthenaStorageFileModule {
+  upload(input: AthenaStorageFileUploadInput, options?: AthenaStorageCallOptions): Promise<AthenaStorageFileUploadResult>
+  download(fileId: string, query?: GetStorageFileUrlQuery, options?: AthenaStorageBinaryCallOptions): Promise<Response>
+  download(fileIds: readonly string[], query?: GetStorageFileUrlQuery, options?: AthenaStorageBinaryCallOptions): Promise<Response[]>
+  list(input: AthenaStorageFileListInput, options?: AthenaStorageCallOptions): Promise<StorageListFilesResponse>
+  delete(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
+  delete(fileIds: readonly string[], options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse[]>
+}
 ```
 
 ```ts
@@ -518,6 +540,9 @@ type AthenaStorageErrorCode =
   | "UNKNOWN_ERROR"
 
 interface AthenaStorageClientConfig {
+  prefixPath?: string | ((context: AthenaStoragePathContext) => string | null | undefined)
+  vars?: Record<string, string | number | boolean | null | undefined>
+  env?: Record<string, string | undefined>
   onError?: AthenaStorageErrorHandler
 }
 
@@ -553,6 +578,10 @@ function createAthenaStorageError(input: AthenaStorageErrorInput): AthenaStorage
 ```
 
 Raw JSON storage endpoints return the parsed response body. Athena-envelope storage endpoints unwrap `{ status, message, data }` and return `data`. `getStorageFileProxy(...)` is the binary exception: it calls `GET /storage/files/{file_id}/proxy`, accepts the current proxy purposes (`"read"`, `"download"`, and `"stream"`) through the same query shape as `getStorageFileUrl(...)`, and returns the untouched `Response` so callers can read headers such as `Content-Type`, `Content-Disposition`, `Content-Length`, `ETag`, and `Cache-Control` before choosing `.blob()`, `.arrayBuffer()`, `.text()`, or streaming.
+
+The `file.*` helpers are convenience wrappers over the managed storage routes. `file.upload(...)` validates `maxFiles`, `extensions`/`allowedExtensions`, and `maxFileSizeMb`/`maxFileSizeBytes`, creates one or more upload URLs, uploads with XHR progress in browsers, and returns uploaded file records. `experimental.storage.prefixPath` is prepended by `file.upload(...)` and `file.list(...)`; templates can use values such as `{organization_id}`, `{organizationId}`, `{user_id}`, `{resource_id}`, `{env.APP_ENV}`, or `${APP_ENV}`.
+
+React upload state is available from `useStorageUpload(...)` in `@xylex-group/athena/react`. The hook returns `{ uploading, progress, percent, error, result, upload, abort, reset }` and calls through to `athena.storage.file.upload(...)`.
 
 All storage request failures flow through `createAthenaStorageError(...)` and throw `AthenaStorageError`. The error carries storage-specific `code`, normalized Athena fields (`athenaCode`, `kind`, `category`, `retryable`), request metadata (`status`, `endpoint`, `method`, `requestId`), diagnostic fields (`hint`, `causeDetail`, `raw`), and a hidden normalized error payload so `normalizeAthenaError(error)` returns the same normalized classification.
 

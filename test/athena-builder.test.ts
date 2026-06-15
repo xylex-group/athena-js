@@ -1023,6 +1023,215 @@ test('storage proxy returns raw binary response and normalizes non-json errors',
   }
 })
 
+test('storage file facade uploads with prefix templates and wraps list download delete', async () => {
+  const originalFetch = globalThis.fetch
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const progress: number[] = []
+
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    const parsedUrl = new URL(String(url))
+    if (parsedUrl.hostname === 'upload.example.com') {
+      return new Response(null, { status: 200 })
+    }
+    if (parsedUrl.pathname === '/storage/files/upload-url') {
+      const body = JSON.parse(init?.body as string) as { storage_key: string; name: string }
+      return createMockResponse({
+        status: 'success',
+        message: 'ok',
+        data: {
+          file: {
+            id: 'file_1',
+            name: body.name,
+            bucket: 'documents',
+            organization_id: 'org_1',
+            metadata: {},
+            created_at: '2026-06-15T00:00:00Z',
+            updated_at: '2026-06-15T00:00:00Z',
+            storage_key: body.storage_key,
+            is_public: false,
+            status: 'ready',
+          },
+          upload: {
+            file_id: 'file_1',
+            bucket: 'documents',
+            storage_key: body.storage_key,
+            purpose: 'upload',
+            url: 'https://upload.example.com/report.txt',
+            expires_at: '2026-06-15T00:10:00Z',
+            expires_at_epoch_seconds: 1781482200,
+            expires_in: 600,
+            cache_hit: false,
+            cache_layer: 'origin',
+          },
+        },
+      })
+    }
+    if (parsedUrl.pathname === '/storage/files/list') {
+      return createMockResponse({
+        status: 'success',
+        message: 'ok',
+        data: { files: [], count: 0 },
+      })
+    }
+    if (parsedUrl.pathname.endsWith('/proxy')) {
+      return new Response('file-body', { status: 200 })
+    }
+    if (parsedUrl.pathname.startsWith('/storage/files/')) {
+      return createMockResponse({
+        status: 'success',
+        message: 'ok',
+        data: {
+          file: {
+            id: parsedUrl.pathname.split('/').at(-1) ?? 'file_1',
+            name: 'deleted.pdf',
+            bucket: 'documents',
+            organization_id: 'org_1',
+            metadata: {},
+            created_at: '2026-06-15T00:00:00Z',
+            updated_at: '2026-06-15T00:00:00Z',
+            storage_key: 'reports/deleted.pdf',
+            is_public: false,
+            status: 'deleted',
+          },
+        },
+      })
+    }
+    return createMockResponse({ status: 'success', message: 'ok', data: {} })
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      client: 'storage_facade',
+      experimental: {
+        athenaStorageBackend: true,
+        storage: {
+          prefixPath: 'orgs/{organization_id}/env/{env.STAGE}',
+          env: { STAGE: 'test' },
+        },
+      },
+    })
+
+    await assert.rejects(
+      () => client.storage.file.upload({
+        s3_id: 's3_1',
+        files: [new Blob(['a']), new Blob(['b'])],
+      }),
+      /at most 1 file/,
+    )
+
+    const uploaded = await client.storage.file.upload(
+      {
+        s3_id: 's3_1',
+        bucket: 'documents',
+        files: new Blob(['hello'], { type: 'text/plain' }),
+        fileName: 'report.txt',
+        extensions: ['txt'],
+        maxFileSizeMb: 1,
+        onProgress(event) {
+          progress.push(event.aggregatePercent)
+        },
+      },
+      { organizationId: 'org_1' },
+    )
+    assert.equal(uploaded.count, 1)
+    assert.equal(uploaded.files[0].storage_key, 'orgs/org_1/env/test/report.txt')
+    assert.equal(uploaded.files[0].file.storage_key, 'orgs/org_1/env/test/report.txt')
+    assert.ok(progress.includes(100))
+
+    const listed = await client.storage.file.list({
+      s3_id: 's3_1',
+      prefix: 'reports',
+      prefixPath: 'tenants/{organization_id}',
+      vars: { organization_id: 'org_2' },
+    })
+    assert.equal(listed.count, 0)
+
+    const downloads = await client.storage.file.download(['file 1', 'file 2'], { purpose: 'download' })
+    assert.deepEqual(await Promise.all(downloads.map(response => response.text())), ['file-body', 'file-body'])
+
+    const deleted = await client.storage.delete(['file 1', 'file 2'])
+    assert.equal(deleted.length, 2)
+
+    const observed = calls.map(call => {
+      const parsedUrl = new URL(call.url)
+      return {
+        method: call.init?.method,
+        host: parsedUrl.hostname,
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        body: call.init?.body && typeof call.init.body === 'string'
+          ? JSON.parse(call.init.body)
+          : undefined,
+        contentType: call.init?.headers instanceof Headers
+          ? call.init.headers.get('content-type')
+          : undefined,
+      }
+    })
+    assert.deepEqual(observed, [
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/files/upload-url',
+        body: {
+          s3_id: 's3_1',
+          bucket: 'documents',
+          storage_key: 'orgs/org_1/env/test/report.txt',
+          name: 'report.txt',
+          original_name: 'report.txt',
+          mime_type: 'text/plain',
+          content_type: 'text/plain',
+          size_bytes: 5,
+        },
+        contentType: undefined,
+      },
+      {
+        method: 'PUT',
+        host: 'upload.example.com',
+        path: '/report.txt',
+        body: undefined,
+        contentType: 'text/plain',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/files/list',
+        body: { s3_id: 's3_1', prefix: 'tenants/org_2/reports' },
+        contentType: undefined,
+      },
+      {
+        method: 'GET',
+        host: 'athena-db.com',
+        path: '/storage/files/file%201/proxy?purpose=download',
+        body: undefined,
+        contentType: undefined,
+      },
+      {
+        method: 'GET',
+        host: 'athena-db.com',
+        path: '/storage/files/file%202/proxy?purpose=download',
+        body: undefined,
+        contentType: undefined,
+      },
+      {
+        method: 'DELETE',
+        host: 'athena-db.com',
+        path: '/storage/files/file%201',
+        body: undefined,
+        contentType: undefined,
+      },
+      {
+        method: 'DELETE',
+        host: 'athena-db.com',
+        path: '/storage/files/file%202',
+        body: undefined,
+        contentType: undefined,
+      },
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('createAthenaStorageError produces normalized storage error metadata', () => {
   const error = createAthenaStorageError({
     code: AthenaStorageErrorCode.InvalidAthenaEnvelope,

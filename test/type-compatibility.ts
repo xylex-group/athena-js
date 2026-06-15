@@ -36,8 +36,11 @@ import {
   type AthenaStorageClientConfig,
   type AthenaStorageErrorDetails,
   type AthenaStorageErrorHandler,
+  type AthenaStorageFileUploadResult,
   type S3CatalogItem,
   type StorageFileAccessPurpose,
+  type StorageFileMutationResponse,
+  type StorageListFilesResponse,
   type StorageUploadUrlResponse,
 } from "../src/index.ts"
 import type {
@@ -46,6 +49,7 @@ import type {
   UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
+  UseStorageUploadOptions,
 } from "../src/react/index.ts"
 
 interface UserRow {
@@ -88,6 +92,16 @@ declare function acceptsStorageCatalogListPromise(
 declare function acceptsStorageUploadUrlPromise(
   value: Promise<StorageUploadUrlResponse>,
 ): void
+declare function acceptsStorageFileUploadResultPromise(
+  value: Promise<AthenaStorageFileUploadResult>,
+): void
+declare function acceptsStorageListFilesPromise(
+  value: Promise<StorageListFilesResponse>,
+): void
+declare function acceptsStorageFileMutationPromise(
+  value: Promise<StorageFileMutationResponse>,
+): void
+declare function acceptsResponseArrayPromise(value: Promise<Response[]>): void
 
 declare function acceptsUserInsertMutation(
   value: PromiseLike<AthenaResult<UserRow>>,
@@ -132,6 +146,9 @@ const experimentalStorageClient = createClient("https://mirror3.athena-db.com", 
   experimental: {
     athenaStorageBackend: true,
     storage: {
+      prefixPath: 'orgs/{organization_id}/env/{env.STAGE}',
+      vars: { organization_id: 'org_1' },
+      env: { STAGE: 'test' },
       onError(error) {
         acceptsStorageErrorDetails(error.toDetails())
       },
@@ -166,6 +183,8 @@ acceptsStorageErrorHandler(error => {
   acceptsStorageErrorDetails(error.toDetails())
 })
 acceptsStorageConfig({
+  prefixPath: context => `orgs/${context.organization_id}`,
+  env: { ATHENA_STORAGE_PREFIX: 'typed-test' },
   onError(error) {
     acceptsStorageErrorDetails(error.toDetails())
   },
@@ -197,6 +216,33 @@ experimentalStorageClient.storage.getStorageFileUrl('file_1', { purpose: 'downlo
 acceptsResponsePromise(
   experimentalStorageClient.storage.getStorageFileProxy('file_1', { purpose: 'stream' }),
 )
+acceptsStorageFileUploadResultPromise(
+  experimentalStorageClient.storage.file.upload({
+    s3_id: 's3_1',
+    files: new Blob(['hello'], { type: 'text/plain' }),
+    fileName: 'report.txt',
+    extensions: ['txt', '.pdf'],
+    maxFiles: 1,
+    maxFileSizeMb: 10,
+    vars: { organization_id: 'org_1' },
+  }),
+)
+acceptsStorageListFilesPromise(
+  experimentalStorageClient.storage.file.list({
+    s3_id: 's3_1',
+    prefix: 'reports',
+  }),
+)
+acceptsResponsePromise(experimentalStorageClient.storage.file.download('file_1'))
+acceptsResponseArrayPromise(experimentalStorageClient.storage.file.download(['file_1', 'file_2']))
+acceptsStorageFileMutationPromise(experimentalStorageClient.storage.file.delete('file_1'))
+acceptsStorageFileMutationPromise(experimentalStorageClient.storage.delete('file_1'))
+const storageUploadHookOptions: UseStorageUploadOptions = {
+  storage: experimentalStorageClient.storage,
+  s3_id: 's3_1',
+  fileName: 'report.txt',
+}
+acceptsUnknown(storageUploadHookOptions)
 // @ts-expect-error storage bindings are exposed only with experimental.athenaStorageBackend
 client.storage.listStorageCatalogs()
 const authSessionResult = client.auth.getSession()
