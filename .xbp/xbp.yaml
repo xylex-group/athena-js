@@ -28,6 +28,20 @@ npm_script: null
 port: 3000
 port_storybook: null
 project_name: athena-js
+publish:
+  npm:
+    access: public
+    enabled: true
+    generate_npmrc: true
+    manifest_path: package.json
+    package_name: '@xylex-group/athena'
+    preflight_commands:
+    - pnpm test
+    publish_command: npm publish
+    token: ${NPM_TOKEN}
+    use_wsl: false
+    working_directory: ./
+    wsl_distribution: null
 services: null
 start_command: docker run -d --rm --name xbp-athena-js -p 80:80 -e PORT xbp-athena-js:latest
 systemd: null
