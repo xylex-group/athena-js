@@ -8,6 +8,7 @@ For method-by-method runtime AST/state/payload models, use [`runtime-method-ast-
 For detailed auth-session and bearer forwarding semantics on gateway/query requests, use [`auth-session-forwarding.md`](auth-session-forwarding.md).
 For model architecture strategy, use [`type-safety-playbook.md`](type-safety-playbook.md).
 For Athena Auth endpoint parity and per-endpoint examples, use [`auth/index.mdx`](auth/index.mdx) and [`auth-client-bindings.md`](auth-client-bindings.md).
+For full storage setup, managed file examples, binary proxy behavior, and server OpenAPI route coverage, use [`storage/index.md`](storage/index.md).
 For exhaustive method-by-method coverage (including auth, runtime chains, react, cookies, and utils), use [`complete-method-reference.md`](complete-method-reference.md).
 
 ## Export surfaces
@@ -460,7 +461,7 @@ interface AthenaDbModule {
 
 ### Storage module (experimental)
 
-Storage bindings are only available when `experimental.athenaStorageBackend` is enabled.
+Storage bindings are only available when `experimental.athenaStorageBackend` is enabled. For workflow examples and OpenAPI route coverage, use [`storage/index.md`](storage/index.md).
 
 ```ts
 const athena = createClient(url, apiKey, {

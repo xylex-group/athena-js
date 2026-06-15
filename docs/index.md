@@ -13,9 +13,10 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 3. [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md) - canonical `findMany(...)` AST semantics, transport mapping, base-table schema targeting, cross-schema relation examples, and server follow-up work
 4. [`runtime-method-ast-models.md`](runtime-method-ast-models.md) - normalized AST/state/payload models for `select`, mutations, `rpc`, `query`, builder filters, and route selection
 5. [`select-column-aliases.md`](select-column-aliases.md) - response shaping with `customName:columnName`, array form, and alias behavior across reads/writes/RPC, including schema-qualified column references
-6. [`api-reference.md`](api-reference.md) - exact signatures for the runtime client, builders, helpers, `@xylex-group/athena/utils`, and experimental query tracing
-7. [`cli-command-reference.md`](cli-command-reference.md) - CLI commands and troubleshooting
-8. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive, generated method-by-method reference with examples
+6. [`storage/index.md`](storage/index.md) - experimental `client.storage.*` setup, managed catalog/file workflows, binary proxy reads, error handling, and server OpenAPI storage route coverage
+7. [`api-reference.md`](api-reference.md) - exact signatures for the runtime client, builders, helpers, `@xylex-group/athena/utils`, and experimental query tracing
+8. [`cli-command-reference.md`](cli-command-reference.md) - CLI commands and troubleshooting
+9. [`complete-method-reference.md`](complete-method-reference.md) - exhaustive, generated method-by-method reference with examples
 
 ### Track B - Typed model architecture
 
@@ -63,6 +64,7 @@ Runtime client (createClient / AthenaClient.builder)
 - If your issue is `findMany(...)`, nested relation selection, cross-schema relation reads, route payload shape, or Athena server compatibility: open [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md).
 - If your issue is how `select(...)`, `insert(...)`, `upsert(...)`, `update(...)`, `delete(...)`, `rpc(...)`, or `query(...)` normalize into builder state and wire payloads: open [`runtime-method-ast-models.md`](runtime-method-ast-models.md).
 - If your issue is response field naming or `customName:columnName` syntax: open [`select-column-aliases.md`](select-column-aliases.md).
+- If your issue is Athena-managed storage, upload URLs, proxied file reads, or storage OpenAPI route coverage: open [`storage/index.md`](storage/index.md).
 - If your issue is type drift across domains: start at [`type-safety-playbook.md`](type-safety-playbook.md).
 - If your issue is generated artifacts or CI determinism: start at [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).
 - If your issue is auth endpoint parity and typed auth bindings: start at [`auth/index.mdx`](auth/index.mdx).
