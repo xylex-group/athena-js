@@ -368,9 +368,17 @@ export const getSessionCookie = (
   const parsedCookie = parseCookies(cookies)
   const getCookie = (name: string): string | undefined =>
     parsedCookie.get(name) || parsedCookie.get(`${SECURE_COOKIE_PREFIX}${name}`)
-  const sessionToken = getCookie(`${cookiePrefix}.${cookieName}`) || getCookie(`${cookiePrefix}-${cookieName}`)
-  if (sessionToken) {
-    return sessionToken
+  const candidateCookieNames = Array.from(new Set([
+    cookieName,
+    cookieName.replace(/_/g, '-'),
+    cookieName.replace(/-/g, '_'),
+  ])).filter(Boolean)
+  for (const candidateName of candidateCookieNames) {
+    const sessionToken =
+      getCookie(`${cookiePrefix}.${candidateName}`) || getCookie(`${cookiePrefix}-${candidateName}`)
+    if (sessionToken) {
+      return sessionToken
+    }
   }
   return null
 }
