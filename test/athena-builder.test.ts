@@ -1023,6 +1023,255 @@ test('storage proxy returns raw binary response and normalizes non-json errors',
   }
 })
 
+test('grouped storage namespaces forward auth context and expose low-level upload helpers', async () => {
+  const originalFetch = globalThis.fetch
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const file = {
+    id: 'file_1',
+    name: 'report.pdf',
+    file_name: 'report.pdf',
+    bucket: 'documents',
+    organization_id: 'org_1',
+    metadata: {},
+    created_at: '2026-06-15T00:00:00Z',
+    updated_at: '2026-06-15T00:00:00Z',
+    storage_key: 'reports/report.pdf',
+    is_public: false,
+    visibility: 'private',
+    status: 'pending',
+  }
+
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    const parsedUrl = new URL(String(url))
+    if (parsedUrl.hostname === 'upload.example.com') {
+      return new Response(null, { status: 200 })
+    }
+    if (parsedUrl.pathname === '/storage/files/upload-url') {
+      return createMockResponse({
+        status: 'success',
+        message: 'ok',
+        data: {
+          file,
+          upload: {
+            file_id: 'file_1',
+            bucket: 'documents',
+            storage_key: 'reports/report.pdf',
+            purpose: 'upload',
+            url: 'https://upload.example.com/report.pdf',
+            expires_at: '2026-06-15T00:10:00Z',
+            expires_at_epoch_seconds: 1781482200,
+            expires_in: 600,
+            cache_hit: false,
+            cache_layer: 'origin',
+          },
+        },
+      })
+    }
+    if (parsedUrl.pathname === '/storage/files/file_1/confirm-upload') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { file: { ...file, status: 'uploaded' } } })
+    }
+    if (parsedUrl.pathname === '/storage/files/file_1/public-url') {
+      return createMockResponse({
+        status: 'success',
+        message: 'ok',
+        data: {
+          file_id: 'file_1',
+          bucket: 'documents',
+          storage_key: 'reports/report.pdf',
+          url: 'https://public.example.com/reports/report.pdf',
+        },
+      })
+    }
+    if (parsedUrl.pathname === '/storage/files/delete-many') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { files: [file], count: 1 } })
+    }
+    if (parsedUrl.pathname === '/storage/permissions/check') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { allowed: true, permission: 'read' } })
+    }
+    if (parsedUrl.pathname === '/storage/objects/exists') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { exists: true, key: 'reports/report.pdf' } })
+    }
+    if (parsedUrl.pathname === '/storage/buckets/cors') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { bucket: 'documents', cors_xml: '' } })
+    }
+    if (parsedUrl.pathname === '/storage/multipart/create') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { file_id: 'file_1', upload_id: 'mp_1' } })
+    }
+    if (parsedUrl.pathname === '/storage/audit/list') {
+      return createMockResponse({ status: 'success', message: 'ok', data: { events: [], count: 0 } })
+    }
+    return createMockResponse({ error: `unexpected ${init?.method} ${parsedUrl.pathname}` }, 404)
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      client: 'storage_groups',
+      headers: {
+        Cookie: 'athena-auth.session-token=session_123',
+        Authorization: 'Bearer bearer_456',
+      },
+      experimental: {
+        athenaStorageBackend: true,
+      },
+    })
+
+    const prepared = await client.storage.file.upload({
+      s3Id: 's3_1',
+      storageKey: 'reports/report.pdf',
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      visibility: 'private',
+    })
+    assert.equal(prepared.upload.method, 'PUT')
+    assert.equal(prepared.upload.expiresAt, '2026-06-15T00:10:00Z')
+
+    const putResponse = await prepared.upload.put(new Blob(['pdf-body'], { type: 'application/pdf' }))
+    assert.equal(putResponse.status, 200)
+
+    await client.storage.file.confirmUpload('file_1')
+    const publicUrl = await client.storage.file.publicUrl('file_1')
+    assert.equal(publicUrl.url, 'https://public.example.com/reports/report.pdf')
+    await client.storage.file.deleteMany({ file_ids: ['file_1'] })
+    const permission = await client.storage.permission.check({ file_id: 'file_1', permission: 'read' })
+    assert.equal(permission.allowed, true)
+    const objectExists = await client.storage.object.exists({
+      endpoint: 'https://s3.example.com',
+      region: 'us-east-1',
+      access_key_id: 'AKIA_TEST',
+      secret_key: 'secret',
+      bucket: 'documents',
+      key: 'reports/report.pdf',
+    })
+    assert.equal(objectExists.exists, true)
+    await client.storage.bucket.cors.get({
+      endpoint: 'https://s3.example.com',
+      region: 'us-east-1',
+      access_key_id: 'AKIA_TEST',
+      secret_key: 'secret',
+      bucket: 'documents',
+    })
+    await client.storage.multipart.create({ file_id: 'file_1', content_type: 'application/pdf' })
+    const audit = await client.storage.audit.list({ file_id: 'file_1' })
+    assert.equal(audit.count, 0)
+
+    const uploadRequestHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(uploadRequestHeaders['X-Athena-Client'], 'storage_groups')
+    assert.equal(uploadRequestHeaders['Cookie'], 'athena-auth.session-token=session_123')
+    assert.equal(uploadRequestHeaders['Authorization'], 'Bearer bearer_456')
+    assert.equal(uploadRequestHeaders['X-Athena-Auth-Session-Token'], 'session_123')
+    assert.equal(uploadRequestHeaders['X-Athena-Auth-Bearer-Token'], 'bearer_456')
+
+    const observed = calls.map(call => {
+      const parsedUrl = new URL(call.url)
+      return {
+        method: call.init?.method,
+        host: parsedUrl.hostname,
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        body: typeof call.init?.body === 'string' ? JSON.parse(call.init.body) : undefined,
+        contentType: call.init?.headers instanceof Headers
+          ? call.init.headers.get('content-type')
+          : (call.init?.headers as Record<string, string> | undefined)?.['Content-Type'],
+      }
+    })
+
+    assert.deepEqual(observed, [
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/files/upload-url',
+        body: {
+          s3_id: 's3_1',
+          storage_key: 'reports/report.pdf',
+          name: 'report.pdf',
+          original_name: 'report.pdf',
+          content_type: 'application/pdf',
+          visibility: 'private',
+        },
+        contentType: 'application/json',
+      },
+      {
+        method: 'PUT',
+        host: 'upload.example.com',
+        path: '/report.pdf',
+        body: undefined,
+        contentType: 'application/pdf',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/files/file_1/confirm-upload',
+        body: {},
+        contentType: 'application/json',
+      },
+      {
+        method: 'GET',
+        host: 'athena-db.com',
+        path: '/storage/files/file_1/public-url',
+        body: undefined,
+        contentType: 'application/json',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/files/delete-many',
+        body: { file_ids: ['file_1'] },
+        contentType: 'application/json',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/permissions/check',
+        body: { file_id: 'file_1', permission: 'read' },
+        contentType: 'application/json',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/objects/exists',
+        body: {
+          endpoint: 'https://s3.example.com',
+          region: 'us-east-1',
+          access_key_id: 'AKIA_TEST',
+          secret_key: 'secret',
+          bucket: 'documents',
+          key: 'reports/report.pdf',
+        },
+        contentType: 'application/json',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/buckets/cors',
+        body: {
+          endpoint: 'https://s3.example.com',
+          region: 'us-east-1',
+          access_key_id: 'AKIA_TEST',
+          secret_key: 'secret',
+          bucket: 'documents',
+        },
+        contentType: 'application/json',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/multipart/create',
+        body: { file_id: 'file_1', content_type: 'application/pdf' },
+        contentType: 'application/json',
+      },
+      {
+        method: 'POST',
+        host: 'athena-db.com',
+        path: '/storage/audit/list',
+        body: { file_id: 'file_1' },
+        contentType: 'application/json',
+      },
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('storage file facade uploads with prefix templates and wraps list download delete', async () => {
   const originalFetch = globalThis.fetch
   const calls: Array<{ url: string; init?: RequestInit }> = []

@@ -163,14 +163,15 @@ export const storageSdkManifest = {
 export interface S3CatalogItem {
   id: string
   name: string
-  description: string
-  endpoint: string
-  region: string
-  bucket?: string | null
+  endpoint?: string | null
+  region?: string | null
+  bucket: string
   provider: string
+  force_path_style: boolean
+  default_prefix?: string | null
+  public_base_url?: string | null
   is_active: boolean
-  active_credential_id?: string | null
-  active_access_key?: string | null
+  metadata: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -179,34 +180,39 @@ export interface S3CredentialListItem {
   id: string
   s3_id: string
   name: string
-  description: string
-  endpoint: string
-  region: string
-  bucket?: string | null
+  endpoint?: string | null
+  region?: string | null
+  bucket: string
   provider: string
   access_key: string
+  is_active: boolean
   created_at: string
-  updated_at: string
+  rotated_at?: string | null
 }
 
 export interface ManagedFileRecord {
   id: string
   name: string
   original_name?: string | null
+  file_name?: string | null
   url?: string | null
   bucket: string
   s3_id?: string | null
   prefix_path?: string | null
   size_bytes?: number | null
   mime_type?: string | null
+  content_type?: string | null
   resource_id?: string | null
-  organization_id: string
+  organization_id?: string | null
+  created_by_user_id?: string | null
+  uploaded_by_user_id?: string | null
+  checksum_sha256?: string | null
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string
   storage_key: string
-  uploaded_by_user_id?: string | null
   extension?: string | null
+  visibility?: 'private' | 'organization' | 'public'
   is_public: boolean
   status: string
   deleted_at?: string | null
@@ -227,11 +233,13 @@ export interface PresignedFileUrlResponse {
 
 export interface CreateStorageCatalogRequest {
   name: string
-  description?: string
   endpoint: string
   region: string
-  bucket?: string
+  bucket: string
   provider?: string
+  force_path_style?: boolean
+  default_prefix?: string
+  public_base_url?: string
   access_key_id: string
   secret_key: string
   session_token?: string
@@ -240,11 +248,13 @@ export interface CreateStorageCatalogRequest {
 
 export interface UpdateStorageCatalogRequest {
   name?: string
-  description?: string
   endpoint?: string
   region?: string
   bucket?: string
   provider?: string
+  force_path_style?: boolean
+  default_prefix?: string | null
+  public_base_url?: string | null
   access_key_id?: string
   secret_key?: string
   session_token?: string
@@ -264,6 +274,7 @@ export interface CreateStorageUploadUrlRequest {
   size_bytes?: number
   file_id?: string
   public?: boolean
+  visibility?: 'private' | 'organization' | 'public'
   metadata?: Record<string, unknown>
 }
 
@@ -296,7 +307,8 @@ export interface UpdateStorageFileRequest {
 }
 
 export interface SetStorageFileVisibilityRequest {
-  public: boolean
+  public?: boolean
+  visibility?: 'private' | 'organization' | 'public'
 }
 
 export interface DeleteStorageFolderRequest {
@@ -318,6 +330,237 @@ export interface StorageFolderMutationResponse {
   s3_id: string
   prefix: string
   processed_files: number
+}
+
+export interface StorageFileMutationManyResponse {
+  files: ManagedFileRecord[]
+  count: number
+}
+
+export interface StorageFilePermissionRecord {
+  id: string
+  file_id: string
+  principal_type: 'user' | 'organization' | 'team' | 'role'
+  principal_id: string
+  permission: 'read' | 'write' | 'delete' | 'share' | 'owner'
+  granted_by_user_id?: string | null
+  created_at: string
+  expires_at?: string | null
+  revoked_at?: string | null
+  metadata: Record<string, unknown>
+}
+
+export interface StoragePermissionListResponse {
+  permissions: StorageFilePermissionRecord[]
+  count: number
+}
+
+export interface StoragePermissionCheckResponse {
+  allowed: boolean
+  permission: string
+}
+
+export interface StorageAuditEventRecord {
+  id: string
+  operation: string
+  file_id?: string | null
+  s3_id?: string | null
+  bucket?: string | null
+  storage_key?: string | null
+  actor_user_id?: string | null
+  organization_id?: string | null
+  status: 'success' | 'error'
+  error?: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface StorageAuditListResponse {
+  events: StorageAuditEventRecord[]
+  count: number
+}
+
+export interface ConfirmStorageUploadRequest {
+  size_bytes?: number
+  content_type?: string
+  checksum_sha256?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface SearchStorageFilesRequest {
+  query?: string
+  limit?: number
+}
+
+export interface DeleteManyStorageFilesRequest {
+  file_ids: string[]
+}
+
+export interface UpdateManyStorageFilesRequest {
+  file_ids: string[]
+  storage_key: string
+  bucket?: string
+}
+
+export interface SetManyStorageFileVisibilityRequest {
+  file_ids: string[]
+  public?: boolean
+  visibility?: 'private' | 'organization' | 'public'
+}
+
+export interface CopyStorageFileRequest {
+  storage_key: string
+  bucket?: string
+  file_name?: string
+  visibility?: 'private' | 'organization' | 'public'
+  metadata?: Record<string, unknown>
+}
+
+export interface ListStorageFoldersRequest {
+  s3_id: string
+  prefix: string
+}
+
+export interface TreeStorageFoldersRequest {
+  s3_id: string
+  prefix: string
+}
+
+export interface StoragePermissionListRequest {
+  file_id: string
+}
+
+export interface StoragePermissionGrantRequest {
+  file_id: string
+  principal_type: 'user' | 'organization' | 'team' | 'role'
+  principal_id: string
+  permission: 'read' | 'write' | 'delete' | 'share' | 'owner'
+  expires_at?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface StoragePermissionRevokeRequest {
+  file_id: string
+  principal_type: 'user' | 'organization' | 'team' | 'role'
+  principal_id: string
+  permission: 'read' | 'write' | 'delete' | 'share' | 'owner'
+}
+
+export interface StoragePermissionCheckRequest {
+  file_id: string
+  permission: 'read' | 'write' | 'delete' | 'share' | 'owner'
+}
+
+export interface StorageMultipartCreateRequest {
+  file_id: string
+  content_type?: string
+}
+
+export interface StorageMultipartSignPartRequest {
+  file_id: string
+  upload_id: string
+  part_number: number
+}
+
+export interface StorageMultipartCompletePartInput {
+  part_number: number
+  etag: string
+}
+
+export interface StorageMultipartCompleteRequest {
+  file_id: string
+  upload_id: string
+  parts: StorageMultipartCompletePartInput[]
+}
+
+export interface StorageMultipartAbortRequest {
+  file_id: string
+  upload_id: string
+}
+
+export interface StorageMultipartListPartsRequest {
+  file_id: string
+  upload_id: string
+}
+
+export interface StorageObjectFolderCreateRequest {
+  endpoint: string
+  region: string
+  access_key_id: string
+  secret_key: string
+  bucket: string
+  prefix: string
+}
+
+export interface StorageObjectFolderDeleteRequest extends StorageObjectFolderCreateRequest {}
+
+export interface StorageObjectFolderRenameRequest extends Omit<StorageObjectFolderCreateRequest, 'prefix'> {
+  from_prefix: string
+  to_prefix: string
+}
+
+export interface StorageObjectBaseRequest {
+  endpoint: string
+  region: string
+  access_key_id: string
+  secret_key: string
+  bucket: string
+}
+
+export interface StorageObjectRequest extends StorageObjectBaseRequest {
+  key: string
+}
+
+export interface StorageObjectCopyRequest extends StorageObjectBaseRequest {
+  source_key: string
+  destination_key: string
+  destination_bucket?: string
+}
+
+export interface StorageObjectPublicUrlRequest extends StorageObjectRequest {
+  public_base_url?: string
+  force_path_style?: boolean
+}
+
+export interface StorageListObjectsRequest extends StorageObjectBaseRequest {
+  prefix?: string
+  delimiter?: string
+  continuation_token?: string
+  max_keys?: number
+}
+
+export interface StorageUpdateObjectRequest extends StorageObjectRequest {
+  acl?: string
+  content_type?: string
+  cache_control?: string
+  content_disposition?: string
+  content_encoding?: string
+  content_language?: string
+  metadata?: Record<string, string>
+}
+
+export interface StoragePresignUploadRequest extends StorageObjectRequest {
+  content_type?: string
+}
+
+export interface StorageBucketCorsRequest extends StorageObjectBaseRequest {}
+
+export interface StorageBucketCorsRuleInput {
+  allowed_origins: string[]
+  allowed_methods: string[]
+  allowed_headers?: string[]
+  expose_headers?: string[]
+  max_age_seconds?: number
+}
+
+export interface StorageSetBucketCorsRequest extends StorageBucketCorsRequest {
+  rules: StorageBucketCorsRuleInput[]
+}
+
+export interface StorageAuditQueryRequest {
+  file_id?: string
+  limit?: number
+  offset?: number
 }
 
 export interface AthenaEnvelope<T> {
@@ -510,8 +753,213 @@ export interface AthenaStorageBaseModule {
   ): Promise<StorageFolderMutationResponse>
 }
 
+export type AthenaStoragePutBody =
+  | Blob
+  | ArrayBuffer
+  | Uint8Array
+  | ReadableStream<Uint8Array>
+
+export interface AthenaStoragePutOptions {
+  headers?: Record<string, string>
+  signal?: AbortSignal
+}
+
+export interface AthenaStorageManagedUpload extends PresignedFileUrlResponse {
+  method: 'PUT'
+  headers: Record<string, string>
+  expiresAt: string
+  put(body: AthenaStoragePutBody, options?: AthenaStoragePutOptions): Promise<Response>
+}
+
+export interface StorageUploadUrlResponseWithPut extends Omit<StorageUploadUrlResponse, 'upload'> {
+  upload: AthenaStorageManagedUpload
+}
+
+export interface StorageBatchUploadUrlResponseWithPut {
+  files: StorageUploadUrlResponseWithPut[]
+}
+
+export interface AthenaStorageFileUploadRequest {
+  s3_id?: string
+  s3Id?: string
+  bucket?: string
+  storage_key?: string
+  storageKey?: string
+  name?: string
+  fileName?: string
+  original_name?: string
+  originalName?: string
+  resource_id?: string
+  resourceId?: string
+  mime_type?: string
+  mimeType?: string
+  content_type?: string
+  contentType?: string
+  size_bytes?: number
+  sizeBytes?: number
+  file_id?: string
+  fileId?: string
+  public?: boolean
+  visibility?: 'private' | 'organization' | 'public'
+  metadata?: Record<string, unknown>
+}
+
+export interface AthenaStorageFileUploadManyRequest {
+  files: AthenaStorageFileUploadRequest[]
+}
+
+export interface AthenaStorageFileNamespace extends AthenaStorageFileModule {
+  upload(
+    input: AthenaStorageFileUploadRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageUploadUrlResponseWithPut>
+  upload(
+    input: Parameters<AthenaStorageFileModule['upload']>[0],
+    options?: AthenaStorageCallOptions,
+  ): ReturnType<AthenaStorageFileModule['upload']>
+  uploadMany(
+    input: AthenaStorageFileUploadManyRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageBatchUploadUrlResponseWithPut>
+  confirmUpload(
+    fileId: string,
+    input?: ConfirmStorageUploadRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageFileMutationResponse>
+  uploadBinary(
+    fileId: string,
+    body: AthenaStoragePutBody,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageFileMutationResponse>
+  search(
+    input: SearchStorageFilesRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageListFilesResponse>
+  get(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
+  update(
+    fileId: string,
+    input: UpdateStorageFileRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageFileMutationResponse>
+  deleteMany(
+    input: DeleteManyStorageFilesRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageFileMutationManyResponse>
+  updateMany(
+    input: UpdateManyStorageFilesRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageFileMutationManyResponse>
+  restore(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
+  purge(fileId: string, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
+  copy(
+    fileId: string,
+    input: CopyStorageFileRequest,
+    options?: AthenaStorageCallOptions,
+  ): Promise<StorageFileMutationResponse>
+  url(
+    fileId: string,
+    query?: GetStorageFileUrlQuery,
+    options?: AthenaStorageCallOptions,
+  ): Promise<PresignedFileUrlResponse>
+  publicUrl(fileId: string, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  proxy(
+    fileId: string,
+    query?: GetStorageFileUrlQuery,
+    options?: AthenaStorageBinaryCallOptions,
+  ): Promise<Response>
+  visibility: {
+    set(
+      fileId: string,
+      input: SetStorageFileVisibilityRequest,
+      options?: AthenaStorageCallOptions,
+    ): Promise<StorageFileMutationResponse>
+    setMany(
+      input: SetManyStorageFileVisibilityRequest,
+      options?: AthenaStorageCallOptions,
+    ): Promise<StorageFileMutationManyResponse>
+  }
+}
+
+export interface AthenaStorageCredentialsNamespace {
+  list(options?: AthenaStorageCallOptions): Promise<{ data: S3CredentialListItem[] }>
+}
+
+export interface AthenaStorageCatalogNamespace {
+  list(options?: AthenaStorageCallOptions): Promise<{ data: S3CatalogItem[] }>
+  create(input: CreateStorageCatalogRequest, options?: AthenaStorageCallOptions): Promise<S3CatalogItem>
+  update(id: string, input: UpdateStorageCatalogRequest, options?: AthenaStorageCallOptions): Promise<S3CatalogItem>
+  delete(id: string, options?: AthenaStorageCallOptions): Promise<{ id: string; deleted: boolean }>
+}
+
+export interface AthenaStorageFolderNamespace {
+  list(input: ListStorageFoldersRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  tree(input: TreeStorageFoldersRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  delete(input: DeleteStorageFolderRequest, options?: AthenaStorageCallOptions): Promise<StorageFolderMutationResponse>
+  move(input: MoveStorageFolderRequest, options?: AthenaStorageCallOptions): Promise<StorageFolderMutationResponse>
+}
+
+export interface AthenaStoragePermissionNamespace {
+  list(input: StoragePermissionListRequest, options?: AthenaStorageCallOptions): Promise<StoragePermissionListResponse>
+  grant(input: StoragePermissionGrantRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  revoke(input: StoragePermissionRevokeRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  check(input: StoragePermissionCheckRequest, options?: AthenaStorageCallOptions): Promise<StoragePermissionCheckResponse>
+}
+
+export interface AthenaStorageObjectFolderNamespace {
+  create(input: StorageObjectFolderCreateRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  delete(input: StorageObjectFolderDeleteRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  rename(input: StorageObjectFolderRenameRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+}
+
+export interface AthenaStorageObjectNamespace {
+  list(input: StorageListObjectsRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  head(input: StorageObjectRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  exists(input: StorageObjectRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  validate(input: StorageObjectRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  update(input: StorageUpdateObjectRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  copy(input: StorageObjectCopyRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  url(input: StorageObjectRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  publicUrl(input: StorageObjectPublicUrlRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  delete(input: StorageObjectRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  uploadUrl(input: StoragePresignUploadRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  folder: AthenaStorageObjectFolderNamespace
+}
+
+export interface AthenaStorageBucketCorsNamespace {
+  get(input: StorageBucketCorsRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  set(input: StorageSetBucketCorsRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  delete(input: StorageBucketCorsRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+}
+
+export interface AthenaStorageBucketNamespace {
+  list(input: Omit<StorageObjectBaseRequest, 'bucket'>, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  create(input: StorageObjectBaseRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  delete(input: StorageObjectBaseRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  cors: AthenaStorageBucketCorsNamespace
+}
+
+export interface AthenaStorageMultipartNamespace {
+  create(input: StorageMultipartCreateRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  signPart(input: StorageMultipartSignPartRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  complete(input: StorageMultipartCompleteRequest, options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse>
+  abort(input: StorageMultipartAbortRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+  listParts(input: StorageMultipartListPartsRequest, options?: AthenaStorageCallOptions): Promise<Record<string, unknown>>
+}
+
+export interface AthenaStorageAuditNamespace {
+  list(input: StorageAuditQueryRequest, options?: AthenaStorageCallOptions): Promise<StorageAuditListResponse>
+}
+
 export interface AthenaStorageModule extends AthenaStorageBaseModule {
-  file: AthenaStorageFileModule
+  credentials: AthenaStorageCredentialsNamespace
+  catalog: AthenaStorageCatalogNamespace
+  file: AthenaStorageFileNamespace
+  folder: AthenaStorageFolderNamespace
+  permission: AthenaStoragePermissionNamespace
+  object: AthenaStorageObjectNamespace
+  bucket: AthenaStorageBucketNamespace
+  multipart: AthenaStorageMultipartNamespace
+  audit: AthenaStorageAuditNamespace
   delete: AthenaStorageFileModule['delete']
 }
 
@@ -947,84 +1395,304 @@ async function callStorageBinaryEndpoint(
   )
 }
 
+function isBlobBody(body: AthenaStoragePutBody): body is Blob {
+  return typeof Blob !== 'undefined' && body instanceof Blob
+}
+
+function isReadableStreamBody(body: AthenaStoragePutBody): body is ReadableStream<Uint8Array> {
+  return typeof ReadableStream !== 'undefined' && body instanceof ReadableStream
+}
+
+async function putPresignedUploadBody(
+  uploadUrl: string,
+  uploadHeaders: Record<string, string>,
+  body: AthenaStoragePutBody,
+  options?: AthenaStoragePutOptions,
+): Promise<Response> {
+  const headers = new Headers(uploadHeaders)
+  Object.entries(options?.headers ?? {}).forEach(([key, value]) => headers.set(key, value))
+  if (!headers.has('Content-Type') && isBlobBody(body) && body.type) {
+    headers.set('Content-Type', body.type)
+  }
+
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: 'PUT',
+    headers,
+    body: body as RequestInit['body'],
+    signal: options?.signal,
+  }
+  if (isReadableStreamBody(body)) {
+    init.duplex = 'half'
+  }
+  return fetch(uploadUrl, init)
+}
+
+function attachManagedUpload(upload: PresignedFileUrlResponse): AthenaStorageManagedUpload {
+  const headers: Record<string, string> = {}
+  return {
+    ...upload,
+    method: 'PUT',
+    headers,
+    expiresAt: upload.expires_at,
+    put(body, options) {
+      return putPresignedUploadBody(upload.url, headers, body, options)
+    },
+  }
+}
+
+function attachUploadHelper(response: StorageUploadUrlResponse): StorageUploadUrlResponseWithPut {
+  return {
+    ...response,
+    upload: attachManagedUpload(response.upload),
+  }
+}
+
+function attachUploadHelpers(
+  response: StorageBatchUploadUrlResponse,
+): StorageBatchUploadUrlResponseWithPut {
+  return {
+    files: response.files.map(attachUploadHelper),
+  }
+}
+
+function normalizeUploadUrlRequest(input: AthenaStorageFileUploadRequest): CreateStorageUploadUrlRequest {
+  const s3_id = input.s3_id ?? input.s3Id
+  const storage_key = input.storage_key ?? input.storageKey
+  if (!s3_id?.trim()) {
+    throw new Error('athena.storage.file.upload requires s3_id or s3Id')
+  }
+  if (!storage_key?.trim()) {
+    throw new Error('athena.storage.file.upload requires storage_key or storageKey')
+  }
+  const fileName = input.fileName?.trim()
+  const originalName = input.originalName?.trim()
+  return {
+    s3_id,
+    bucket: input.bucket,
+    storage_key,
+    name: input.name ?? fileName,
+    original_name: input.original_name ?? originalName ?? fileName,
+    resource_id: input.resource_id ?? input.resourceId,
+    mime_type: input.mime_type ?? input.mimeType,
+    content_type: input.content_type ?? input.contentType,
+    size_bytes: input.size_bytes ?? input.sizeBytes,
+    file_id: input.file_id ?? input.fileId,
+    public: input.public,
+    visibility: input.visibility,
+    metadata: input.metadata,
+  }
+}
+
+async function callStorageUploadBinaryEndpoint<T>(
+  gateway: AthenaGatewayClient,
+  endpoint: AthenaGatewayEndpointPath,
+  body: AthenaStoragePutBody,
+  options?: AthenaStorageCallOptions,
+  runtimeOptions?: StorageModuleRuntimeOptions,
+): Promise<T> {
+  let url: string
+  let headers: Record<string, string>
+  try {
+    const baseUrl = options?.baseUrl
+      ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
+      : gateway.baseUrl
+    url = buildAthenaGatewayUrl(baseUrl, endpoint)
+    headers = gateway.buildHeaders(options)
+  } catch (error) {
+    return rejectStorageError(
+      {
+        code: storageCodeFromUnknown(error),
+        message: error instanceof Error
+          ? error.message
+          : `Athena storage PUT ${endpoint} failed before sending the request`,
+        status: isAthenaGatewayError(error) ? error.status : 0,
+        endpoint,
+        method: 'PUT',
+        raw: error,
+        requestId: isAthenaGatewayError(error) ? error.requestId : undefined,
+        hint: isAthenaGatewayError(error) ? error.hint : undefined,
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  delete headers['Content-Type']
+  delete headers['content-type']
+  if (isBlobBody(body) && body.type) {
+    headers['Content-Type'] = body.type
+  }
+
+  const requestInit: RequestInit & { duplex?: 'half' } = {
+    method: 'PUT',
+    headers,
+    body: body as RequestInit['body'],
+    signal: options?.signal,
+  }
+  if (isReadableStreamBody(body)) {
+    requestInit.duplex = 'half'
+  }
+
+  let response: Response
+  try {
+    response = await fetch(url, requestInit)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return rejectStorageError(
+      {
+        code: 'NETWORK_ERROR',
+        message: `Network error while calling Athena storage PUT ${endpoint}: ${message}`,
+        status: 0,
+        endpoint,
+        method: 'PUT',
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  let rawText: string
+  try {
+    rawText = await response.text()
+  } catch (error) {
+    return rejectStorageError(
+      {
+        code: 'NETWORK_ERROR',
+        message: `Athena storage PUT ${endpoint} response body could not be read`,
+        status: response.status,
+        endpoint,
+        method: 'PUT',
+        requestId: headerValue(response.headers, ['x-athena-request-id', 'x-request-id', 'request-id']),
+        cause: error,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+
+  const parsedBody = parseResponseBody(rawText ?? '', response.headers.get('content-type'))
+  const requestId = headerValue(response.headers, ['x-athena-request-id', 'x-request-id', 'request-id'])
+  if (parsedBody.parseFailed) {
+    return rejectStorageError(
+      {
+        code: 'INVALID_JSON',
+        message: `Athena storage PUT ${endpoint} returned malformed JSON`,
+        status: response.status,
+        endpoint,
+        method: 'PUT',
+        requestId,
+        raw: parsedBody.parsed,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+  if (!response.ok) {
+    return rejectStorageError(
+      {
+        code: 'HTTP_ERROR',
+        message: resolveErrorMessage(
+          parsedBody.parsed,
+          `Athena storage PUT ${endpoint} failed with status ${response.status}`,
+        ),
+        status: response.status,
+        endpoint,
+        method: 'PUT',
+        requestId,
+        hint: resolveErrorHint(parsedBody.parsed),
+        cause: resolveErrorCause(parsedBody.parsed),
+        raw: parsedBody.parsed,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+  if (!isRecord(parsedBody.parsed) || !('data' in parsedBody.parsed)) {
+    return rejectStorageError(
+      {
+        code: 'INVALID_ATHENA_ENVELOPE',
+        message: `Athena storage PUT ${endpoint} returned an invalid Athena envelope`,
+        status: response.status,
+        endpoint,
+        method: 'PUT',
+        requestId,
+        raw: parsedBody.parsed,
+      },
+      options,
+      runtimeOptions,
+    )
+  }
+  return parsedBody.parsed.data as T
+}
+
 export function createStorageModule(
   gateway: AthenaGatewayClient,
   runtimeOptions?: AthenaStorageClientConfig,
 ): AthenaStorageModule {
+  const callRaw = <T>(
+    path: string,
+    method: AthenaGatewayMethod,
+    payload?: unknown,
+    options?: AthenaStorageCallOptions,
+  ) => callStorageEndpoint<T>(
+    gateway,
+    storagePath(path),
+    method,
+    'raw',
+    payload,
+    options,
+    runtimeOptions,
+  )
+  const callAthena = <T>(
+    path: string,
+    method: AthenaGatewayMethod,
+    payload?: unknown,
+    options?: AthenaStorageCallOptions,
+  ) => callStorageEndpoint<T>(
+    gateway,
+    storagePath(path),
+    method,
+    'athena',
+    payload,
+    options,
+    runtimeOptions,
+  )
   const base: AthenaStorageBaseModule = {
     listStorageCatalogs(options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'GET', 'raw', undefined, options, runtimeOptions)
+      return callRaw('/storage/catalogs', 'GET', undefined, options)
     },
     createStorageCatalog(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/catalogs'), 'POST', 'raw', input, options, runtimeOptions)
+      return callRaw('/storage/catalogs', 'POST', input, options)
     },
     updateStorageCatalog(id, input, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath(withPathParam('/storage/catalogs/{id}', 'id', id)),
-        'PATCH',
-        'raw',
-        input,
-        options,
-        runtimeOptions,
-      )
+      return callRaw(withPathParam('/storage/catalogs/{id}', 'id', id), 'PATCH', input, options)
     },
     deleteStorageCatalog(id, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath(withPathParam('/storage/catalogs/{id}', 'id', id)),
-        'DELETE',
-        'raw',
-        undefined,
-        options,
-        runtimeOptions,
-      )
+      return callRaw(withPathParam('/storage/catalogs/{id}', 'id', id), 'DELETE', undefined, options)
     },
     listStorageCredentials(options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/credentials'), 'GET', 'raw', undefined, options, runtimeOptions)
+      return callRaw('/storage/credentials', 'GET', undefined, options)
     },
     createStorageUploadUrl(input, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath('/storage/files/upload-url'),
-        'POST',
-        'athena',
-        input,
-        options,
-        runtimeOptions,
-      )
+      return callAthena('/storage/files/upload-url', 'POST', input, options)
     },
     createStorageUploadUrls(input, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath('/storage/files/upload-urls'),
-        'POST',
-        'athena',
-        input,
-        options,
-        runtimeOptions,
-      )
+      return callAthena('/storage/files/upload-urls', 'POST', input, options)
     },
     listStorageFiles(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/files/list'), 'POST', 'athena', input, options, runtimeOptions)
+      return callAthena('/storage/files/list', 'POST', input, options)
     },
     getStorageFile(fileId, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath(withPathParam('/storage/files/{file_id}', 'file_id', fileId)),
-        'GET',
-        'athena',
-        undefined,
-        options,
-        runtimeOptions,
-      )
+      return callAthena(withPathParam('/storage/files/{file_id}', 'file_id', fileId), 'GET', undefined, options)
     },
     getStorageFileUrl(fileId, query, options) {
       const path = appendQuery(
         withPathParam('/storage/files/{file_id}/url', 'file_id', fileId),
         query,
       )
-      return callStorageEndpoint(gateway, storagePath(path), 'GET', 'athena', undefined, options, runtimeOptions)
+      return callAthena(path, 'GET', undefined, options)
     },
     getStorageFileProxy(fileId, query, options) {
       const path = appendQuery(
@@ -1034,49 +1702,248 @@ export function createStorageModule(
       return callStorageBinaryEndpoint(gateway, storagePath(path), 'GET', options, runtimeOptions)
     },
     updateStorageFile(fileId, input, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath(withPathParam('/storage/files/{file_id}', 'file_id', fileId)),
-        'PATCH',
-        'athena',
-        input,
-        options,
-        runtimeOptions,
-      )
+      return callAthena(withPathParam('/storage/files/{file_id}', 'file_id', fileId), 'PATCH', input, options)
     },
     deleteStorageFile(fileId, options) {
-      return callStorageEndpoint(
-        gateway,
-        storagePath(withPathParam('/storage/files/{file_id}', 'file_id', fileId)),
-        'DELETE',
-        'athena',
-        undefined,
-        options,
-        runtimeOptions,
-      )
+      return callAthena(withPathParam('/storage/files/{file_id}', 'file_id', fileId), 'DELETE', undefined, options)
     },
     setStorageFileVisibility(fileId, input, options) {
-      return callStorageEndpoint(
+      return callAthena(withPathParam('/storage/files/{file_id}/visibility', 'file_id', fileId), 'PATCH', input, options)
+    },
+    deleteStorageFolder(input, options) {
+      return callAthena('/storage/folders/delete', 'POST', input, options)
+    },
+    moveStorageFolder(input, options) {
+      return callAthena('/storage/folders/move', 'POST', input, options)
+    },
+  }
+  const fileFacade = createStorageFileModule(base, runtimeOptions)
+  const fileUpload = ((
+    input: AthenaStorageFileUploadRequest | Parameters<AthenaStorageFileModule['upload']>[0],
+    options?: AthenaStorageCallOptions,
+  ) => {
+    if (isRecord(input) && 'files' in input) {
+      return fileFacade.upload(input as unknown as Parameters<AthenaStorageFileModule['upload']>[0], options)
+    }
+    return base.createStorageUploadUrl(
+      normalizeUploadUrlRequest(input as AthenaStorageFileUploadRequest),
+      options,
+    ).then(attachUploadHelper)
+  }) as AthenaStorageFileNamespace['upload']
+  const fileDelete = ((input: string | readonly string[], options?: AthenaStorageCallOptions) =>
+    fileFacade.delete(input as unknown as Parameters<AthenaStorageFileModule['delete']>[0], options)
+  ) as AthenaStorageFileNamespace['delete']
+
+  const file: AthenaStorageFileNamespace = {
+    ...fileFacade,
+    upload: fileUpload,
+    uploadMany(input, options) {
+      return base.createStorageUploadUrls(
+        { files: input.files.map(normalizeUploadUrlRequest) },
+        options,
+      ).then(attachUploadHelpers)
+    },
+    confirmUpload(fileId, input, options) {
+      return callAthena(withPathParam('/storage/files/{file_id}/confirm-upload', 'file_id', fileId), 'POST', input ?? {}, options)
+    },
+    uploadBinary(fileId, body, options) {
+      return callStorageUploadBinaryEndpoint(
         gateway,
-        storagePath(withPathParam('/storage/files/{file_id}/visibility', 'file_id', fileId)),
-        'PATCH',
-        'athena',
-        input,
+        storagePath(withPathParam('/storage/files/{file_id}/upload', 'file_id', fileId)),
+        body,
         options,
         runtimeOptions,
       )
     },
-    deleteStorageFolder(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/folders/delete'), 'POST', 'athena', input, options, runtimeOptions)
+    search(input, options) {
+      return callAthena('/storage/files/search', 'POST', input, options)
     },
-    moveStorageFolder(input, options) {
-      return callStorageEndpoint(gateway, storagePath('/storage/folders/move'), 'POST', 'athena', input, options, runtimeOptions)
+    get(fileId, options) {
+      return base.getStorageFile(fileId, options)
+    },
+    update(fileId, input, options) {
+      return base.updateStorageFile(fileId, input, options)
+    },
+    delete: fileDelete,
+    deleteMany(input, options) {
+      return callAthena('/storage/files/delete-many', 'POST', input, options)
+    },
+    updateMany(input, options) {
+      return callAthena('/storage/files/update-many', 'POST', input, options)
+    },
+    restore(fileId, options) {
+      return callAthena(withPathParam('/storage/files/{file_id}/restore', 'file_id', fileId), 'POST', {}, options)
+    },
+    purge(fileId, options) {
+      return callAthena(withPathParam('/storage/files/{file_id}/purge', 'file_id', fileId), 'DELETE', undefined, options)
+    },
+    copy(fileId, input, options) {
+      return callAthena(withPathParam('/storage/files/{file_id}/copy', 'file_id', fileId), 'POST', input, options)
+    },
+    url(fileId, query, options) {
+      return base.getStorageFileUrl(fileId, query, options)
+    },
+    publicUrl(fileId, options) {
+      return callAthena(withPathParam('/storage/files/{file_id}/public-url', 'file_id', fileId), 'GET', undefined, options)
+    },
+    proxy(fileId, query, options) {
+      return base.getStorageFileProxy(fileId, query, options)
+    },
+    visibility: {
+      set(fileId, input, options) {
+        return base.setStorageFileVisibility(fileId, input, options)
+      },
+      setMany(input, options) {
+        return callAthena('/storage/files/visibility-many', 'POST', input, options)
+      },
     },
   }
-  const file = createStorageFileModule(base, runtimeOptions)
+  const credentials: AthenaStorageCredentialsNamespace = {
+    list(options) {
+      return base.listStorageCredentials(options)
+    },
+  }
+  const catalog: AthenaStorageCatalogNamespace = {
+    list(options) {
+      return base.listStorageCatalogs(options)
+    },
+    create(input, options) {
+      return base.createStorageCatalog(input, options)
+    },
+    update(id, input, options) {
+      return base.updateStorageCatalog(id, input, options)
+    },
+    delete(id, options) {
+      return base.deleteStorageCatalog(id, options)
+    },
+  }
+  const folder: AthenaStorageFolderNamespace = {
+    list(input, options) {
+      return callAthena('/storage/folders/list', 'POST', input, options)
+    },
+    tree(input, options) {
+      return callAthena('/storage/folders/tree', 'POST', input, options)
+    },
+    delete(input, options) {
+      return base.deleteStorageFolder(input, options)
+    },
+    move(input, options) {
+      return base.moveStorageFolder(input, options)
+    },
+  }
+  const permission: AthenaStoragePermissionNamespace = {
+    list(input, options) {
+      return callAthena('/storage/permissions/list', 'POST', input, options)
+    },
+    grant(input, options) {
+      return callAthena('/storage/permissions/grant', 'POST', input, options)
+    },
+    revoke(input, options) {
+      return callAthena('/storage/permissions/revoke', 'POST', input, options)
+    },
+    check(input, options) {
+      return callAthena('/storage/permissions/check', 'POST', input, options)
+    },
+  }
+  const objectFolder: AthenaStorageObjectFolderNamespace = {
+    create(input, options) {
+      return callAthena('/storage/objects/folder', 'POST', input, options)
+    },
+    delete(input, options) {
+      return callAthena('/storage/objects/folder/delete', 'POST', input, options)
+    },
+    rename(input, options) {
+      return callAthena('/storage/objects/folder/rename', 'POST', input, options)
+    },
+  }
+  const object: AthenaStorageObjectNamespace = {
+    list(input, options) {
+      return callAthena('/storage/objects', 'POST', input, options)
+    },
+    head(input, options) {
+      return callAthena('/storage/objects/head', 'POST', input, options)
+    },
+    exists(input, options) {
+      return callAthena('/storage/objects/exists', 'POST', input, options)
+    },
+    validate(input, options) {
+      return callAthena('/storage/objects/validate', 'POST', input, options)
+    },
+    update(input, options) {
+      return callAthena('/storage/objects/update', 'POST', input, options)
+    },
+    copy(input, options) {
+      return callAthena('/storage/objects/copy', 'POST', input, options)
+    },
+    url(input, options) {
+      return callAthena('/storage/objects/url', 'POST', input, options)
+    },
+    publicUrl(input, options) {
+      return callAthena('/storage/objects/public-url', 'POST', input, options)
+    },
+    delete(input, options) {
+      return callAthena('/storage/objects/delete', 'POST', input, options)
+    },
+    uploadUrl(input, options) {
+      return callAthena('/storage/objects/upload-url', 'POST', input, options)
+    },
+    folder: objectFolder,
+  }
+  const bucket: AthenaStorageBucketNamespace = {
+    list(input, options) {
+      return callAthena('/storage/buckets/list', 'POST', input, options)
+    },
+    create(input, options) {
+      return callAthena('/storage/buckets/create', 'POST', input, options)
+    },
+    delete(input, options) {
+      return callAthena('/storage/buckets/delete', 'POST', input, options)
+    },
+    cors: {
+      get(input, options) {
+        return callAthena('/storage/buckets/cors', 'POST', input, options)
+      },
+      set(input, options) {
+        return callAthena('/storage/buckets/cors/set', 'POST', input, options)
+      },
+      delete(input, options) {
+        return callAthena('/storage/buckets/cors/delete', 'POST', input, options)
+      },
+    },
+  }
+  const multipart: AthenaStorageMultipartNamespace = {
+    create(input, options) {
+      return callAthena('/storage/multipart/create', 'POST', input, options)
+    },
+    signPart(input, options) {
+      return callAthena('/storage/multipart/sign-part', 'POST', input, options)
+    },
+    complete(input, options) {
+      return callAthena('/storage/multipart/complete', 'POST', input, options)
+    },
+    abort(input, options) {
+      return callAthena('/storage/multipart/abort', 'POST', input, options)
+    },
+    listParts(input, options) {
+      return callAthena('/storage/multipart/list-parts', 'POST', input, options)
+    },
+  }
+  const audit: AthenaStorageAuditNamespace = {
+    list(input, options) {
+      return callAthena('/storage/audit/list', 'POST', input, options)
+    },
+  }
   return {
     ...base,
+    credentials,
+    catalog,
     file,
+    folder,
+    permission,
+    object,
+    bucket,
+    multipart,
+    audit,
     delete: file.delete,
   }
 }
