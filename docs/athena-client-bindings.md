@@ -1,4 +1,4 @@
-# Athena Auth Client Bindings
+# Athena api Client Bindings
 
 This page documents the auth surface exposed on `createClient(...).auth` in `athena-js`, including Better Auth-style grouped methods and React `useSession` parity.
 
@@ -178,6 +178,77 @@ All admin endpoints are server-authorized; the server enforces role/permission c
 - `client.auth.organization.invitation.list()` -> `GET /organization/list-invitations`
 - `client.auth.organization.listUserInvitations()` -> `GET /organization/list-user-invitations`
 - `client.auth.organization.hasPermission()` -> `POST /organization/has-permission`
+
+### Storage bindings
+
+#### Managed file/catalog bindings
+
+- `client.storage.credentials.list()` -> `GET /storage/credentials`
+- `client.storage.catalog.list()` -> `GET /storage/catalogs`
+- `client.storage.catalog.create()` -> `POST /storage/catalogs`
+- `client.storage.catalog.update()` -> `PATCH /storage/catalogs/{id}`
+- `client.storage.catalog.delete()` -> `DELETE /storage/catalogs/{id}`
+
+- `client.storage.file.upload()` -> `POST /storage/files/upload-url`
+- `client.storage.file.uploadMany()` -> `POST /storage/files/upload-urls`
+- `client.storage.file.list()` -> `POST /storage/files/list`
+- `client.storage.file.get()` -> `GET /storage/files/{file_id}`
+- `client.storage.file.update()` -> `PATCH /storage/files/{file_id}`
+- `client.storage.file.delete()` -> `DELETE /storage/files/{file_id}`
+- `client.storage.file.url()` -> `GET /storage/files/{file_id}/url`
+- `client.storage.file.proxy()` -> `GET /storage/files/{file_id}/proxy`
+- `client.storage.file.visibility.update()` -> `PATCH /storage/files/{file_id}/visibility`
+- `client.storage.file.visibility.set()` -> `POST /storage/files/{file_id}/visibility`
+
+- `client.storage.folder.delete()` -> `POST /storage/folders/delete`
+- `client.storage.folder.move()` -> `POST /storage/folders/move`
+
+#### Raw S3-compatible object bindings
+
+- `client.storage.object.list()` -> `POST /storage/objects`
+- `client.storage.object.head()` -> `POST /storage/objects/head`
+- `client.storage.object.update()` -> `POST /storage/objects/update`
+- `client.storage.object.url()` -> `POST /storage/objects/url`
+- `client.storage.object.delete()` -> `POST /storage/objects/delete`
+- `client.storage.object.uploadUrl()` -> `POST /storage/objects/upload-url`
+
+- `client.storage.object.folder.create()` -> `POST /storage/objects/folder`
+- `client.storage.object.folder.delete()` -> `POST /storage/objects/folder/delete`
+- `client.storage.object.folder.rename()` -> `POST /storage/objects/folder/rename`
+
+#### Bucket bindings
+
+- `client.storage.bucket.list()` -> `POST /storage/buckets/list`
+- `client.storage.bucket.create()` -> `POST /storage/buckets/create`
+- `client.storage.bucket.delete()` -> `POST /storage/buckets/delete`
+- `client.storage.bucket.cors.get()` -> `POST /storage/buckets/cors`
+- `client.storage.bucket.cors.set()` -> `POST /storage/buckets/cors/set`
+- `client.storage.bucket.cors.delete()` -> `POST /storage/buckets/cors/delete`
+
+### Missing storage API coverage
+
+- Direct binary upload endpoint, e.g. `PUT/POST /storage/files/{file_id}/upload` or multipart upload support. Current flow only returns presigned upload URLs.
+- Multipart uploads: create multipart upload, sign part URLs, complete multipart upload, abort multipart upload, list uploaded parts.
+- Copy single file/object endpoint. Rename/move exists for managed files and folders, but explicit copy/duplicate is missing.
+- Batch delete files by IDs.
+- Batch update metadata/visibility.
+- File permission endpoints: grant/revoke/list access for user, organization, team, role.
+- Public URL endpoint that returns Athena proxy URL or public route, not only presigned S3 URLs.
+- Download/proxy range support contract for video/audio streaming, including `Range` headers.
+- File search endpoint by metadata/name/resource_id/mime/status, not only prefix listing.
+- Pagination for managed file list: `limit`, `cursor`/`offset`.
+- Folder listing/tree endpoint returning folders + files, not only file rows under prefix.
+- Confirm-upload/finalize endpoint to mark uploaded files as complete after PUT succeeds.
+- Object existence/checksum validation endpoint.
+- Soft-delete restore endpoint.
+- Permanent purge endpoint.
+- Versioning support: list versions, restore version, delete version.
+- Lifecycle/retention APIs.
+- Bucket policy/public access APIs.
+- Signed POST policy support for browser uploads.
+- Server-side encryption options.
+- Audit/event listing endpoints for storage operations.
+
 
 ### OAuth callback bindings
 
