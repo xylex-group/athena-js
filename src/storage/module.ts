@@ -492,7 +492,7 @@ export interface StorageObjectFolderCreateRequest {
   prefix: string
 }
 
-export interface StorageObjectFolderDeleteRequest extends StorageObjectFolderCreateRequest {}
+export type StorageObjectFolderDeleteRequest = StorageObjectFolderCreateRequest
 
 export interface StorageObjectFolderRenameRequest extends Omit<StorageObjectFolderCreateRequest, 'prefix'> {
   from_prefix: string
@@ -543,7 +543,7 @@ export interface StoragePresignUploadRequest extends StorageObjectRequest {
   content_type?: string
 }
 
-export interface StorageBucketCorsRequest extends StorageObjectBaseRequest {}
+export type StorageBucketCorsRequest = StorageObjectBaseRequest
 
 export interface StorageBucketCorsRuleInput {
   allowed_origins: string[]

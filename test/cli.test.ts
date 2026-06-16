@@ -31,6 +31,64 @@ test('runCLI prints generate help output', async () => {
   assert.equal(logs[0].includes('--config <path>'), true)
 })
 
+test('runCLI prints dry-run output for legacy define-model artifacts', async () => {
+  const logs: string[] = []
+  await runCLI(['generate', '--dry-run'], {
+    log: message => {
+      logs.push(message)
+    },
+    runGenerator: async () => ({
+      configPath: 'C:/tmp/athena.config.ts',
+      snapshot: {
+        backend: 'postgresql',
+        database: 'app_db',
+        generatedAt: new Date('2026-06-16T00:00:00.000Z').toISOString(),
+        schemas: {},
+      },
+      files: [
+        {
+          kind: 'model',
+          path: 'src/generated/app-db/public/users.model.ts',
+          content: '',
+        },
+      ],
+      writtenFiles: [],
+    }),
+  })
+
+  assert.equal(logs[0].includes('[dry-run] Generated 1 files'), true)
+  assert.equal(logs[1], ' - src/generated/app-db/public/users.model.ts')
+})
+
+test('runCLI prints dry-run output for table-builder artifacts', async () => {
+  const logs: string[] = []
+  await runCLI(['generate', '--dry-run'], {
+    log: message => {
+      logs.push(message)
+    },
+    runGenerator: async () => ({
+      configPath: 'C:/tmp/athena.config.ts',
+      snapshot: {
+        backend: 'postgresql',
+        database: 'app_db',
+        generatedAt: new Date('2026-06-16T00:00:00.000Z').toISOString(),
+        schemas: {},
+      },
+      files: [
+        {
+          kind: 'model',
+          path: 'src/generated/app-db/public/users.ts',
+          content: '',
+        },
+      ],
+      writtenFiles: [],
+    }),
+  })
+
+  assert.equal(logs[0].includes('[dry-run] Generated 1 files'), true)
+  assert.equal(logs[1], ' - src/generated/app-db/public/users.ts')
+})
+
 test('runCLI normalizes postgres missing database errors with actionable guidance', async () => {
   const failingGenerator = async () => {
     const error = new Error('database "app_db" does not exist') as Error & { code: string }

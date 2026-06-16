@@ -84,6 +84,7 @@ function createClient(
     auth?: AthenaAuthClientConfig
     experimental?: {
       athenaStorageBackend?: boolean
+      debugAst?: boolean
       enableErrorNormalization?: boolean
       findManyAst?: boolean
       retryReads?: boolean
@@ -97,6 +98,7 @@ function createClient(
 `experimental.athenaStorageBackend` exposes the experimental `client.storage.*` bindings. Default clients do not include `.storage`; `createClient(..., { experimental: { athenaStorageBackend: true } })`, `AthenaClient.builder().experimental(...)`, and `AthenaClient.builder().options(...)` narrow the returned client type to `AthenaSdkClientWithStorage`.
 `experimental.storage.onError` registers a client-level observer for storage request failures. It receives the same `AthenaStorageError` instance that will be thrown, and observer failures do not mask the original request error.
 `experimental.enableErrorNormalization` is deprecated and retained as a no-op compatibility flag because failed `AthenaResult` values now expose structured normalized `error` objects by default.
+`experimental.debugAst` builds a normalized runtime AST for each executed operation. Successful results expose it through `getAthenaDebugAst(...)`, and traced operations include it on `AthenaQueryTraceEvent.ast`.
 `experimental.findManyAst` opt-ins clean `findMany(...)` calls to use direct AST bodies on `/gateway/fetch` when the request is lossless there; shorthand `where` values are normalized, UUID-like equality filters still fall back to the legacy query path, and nested relation select strings stay off SQL query fallback.
 `experimental.retryReads` enables fixed-policy retries for retryable read failures on `select`, `findMany(...)`, and `query(...)`. It performs two additional attempts internally and does not retry writes.
 `experimental.traceQueries` emits detailed query execution diagnostics for every runtime call.
@@ -129,6 +131,7 @@ interface AthenaQueryTraceEvent {
   functionName?: string
   sql: string
   payload: unknown
+  ast?: AthenaQueryDebugAst
   options?: AthenaGatewayCallOptions | AthenaRpcCallOptions
   callsite: AthenaQueryTraceCallsite | null
   outcome?: {
@@ -529,6 +532,14 @@ interface AthenaStorageFileModule {
   delete(fileIds: readonly string[], options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse[]>
 }
 ```
+
+### `getAthenaDebugAst(value)`
+
+```ts
+function getAthenaDebugAst(value: unknown): AthenaQueryDebugAst | null
+```
+
+Returns the normalized debug AST previously attached to a successful result or traced/thrown error when `experimental.debugAst` is enabled.
 
 ```ts
 type AthenaStorageErrorCode =

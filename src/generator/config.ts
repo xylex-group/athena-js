@@ -7,10 +7,12 @@ import type {
   GeneratorFeatureFlags,
   GeneratorNamingConfig,
   GeneratorOutputConfig,
+  GeneratorOutputFormat,
   GeneratorOutputTargets,
   GeneratorProviderConfig,
   LoadGeneratorConfigOptions,
   LoadedGeneratorConfig,
+  NormalizedGeneratorOutputConfig,
   NormalizedAthenaGeneratorConfig,
 } from './types.ts'
 import { parseBooleanFlag } from '../auxiliaries.ts'
@@ -33,6 +35,8 @@ const DEFAULT_TARGETS: GeneratorOutputTargets = {
   database: 'athena/relations.ts',
   registry: 'athena/config.ts',
 }
+
+const DEFAULT_OUTPUT_FORMAT: GeneratorOutputFormat = 'define-model'
 
 const DEFAULT_NAMING: GeneratorNamingConfig = {
   modelType: 'pascal',
@@ -284,8 +288,9 @@ function normalizeExperimentalFlags(
   }
 }
 
-function normalizeOutputConfig(output: GeneratorOutputConfig): GeneratorOutputConfig {
+function normalizeOutputConfig(output: GeneratorOutputConfig): NormalizedGeneratorOutputConfig {
   return {
+    format: output.format ?? DEFAULT_OUTPUT_FORMAT,
     targets: {
       ...DEFAULT_TARGETS,
       ...(output.targets ?? {}),

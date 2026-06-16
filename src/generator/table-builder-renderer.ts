@@ -6,12 +6,12 @@ import type {
   NormalizedAthenaGeneratorConfig,
 } from './types.ts'
 import type {
+  IntrospectionColumn,
   IntrospectionRelation,
   IntrospectionSnapshot,
   IntrospectionTable,
 } from '../schema/types.ts'
 import {
-  applyNamingStyle,
   escapeStringLiteral,
   escapeTypePropertyName,
   toSafeIdentifier,
@@ -19,7 +19,6 @@ import {
 import { renderOutputPath } from './placeholders.ts'
 import { resolvePostgresColumnType } from './postgres-type-mapping.ts'
 import { normalizeGeneratorConfig } from './config.ts'
-import { generateTableBuilderArtifactsFromSnapshot } from './table-builder-renderer.ts'
 
 type ModelRenderDescriptor = {
   schemaName: string
@@ -28,7 +27,8 @@ type ModelRenderDescriptor = {
   rowTypeName: string
   insertTypeName: string
   updateTypeName: string
-  modelConstName: string
+  formValuesTypeName: string
+  tableConstName: string
   table: IntrospectionTable
 }
 
@@ -44,6 +44,30 @@ type DatabaseRenderDescriptor = {
   databaseConstName: string
   schemas: SchemaRenderDescriptor[]
 }
+
+const SAFE_NUMBER_TYPES = new Set([
+  'int2',
+  'int4',
+  'float4',
+  'float8',
+  'smallint',
+  'integer',
+  'real',
+  'double precision',
+])
+
+const JSON_TYPES = new Set(['json', 'jsonb'])
+const BOOLEAN_TYPES = new Set(['bool', 'boolean'])
+const STRING_TYPES = new Set([
+  'int8',
+  'bigint',
+  'serial8',
+  'bigserial',
+  'numeric',
+  'decimal',
+  'money',
+  'bytea',
+])
 
 function normalizePath(pathValue: string): string {
   return pathValue.replace(/\\/g, '/')
@@ -61,8 +85,15 @@ function toModuleImportPath(fromFile: string, targetFile: string): string {
 }
 
 function renderObjectKey(key: string): string {
-  const escaped = escapeTypePropertyName(key)
-  return escaped.startsWith("'") ? escaped : escaped
+  return escapeTypePropertyName(key)
+}
+
+function normalizeTypeLabel(column: IntrospectionColumn): string {
+  const preferred = (column.udtName || column.dataType).toLowerCase().trim()
+  if (column.arrayDimensions > 0 && preferred.startsWith('_')) {
+    return preferred.slice(1)
+  }
+  return preferred
 }
 
 function renderRelation(relation: IntrospectionRelation): string {
@@ -85,56 +116,99 @@ function renderRelation(relation: IntrospectionRelation): string {
     }`
 }
 
+function renderColumnBuilder(column: IntrospectionColumn): {
+  helper: 'boolean' | 'number' | 'string' | 'json' | 'enumeration'
+  expression: string
+} {
+  const label = normalizeTypeLabel(column)
+  let helper: 'boolean' | 'number' | 'string' | 'json' | 'enumeration'
+  let expression: string
+
+  if (column.typeKind === 'enum' && column.enumValues && column.enumValues.length > 0) {
+    helper = 'enumeration'
+    expression = `enumeration([${column.enumValues.map(value => escapeStringLiteral(value)).join(', ')}] as const)`
+  } else if (column.arrayDimensions > 0 || JSON_TYPES.has(label) || column.typeKind === 'composite') {
+    helper = 'json'
+    expression = `json<${resolvePostgresColumnType(column)}>()`
+  } else if (BOOLEAN_TYPES.has(label)) {
+    helper = 'boolean'
+    expression = 'boolean()'
+  } else if (SAFE_NUMBER_TYPES.has(label)) {
+    helper = 'number'
+    expression = 'number()'
+  } else if (STRING_TYPES.has(label)) {
+    helper = 'string'
+    expression = 'string()'
+  } else {
+    helper = 'string'
+    expression = 'string()'
+  }
+
+  if (column.isNullable) {
+    expression = `${expression}.optional()`
+  }
+  if (column.hasDefault) {
+    expression = `${expression}.defaulted()`
+  }
+  if (column.isGenerated) {
+    expression = `${expression}.generated()`
+  }
+
+  return { helper, expression }
+}
+
 function renderModelArtifact(
-  snapshot: IntrospectionSnapshot,
   descriptor: ModelRenderDescriptor,
   config: NormalizedAthenaGeneratorConfig,
 ): GeneratedArtifact {
-  const columnLines = Object.values(descriptor.table.columns)
-    .map(column => {
-      const propertyName = escapeTypePropertyName(column.name)
-      const baseType = resolvePostgresColumnType(column)
-      const isOptional = column.isNullable
-      const typeWithNullability = column.isNullable ? `${baseType} | null` : baseType
-      return `  ${propertyName}${isOptional ? '?' : ''}: ${typeWithNullability}`
+  const helperImports = new Set<string>(['table'])
+  const columnLines = Object.entries(descriptor.table.columns)
+    .map(([columnName, column]) => {
+      const propertyName = escapeTypePropertyName(columnName)
+      const rendered = renderColumnBuilder(column)
+      helperImports.add(rendered.helper)
+      return `    ${propertyName}: ${rendered.expression}`
     })
-    .join('\n')
-
-  const nullableLines = Object.values(descriptor.table.columns)
-    .map(column => `      ${renderObjectKey(column.name)}: ${column.isNullable ? 'true' : 'false'}`)
     .join(',\n')
 
+  const helperImportLine = Array.from(helperImports).sort().join(', ')
+  const rowSchemaConstName = `${descriptor.tableConstName}_row_schema`
+  const insertSchemaConstName = `${descriptor.tableConstName}_insert_schema`
+  const updateSchemaConstName = `${descriptor.tableConstName}_update_schema`
+  const formSchemaConstName = `${descriptor.tableConstName}_form_schema`
+
   const relationEntries = Object.entries(descriptor.table.relations)
-  const relationBlock = config.features.emitRelations && relationEntries.length > 0
-    ? `,
-    relations: {
+  const relationsAssignment = config.features.emitRelations && relationEntries.length > 0
+    ? `
+Object.assign(${descriptor.tableConstName}.meta, {
+  relations: {
 ${relationEntries
-  .map(([relationKey, relationValue]) => `      ${renderObjectKey(relationKey)}: ${renderRelation(relationValue)}`)
+  .map(([relationKey, relationValue]) => `    ${renderObjectKey(relationKey)}: ${renderRelation(relationValue)}`)
   .join(',\n')}
-    }`
-    : ''
-
-  const content = `import { defineModel } from '@xylex-group/athena'
-
-export interface ${descriptor.rowTypeName} {
-${columnLines}
-}
-
-export type ${descriptor.insertTypeName} = Partial<${descriptor.rowTypeName}>
-export type ${descriptor.updateTypeName} = Partial<${descriptor.insertTypeName}>
-
-export const ${descriptor.modelConstName} = defineModel<${descriptor.rowTypeName}, ${descriptor.insertTypeName}, ${descriptor.updateTypeName}>({
-  meta: {
-    database: ${escapeStringLiteral(snapshot.database)},
-    schema: ${escapeStringLiteral(descriptor.schemaName)},
-    model: ${escapeStringLiteral(descriptor.tableName)},
-    tableName: ${escapeStringLiteral(`${descriptor.schemaName}.${descriptor.tableName}`)},
-    primaryKey: [${descriptor.table.primaryKey.map(value => escapeStringLiteral(value)).join(', ')}],
-    nullable: {
-${nullableLines}
-    }${relationBlock}
   }
 })
+`
+    : ''
+
+  const content = `import { ${helperImportLine} } from '@xylex-group/athena'
+import type { FormValuesOf, InsertOf, RowOf, UpdateOf } from '@xylex-group/athena'
+
+export const ${descriptor.tableConstName} = table(${escapeStringLiteral(descriptor.tableName)})
+  .from(${escapeStringLiteral(`${descriptor.schemaName}.${descriptor.tableName}`)})
+  .columns({
+${columnLines}
+  })
+  .primaryKey(${descriptor.table.primaryKey.map(value => escapeStringLiteral(value)).join(', ')})
+${relationsAssignment ? `${relationsAssignment}` : ''}
+export type ${descriptor.rowTypeName} = RowOf<typeof ${descriptor.tableConstName}>
+export type ${descriptor.insertTypeName} = InsertOf<typeof ${descriptor.tableConstName}>
+export type ${descriptor.updateTypeName} = UpdateOf<typeof ${descriptor.tableConstName}>
+export type ${descriptor.formValuesTypeName} = FormValuesOf<typeof ${descriptor.tableConstName}>
+
+export const ${rowSchemaConstName} = ${descriptor.tableConstName}.schemas.row
+export const ${insertSchemaConstName} = ${descriptor.tableConstName}.schemas.insert
+export const ${updateSchemaConstName} = ${descriptor.tableConstName}.schemas.update
+export const ${formSchemaConstName} = ${descriptor.tableConstName}.schemas.form
 `
 
   return {
@@ -148,12 +222,12 @@ function renderSchemaArtifact(descriptor: SchemaRenderDescriptor): GeneratedArti
   const importLines = descriptor.models
     .map(modelDescriptor => {
       const importPath = toModuleImportPath(descriptor.filePath, modelDescriptor.filePath)
-      return `import { ${modelDescriptor.modelConstName} } from '${importPath}'`
+      return `import { ${modelDescriptor.tableConstName} } from '${importPath}'`
     })
     .join('\n')
 
   const modelEntries = descriptor.models
-    .map(modelDescriptor => `  ${renderObjectKey(modelDescriptor.tableName)}: ${modelDescriptor.modelConstName}`)
+    .map(modelDescriptor => `  ${renderObjectKey(modelDescriptor.tableName)}: ${modelDescriptor.tableConstName}`)
     .join(',\n')
 
   const content = `import { defineSchema } from '@xylex-group/athena'
@@ -244,7 +318,7 @@ type SchemaScopedPathDescriptor = {
 function addSchemaSegmentToPath(pathValue: string, schemaName: string): string {
   const normalizedPath = normalizePath(pathValue)
   const parsedPath = posix.parse(normalizedPath)
-  const schemaSegment = applyNamingStyle(schemaName, 'kebab')
+  const schemaSegment = schemaName.replace(/[^A-Za-z0-9_-]+/g, '-')
   if (!schemaSegment) {
     return normalizedPath
   }
@@ -253,9 +327,7 @@ function addSchemaSegmentToPath(pathValue: string, schemaName: string): string {
   return normalizePath(posix.join(dir, parsedPath.base))
 }
 
-function scopeDuplicateDescriptorPathsBySchema<
-  TDescriptor extends SchemaScopedPathDescriptor,
->(
+function scopeDuplicateDescriptorPathsBySchema<TDescriptor extends SchemaScopedPathDescriptor>(
   descriptors: TDescriptor[],
 ): TDescriptor[] {
   const nextDescriptors = descriptors.map(descriptor => ({ ...descriptor }))
@@ -307,7 +379,7 @@ function scopeDuplicateDescriptorPathsBySchema<
   return nextDescriptors
 }
 
-class ArtifactComposer {
+class TableArtifactComposer {
   constructor(
     private readonly snapshot: IntrospectionSnapshot,
     private readonly config: NormalizedAthenaGeneratorConfig,
@@ -325,7 +397,8 @@ class ArtifactComposer {
         const rowTypeName = `${toSafeIdentifier(`${schemaName} ${tableName}`, this.config.naming.modelType, 'Model')}Row`
         const insertTypeName = `${toSafeIdentifier(`${schemaName} ${tableName}`, this.config.naming.modelType, 'Model')}Insert`
         const updateTypeName = `${toSafeIdentifier(`${schemaName} ${tableName}`, this.config.naming.modelType, 'Model')}Update`
-        const modelConstName = `${toSafeIdentifier(`${schemaName} ${tableName} model`, this.config.naming.modelConst, 'model')}`
+        const formValuesTypeName = `${toSafeIdentifier(`${schemaName} ${tableName}`, this.config.naming.modelType, 'Model')}FormValues`
+        const tableConstName = toSafeIdentifier(tableName, 'preserve', 'table')
 
         const modelPath = normalizePath(
           renderOutputPath(this.config.output.targets.model, {
@@ -344,7 +417,8 @@ class ArtifactComposer {
           rowTypeName,
           insertTypeName,
           updateTypeName,
-          modelConstName,
+          formValuesTypeName,
+          tableConstName,
           table,
         })
       }
@@ -402,7 +476,7 @@ class ArtifactComposer {
     const files: GeneratedArtifact[] = []
 
     for (const modelDescriptor of scopedModelDescriptors) {
-      files.push(renderModelArtifact(this.snapshot, modelDescriptor, this.config))
+      files.push(renderModelArtifact(modelDescriptor, this.config))
     }
 
     for (const schemaDescriptor of schemaDescriptors) {
@@ -441,18 +515,12 @@ class ArtifactComposer {
   }
 }
 
-/**
- * Generates model/schema/database/registry source artifacts from an introspection snapshot.
- */
-export function generateArtifactsFromSnapshot(
+export function generateTableBuilderArtifactsFromSnapshot(
   snapshot: IntrospectionSnapshot,
   config: AthenaGeneratorConfig | NormalizedAthenaGeneratorConfig,
 ): GeneratedArtifacts {
   const normalizedConfig = 'naming' in config && 'features' in config && 'experimental' in config
     ? config as NormalizedAthenaGeneratorConfig
     : normalizeGeneratorConfig(config as AthenaGeneratorConfig)
-  if (normalizedConfig.output.format === 'table-builder') {
-    return generateTableBuilderArtifactsFromSnapshot(snapshot, normalizedConfig)
-  }
-  return new ArtifactComposer(snapshot, normalizedConfig).compose()
+  return new TableArtifactComposer(snapshot, normalizedConfig).compose()
 }

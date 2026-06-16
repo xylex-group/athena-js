@@ -2,6 +2,7 @@ import {
   createTypedClient,
   createClient,
   AthenaClient,
+  boolean,
   createModelFormAdapter,
   defineGeneratorConfig,
   generatorEnv,
@@ -11,10 +12,16 @@ import {
   defineModel,
   defineRegistry,
   defineSchema,
+  enumeration,
+  getAthenaDebugAst,
   normalizeAthenaGatewayBaseUrl,
   isOk,
+  json,
+  number,
   requireAffected,
   requireSuccess,
+  string,
+  table,
   toModelFormDefaults,
   toModelPayload,
   unwrap,
@@ -25,9 +32,14 @@ import {
   createAthenaStorageError,
   type RequireAffectedOptions,
   type AthenaResult,
+  type AthenaQueryDebugAst,
   type AthenaGatewayConnectionResult,
+  type FormValuesOf,
   type ModelFormDefaults,
   type ModelFormValues,
+  type InsertOf,
+  type RowOf,
+  type UpdateOf,
   type AthenaAdminListUsersQuery,
   type AthenaAdminListUsersSearchOperator,
   type AthenaAdminListUsersFilterOperator,
@@ -131,6 +143,7 @@ const createClientDropIn: typeof fluentBuilderClient = createClient(
 const builderDropIn: ReturnType<typeof createClient> = fluentBuilderClient
 const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
+    debugAst: true,
     enableErrorNormalization: true,
     findManyAst: true,
     retryReads: true,
@@ -138,6 +151,7 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
       logger: event => {
         acceptsString(event.operation)
         acceptsString(event.sql)
+        acceptsUnknown(event.ast)
       },
     },
   },
@@ -227,6 +241,8 @@ acceptsStorageFileUploadResultPromise(
     vars: { organization_id: 'org_1' },
   }),
 )
+const maybeDebugAst = getAthenaDebugAst({}) as AthenaQueryDebugAst | null
+acceptsUnknown(maybeDebugAst)
 acceptsStorageListFilesPromise(
   experimentalStorageClient.storage.file.list({
     s3_id: 's3_1',
@@ -953,6 +969,87 @@ const invalidProfileFormValues: ProfileFormValues = {
   active: '',
 }
 acceptsProfileFormValues(invalidProfileFormValues)
+
+const zeroStyleProfile = table('profiles')
+  .from('public.profiles')
+  .columns({
+    id: string().generated(),
+    orgID: string().from('org_id'),
+    display_name: string().optional(),
+    age: number().optional(),
+    active: boolean().defaulted(),
+    settings: json<{ theme: 'light' | 'dark' }>(),
+    mood: enumeration(['happy', 'sad'] as const).optional(),
+  })
+  .primaryKey('id')
+
+type ZeroStyleProfileRow = RowOf<typeof zeroStyleProfile>
+type ZeroStyleProfileInsert = InsertOf<typeof zeroStyleProfile>
+type ZeroStyleProfileUpdate = UpdateOf<typeof zeroStyleProfile>
+type ZeroStyleProfileFormValues = FormValuesOf<typeof zeroStyleProfile>
+
+declare function acceptsZeroStyleProfileRow(value: ZeroStyleProfileRow): void
+declare function acceptsZeroStyleProfileInsert(value: ZeroStyleProfileInsert): void
+declare function acceptsZeroStyleProfileUpdate(value: ZeroStyleProfileUpdate): void
+declare function acceptsZeroStyleProfileFormValues(value: ZeroStyleProfileFormValues): void
+
+const zeroStyleRow = zeroStyleProfile.schemas.row.parse({
+  id: 'prof_1',
+  orgID: 'org_1',
+  display_name: null,
+  age: null,
+  active: true,
+  settings: { theme: 'light' },
+  mood: null,
+})
+acceptsZeroStyleProfileRow(zeroStyleRow)
+
+const zeroStyleInsert = zeroStyleProfile.schemas.insert.parse({
+  orgID: 'org_1',
+  settings: { theme: 'dark' },
+})
+acceptsZeroStyleProfileInsert(zeroStyleInsert)
+
+const zeroStyleUpdate = zeroStyleProfile.schemas.update.parse({
+  display_name: 'Ada',
+  mood: 'happy',
+})
+acceptsZeroStyleProfileUpdate(zeroStyleUpdate)
+
+acceptsZeroStyleProfileFormValues({
+  orgID: 'org_1',
+  display_name: '',
+  age: '',
+  active: true,
+  settings: { theme: 'light' },
+  mood: '',
+})
+
+// @ts-expect-error generated id should not be assignable on insert
+const invalidZeroStyleInsert: ZeroStyleProfileInsert = { id: 'prof_1', orgID: 'org_1', settings: { theme: 'light' } }
+acceptsZeroStyleProfileInsert(invalidZeroStyleInsert)
+
+const zeroStyleRegistry = defineRegistry({
+  zero: defineDatabase({
+    public: defineSchema({
+      profiles: zeroStyleProfile,
+    }),
+  }),
+})
+
+const zeroStyleTypedClient = createTypedClient(
+  zeroStyleRegistry,
+  'https://athena-db.com',
+  'api-key',
+)
+
+zeroStyleTypedClient
+  .fromModel('zero', 'public', 'profiles')
+  .insert({
+    orgID: 'org_1',
+    settings: { theme: 'dark' },
+  })
+  .select()
 
 const generatorConfig = defineGeneratorConfig({
   provider: {

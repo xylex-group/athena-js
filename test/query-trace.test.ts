@@ -193,3 +193,36 @@ test('traceQueries logs thrown rpc get validation failures', async () => {
   assert.equal(trace.outcome, undefined)
   assertUserCallsite(trace, invalidRpcLine)
 })
+
+test('traceQueries includes debug ASTs when experimental.debugAst is enabled', async () => {
+  const captured: AthenaQueryTraceEvent[] = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => createMockResponse([{ id: 1 }], 200)
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      experimental: {
+        debugAst: true,
+        traceQueries: {
+          logger(event) {
+            captured.push(event)
+          },
+        },
+      },
+    })
+
+    await client.from('users').eq('id', 1).select('id')
+
+    const invalidRpcQuery = client.rpc('list_users', { active: true }, { get: true }).eq('active', false)
+    await assert.rejects(() => invalidRpcQuery.select('id'), /conflicts with RPC argument "active"/)
+
+    assert.equal(captured.length, 2)
+    assert.equal(captured[0].ast?.kind, 'select')
+    assert.equal(captured[0].ast?.transport.endpoint, '/gateway/fetch')
+    assert.equal(captured[1].ast?.kind, 'rpc')
+    assert.equal(captured[1].ast?.transport.mode, 'rpc-get')
+    assert.ok(captured[1].thrownError)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

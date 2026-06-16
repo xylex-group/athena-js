@@ -4,6 +4,23 @@ type ModelKey = string
 type ColumnKey = string
 
 /**
+ * Supported column helper families for table-builder definitions.
+ */
+export type ModelColumnKind = 'boolean' | 'number' | 'string' | 'json' | 'enumeration'
+
+/**
+ * Optional per-column metadata carried by model contracts.
+ */
+export interface ModelColumnMetadata {
+  kind: ModelColumnKind
+  columnName?: string
+  nullable?: boolean
+  hasDefault?: boolean
+  isGenerated?: boolean
+  enumValues?: readonly string[]
+}
+
+/**
  * Runtime values that can safely be serialized into tenant-scoped headers.
  */
 export type TenantContextValue = string | number | boolean | null | undefined
@@ -38,6 +55,7 @@ export interface ModelMetadataBase {
   tableName?: string
   primaryKey: string[]
   nullable?: Partial<Record<string, boolean>>
+  columns?: Partial<Record<string, ModelColumnMetadata>>
   relations?: Record<string, ModelRelationMetadata>
 }
 
@@ -47,6 +65,7 @@ export interface ModelMetadataBase {
 export type ModelMetadata<Row> = Omit<ModelMetadataBase, 'primaryKey' | 'nullable'> & {
   primaryKey: Array<Extract<keyof Row, string>>
   nullable?: Partial<Record<Extract<keyof Row, string>, boolean>>
+  columns?: Partial<Record<Extract<keyof Row, string>, ModelColumnMetadata>>
 }
 
 /**

@@ -53,10 +53,22 @@ export interface GeneratorOutputTargets {
   registry: string
 }
 
+export type GeneratorOutputFormat = 'define-model' | 'table-builder'
+
 /**
  * Output configuration including dynamic placeholder aliases.
  */
 export interface GeneratorOutputConfig {
+  format?: GeneratorOutputFormat
+  targets?: Partial<GeneratorOutputTargets>
+  placeholderMap?: Record<string, string>
+}
+
+/**
+ * Normalized output configuration with defaults applied.
+ */
+export interface NormalizedGeneratorOutputConfig {
+  format: GeneratorOutputFormat
   targets: GeneratorOutputTargets
   placeholderMap: Record<string, string>
 }
@@ -123,7 +135,7 @@ export interface AthenaGeneratorConfig {
  */
 export interface NormalizedAthenaGeneratorConfig {
   provider: GeneratorProviderConfig
-  output: GeneratorOutputConfig
+  output: NormalizedGeneratorOutputConfig
   naming: GeneratorNamingConfig
   features: GeneratorFeatureFlags
   experimental: GeneratorExperimentalFlags

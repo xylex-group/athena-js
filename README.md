@@ -238,28 +238,38 @@ It also supports dynamic `baseURL` host resolution plus static/dynamic
 
 For the full details and current scope, see [`docs/auth/server-bootstrap.mdx`](docs/auth/server-bootstrap.mdx).
 
-### Typed schema registry (model-first)
+### Typed schema registry (table-first)
 
-You can keep `createClient(...).from<T>(...)` as-is, or opt into a typed registry:
+You can keep `createClient(...).from<T>(...)` as-is, or opt into a typed registry with the new Zero-style table DSL:
 
 ```ts
 import {
+  boolean,
   createTypedClient,
   defineDatabase,
-  defineModel,
   defineRegistry,
   defineSchema,
+  enumeration,
+  json,
+  string,
+  table,
 } from "@xylex-group/athena";
+
+const users = table("users")
+  .from("public.users")
+  .columns({
+    id: string().generated(),
+    email: string(),
+    active: boolean().defaulted(),
+    mood: enumeration(["happy", "sad"] as const).optional(),
+    settings: json<{ theme: "light" | "dark" }>(),
+  })
+  .primaryKey("id");
 
 const registry = defineRegistry({
   primary: defineDatabase({
     public: defineSchema({
-      users: defineModel<{ id: string; email: string }>({
-        meta: {
-          primaryKey: ["id"],
-          nullable: { id: false, email: false },
-        },
-      }),
+      users,
     }),
   }),
 });
@@ -274,7 +284,15 @@ await typed
   .withTenantContext({ organizationId: "org_1" })
   .fromModel("primary", "public", "users")
   .select("*");
+
+const insert = users.schemas.form.parse({
+  email: "ada@example.com",
+  mood: "",
+  settings: { theme: "light" },
+});
 ```
+
+`defineModel(...)` remains fully supported for compatibility and manual contracts.
 
 For full details, see [`docs/typed-schema-registry.md`](./docs/typed-schema-registry.md).
 
@@ -299,6 +317,7 @@ Generator supports:
 - PostgreSQL direct introspection (`provider.mode = "direct"`, `provider.connectionString` from your `PG_URL`/`DATABASE_URL`)
 - PostgreSQL gateway-only introspection (`provider.mode = "gateway"` via Athena `POST /gateway/query`)
 - Multiple schema syncs such as `public` plus `athena`, with schema-safe default output paths
+- Two output formats: legacy `define-model` artifacts (default) or the new Zero-style `table-builder` format via `output.format`
 - Placeholder-driven output paths
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 - Typed env-backed config fields via `generatorEnv(...)` for connection strings, schema lists, naming styles, flags, and placeholder maps
@@ -397,7 +416,7 @@ if (error) {
 
 ```ts
 const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
-  experimental: { traceQueries: true },
+  experimental: { traceQueries: true, debugAst: true },
 });
 ```
 
@@ -424,6 +443,21 @@ const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
     },
   },
 });
+```
+
+If you also enable `debugAst: true`, every traced operation includes a normalized AST, and successful results expose the same AST through `getAthenaDebugAst(...)`:
+
+```ts
+import { createClient, getAthenaDebugAst } from "@xylex-group/athena";
+
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  experimental: {
+    debugAst: true,
+  },
+});
+
+const result = await athena.from("users").eq("id", 1).select("id");
+const ast = getAthenaDebugAst(result);
 ```
 
 ### Read retries (experimental)

@@ -53,6 +53,19 @@ import {
   toFindManyAstOrder,
 } from './query-transport.ts'
 import type { AthenaFindManyAstPayload } from './query-transport.ts'
+import {
+  attachAthenaDebugAst,
+  buildDeleteDebugAst,
+  buildFindManyCompiledDebugAst,
+  buildFindManyDirectDebugAst,
+  buildInsertDebugAst,
+  buildRawQueryDebugAst,
+  buildRpcDebugAst,
+  buildSelectDebugAst,
+  buildUpdateDebugAst,
+  buildUpsertDebugAst,
+} from './query-debug-ast.ts'
+import type { AthenaQueryDebugAst } from './query-debug-ast.ts'
 
 export interface AthenaResult<T> {
   data: T | null
@@ -107,6 +120,14 @@ export interface AthenaClientExperimentalOptions {
    */
   traceQueries?: boolean | AthenaQueryTraceOptions
   /**
+   * Build and attach a normalized operation AST for runtime debugging.
+   *
+   * When enabled, successful Athena results expose a non-enumerable debug AST
+   * that can be read with `getAthenaDebugAst(...)`. If tracing is also enabled,
+   * the same AST is included on emitted trace events.
+   */
+  debugAst?: boolean
+  /**
    * Send the original `findMany(...)` AST body for clean object-select reads.
    * This requires gateway support and falls back to legacy compiled transport
    * when a chain carries filter/pagination state that the AST payload cannot
@@ -148,6 +169,7 @@ export interface AthenaQueryTraceEvent {
   functionName?: string
   sql: string
   payload: unknown
+  ast?: AthenaQueryDebugAst
   options?: AthenaGatewayCallOptions | AthenaRpcCallOptions
   callsite: AthenaQueryTraceCallsite | null
   outcome?: {
@@ -204,8 +226,16 @@ interface AthenaTraceContext {
   functionName?: string
   sql: string
   payload: unknown
+  ast?: AthenaQueryDebugAst
   options?: AthenaGatewayCallOptions | AthenaRpcCallOptions
 }
+
+type SelectDebugAstFactory = (input: {
+  tableName: string
+  columns: string | string[]
+  executionState: TableBuilderState
+  plan: ReturnType<typeof createSelectTransportPlan>
+}) => AthenaQueryDebugAst
 
 type AthenaQueryTracer = {
   captureCallsite: () => AthenaQueryTraceCallsite | null
@@ -561,6 +591,7 @@ function createQueryTracer(experimental?: AthenaClientExperimentalOptions): Athe
         functionName: context.functionName,
         sql: context.sql,
         payload: context.payload,
+        ast: context.ast,
         options: context.options,
         callsite,
         outcome: {
@@ -588,6 +619,7 @@ function createQueryTracer(experimental?: AthenaClientExperimentalOptions): Athe
         functionName: context.functionName,
         sql: context.sql,
         payload: context.payload,
+        ast: context.ast,
         options: context.options,
         callsite,
         thrownError: error,
@@ -602,18 +634,20 @@ async function executeWithQueryTrace<T>(
   runner: () => Promise<AthenaResult<T>>,
   callsiteOverride?: AthenaQueryTraceCallsite | null,
 ): Promise<AthenaResult<T>> {
-  if (!tracer) {
-    return runner()
-  }
-
-  const callsite = callsiteOverride ?? tracer.captureCallsite()
-  const startedAt = Date.now()
+  const callsite = tracer ? (callsiteOverride ?? tracer.captureCallsite()) : null
+  const startedAt = tracer ? Date.now() : 0
   try {
     const result = await runner()
-    tracer.publishSuccess(context, result, Date.now() - startedAt, callsite)
+    attachAthenaDebugAst(result, context.ast)
+    if (tracer) {
+      tracer.publishSuccess(context, result, Date.now() - startedAt, callsite)
+    }
     return result
   } catch (error) {
-    tracer.publishFailure(context, error, Date.now() - startedAt, callsite)
+    attachAthenaDebugAst(error, context.ast)
+    if (tracer) {
+      tracer.publishFailure(context, error, Date.now() - startedAt, callsite)
+    }
     throw error
   }
 }
@@ -1551,6 +1585,7 @@ function createRpcBuilder<Row>(
   formatGatewayResult: AthenaResultFormatter,
   tracer?: AthenaQueryTracer,
   initialCallsite?: AthenaQueryTraceCallsite | null,
+  debugAstEnabled = false,
 ): RpcQueryBuilder<Row> {
   const state: {
     filters: AthenaRpcFilter[]
@@ -1586,6 +1621,16 @@ function createRpcBuilder<Row>(
     }
     const endpoint: AthenaTraceEndpoint = mergedOptions?.get ? `/rpc/${functionName}` : '/gateway/rpc'
     const sql = buildRpcDebugSql(payload)
+    const debugAst = debugAstEnabled
+      ? buildRpcDebugAst({
+          functionName,
+          args,
+          selectedColumns: columns,
+          state,
+          payload,
+          endpoint,
+        })
+      : undefined
     return executeWithQueryTrace(
       tracer,
       {
@@ -1594,6 +1639,7 @@ function createRpcBuilder<Row>(
         functionName,
         sql,
         payload,
+        ast: debugAst,
         options: mergedOptions,
       },
       async () => {
@@ -1682,6 +1728,7 @@ function createTableBuilder<
   const state: TableBuilderState = {
     conditions: [],
   }
+  const debugAstEnabled = Boolean(experimental?.debugAst)
 
   const addCondition = (
     operator: AthenaConditionOperator,
@@ -1741,6 +1788,7 @@ function createTableBuilder<
     options?: AthenaGatewayCallOptions,
     executionState: TableBuilderState = snapshotState(),
     callsite?: AthenaQueryTraceCallsite | null,
+    debugAstFactory?: SelectDebugAstFactory,
   ) => {
     const resolvedTableName = resolveTableNameForCall(tableName, options?.schema)
     const plan = createSelectTransportPlan({
@@ -1750,6 +1798,19 @@ function createTableBuilder<
       options,
       buildTypedSelectQuery,
     })
+    const debugAst = debugAstEnabled
+      ? (debugAstFactory?.({
+          tableName: resolvedTableName,
+          columns,
+          executionState,
+          plan,
+        }) ?? buildSelectDebugAst({
+          tableName: resolvedTableName,
+          columns,
+          state: executionState,
+          plan,
+        }))
+      : undefined
 
     if (plan.kind === 'query') {
       return executeExperimentalRead(experimental, () =>
@@ -1761,6 +1822,7 @@ function createTableBuilder<
             table: resolvedTableName,
             sql: plan.query,
             payload: plan.payload,
+            ast: debugAst,
             options,
           },
           async () => {
@@ -1785,6 +1847,7 @@ function createTableBuilder<
           table: resolvedTableName,
           sql,
           payload: plan.payload,
+          ast: debugAst,
           options,
         },
         async () => {
@@ -1903,6 +1966,16 @@ function createTableBuilder<
           limit: executionState.limit,
           order: executionState.order,
         })
+        const debugAst = debugAstEnabled
+          ? buildFindManyDirectDebugAst({
+              tableName: resolvedTableName,
+              options,
+              compiledColumns: columns,
+              baseState,
+              executionState,
+              payload,
+            })
+          : undefined
         return executeExperimentalRead(experimental, () =>
           executeWithQueryTrace(
             tracer,
@@ -1912,6 +1985,7 @@ function createTableBuilder<
               table: resolvedTableName,
               sql,
               payload,
+              ast: debugAst,
             },
             async () => {
               const response = await client.fetchGateway<Array<AthenaFindManyResult<Row, TSelect, TContext>>>(
@@ -1928,6 +2002,17 @@ function createTableBuilder<
         undefined,
         executionState,
         callsite,
+        debugAstEnabled
+          ? ({ tableName: resolvedTableName, executionState: tracedState, plan }) =>
+              buildFindManyCompiledDebugAst({
+                tableName: resolvedTableName,
+                options,
+                compiledColumns: columns,
+                baseState,
+                executionState: tracedState,
+                plan,
+              })
+          : undefined,
       )
     },
     insert(values: Insert | Insert[], options?: AthenaGatewayCallOptions) {
@@ -1951,6 +2036,7 @@ function createTableBuilder<
             payload.default_to_null = mergedOptions.defaultToNull
           }
           const sql = buildInsertDebugSql(payload)
+          const debugAst = debugAstEnabled ? buildInsertDebugAst(payload) : undefined
           return executeWithQueryTrace(
             tracer,
             {
@@ -1959,6 +2045,7 @@ function createTableBuilder<
               table: resolvedTableName,
               sql,
               payload,
+              ast: debugAst,
               options: mergedOptions,
             },
             async () => {
@@ -1988,6 +2075,7 @@ function createTableBuilder<
           payload.default_to_null = mergedOptions.defaultToNull
         }
         const sql = buildInsertDebugSql(payload)
+        const debugAst = debugAstEnabled ? buildInsertDebugAst(payload) : undefined
         return executeWithQueryTrace(
           tracer,
           {
@@ -1996,6 +2084,7 @@ function createTableBuilder<
             table: resolvedTableName,
             sql,
             payload,
+            ast: debugAst,
             options: mergedOptions,
           },
           async () => {
@@ -2033,6 +2122,7 @@ function createTableBuilder<
             payload.default_to_null = mergedOptions.defaultToNull
           }
           const sql = buildInsertDebugSql(payload)
+          const debugAst = debugAstEnabled ? buildUpsertDebugAst(payload) : undefined
           return executeWithQueryTrace(
             tracer,
             {
@@ -2041,6 +2131,7 @@ function createTableBuilder<
               table: resolvedTableName,
               sql,
               payload,
+              ast: debugAst,
               options: mergedOptions,
             },
             async () => {
@@ -2072,6 +2163,7 @@ function createTableBuilder<
           payload.default_to_null = mergedOptions.defaultToNull
         }
         const sql = buildInsertDebugSql(payload)
+        const debugAst = debugAstEnabled ? buildUpsertDebugAst(payload) : undefined
         return executeWithQueryTrace(
           tracer,
           {
@@ -2080,6 +2172,7 @@ function createTableBuilder<
             table: resolvedTableName,
             sql,
             payload,
+            ast: debugAst,
             options: mergedOptions,
           },
           async () => {
@@ -2098,7 +2191,8 @@ function createTableBuilder<
         selectOptions?: AthenaGatewayCallOptions,
         callsite?: AthenaQueryTraceCallsite | null,
       ) => {
-        const filters = state.conditions.length ? [...state.conditions] : undefined
+        const executionState = snapshotState()
+        const filters = executionState.conditions.length ? [...executionState.conditions] : undefined
         const mergedOptions = mergeOptions(options, selectOptions)
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaUpdatePayload = {
@@ -2107,12 +2201,18 @@ function createTableBuilder<
           conditions: filters,
           strip_nulls: mergedOptions?.stripNulls ?? true,
         }
-        if (state.order) payload.sort_by = state.order
-        if (state.currentPage !== undefined) payload.current_page = state.currentPage
-        if (state.pageSize !== undefined) payload.page_size = state.pageSize
-        if (state.totalPages !== undefined) payload.total_pages = state.totalPages
+        if (executionState.order) payload.sort_by = executionState.order
+        if (executionState.currentPage !== undefined) payload.current_page = executionState.currentPage
+        if (executionState.pageSize !== undefined) payload.page_size = executionState.pageSize
+        if (executionState.totalPages !== undefined) payload.total_pages = executionState.totalPages
         if (columns) payload.columns = columns
         const sql = buildUpdateDebugSql(payload)
+        const debugAst = debugAstEnabled
+          ? buildUpdateDebugAst({
+              state: executionState,
+              payload,
+            })
+          : undefined
         return executeWithQueryTrace(
           tracer,
           {
@@ -2121,6 +2221,7 @@ function createTableBuilder<
             table: resolvedTableName,
             sql,
             payload,
+            ast: debugAst,
             options: mergedOptions,
           },
           async () => {
@@ -2148,6 +2249,11 @@ function createTableBuilder<
         selectOptions?: AthenaGatewayCallOptions,
         callsite?: AthenaQueryTraceCallsite | null,
       ) => {
+        const executionState = snapshotState()
+        const debugState: TableBuilderState = {
+          ...executionState,
+          conditions: filters ? filters.map(condition => ({ ...condition })) : [],
+        }
         const mergedOptions = mergeOptions(options, selectOptions)
         const resolvedTableName = resolveTableNameForCall(tableName, mergedOptions?.schema)
         const payload: AthenaDeletePayload = {
@@ -2155,12 +2261,18 @@ function createTableBuilder<
           resource_id: resourceId,
           conditions: filters,
         }
-        if (state.order) payload.sort_by = state.order
-        if (state.currentPage !== undefined) payload.current_page = state.currentPage
-        if (state.pageSize !== undefined) payload.page_size = state.pageSize
-        if (state.totalPages !== undefined) payload.total_pages = state.totalPages
+        if (executionState.order) payload.sort_by = executionState.order
+        if (executionState.currentPage !== undefined) payload.current_page = executionState.currentPage
+        if (executionState.pageSize !== undefined) payload.page_size = executionState.pageSize
+        if (executionState.totalPages !== undefined) payload.total_pages = executionState.totalPages
         if (columns) payload.columns = columns
         const sql = buildDeleteDebugSql(payload)
+        const debugAst = debugAstEnabled
+          ? buildDeleteDebugAst({
+              state: debugState,
+              payload,
+            })
+          : undefined
         return executeWithQueryTrace(
           tracer,
           {
@@ -2169,6 +2281,7 @@ function createTableBuilder<
             table: resolvedTableName,
             sql,
             payload,
+            ast: debugAst,
             options: mergedOptions,
           },
           async () => {
@@ -2203,6 +2316,7 @@ function createQueryBuilder(
   experimental?: AthenaClientExperimentalOptions,
   tracer?: AthenaQueryTracer,
 ) {
+  const debugAstEnabled = Boolean(experimental?.debugAst)
   return async function query<Row = unknown>(
     query: string,
     options?: AthenaGatewayCallOptions,
@@ -2221,6 +2335,7 @@ function createQueryBuilder(
           endpoint: '/gateway/query',
           sql: normalizedQuery,
           payload,
+          ast: debugAstEnabled ? buildRawQueryDebugAst(normalizedQuery) : undefined,
           options,
         },
         async () => {
@@ -2333,6 +2448,7 @@ function createClientFromConfig(config: AthenaClientConfig): AthenaSdkClientWith
       formatGatewayResult,
       queryTracer,
       captureTraceCallsite(queryTracer),
+      Boolean(config.experimental?.debugAst),
     )
   }
   const query = createQueryBuilder(gateway, formatGatewayResult, config.experimental, queryTracer) as AthenaSdkClient['query']

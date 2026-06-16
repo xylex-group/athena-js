@@ -85,6 +85,8 @@ interface AthenaClientConfigAst {
 }
 ```
 
+When `experimental.debugAst` is enabled, executed runtime methods also attach a normalized per-operation debug AST to the returned `AthenaResult`. If `experimental.traceQueries` is enabled too, that same AST is emitted on the trace event for the operation.
+
 This is then split into:
 
 - a gateway client

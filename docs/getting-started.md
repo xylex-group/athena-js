@@ -73,7 +73,7 @@ Builder output is a drop-in `createClient(...)` replacement:
 
 - same runtime surface: `from`, `db`, `rpc`, `query`, `auth`
 - same auth bindings/types under `client.auth.*`
-- same `experimental` flags support (`traceQueries`, `retryReads`, `findManyAst`) plus compatibility acceptance of deprecated `enableErrorNormalization`
+- same `experimental` flags support (`traceQueries`, `debugAst`, `retryReads`, `findManyAst`) plus compatibility acceptance of deprecated `enableErrorNormalization`
 
 Repeated fluent configuration calls compose:
 
@@ -156,6 +156,22 @@ const tracedClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_AP
     },
   },
 });
+```
+
+If you also enable `experimental.debugAst`, each traced event includes a normalized operation AST and successful results expose the same AST through `getAthenaDebugAst(...)`:
+
+```ts
+import { createClient, getAthenaDebugAst } from "@xylex-group/athena";
+
+const debugClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+  experimental: {
+    debugAst: true,
+    traceQueries: true,
+  },
+});
+
+const result = await debugClient.from("users").eq("id", 1).select("id");
+const ast = getAthenaDebugAst(result);
 ```
 
 ## 3.2) Optional read retries (experimental)

@@ -278,3 +278,39 @@ test('generateArtifactsFromSnapshot keeps built-in placeholders stable when plac
   assert.equal(paths.includes('athena/athena/schema.ts'), true)
   assert.equal(paths.some(path => path.startsWith('athena/models/schema/')), false)
 })
+
+test('generateArtifactsFromSnapshot can render the zero-style table builder format', () => {
+  const config = defineGeneratorConfig({
+    provider: {
+      kind: 'postgres',
+      mode: 'direct',
+      connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+      database: 'app_db',
+      schemas: ['public'],
+    },
+    output: {
+      format: 'table-builder',
+      targets: {
+        model: 'src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.ts',
+        schema: 'src/generated/{database_kebab}/{schema_kebab}/index.ts',
+        database: 'src/generated/{database_kebab}/index.ts',
+        registry: 'src/generated/index.ts',
+      },
+    },
+    features: {
+      emitRelations: true,
+      emitRegistry: true,
+    },
+  })
+
+  const artifacts = generateArtifactsFromSnapshot(snapshot, config)
+  const modelFile = artifacts.files.find(file => file.kind === 'model')
+  assert.ok(modelFile)
+  assert.equal(modelFile.content.includes("export const users = table('users')"), true)
+  assert.equal(modelFile.content.includes(".from('public.users')"), true)
+  assert.equal(modelFile.content.includes("'space name': string().optional()"), true)
+  assert.equal(modelFile.content.includes("mood: enumeration(['happy', 'sad'] as const).optional()"), true)
+  assert.equal(modelFile.content.includes('Object.assign(users.meta, {'), true)
+  assert.equal(modelFile.content.includes('export const users_row_schema = users.schemas.row'), true)
+  assert.equal(modelFile.content.includes('export type PublicUsersFormValues = FormValuesOf<typeof users>'), true)
+})

@@ -79,6 +79,11 @@ export default defineGeneratorConfig({
     }),
   },
   output: {
+    format: generatorEnv.oneOf(
+      "ATHENA_GENERATOR_OUTPUT_FORMAT",
+      ["define-model", "table-builder"] as const,
+      { default: "define-model" },
+    ),
     targets: {
       model: generatorEnv("ATHENA_GENERATOR_MODEL_TARGET", {
         default: "athena/models/{schema_kebab}/{model_kebab}.ts",
@@ -164,6 +169,11 @@ export default defineGeneratorConfig({
     }),
   },
   output: {
+    format: generatorEnv.oneOf(
+      "ATHENA_GENERATOR_OUTPUT_FORMAT",
+      ["define-model", "table-builder"] as const,
+      { default: "define-model" },
+    ),
     targets: {
       model: generatorEnv("ATHENA_GENERATOR_MODEL_TARGET", {
         default: "athena/models/{schema_kebab}/{model_kebab}.ts",
@@ -268,8 +278,9 @@ Current behavior:
 
 ```ts
 interface GeneratorOutputConfig {
-  targets: GeneratorOutputTargets;
-  placeholderMap: Record<string, string>;
+  format?: "define-model" | "table-builder";
+  targets?: Partial<GeneratorOutputTargets>;
+  placeholderMap?: Record<string, string>;
 }
 
 interface GeneratorOutputTargets {
@@ -282,6 +293,7 @@ interface GeneratorOutputTargets {
 
 ### Defaults
 
+- `format`: `"define-model"`
 - `model`: `athena/models/{schema_kebab}/{model_kebab}.ts`
 - `schema`: `athena/schemas/{schema_kebab}.ts`
 - `database`: `athena/relations.ts`
@@ -289,6 +301,27 @@ interface GeneratorOutputTargets {
 
 The defaults include the schema name in model and schema paths so `public.users`
 and `athena.users` can be generated in the same run without path collisions.
+
+### `output.format`
+
+Use `output.format` to choose the model artifact style:
+
+- `"define-model"`: emits legacy `defineModel<...>` files
+- `"table-builder"`: emits Zero-style `table(...).columns(...).primaryKey(...)` files with exported Zod schemas
+
+Example:
+
+```ts
+output: {
+  format: "table-builder",
+  targets: {
+    model: "src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.ts",
+    schema: "src/generated/{database_kebab}/{schema_kebab}/index.ts",
+    database: "src/generated/{database_kebab}/index.ts",
+    registry: "src/generated/index.ts",
+  },
+}
+```
 
 ### Schema selection
 

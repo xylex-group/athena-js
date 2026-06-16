@@ -27,6 +27,14 @@ export type ModelFormValues<
 }
 
 /**
+ * Alias for deriving form value types from any model contract.
+ */
+export type FormValuesOf<
+  TModel extends AnyModelDef,
+  TMode extends ModelFormNullishMode = 'empty-string',
+> = ModelFormValues<TModel, TMode>
+
+/**
  * Default value shape for form initialization.
  */
 export type ModelFormDefaults<
