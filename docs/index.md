@@ -26,9 +26,10 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 
 ### Track C - Generator and CI
 
-1. [`generator-config.md`](generator-config.md) - provider modes, output templates, naming, and feature flags
-2. [`generator-cicd.md`](generator-cicd.md) - deterministic CI expectations for generated artifacts
-3. [`generator-codex-handoff-prompt-pack.md`](generator-codex-handoff-prompt-pack.md) - prompt templates for large generator maintenance tasks
+1. [`generator-quickstart.md`](generator-quickstart.md) - zero-config runs, minimal config files, and copy-paste examples
+2. [`generator-config.md`](generator-config.md) - provider modes, output templates, naming, and feature flags
+3. [`generator-cicd.md`](generator-cicd.md) - deterministic CI expectations for generated artifacts
+4. [`generator-codex-handoff-prompt-pack.md`](generator-codex-handoff-prompt-pack.md) - prompt templates for large generator maintenance tasks
 
 ### Track D - Athena Auth Client
 
@@ -66,7 +67,7 @@ Runtime client (createClient / AthenaClient.builder)
 - If your issue is response field naming or `customName:columnName` syntax: open [`select-column-aliases.md`](select-column-aliases.md).
 - If your issue is Athena-managed storage, upload URLs, proxied file reads, or storage OpenAPI route coverage: open [`storage/index.md`](storage/index.md).
 - If your issue is type drift across domains: start at [`type-safety-playbook.md`](type-safety-playbook.md).
-- If your issue is generated artifacts or CI determinism: start at [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).
+- If your issue is generated artifacts or CI determinism: start at [`generator-quickstart.md`](generator-quickstart.md), then [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).
 - If your issue is auth endpoint parity and typed auth bindings: start at [`auth/index.mdx`](auth/index.mdx).
 - If your issue is getting Athena Auth session or bearer context onto `from(...)`, `rpc(...)`, or `query(...)` requests: start at [`auth-session-forwarding.md`](auth-session-forwarding.md).
 - If your issue is exact method signatures: use [`api-reference.md`](api-reference.md).

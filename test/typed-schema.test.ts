@@ -1,12 +1,15 @@
 import { strict as assert } from 'assert'
 import { test } from 'node:test'
 import {
+  createClient,
   createTypedClient,
   defineDatabase,
   defineModel,
   defineRegistry,
   defineSchema,
   identifier,
+  string,
+  table,
 } from '../src/index.ts'
 
 type Capture = { url: string; init?: RequestInit }
@@ -198,6 +201,39 @@ test('typed client regular from() supports base schema options', async () => {
     await client.from<UserRow>('users', { schema: 'public' }).eq('id', 'u2').select('*')
     const payload = JSON.parse(calls[0].init?.body as string)
     assert.equal(payload.table_name, 'public.users')
+  } finally {
+    restore()
+  }
+})
+
+test('root client accepts Athena model targets directly', async () => {
+  const { calls, restore } = mockFetch()
+
+  const usersTable = table('users')
+    .schema('public')
+    .columns({
+      id: string(),
+      email: string(),
+    })
+    .primaryKey('id')
+
+  const legacyUsers = defineModel<UserRow>({
+    meta: {
+      tableName: 'legacy.user_records',
+      primaryKey: ['id'],
+    },
+  })
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret')
+    await client.from(usersTable).eq('id', 'u3').select('*')
+    await client.from(legacyUsers).select('*')
+
+    const firstPayload = JSON.parse(calls[0].init?.body as string)
+    const secondPayload = JSON.parse(calls[1].init?.body as string)
+
+    assert.equal(firstPayload.table_name, 'public.users')
+    assert.equal(secondPayload.table_name, 'legacy.user_records')
   } finally {
     restore()
   }

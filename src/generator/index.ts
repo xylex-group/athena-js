@@ -21,6 +21,7 @@ export type {
   GeneratorArtifactKind,
   GeneratorExperimentalFlags,
   GeneratorFeatureFlags,
+  GeneratorInternalConfig,
   GeneratorNamingConfig,
   GeneratorOutputConfig,
   GeneratorOutputFormat,

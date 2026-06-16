@@ -37,6 +37,7 @@ export type {
   ColumnRuntimeConfig,
 } from './table-columns.ts'
 export type {
+  AthenaModelTarget,
   DatabaseDef,
   InsertOf,
   IntrospectionColumn,
@@ -62,7 +63,11 @@ export type {
   TenantKeyMap,
   UpdateOf,
 } from './types.ts'
-export type { TypedAthenaClient, TypedClientOptions } from './typed-client.ts'
+export type {
+  TypedAthenaClient,
+  TypedClientOptions,
+  TypedClientOptionsWithTypecheckedColumns,
+} from './typed-client.ts'
 export type { PostgresIntrospectionProviderOptions } from './postgres-provider.ts'
 export type {
   ModelFormAdapter,

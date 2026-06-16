@@ -5,11 +5,13 @@ import type {
   AthenaGeneratorConfig,
   GeneratorExperimentalFlags,
   GeneratorFeatureFlags,
+  GeneratorInternalConfig,
   GeneratorNamingConfig,
   GeneratorOutputConfig,
   GeneratorOutputFormat,
   GeneratorOutputTargets,
   GeneratorProviderConfig,
+  GeneratorProviderInputConfig,
   LoadGeneratorConfigOptions,
   LoadedGeneratorConfig,
   NormalizedGeneratorOutputConfig,
@@ -17,6 +19,7 @@ import type {
 } from './types.ts'
 import { parseBooleanFlag } from '../auxiliaries.ts'
 import { normalizeSchemaSelection } from './schema-selection.ts'
+import type { BackendType } from '../gateway/types.ts'
 
 const POSTGRES_PROTOCOLS = new Set(['postgres:', 'postgresql:'])
 
@@ -56,6 +59,10 @@ const DEFAULT_EXPERIMENTAL_FLAGS: GeneratorExperimentalFlags = {
   scyllaProviderContracts: true,
 }
 
+const DEFAULT_INTERNAL_CONFIG: GeneratorInternalConfig = {
+  schemaVersion: 1,
+}
+
 const PROJECT_ENV_FILENAMES = ['.env', '.env.local'] as const
 
 const DIRECT_CONNECTION_STRING_ENV_KEYS = [
@@ -77,6 +84,29 @@ const GATEWAY_API_KEY_ENV_KEYS = [
   'ATHENA_GATEWAY_API_KEY',
   'ATHENA_GENERATOR_API_KEY',
 ] as const
+
+const GENERATOR_SCHEMA_ENV_KEYS = ['ATHENA_GENERATOR_SCHEMAS'] as const
+const OUTPUT_FORMAT_ENV_KEYS = ['ATHENA_GENERATOR_OUTPUT_FORMAT'] as const
+const MODEL_TARGET_ENV_KEYS = ['ATHENA_GENERATOR_MODEL_TARGET'] as const
+const SCHEMA_TARGET_ENV_KEYS = ['ATHENA_GENERATOR_SCHEMA_TARGET'] as const
+const DATABASE_TARGET_ENV_KEYS = ['ATHENA_GENERATOR_DATABASE_TARGET'] as const
+const REGISTRY_TARGET_ENV_KEYS = ['ATHENA_GENERATOR_REGISTRY_TARGET'] as const
+const PLACEHOLDER_MAP_ENV_KEYS = ['ATHENA_GENERATOR_PLACEHOLDER_MAP'] as const
+const MODEL_TYPE_ENV_KEYS = ['ATHENA_GENERATOR_MODEL_TYPE', 'ATHENA_GENERATOR_MODEL_STYLE'] as const
+const MODEL_CONST_ENV_KEYS = ['ATHENA_GENERATOR_MODEL_CONST'] as const
+const SCHEMA_CONST_ENV_KEYS = ['ATHENA_GENERATOR_SCHEMA_CONST'] as const
+const DATABASE_CONST_ENV_KEYS = ['ATHENA_GENERATOR_DATABASE_CONST'] as const
+const REGISTRY_CONST_ENV_KEYS = ['ATHENA_GENERATOR_REGISTRY_CONST'] as const
+const EMIT_RELATIONS_ENV_KEYS = ['ATHENA_GENERATOR_EMIT_RELATIONS'] as const
+const EMIT_REGISTRY_ENV_KEYS = ['ATHENA_GENERATOR_EMIT_REGISTRY'] as const
+const GATEWAY_BACKEND_ENV_KEYS = ['ATHENA_GENERATOR_BACKEND'] as const
+const GATEWAY_EXPERIMENTAL_ENV_KEYS = ['ATHENA_GENERATOR_GATEWAY_EXPERIMENTAL'] as const
+const SCYLLA_PROVIDER_CONTRACTS_ENV_KEYS = ['ATHENA_GENERATOR_SCYLLA_PROVIDER_CONTRACTS'] as const
+const ENV_ONLY_CONFIG_PATH = '[environment defaults]'
+
+const NAMING_STYLE_VALUES = ['preserve', 'camel', 'pascal', 'snake', 'kebab'] as const
+const OUTPUT_FORMAT_VALUES = ['define-model', 'table-builder'] as const
+const BACKEND_TYPE_VALUES = ['athena', 'postgrest', 'postgresql', 'scylladb'] as const
 
 function normalizeRawEnvValue(rawValue: string): string {
   if (rawValue.startsWith('"') && rawValue.endsWith('"') && rawValue.length >= 2) {
@@ -194,6 +224,62 @@ function resolveFallbackValue(
   return undefined
 }
 
+function normalizeOneOfValue<const T extends string>(
+  rawValue: string | undefined,
+  allowedValues: readonly T[],
+  envKeys: readonly string[],
+): T | undefined {
+  if (!rawValue) {
+    return undefined
+  }
+  if (allowedValues.includes(rawValue as T)) {
+    return rawValue as T
+  }
+  throw new Error(
+    `Generator config env vars ${envKeys.join(', ')} must resolve to one of: ${allowedValues.join(', ')}. Received: ${rawValue}.`,
+  )
+}
+
+function resolveOptionalOneOf<const T extends string>(
+  envKeys: readonly string[],
+  allowedValues: readonly T[],
+): T | undefined {
+  return normalizeOneOfValue(resolveFallbackValue(envKeys), allowedValues, envKeys)
+}
+
+function resolveOptionalBoolean(envKeys: readonly string[]): boolean | undefined {
+  const rawValue = resolveFallbackValue(envKeys)
+  return rawValue === undefined ? undefined : parseBooleanFlag(rawValue, false)
+}
+
+function resolveOptionalJson<T>(envKeys: readonly string[]): T | undefined {
+  const rawValue = resolveFallbackValue(envKeys)
+  if (rawValue === undefined) {
+    return undefined
+  }
+  try {
+    return JSON.parse(rawValue) as T
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `Generator config env vars ${envKeys.join(', ')} must contain valid JSON. ${message}`,
+    )
+  }
+}
+
+function deriveDatabaseNameFromConnectionString(connectionString: string): string | undefined {
+  try {
+    const parsedUrl = new URL(connectionString)
+    if (!POSTGRES_PROTOCOLS.has(parsedUrl.protocol)) {
+      return undefined
+    }
+    const pathname = parsedUrl.pathname.replace(/^\/+/, '').trim()
+    return pathname.length > 0 ? decodeURIComponent(pathname) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function normalizeOptionalString(
   value: unknown,
   fallbackKeys: readonly string[],
@@ -288,20 +374,20 @@ function normalizeExperimentalFlags(
   }
 }
 
-function normalizeOutputConfig(output: GeneratorOutputConfig): NormalizedGeneratorOutputConfig {
+function normalizeOutputConfig(output: GeneratorOutputConfig | undefined): NormalizedGeneratorOutputConfig {
   return {
-    format: output.format ?? DEFAULT_OUTPUT_FORMAT,
+    format: output?.format ?? DEFAULT_OUTPUT_FORMAT,
     targets: {
       ...DEFAULT_TARGETS,
-      ...(output.targets ?? {}),
+      ...(output?.targets ?? {}),
     },
     placeholderMap: {
-      ...(output.placeholderMap ?? {}),
+      ...(output?.placeholderMap ?? {}),
     },
   }
 }
 
-function normalizeProviderConfig(provider: GeneratorProviderConfig): GeneratorProviderConfig {
+function normalizeProviderConfig(provider: GeneratorProviderInputConfig): GeneratorProviderConfig {
   if (provider.kind === 'postgres' && provider.mode === 'direct') {
     const connectionString = normalizeRequiredString(
       provider.connectionString,
@@ -309,6 +395,7 @@ function normalizeProviderConfig(provider: GeneratorProviderConfig): GeneratorPr
       DIRECT_CONNECTION_STRING_ENV_KEYS,
     )
     const database = normalizeOptionalString(provider.database, POSTGRES_DATABASE_ENV_KEYS)
+      ?? deriveDatabaseNameFromConnectionString(connectionString)
 
     return {
       ...provider,
@@ -329,11 +416,7 @@ function normalizeProviderConfig(provider: GeneratorProviderConfig): GeneratorPr
       'provider.apiKey',
       GATEWAY_API_KEY_ENV_KEYS,
     )
-    const database = normalizeRequiredString(
-      provider.database,
-      'provider.database',
-      POSTGRES_DATABASE_ENV_KEYS,
-    )
+    const database = normalizeOptionalString(provider.database, POSTGRES_DATABASE_ENV_KEYS) ?? 'postgres'
 
     return {
       ...provider,
@@ -341,6 +424,28 @@ function normalizeProviderConfig(provider: GeneratorProviderConfig): GeneratorPr
       apiKey,
       database,
       schemas: normalizeSchemaSelection(provider.schemas),
+    }
+  }
+
+  if (provider.kind === 'scylla' && provider.mode === 'direct') {
+    if (!provider.contactPoints?.length) {
+      throw new Error(
+        'Generator config is missing provider.contactPoints for scylla direct mode.',
+      )
+    }
+    const keyspace = normalizeOptionalString(provider.keyspace, [])
+    if (!keyspace) {
+      throw new Error(
+        'Generator config is missing provider.keyspace for scylla direct mode.',
+      )
+    }
+
+    return {
+      kind: 'scylla',
+      mode: 'direct',
+      contactPoints: provider.contactPoints.slice(),
+      keyspace,
+      datacenter: normalizeOptionalString(provider.datacenter, []),
     }
   }
 
@@ -353,7 +458,7 @@ function isAthenaGeneratorConfig(value: unknown): value is AthenaGeneratorConfig
   }
   const record = value as Record<string, unknown>
   return Boolean(record.provider && typeof record.provider === 'object') &&
-    Boolean(record.output && typeof record.output === 'object')
+    (record.output === undefined || typeof record.output === 'object')
 }
 
 export function normalizeGeneratorConfig(input: AthenaGeneratorConfig): NormalizedAthenaGeneratorConfig {
@@ -366,6 +471,9 @@ export function normalizeGeneratorConfig(input: AthenaGeneratorConfig): Normaliz
     },
     features: normalizeFeatureFlags(input.features),
     experimental: normalizeExperimentalFlags(input.experimental),
+    internal: {
+      ...DEFAULT_INTERNAL_CONFIG,
+    },
   }
 }
 
@@ -444,6 +552,136 @@ function importConfigModule(moduleSpecifier: string): Promise<unknown> {
   return runtimeImport(moduleSpecifier)
 }
 
+function buildEnvironmentOutputConfig(): GeneratorOutputConfig | undefined {
+  const format = resolveOptionalOneOf(OUTPUT_FORMAT_ENV_KEYS, OUTPUT_FORMAT_VALUES)
+  const modelTarget = resolveFallbackValue(MODEL_TARGET_ENV_KEYS)
+  const schemaTarget = resolveFallbackValue(SCHEMA_TARGET_ENV_KEYS)
+  const databaseTarget = resolveFallbackValue(DATABASE_TARGET_ENV_KEYS)
+  const registryTarget = resolveFallbackValue(REGISTRY_TARGET_ENV_KEYS)
+  const placeholderMap = resolveOptionalJson<Record<string, string>>(PLACEHOLDER_MAP_ENV_KEYS)
+
+  if (
+    format === undefined &&
+    modelTarget === undefined &&
+    schemaTarget === undefined &&
+    databaseTarget === undefined &&
+    registryTarget === undefined &&
+    placeholderMap === undefined
+  ) {
+    return undefined
+  }
+
+  return {
+    format,
+    targets: {
+      ...(modelTarget ? { model: modelTarget } : {}),
+      ...(schemaTarget ? { schema: schemaTarget } : {}),
+      ...(databaseTarget ? { database: databaseTarget } : {}),
+      ...(registryTarget ? { registry: registryTarget } : {}),
+    },
+    placeholderMap,
+  }
+}
+
+function buildEnvironmentNamingConfig(): Partial<GeneratorNamingConfig> | undefined {
+  const modelType = resolveOptionalOneOf(MODEL_TYPE_ENV_KEYS, NAMING_STYLE_VALUES)
+  const modelConst = resolveOptionalOneOf(MODEL_CONST_ENV_KEYS, NAMING_STYLE_VALUES)
+  const schemaConst = resolveOptionalOneOf(SCHEMA_CONST_ENV_KEYS, NAMING_STYLE_VALUES)
+  const databaseConst = resolveOptionalOneOf(DATABASE_CONST_ENV_KEYS, NAMING_STYLE_VALUES)
+  const registryConst = resolveOptionalOneOf(REGISTRY_CONST_ENV_KEYS, NAMING_STYLE_VALUES)
+
+  if (
+    modelType === undefined &&
+    modelConst === undefined &&
+    schemaConst === undefined &&
+    databaseConst === undefined &&
+    registryConst === undefined
+  ) {
+    return undefined
+  }
+
+  return {
+    ...(modelType ? { modelType } : {}),
+    ...(modelConst ? { modelConst } : {}),
+    ...(schemaConst ? { schemaConst } : {}),
+    ...(databaseConst ? { databaseConst } : {}),
+    ...(registryConst ? { registryConst } : {}),
+  }
+}
+
+function buildEnvironmentFeatureFlags(): Partial<GeneratorFeatureFlags> | undefined {
+  const emitRelations = resolveOptionalBoolean(EMIT_RELATIONS_ENV_KEYS)
+  const emitRegistry = resolveOptionalBoolean(EMIT_REGISTRY_ENV_KEYS)
+
+  if (emitRelations === undefined && emitRegistry === undefined) {
+    return undefined
+  }
+
+  return {
+    ...(emitRelations !== undefined ? { emitRelations } : {}),
+    ...(emitRegistry !== undefined ? { emitRegistry } : {}),
+  }
+}
+
+function buildEnvironmentExperimentalFlags(): Partial<GeneratorExperimentalFlags> | undefined {
+  const postgresGatewayIntrospection = resolveOptionalBoolean(GATEWAY_EXPERIMENTAL_ENV_KEYS)
+  const scyllaProviderContracts = resolveOptionalBoolean(SCYLLA_PROVIDER_CONTRACTS_ENV_KEYS)
+
+  if (postgresGatewayIntrospection === undefined && scyllaProviderContracts === undefined) {
+    return undefined
+  }
+
+  return {
+    ...(postgresGatewayIntrospection !== undefined ? { postgresGatewayIntrospection } : {}),
+    ...(scyllaProviderContracts !== undefined ? { scyllaProviderContracts } : {}),
+  }
+}
+
+function buildEnvironmentProviderConfig(): GeneratorProviderInputConfig | undefined {
+  const directConnectionString = resolveFallbackValue(DIRECT_CONNECTION_STRING_ENV_KEYS)
+  if (directConnectionString) {
+    return {
+      kind: 'postgres',
+      mode: 'direct',
+      connectionString: directConnectionString,
+      database: normalizeOptionalString(undefined, POSTGRES_DATABASE_ENV_KEYS),
+      schemas: normalizeSchemaSelection(resolveFallbackValue(GENERATOR_SCHEMA_ENV_KEYS)),
+    }
+  }
+
+  const gatewayUrl = resolveFallbackValue(GATEWAY_URL_ENV_KEYS)
+  const apiKey = resolveFallbackValue(GATEWAY_API_KEY_ENV_KEYS)
+  if (gatewayUrl && apiKey) {
+    const backend = resolveOptionalOneOf(GATEWAY_BACKEND_ENV_KEYS, BACKEND_TYPE_VALUES) as BackendType | undefined
+    return {
+      kind: 'postgres',
+      mode: 'gateway',
+      gatewayUrl,
+      apiKey,
+      database: normalizeOptionalString(undefined, POSTGRES_DATABASE_ENV_KEYS),
+      schemas: normalizeSchemaSelection(resolveFallbackValue(GENERATOR_SCHEMA_ENV_KEYS)),
+      backend,
+    }
+  }
+
+  return undefined
+}
+
+function createEnvironmentGeneratorConfig(): AthenaGeneratorConfig | undefined {
+  const provider = buildEnvironmentProviderConfig()
+  if (!provider) {
+    return undefined
+  }
+
+  return {
+    provider,
+    output: buildEnvironmentOutputConfig(),
+    naming: buildEnvironmentNamingConfig(),
+    features: buildEnvironmentFeatureFlags(),
+    experimental: buildEnvironmentExperimentalFlags(),
+  }
+}
+
 /**
  * Loads and normalizes `athena.config.*` from disk.
  */
@@ -452,17 +690,24 @@ export async function loadGeneratorConfig(
 ): Promise<LoadedGeneratorConfig> {
   const cwd = options.cwd ?? process.cwd()
   const restoreProjectEnv = applyProjectEnv(cwd)
-  const resolvedPath = options.configPath
-    ? resolve(cwd, options.configPath)
-    : findGeneratorConfigPath(cwd)
-
-  if (!resolvedPath) {
-    throw new Error(
-      `No generator config found in ${cwd}. Expected one of: ${DEFAULT_CONFIG_CANDIDATES.join(', ')}`,
-    )
-  }
-
   try {
+    const resolvedPath = options.configPath
+      ? resolve(cwd, options.configPath)
+      : findGeneratorConfigPath(cwd)
+
+    if (!resolvedPath) {
+      const environmentConfig = createEnvironmentGeneratorConfig()
+      if (environmentConfig) {
+        return {
+          configPath: ENV_ONLY_CONFIG_PATH,
+          config: normalizeGeneratorConfig(environmentConfig),
+        }
+      }
+      throw new Error(
+        `No generator config found in ${cwd}. Expected one of: ${DEFAULT_CONFIG_CANDIDATES.join(', ')}. To run without a config file, set DATABASE_URL (direct mode) or ATHENA_URL + ATHENA_API_KEY (gateway mode).`,
+      )
+    }
+
     const moduleUrl = pathToFileURL(resolvedPath)
     const module = await importConfigModule(`${moduleUrl.href}?cacheBust=${Date.now()}`)
     const rawConfig = extractConfigExport(module)

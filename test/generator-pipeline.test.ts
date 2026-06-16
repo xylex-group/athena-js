@@ -216,12 +216,61 @@ test('runSchemaGenerator supports table-builder output format', async () => {
 
     assert.equal(result.files.length, 4)
     const modelFile = result.files.find(file => file.kind === 'model')
+    const registryFile = result.files.find(file => file.kind === 'registry')
     assert.ok(modelFile)
+    assert.ok(registryFile)
     assert.equal(modelFile.path, 'src/generated/phase-two/public/users.ts')
     assert.equal(modelFile.content.includes("export const users = table('users')"), true)
+    assert.equal(modelFile.content.includes(".schema('public')"), true)
     assert.equal(modelFile.content.includes("export const users_insert_schema = users.schemas.insert"), true)
+    assert.equal(registryFile.content.includes('schemaVersion: 1'), true)
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('runSchemaGenerator works without a config file when environment defaults are present', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-env-only-run-'))
+  const previousValues = new Map<string, string | undefined>([
+    ['DATABASE_URL', process.env.DATABASE_URL],
+    ['ATHENA_GENERATOR_OUTPUT_FORMAT', process.env.ATHENA_GENERATOR_OUTPUT_FORMAT],
+  ])
+
+  delete process.env.DATABASE_URL
+  delete process.env.ATHENA_GENERATOR_OUTPUT_FORMAT
+
+  try {
+    writeFileSync(
+      join(root, '.env.local'),
+      [
+        'DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/phase_two',
+        'ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const result = await runSchemaGenerator({
+      cwd: root,
+      provider: createSnapshotProvider(),
+      dryRun: true,
+    })
+
+    assert.equal(result.configPath, '[environment defaults]')
+    assert.equal(result.files.length, 4)
+    const modelFile = result.files.find(file => file.kind === 'model')
+    assert.ok(modelFile)
+    assert.equal(modelFile.path, 'athena/models/public/users.ts')
+    assert.equal(modelFile.content.includes("export const users = table('users')"), true)
+    assert.equal(modelFile.content.includes(".schema('public')"), true)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    for (const [key, value] of previousValues.entries()) {
+      if (value === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = value
+      }
+    }
   }
 })
 

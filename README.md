@@ -256,7 +256,7 @@ import {
 } from "@xylex-group/athena";
 
 const users = table("users")
-  .from("public.users")
+  .schema("public")
   .columns({
     id: string().generated(),
     email: string(),
@@ -292,6 +292,33 @@ const insert = users.schemas.form.parse({
 });
 ```
 
+You can also pass that native Athena table/model value directly into the root client to avoid repeating the string table target:
+
+```ts
+const result = await athena.from(users)
+  .select("id, email, active")
+  .eq("active", true)
+  .order("created_at", { ascending: false })
+  .limit(25);
+```
+
+This is the viable opt-in short form because the `users` value carries runtime target metadata. A generic-only call like `from<UserPublicSchema>()` cannot resolve a table at runtime after TypeScript erases types.
+
+If you want compile-time validation for simple string selects and RPC column names, enable the experimental strict mode:
+
+```ts
+const strictAthena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  experimental: {
+    typecheckColumns: true,
+  },
+});
+
+await strictAthena.from(users).select("id, email").order("created_at");
+
+// compile-time error
+strictAthena.from(users).select("id, missing_column");
+```
+
 `defineModel(...)` remains fully supported for compatibility and manual contracts.
 
 For full details, see [`docs/typed-schema-registry.md`](./docs/typed-schema-registry.md).
@@ -312,6 +339,80 @@ athena-js generate --help
 athena-js help generate
 ```
 
+Out of the box, `athena-js generate` now works without an `athena.config.*` file in the common cases:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js generate --dry-run
+```
+
+```bash
+ATHENA_URL=https://athena-db.com ATHENA_API_KEY=secret ATHENA_GENERATOR_DB=app_db athena-js generate --dry-run
+```
+
+Smallest direct-mode config file:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "direct",
+  },
+});
+```
+
+Smallest table-builder config:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "direct",
+  },
+  output: {
+    format: "table-builder",
+  },
+});
+```
+
+Common copy-paste starts:
+
+```bash
+# direct postgres, no config file
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js generate --dry-run
+
+# direct postgres + Zero-style output + multiple schemas
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db \
+ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder \
+ATHENA_GENERATOR_SCHEMAS=public,analytics \
+athena-js generate --dry-run
+
+# gateway-only CI job, no config file
+ATHENA_URL=https://athena-db.com \
+ATHENA_API_KEY=secret \
+ATHENA_GENERATOR_DB=app_db \
+athena-js generate --dry-run
+```
+
+Smallest gateway table-builder config:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "gateway",
+  },
+  output: {
+    format: "table-builder",
+  },
+});
+```
+
 Generator supports:
 
 - PostgreSQL direct introspection (`provider.mode = "direct"`, `provider.connectionString` from your `PG_URL`/`DATABASE_URL`)
@@ -322,6 +423,7 @@ Generator supports:
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 - Typed env-backed config fields via `generatorEnv(...)` for connection strings, schema lists, naming styles, flags, and placeholder maps
 
+For copy-paste quickstarts and more example profiles, see [`docs/generator-quickstart.md`](./docs/generator-quickstart.md).
 For full generator configuration and troubleshooting, see [`docs/generator-config.md`](./docs/generator-config.md).
 For full CLI commands, help behavior, and troubleshooting, see [`docs/cli-command-reference.md`](./docs/cli-command-reference.md).
 For CI/CD pipelines and generated-file branch policy, see [`docs/generator-cicd.md`](./docs/generator-cicd.md).
@@ -459,6 +561,29 @@ const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
 const result = await athena.from("users").eq("id", 1).select("id");
 const ast = getAthenaDebugAst(result);
 ```
+
+This works across the runtime operation families too:
+
+```ts
+const inserted = await athena
+  .from("users")
+  .insert({ email: "ada@example.com" })
+  .select("id,email");
+
+const insertedAst = getAthenaDebugAst(inserted);
+
+const rpcResult = await athena
+  .rpc("list_users", { role: "admin" })
+  .eq("active", true)
+  .select("id,email");
+
+const rpcAst = getAthenaDebugAst(rpcResult);
+
+const sqlResult = await athena.query<{ id: number }>("select id from users where active = true");
+const sqlAst = getAthenaDebugAst(sqlResult);
+```
+
+If `traceQueries` is enabled too, the same normalized AST is emitted on each `AthenaQueryTraceEvent.ast`.
 
 ### Read retries (experimental)
 

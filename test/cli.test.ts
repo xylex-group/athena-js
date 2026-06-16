@@ -16,6 +16,8 @@ test('usage returns generate help text for topic generate', () => {
   const text = usage('generate')
   assert.equal(text.includes('athena-js generate'), true)
   assert.equal(text.includes('-h, --help'), true)
+  assert.equal(text.includes('DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db'), true)
+  assert.equal(text.includes('env-only gateway mode when ATHENA_URL + ATHENA_API_KEY are present'), true)
 })
 
 test('runCLI prints generate help output', async () => {

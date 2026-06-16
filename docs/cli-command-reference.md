@@ -47,7 +47,7 @@ Options:
 
 | Command | Effect |
 | --- | --- |
-| `athena-js generate` | Loads config, introspects provider, writes generated files |
+| `athena-js generate` | Loads config or env-only defaults, introspects provider, writes generated files |
 | `athena-js generate --dry-run` | Same pipeline, no file writes |
 | `athena-js generate --config <path>` | Uses provided config path instead of discovery |
 | `athena-js generate --help` | Prints `generate` usage and exits |
@@ -62,6 +62,21 @@ When `--config` is omitted, resolution order is:
 4. `athena-js.config.js`
 5. `.athena.config.ts`
 6. `.athena.config.js`
+
+If none of those files exist, `athena-js generate` still runs when either of these env-only profiles is present:
+
+- direct mode: `DATABASE_URL` or another supported Postgres URL key
+- gateway mode: `ATHENA_URL`, `ATHENA_API_KEY`, and usually `ATHENA_GENERATOR_DB`
+
+Examples:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js generate --dry-run
+```
+
+```bash
+ATHENA_URL=https://athena-db.com ATHENA_API_KEY=secret ATHENA_GENERATOR_DB=app_db athena-js generate --dry-run
+```
 
 ## Local vs global execution
 

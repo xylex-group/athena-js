@@ -12,7 +12,7 @@ import {
 } from '../src/index.ts'
 
 const account = table('accounts')
-  .from('public.accounts')
+  .schema('public')
   .columns({
     id: string().generated(),
     orgID: string().from('org_id'),
@@ -28,6 +28,10 @@ const account = table('accounts')
 test('table builder stores schema-aware metadata and explicit column mappings', () => {
   assert.equal(account.kind, 'table')
   assert.equal(account.name, 'accounts')
+  assert.equal(account.mappedName, undefined)
+  assert.equal(account.schemaName, 'public')
+  assert.equal(account.tableName, 'accounts')
+  assert.equal(account.qualifiedName, 'public.accounts')
   assert.equal(account.meta.schema, 'public')
   assert.equal(account.meta.model, 'accounts')
   assert.deepEqual(account.meta.primaryKey, ['id'])
@@ -36,6 +40,53 @@ test('table builder stores schema-aware metadata and explicit column mappings', 
   assert.equal(account.meta.columns?.is_active?.hasDefault, true)
   assert.equal(account.meta.columns?.mood?.kind, 'enumeration')
   assert.deepEqual(account.meta.columns?.mood?.enumValues, ['happy', 'sad'])
+})
+
+test('table builder supports separate schema() and from() mapping', () => {
+  const userPref = table('userPref')
+    .schema('public')
+    .from('user_pref')
+    .columns({
+      id: string(),
+    })
+    .primaryKey('id')
+
+  assert.equal(userPref.schemaName, 'public')
+  assert.equal(userPref.tableName, 'user_pref')
+  assert.equal(userPref.qualifiedName, 'public.user_pref')
+  assert.equal(userPref.meta.schema, 'public')
+  assert.equal(userPref.meta.model, 'user_pref')
+})
+
+test('table builder still supports schema-qualified from() inputs', () => {
+  const auditLog = table('audit_logs')
+    .from('analytics.audit_logs')
+    .columns({
+      id: string(),
+    })
+    .primaryKey('id')
+
+  assert.equal(auditLog.schemaName, 'analytics')
+  assert.equal(auditLog.tableName, 'audit_logs')
+  assert.equal(auditLog.qualifiedName, 'analytics.audit_logs')
+})
+
+test('table builder rejects conflicting explicit schema and schema-qualified from() targets', () => {
+  assert.throws(
+    () =>
+      table('accounts')
+        .schema('public')
+        .from('analytics.accounts'),
+    /conflicts with mapped table "analytics\.accounts"/,
+  )
+
+  assert.throws(
+    () =>
+      table('accounts')
+        .from('analytics.accounts')
+        .schema('public'),
+    /conflicts with mapped table "analytics\.accounts"/,
+  )
 })
 
 test('table builder derives row, insert, and update schemas from column flags', () => {

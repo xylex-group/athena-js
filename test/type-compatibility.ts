@@ -156,6 +156,18 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
     },
   },
 })
+const strictColumnsClient = createClient('https://mirror3.athena-db.com', 'api-key', {
+  experimental: {
+    typecheckColumns: true,
+  },
+})
+const strictColumnsBuilderClient = AthenaClient.builder()
+  .url('https://mirror3.athena-db.com')
+  .key('api-key')
+  .experimental({
+    typecheckColumns: true,
+  })
+  .build()
 const experimentalStorageClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     athenaStorageBackend: true,
@@ -301,6 +313,30 @@ usersInAuth.select('id')
 dbUsers.eq('id', '1')
 dbUsers.select('id').eq('name', 'Alice')
 dbUsersInAuth.select('id')
+client.from<UserRow>('users').select('missing_column')
+
+const strictUsers = strictColumnsClient.from<UserRow>('users')
+strictUsers.select('id, name')
+strictUsers.select(['id', 'name'])
+strictUsers.select('id,athena.user(id)')
+strictUsers.single('id')
+strictUsers.maybeSingle('id')
+strictColumnsClient.db.select<UserRow>('users', 'id,name')
+strictColumnsClient.db.from<UserRow>('users').select(['id', 'name'])
+strictColumnsBuilderClient.rpc<UserRow>('list_users').eq('id', '1').order('name').select('id,name')
+
+// @ts-expect-error strict simple select should reject unknown columns
+strictUsers.select('missing_column')
+// @ts-expect-error strict simple select lists should reject unknown columns
+strictUsers.select('id, missing_column')
+// @ts-expect-error strict array selects should reject unknown columns
+strictUsers.select(['id', 'missing_column'] as const)
+// @ts-expect-error strict db.from().select should reject unknown columns
+strictColumnsClient.db.from<UserRow>('users').select('missing_column')
+// @ts-expect-error strict rpc filter columns should reject unknown columns
+strictColumnsBuilderClient.rpc<UserRow>('list_users').eq('missing_column', 'x')
+// @ts-expect-error strict rpc order columns should reject unknown columns
+strictColumnsBuilderClient.rpc<UserRow>('list_users').order('missing_column')
 
 // @ts-expect-error unknown filter column should be rejected
 users.eq('missing_column', 'x')
@@ -971,7 +1007,7 @@ const invalidProfileFormValues: ProfileFormValues = {
 acceptsProfileFormValues(invalidProfileFormValues)
 
 const zeroStyleProfile = table('profiles')
-  .from('public.profiles')
+  .schema('public')
   .columns({
     id: string().generated(),
     orgID: string().from('org_id'),
@@ -992,6 +1028,19 @@ declare function acceptsZeroStyleProfileRow(value: ZeroStyleProfileRow): void
 declare function acceptsZeroStyleProfileInsert(value: ZeroStyleProfileInsert): void
 declare function acceptsZeroStyleProfileUpdate(value: ZeroStyleProfileUpdate): void
 declare function acceptsZeroStyleProfileFormValues(value: ZeroStyleProfileFormValues): void
+declare function acceptsZeroStyleProfileSchemaName(value: 'public'): void
+declare function acceptsZeroStyleProfileTableName(value: 'profiles'): void
+declare function acceptsZeroStyleProfileQualifiedName(value: 'public.profiles'): void
+declare function acceptsZeroStyleProfileArrayPromiseLike(
+  value: PromiseLike<AthenaResult<ZeroStyleProfileRow[]>>,
+): void
+declare function acceptsZeroStyleProfileInsertMutation(
+  value: PromiseLike<AthenaResult<ZeroStyleProfileRow>>,
+): void
+
+acceptsZeroStyleProfileSchemaName(zeroStyleProfile.schemaName)
+acceptsZeroStyleProfileTableName(zeroStyleProfile.tableName)
+acceptsZeroStyleProfileQualifiedName(zeroStyleProfile.qualifiedName)
 
 const zeroStyleRow = zeroStyleProfile.schemas.row.parse({
   id: 'prof_1',
@@ -1042,6 +1091,16 @@ const zeroStyleTypedClient = createTypedClient(
   'https://athena-db.com',
   'api-key',
 )
+const strictZeroStyleTypedClient = createTypedClient(
+  zeroStyleRegistry,
+  'https://athena-db.com',
+  'api-key',
+  {
+    experimental: {
+      typecheckColumns: true,
+    },
+  },
+)
 
 zeroStyleTypedClient
   .fromModel('zero', 'public', 'profiles')
@@ -1050,6 +1109,23 @@ zeroStyleTypedClient
     settings: { theme: 'dark' },
   })
   .select()
+strictZeroStyleTypedClient.fromModel('zero', 'public', 'profiles').select('id,orgID')
+
+// @ts-expect-error strict typed client select should reject unknown model columns
+strictZeroStyleTypedClient.fromModel('zero', 'public', 'profiles').select('missing_column')
+
+acceptsZeroStyleProfileArrayPromiseLike(
+  client.from(zeroStyleProfile).eq('orgID', 'org_1').select(),
+)
+acceptsZeroStyleProfileArrayPromiseLike(
+  client.db.from(zeroStyleProfile).eq('orgID', 'org_1').select(),
+)
+acceptsZeroStyleProfileInsertMutation(
+  client.from(zeroStyleProfile).insert({
+    orgID: 'org_1',
+    settings: { theme: 'dark' },
+  }).select(),
+)
 
 const generatorConfig = defineGeneratorConfig({
   provider: {
@@ -1078,8 +1154,24 @@ const generatorConfig = defineGeneratorConfig({
   },
 })
 
+const minimalDirectGeneratorConfig = defineGeneratorConfig({
+  provider: {
+    kind: 'postgres',
+    mode: 'direct',
+  },
+})
+
+const minimalGatewayGeneratorConfig = defineGeneratorConfig({
+  provider: {
+    kind: 'postgres',
+    mode: 'gateway',
+  },
+})
+
 declare function acceptsPostgresProviderKind(value: 'postgres'): void
 acceptsPostgresProviderKind(generatorConfig.provider.kind)
+acceptsPostgresProviderKind(minimalDirectGeneratorConfig.provider.kind)
+acceptsPostgresProviderKind(minimalGatewayGeneratorConfig.provider.kind)
 
 const generatorConfigFromEnv = defineGeneratorConfig({
   provider: {

@@ -36,7 +36,7 @@ import {
 } from "@xylex-group/athena";
 
 const users = table("users")
-  .from("public.users")
+  .schema("public")
   .columns({
     id: string().generated(),
     email: string(),
@@ -52,6 +52,8 @@ const registry = defineRegistry({ app: primaryDb });
 
 const client = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
 ```
+
+Preferred authoring is `.schema("public")` plus `.from("user_pref")` only when the DB table name differs from the TypeScript key. `.from("schema.table")` remains supported for compatibility.
 
 `defineModel`, `defineSchema`, `defineDatabase`, and `defineRegistry` remain lightweight identity builders with explicit type signatures:
 
@@ -131,6 +133,43 @@ await typed
   .eq("active", true);
 ```
 
+If you already have the exported Athena table/model value in scope, the root client can also infer the runtime target directly:
+
+```ts
+const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
+
+await athena
+  .from(users)
+  .select("id, email")
+  .eq("active", true);
+```
+
+Use the value form for this opt-in shortcut. A type-only call like `from<UserPublicSchema>()` cannot determine a runtime table name after TypeScript erases the generic.
+
+If you want compile-time validation for simple string selects and RPC column names,
+enable the experimental strict mode on the client:
+
+```ts
+const strictTyped = createTypedClient(
+  registry,
+  process.env.ATHENA_URL!,
+  process.env.ATHENA_API_KEY!,
+  {
+    experimental: {
+      typecheckColumns: true,
+    },
+  },
+);
+
+await strictTyped
+  .fromModel("app", "public", "users")
+  .select("id, email")
+  .order("email");
+
+// compile-time error
+strictTyped.fromModel("app", "public", "users").select("id, missing_column");
+```
+
 ### Tenant context behavior
 
 - returns a new client
@@ -168,6 +207,9 @@ Table definitions also expose live Zod schemas:
 - `table.schemas.insert`
 - `table.schemas.update`
 - `table.schemas.form`
+- `table.schemaName`
+- `table.tableName`
+- `table.qualifiedName`
 
 `table.schemas.form.parse(...)` accepts UI-safe empty strings for nullable scalar
 fields and normalizes them back to `null` for submit payloads.

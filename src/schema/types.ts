@@ -109,6 +109,16 @@ export interface ModelDef<
 export type AnyModelDef = ModelDef<unknown, unknown, unknown, ModelMetadataBase>
 
 /**
+ * Public model/table value that carries Athena target metadata plus row/write typings.
+ * This can be passed directly to `client.from(...)` for opt-in target inference.
+ */
+export type AthenaModelTarget<
+  Row = unknown,
+  Insert = unknown,
+  Update = unknown,
+> = ModelDef<Row, Insert, Update, ModelMetadataBase>
+
+/**
  * Schema-level model registry.
  */
 export interface SchemaDef<Models extends Record<ModelKey, AnyModelDef>> {

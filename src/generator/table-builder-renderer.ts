@@ -194,7 +194,7 @@ ${relationEntries
 import type { FormValuesOf, InsertOf, RowOf, UpdateOf } from '@xylex-group/athena'
 
 export const ${descriptor.tableConstName} = table(${escapeStringLiteral(descriptor.tableName)})
-  .from(${escapeStringLiteral(`${descriptor.schemaName}.${descriptor.tableName}`)})
+  .schema(${escapeStringLiteral(descriptor.schemaName)})
   .columns({
 ${columnLines}
   })
@@ -276,10 +276,20 @@ function renderRegistryArtifact(
   databaseConstName: string,
   registryConstName: string,
   databaseName: string,
+  generatedAt: string,
+  outputFormat: NormalizedAthenaGeneratorConfig['output']['format'],
+  schemaVersion: number,
 ): GeneratedArtifact {
   const databaseImportPath = toModuleImportPath(registryPath, databasePath)
   const content = `import { defineRegistry } from '@xylex-group/athena'
 import { ${databaseConstName} } from '${databaseImportPath}'
+
+export const __athena_schema_meta = {
+  schemaVersion: ${schemaVersion},
+  generatedAt: ${escapeStringLiteral(generatedAt)},
+  database: ${escapeStringLiteral(databaseName)},
+  outputFormat: ${escapeStringLiteral(outputFormat)},
+} as const
 
 export const ${registryConstName} = defineRegistry({
   ${renderObjectKey(databaseName)}: ${databaseConstName}
@@ -502,6 +512,9 @@ class TableArtifactComposer {
           databaseDescriptor.databaseConstName,
           toSafeIdentifier('registry', this.config.naming.registryConst, 'registry'),
           databaseName,
+          this.snapshot.generatedAt,
+          this.config.output.format,
+          this.config.internal.schemaVersion,
         ),
       )
     }
@@ -519,7 +532,7 @@ export function generateTableBuilderArtifactsFromSnapshot(
   snapshot: IntrospectionSnapshot,
   config: AthenaGeneratorConfig | NormalizedAthenaGeneratorConfig,
 ): GeneratedArtifacts {
-  const normalizedConfig = 'naming' in config && 'features' in config && 'experimental' in config
+  const normalizedConfig = 'internal' in config
     ? config as NormalizedAthenaGeneratorConfig
     : normalizeGeneratorConfig(config as AthenaGeneratorConfig)
   return new TableArtifactComposer(snapshot, normalizedConfig).compose()

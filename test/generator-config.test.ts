@@ -51,6 +51,7 @@ test('loadGeneratorConfig resolves default export from ts config file', async ()
     const loaded = await loadGeneratorConfig({ cwd: root })
     assert.equal(loaded.config.provider.kind, 'postgres')
     assert.equal(loaded.config.output.targets.registry, 'src/generated/index.ts')
+    assert.equal(loaded.config.internal.schemaVersion, 1)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -82,6 +83,34 @@ test('loadGeneratorConfig applies athena folder defaults when output targets are
     assert.equal(loaded.config.output.targets.database, 'athena/relations.ts')
     assert.equal(loaded.config.output.targets.registry, 'athena/config.ts')
     assert.deepEqual(loaded.config.provider.kind === 'postgres' ? loaded.config.provider.schemas : [], ['public'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('loadGeneratorConfig supports provider-only config files with default output settings', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-config-provider-only-'))
+  try {
+    writeFileSync(
+      join(root, 'athena.config.ts'),
+      `
+      export default {
+        provider: {
+          kind: 'postgres',
+          mode: 'direct',
+          connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/phase_two',
+        },
+      }
+      `,
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.config.output.targets.model, 'athena/models/{schema_kebab}/{model_kebab}.ts')
+    if (loaded.config.provider.kind !== 'postgres' || loaded.config.provider.mode !== 'direct') {
+      throw new Error('Expected direct postgres provider.')
+    }
+    assert.equal(loaded.config.provider.database, 'phase_two')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -119,6 +148,131 @@ test('loadGeneratorConfig normalizes env-style multiple schemas', async () => {
     ])
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('loadGeneratorConfig builds a direct postgres config from environment when no config file exists', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-env-only-direct-'))
+  const previousValues = new Map<string, string | undefined>([
+    ['DATABASE_URL', process.env.DATABASE_URL],
+    ['ATHENA_GENERATOR_OUTPUT_FORMAT', process.env.ATHENA_GENERATOR_OUTPUT_FORMAT],
+    ['ATHENA_GENERATOR_MODEL_TYPE', process.env.ATHENA_GENERATOR_MODEL_TYPE],
+  ])
+
+  delete process.env.DATABASE_URL
+  delete process.env.ATHENA_GENERATOR_OUTPUT_FORMAT
+  delete process.env.ATHENA_GENERATOR_MODEL_TYPE
+
+  try {
+    writeFileSync(
+      join(root, '.env.local'),
+      [
+        'DATABASE_URL=postgres://postgres:from_env@127.0.0.1:5432/env_only_db',
+        'ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder',
+        'ATHENA_GENERATOR_MODEL_TYPE=snake',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.configPath, '[environment defaults]')
+    assert.equal(loaded.config.output.format, 'table-builder')
+    assert.equal(loaded.config.naming.modelType, 'snake')
+    assert.equal(loaded.config.internal.schemaVersion, 1)
+    if (loaded.config.provider.kind !== 'postgres' || loaded.config.provider.mode !== 'direct') {
+      throw new Error('Expected direct postgres provider.')
+    }
+    assert.equal(
+      loaded.config.provider.connectionString,
+      'postgres://postgres:from_env@127.0.0.1:5432/env_only_db',
+    )
+    assert.equal(loaded.config.provider.database, 'env_only_db')
+    assert.deepEqual(loaded.config.provider.schemas, ['public'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    for (const [key, value] of previousValues.entries()) {
+      if (value === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = value
+      }
+    }
+  }
+})
+
+test('loadGeneratorConfig restores staged project env values after env-only resolution', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-env-restore-'))
+  const previousDatabaseUrl = process.env.DATABASE_URL
+  delete process.env.DATABASE_URL
+
+  try {
+    writeFileSync(
+      join(root, '.env.local'),
+      'DATABASE_URL=postgres://postgres:from_env@127.0.0.1:5432/restored_db',
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.configPath, '[environment defaults]')
+    assert.equal(process.env.DATABASE_URL, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    if (previousDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL
+    } else {
+      process.env.DATABASE_URL = previousDatabaseUrl
+    }
+  }
+})
+
+test('loadGeneratorConfig builds a gateway postgres config from environment when no config file exists', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'athena-generator-env-only-gateway-'))
+  const previousValues = new Map<string, string | undefined>([
+    ['ATHENA_URL', process.env.ATHENA_URL],
+    ['ATHENA_API_KEY', process.env.ATHENA_API_KEY],
+    ['ATHENA_GENERATOR_DB', process.env.ATHENA_GENERATOR_DB],
+    ['ATHENA_GENERATOR_SCHEMAS', process.env.ATHENA_GENERATOR_SCHEMAS],
+    ['ATHENA_GENERATOR_BACKEND', process.env.ATHENA_GENERATOR_BACKEND],
+  ])
+
+  delete process.env.ATHENA_URL
+  delete process.env.ATHENA_API_KEY
+  delete process.env.ATHENA_GENERATOR_DB
+  delete process.env.ATHENA_GENERATOR_SCHEMAS
+  delete process.env.ATHENA_GENERATOR_BACKEND
+
+  try {
+    writeFileSync(
+      join(root, '.env.local'),
+      [
+        'ATHENA_URL=https://athena-db.com',
+        'ATHENA_API_KEY=secret',
+        'ATHENA_GENERATOR_DB=gateway_db',
+        'ATHENA_GENERATOR_SCHEMAS=public,athena,public',
+        'ATHENA_GENERATOR_BACKEND=postgresql',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.configPath, '[environment defaults]')
+    if (loaded.config.provider.kind !== 'postgres' || loaded.config.provider.mode !== 'gateway') {
+      throw new Error('Expected gateway postgres provider.')
+    }
+    assert.equal(loaded.config.provider.gatewayUrl, 'https://athena-db.com')
+    assert.equal(loaded.config.provider.apiKey, 'secret')
+    assert.equal(loaded.config.provider.database, 'gateway_db')
+    assert.equal(loaded.config.provider.backend, 'postgresql')
+    assert.deepEqual(loaded.config.provider.schemas, ['public', 'athena'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    for (const [key, value] of previousValues.entries()) {
+      if (value === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = value
+      }
+    }
   }
 })
 

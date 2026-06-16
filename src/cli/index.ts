@@ -32,6 +32,7 @@ function rootUsage(): string {
     '',
     'Examples:',
     '  athena-js generate',
+    '  DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js generate --dry-run',
     '  athena-js generate --config ./athena.config.ts --dry-run',
     '  athena-js generate --help',
   ].join('\n')
@@ -49,8 +50,14 @@ function generateUsage(): string {
     '  --dry-run        Build generated files in memory without writing them to disk',
     '  -h, --help       Show help for generate',
     '',
+    'Config resolution:',
+    '  - uses athena.config.* discovery first',
+    '  - falls back to env-only direct mode when DATABASE_URL/PG_URL is present',
+    '  - falls back to env-only gateway mode when ATHENA_URL + ATHENA_API_KEY are present',
+    '',
     'Examples:',
     '  athena-js generate',
+    '  DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js generate --dry-run',
     '  athena-js generate --config ./athena.config.ts --dry-run',
   ].join('\n')
 }

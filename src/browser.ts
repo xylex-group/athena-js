@@ -160,12 +160,14 @@ export type {
   RpcQueryBuilder,
   RpcOrderOptions,
   AthenaCreateClientOptions,
+  AthenaCreateClientOptionsWithTypecheckedColumns,
   AthenaSdkClient,
   AthenaSdkClientWithAuth,
   AthenaSdkClientWithStorage,
   TableQueryBuilder,
   AthenaResult,
   AthenaCreateClientOptionsWithStorage,
+  AthenaCreateClientOptionsWithStorageAndTypecheckedColumns,
 } from './client.js'
 export type {
   AthenaDeleteDebugAst,
@@ -243,6 +245,7 @@ export type {
   RetryBackoffStrategy,
 } from './auxiliaries.js'
 export type {
+  AthenaModelTarget,
   AnyColumnBuilder,
   AthenaColumnBuilder,
   AthenaTableDef,
@@ -284,6 +287,7 @@ export type {
   ToModelPayloadOptions,
   TypedAthenaClient,
   TypedClientOptions,
+  TypedClientOptionsWithTypecheckedColumns,
   UpdateFromColumns,
   UpdateOf,
 } from './schema/index.ts'
@@ -294,6 +298,7 @@ export type {
   GeneratorArtifactKind,
   GeneratorExperimentalFlags,
   GeneratorFeatureFlags,
+  GeneratorInternalConfig,
   GeneratorNamingConfig,
   GeneratorOutputConfig,
   GeneratorOutputFormat,

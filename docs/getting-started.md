@@ -73,7 +73,7 @@ Builder output is a drop-in `createClient(...)` replacement:
 
 - same runtime surface: `from`, `db`, `rpc`, `query`, `auth`
 - same auth bindings/types under `client.auth.*`
-- same `experimental` flags support (`traceQueries`, `debugAst`, `retryReads`, `findManyAst`) plus compatibility acceptance of deprecated `enableErrorNormalization`
+- same `experimental` flags support (`traceQueries`, `debugAst`, `retryReads`, `findManyAst`, `typecheckColumns`) plus compatibility acceptance of deprecated `enableErrorNormalization`
 
 Repeated fluent configuration calls compose:
 
@@ -172,6 +172,27 @@ const debugClient = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API
 
 const result = await debugClient.from("users").eq("id", 1).select("id");
 const ast = getAthenaDebugAst(result);
+```
+
+The same helper also works for inserts, RPC reads, and raw SQL queries:
+
+```ts
+const inserted = await debugClient
+  .from("users")
+  .insert({ email: "ada@example.com" })
+  .select("id,email");
+
+const insertedAst = getAthenaDebugAst(inserted);
+
+const rpcResult = await debugClient
+  .rpc("list_users", { role: "admin" })
+  .eq("active", true)
+  .select("id,email");
+
+const rpcAst = getAthenaDebugAst(rpcResult);
+
+const sqlResult = await debugClient.query<{ id: number }>("select id from users where active = true");
+const sqlAst = getAthenaDebugAst(sqlResult);
 ```
 
 ## 3.2) Optional read retries (experimental)
@@ -350,6 +371,35 @@ const usersInAuth = await athena
   .from<UserRow>("users", { schema: "auth" })
   .select("id, email");
 
+const usersTable = table("users")
+  .schema("athena")
+  .columns({
+    id: string(),
+    email: string(),
+    active: boolean(),
+    created_at: string(),
+  })
+  .primaryKey("id");
+
+const usersInAthena = await athena
+  .from(usersTable)
+  .select("id, email")
+  .eq("active", true);
+
+const strictAthena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
+  experimental: {
+    typecheckColumns: true,
+  },
+});
+
+await strictAthena
+  .from(usersTable)
+  .select("id, email")
+  .order("created_at", { ascending: false });
+
+// compile-time error in strict mode
+strictAthena.from(usersTable).select("id, missing_column");
+
 const authSubscriptions = await athena
   .from("chat_subscriptions", { schema: "private" })
   .findMany({
@@ -364,6 +414,10 @@ const authSubscriptions = await athena
     },
   });
 ```
+
+`experimental.typecheckColumns` is type-only. It validates simple string column
+lists, array literals, and RPC filter/order column names when the SDK already
+knows the row keys from `from<Table>()`, `from(model)`, or `fromModel(...)`.
 
 The `columns` string is comma-separated. To rename fields in the returned payload, use `customName:columnName`, for example:
 
@@ -591,7 +645,32 @@ athena-js generate --config ./athena.config.ts
 athena-js generate --help
 ```
 
-Minimal direct mode config:
+If your env already has a direct Postgres URL, you can start without a config file:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js generate --dry-run
+```
+
+If you only have Athena gateway credentials:
+
+```bash
+ATHENA_URL=https://athena-db.com ATHENA_API_KEY=secret ATHENA_GENERATOR_DB=app_db athena-js generate --dry-run
+```
+
+Smallest direct mode config:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "direct",
+  },
+});
+```
+
+Minimal direct mode config with explicit env helpers:
 
 ```ts
 import { defineGeneratorConfig, generatorEnv } from "@xylex-group/athena";
@@ -617,35 +696,40 @@ export default defineGeneratorConfig({
 });
 ```
 
-Use `mode: "gateway"` when CI or runners cannot open direct PostgreSQL connections.
-For full env-backed config patterns, fallback env keys, and connection string notes,
-see [`generator-config.md`](generator-config.md).
+Minimal gateway config:
 
-## 13) Production checklist
 ```ts
-import { defineGeneratorConfig, generatorEnv } from "@xylex-group/athena";
+import { defineGeneratorConfig } from "@xylex-group/athena";
 
 export default defineGeneratorConfig({
   provider: {
     kind: "postgres",
     mode: "gateway",
-    gatewayUrl: generatorEnv("ATHENA_URL"),
-    apiKey: generatorEnv("ATHENA_API_KEY"),
-    database: generatorEnv("ATHENA_GENERATOR_DB", { default: "app_db" }),
-    schemas: generatorEnv.list("ATHENA_GENERATOR_SCHEMAS", {
-      default: ["public", "athena"],
-    }),
+  },
+});
+```
+
+Minimal Zero-style table-builder config:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "direct",
   },
   output: {
-    targets: {
-      model: "athena/models/{schema_kebab}/{model_kebab}.ts",
-      schema: "athena/schemas/{schema_kebab}.ts",
-      database: "athena/relations.ts",
-      registry: "athena/config.ts",
-    },
+    format: "table-builder",
   },
-})
+});
 ```
+
+Use `mode: "gateway"` when CI or runners cannot open direct PostgreSQL connections.
+For a large example pack covering zero-config runs, minimal files, table-builder output, and path overrides, see [`generator-quickstart.md`](generator-quickstart.md).
+For full env-backed config patterns, fallback env keys, and connection string notes, see [`generator-config.md`](generator-config.md).
+
+## 13) Production checklist
 
 - Use typed `fromModel(...)` on domains with frequent schema changes.
 - Keep write contracts explicit (`Insert` and `Update`) for business-critical models.

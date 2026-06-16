@@ -2,6 +2,8 @@
 
 This page documents how to generate typed schema contracts from PostgreSQL and where the generated files go.
 
+If you want the fastest copy-paste path first, start with [`generator-quickstart.md`](generator-quickstart.md).
+
 For this to work end-to-end, three things must line up:
 
 1. discoverable config file
@@ -39,7 +41,14 @@ For the full command matrix and troubleshooting, see
 - `.athena.config.ts`
 - `.athena.config.js`
 
-When missing, CLI throws:
+If no config file exists, the generator now falls back to environment defaults:
+
+- direct mode when `DATABASE_URL` / `PG_URL` / `POSTGRES_URL` is present
+- gateway mode when `ATHENA_URL` and `ATHENA_API_KEY` are present
+- default output targets under `athena/*`
+- default schema selection of `public`
+
+When neither a config file nor a usable env-only provider can be found, CLI throws:
 
 - `No generator config found in <cwd>. Expected one of: ...`
 
@@ -49,8 +58,8 @@ Use `--config` with a relative or absolute path to avoid this in monorepos.
 
 ```ts
 export interface AthenaGeneratorConfig {
-  provider: GeneratorProviderConfig
-  output: GeneratorOutputConfig
+  provider: GeneratorProviderInputConfig
+  output?: GeneratorOutputConfig
   naming?: Partial<GeneratorNamingConfig>
   features?: Partial<GeneratorFeatureFlags>
   experimental?: Partial<GeneratorExperimentalFlags>
@@ -59,11 +68,45 @@ export interface AthenaGeneratorConfig {
 
 All nested sections are validated by normal TypeScript shape and then normalized with defaults.
 
+That means:
+
+- `output` can be omitted entirely
+- direct-mode configs can omit `connectionString` when env fallback keys are already present
+- gateway-mode configs can omit `gatewayUrl` / `apiKey` / `database` when the corresponding env fallback keys are already present
+
 ### `defineGeneratorConfig` helper
 
 Use this helper to keep autocompletion and exactness in config files.
 For env-backed values, pair it with `generatorEnv(...)` so config files stay typed
 without manual `process.env`, non-null assertions, string splits, or boolean parsing.
+
+Smallest direct-mode config:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "direct",
+  },
+});
+```
+
+Smallest gateway-mode config:
+
+```ts
+import { defineGeneratorConfig } from "@xylex-group/athena";
+
+export default defineGeneratorConfig({
+  provider: {
+    kind: "postgres",
+    mode: "gateway",
+  },
+});
+```
+
+Both examples rely on the documented env fallback keys below.
 
 ```ts
 import { defineGeneratorConfig, generatorEnv } from "@xylex-group/athena";
@@ -322,6 +365,11 @@ output: {
   },
 }
 ```
+
+Regardless of output format, the generated registry file now exports
+`__athena_schema_meta` with internal metadata such as `schemaVersion`,
+`generatedAt`, `database`, and `outputFormat`. This is intended for tooling and
+debugging rather than normal application code.
 
 ### Schema selection
 

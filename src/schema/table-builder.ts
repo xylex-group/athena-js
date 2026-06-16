@@ -43,6 +43,36 @@ type InsertOptionalKeys<TColumns extends Record<string, AnyColumnBuilder>> = Exc
   InsertRequiredKeys<TColumns>
 >
 
+type ExtractMappedSchemaName<TMappedName extends string | undefined> =
+  TMappedName extends `${infer TSchema}.${string}` ? TSchema : undefined
+
+type ExtractMappedTableName<TMappedName extends string | undefined> =
+  TMappedName extends `${string}.${infer TTable}`
+    ? TTable
+    : TMappedName extends string
+      ? TMappedName
+      : undefined
+
+type ResolvedSchemaName<
+  TSchemaName extends string | undefined,
+  TMappedName extends string | undefined,
+> = TSchemaName extends string ? TSchemaName : ExtractMappedSchemaName<TMappedName>
+
+type ResolvedTableName<
+  TName extends string,
+  TMappedName extends string | undefined,
+> = ExtractMappedTableName<TMappedName> extends string ? ExtractMappedTableName<TMappedName> : TName
+
+type QualifiedTableName<
+  TName extends string,
+  TMappedName extends string | undefined,
+  TSchemaName extends string | undefined,
+> = ResolvedSchemaName<TSchemaName, TMappedName> extends infer TResolvedSchema extends string | undefined
+  ? TResolvedSchema extends string
+    ? `${TResolvedSchema}.${ResolvedTableName<TName, TMappedName>}`
+    : ResolvedTableName<TName, TMappedName>
+  : never
+
 export type RowFromColumns<TColumns extends Record<string, AnyColumnBuilder>> = Simplify<{
   [K in keyof TColumns]: RowFieldType<TColumns[K]>
 }>
@@ -69,6 +99,9 @@ export type FormValuesFromColumns<
 
 export interface AthenaTableDef<
   TColumns extends Record<string, AnyColumnBuilder>,
+  TName extends string = string,
+  TMappedName extends string | undefined = undefined,
+  TSchemaName extends string | undefined = undefined,
 > extends ModelDef<
     RowFromColumns<TColumns>,
     InsertFromColumns<TColumns>,
@@ -76,7 +109,11 @@ export interface AthenaTableDef<
     ModelMetadata<RowFromColumns<TColumns>>
   > {
   readonly kind: 'table'
-  readonly name: string
+  readonly name: TName
+  readonly mappedName: TMappedName
+  readonly schemaName: ResolvedSchemaName<TSchemaName, TMappedName>
+  readonly tableName: ResolvedTableName<TName, TMappedName>
+  readonly qualifiedName: QualifiedTableName<TName, TMappedName, TSchemaName>
   readonly columns: Readonly<TColumns>
   readonly schemas: AthenaTableSchemaBundle<
     RowFromColumns<TColumns>,
@@ -85,34 +122,47 @@ export interface AthenaTableDef<
   >
 }
 
-interface AthenaTableBuilder<TName extends string, TMappedName extends string | undefined = undefined> {
+interface AthenaTableBuilder<
+  TName extends string,
+  TMappedName extends string | undefined = undefined,
+  TSchemaName extends string | undefined = undefined,
+> {
   readonly name: TName
   readonly mappedName: TMappedName
+  readonly schemaName: TSchemaName
   from<TNextMappedName extends string>(
     tableName: TNextMappedName,
-  ): AthenaTableBuilder<TName, TNextMappedName>
+  ): AthenaTableBuilder<TName, TNextMappedName, TSchemaName>
+  schema<TNextSchemaName extends string>(
+    schemaName: TNextSchemaName,
+  ): AthenaTableBuilder<TName, TMappedName, TNextSchemaName>
   columns<TColumns extends Record<string, AnyColumnBuilder>>(
     columns: TColumns,
-  ): AthenaTableColumnsBuilder<TName, TMappedName, TColumns>
+  ): AthenaTableColumnsBuilder<TName, TMappedName, TSchemaName, TColumns>
 }
 
 interface AthenaTableColumnsBuilder<
   TName extends string,
   TMappedName extends string | undefined,
+  TSchemaName extends string | undefined,
   TColumns extends Record<string, AnyColumnBuilder>,
 > {
   readonly name: TName
   readonly mappedName: TMappedName
+  readonly schemaName: TSchemaName
   readonly columns: Readonly<TColumns>
   from<TNextMappedName extends string>(
     tableName: TNextMappedName,
-  ): AthenaTableColumnsBuilder<TName, TNextMappedName, TColumns>
+  ): AthenaTableColumnsBuilder<TName, TNextMappedName, TSchemaName, TColumns>
+  schema<TNextSchemaName extends string>(
+    schemaName: TNextSchemaName,
+  ): AthenaTableColumnsBuilder<TName, TMappedName, TNextSchemaName, TColumns>
   primaryKey<
     TPrimaryKey extends readonly [
       Extract<keyof TColumns, string>,
       ...Array<Extract<keyof TColumns, string>>,
     ],
-  >(...keys: TPrimaryKey): AthenaTableDef<TColumns>
+  >(...keys: TPrimaryKey): AthenaTableDef<TColumns, TName, TMappedName, TSchemaName>
 }
 
 function assertColumnRecord(columns: Record<string, AnyColumnBuilder>): void {
@@ -123,9 +173,31 @@ function assertColumnRecord(columns: Record<string, AnyColumnBuilder>): void {
   }
 }
 
-function resolveTableTarget(logicalName: string, mappedName?: string): {
+function normalizeMappedNameInput(mappedName: string): string {
+  const normalized = mappedName.trim()
+  if (!normalized) {
+    throw new Error('table.from() requires a non-empty table name')
+  }
+  return normalized
+}
+
+function normalizeSchemaNameInput(schemaName: string): string {
+  const normalized = schemaName.trim()
+  if (!normalized) {
+    throw new Error('table.schema() requires a non-empty schema name')
+  }
+  if (normalized.includes('.')) {
+    throw new Error(
+      'table.schema() expects a schema name without dots. Use .schema("schema").from("table") or .from("schema.table").',
+    )
+  }
+  return normalized
+}
+
+function resolveTableTarget(logicalName: string, mappedName?: string, explicitSchemaName?: string): {
   schema?: string
   model: string
+  qualifiedName: string
 } {
   const physicalName = (mappedName ?? logicalName).trim()
   if (!physicalName) {
@@ -135,14 +207,35 @@ function resolveTableTarget(logicalName: string, mappedName?: string): {
   const firstDot = physicalName.indexOf('.')
   const lastDot = physicalName.lastIndexOf('.')
   if (firstDot > 0 && firstDot === lastDot) {
+    const inlineSchema = physicalName.slice(0, firstDot).trim()
+    const inlineModel = physicalName.slice(firstDot + 1).trim()
+    if (!inlineSchema || !inlineModel) {
+      throw new Error('table.from() schema-qualified names must look like "schema.table"')
+    }
+    if (explicitSchemaName && explicitSchemaName !== inlineSchema) {
+      throw new Error(
+        `table schema "${explicitSchemaName}" conflicts with mapped table "${physicalName}"`,
+      )
+    }
+
     return {
-      schema: physicalName.slice(0, firstDot),
-      model: physicalName.slice(firstDot + 1),
+      schema: explicitSchemaName ?? inlineSchema,
+      model: inlineModel,
+      qualifiedName: `${explicitSchemaName ?? inlineSchema}.${inlineModel}`,
+    }
+  }
+
+  if (explicitSchemaName) {
+    return {
+      schema: explicitSchemaName,
+      model: physicalName,
+      qualifiedName: `${explicitSchemaName}.${physicalName}`,
     }
   }
 
   return {
     model: physicalName,
+    qualifiedName: physicalName,
   }
 }
 
@@ -173,14 +266,16 @@ function buildColumnMetadataMap(columns: Record<string, AnyColumnBuilder>): Reco
 function finalizeTable<
   TName extends string,
   TMappedName extends string | undefined,
+  TSchemaName extends string | undefined,
   TColumns extends Record<string, AnyColumnBuilder>,
 >(
   name: TName,
   mappedName: TMappedName,
+  schemaName: TSchemaName,
   columns: TColumns,
   primaryKey: readonly [Extract<keyof TColumns, string>, ...Array<Extract<keyof TColumns, string>>],
-): AthenaTableDef<TColumns> {
-  const target = resolveTableTarget(name, mappedName)
+): AthenaTableDef<TColumns, TName, TMappedName, TSchemaName> {
+  const target = resolveTableTarget(name, mappedName, schemaName)
   const model = defineModel<
     RowFromColumns<TColumns>,
     InsertFromColumns<TColumns>,
@@ -204,47 +299,74 @@ function finalizeTable<
   return Object.assign(model, {
     kind: 'table' as const,
     name,
+    mappedName,
+    schemaName: target.schema,
+    tableName: target.model,
+    qualifiedName: target.qualifiedName,
     columns,
     schemas,
-  })
+  }) as AthenaTableDef<TColumns, TName, TMappedName, TSchemaName>
 }
 
 function createColumnsBuilder<
   TName extends string,
   TMappedName extends string | undefined,
+  TSchemaName extends string | undefined,
   TColumns extends Record<string, AnyColumnBuilder>,
 >(
   name: TName,
   mappedName: TMappedName,
+  schemaName: TSchemaName,
   columns: TColumns,
-): AthenaTableColumnsBuilder<TName, TMappedName, TColumns> {
+): AthenaTableColumnsBuilder<TName, TMappedName, TSchemaName, TColumns> {
   assertColumnRecord(columns)
 
   return {
     name,
     mappedName,
+    schemaName,
     columns,
     from<TNextMappedName extends string>(tableName: TNextMappedName) {
-      return createColumnsBuilder(name, tableName, columns)
+      const normalizedTableName = normalizeMappedNameInput(tableName)
+      resolveTableTarget(name, normalizedTableName, schemaName)
+      return createColumnsBuilder(name, normalizedTableName as TNextMappedName, schemaName, columns)
+    },
+    schema<TNextSchemaName extends string>(nextSchemaName: TNextSchemaName) {
+      const normalizedSchemaName = normalizeSchemaNameInput(nextSchemaName)
+      resolveTableTarget(name, mappedName, normalizedSchemaName)
+      return createColumnsBuilder(name, mappedName, normalizedSchemaName as TNextSchemaName, columns)
     },
     primaryKey(...keys) {
-      return finalizeTable(name, mappedName, columns, keys)
+      return finalizeTable(name, mappedName, schemaName, columns, keys)
     },
   }
 }
 
-function createTableBuilder<TName extends string, TMappedName extends string | undefined>(
+function createTableBuilder<
+  TName extends string,
+  TMappedName extends string | undefined,
+  TSchemaName extends string | undefined,
+>(
   name: TName,
   mappedName: TMappedName,
-): AthenaTableBuilder<TName, TMappedName> {
+  schemaName: TSchemaName,
+): AthenaTableBuilder<TName, TMappedName, TSchemaName> {
   return {
     name,
     mappedName,
+    schemaName,
     from<TNextMappedName extends string>(tableName: TNextMappedName) {
-      return createTableBuilder(name, tableName)
+      const normalizedTableName = normalizeMappedNameInput(tableName)
+      resolveTableTarget(name, normalizedTableName, schemaName)
+      return createTableBuilder(name, normalizedTableName as TNextMappedName, schemaName)
+    },
+    schema<TNextSchemaName extends string>(nextSchemaName: TNextSchemaName) {
+      const normalizedSchemaName = normalizeSchemaNameInput(nextSchemaName)
+      resolveTableTarget(name, mappedName, normalizedSchemaName)
+      return createTableBuilder(name, mappedName, normalizedSchemaName as TNextSchemaName)
     },
     columns<TColumns extends Record<string, AnyColumnBuilder>>(columns: TColumns) {
-      return createColumnsBuilder(name, mappedName, columns)
+      return createColumnsBuilder(name, mappedName, schemaName, columns)
     },
   }
 }
@@ -254,7 +376,7 @@ export function table<TName extends string>(name: TName): AthenaTableBuilder<TNa
     throw new Error('table() requires a non-empty name')
   }
 
-  return createTableBuilder(name, undefined)
+  return createTableBuilder(name, undefined, undefined)
 }
 
 export type { AthenaColumnBuilder }

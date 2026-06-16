@@ -1,5 +1,6 @@
 import {
   createClient,
+  type AthenaClientExperimentalOptions,
   type AthenaFromOptions,
   type AthenaResult,
   type AthenaSdkClient,
@@ -14,6 +15,7 @@ import type {
   AthenaRpcCallOptions,
 } from '../gateway/types.ts'
 import type {
+  AthenaModelTarget,
   AnyModelDef,
   DatabaseDef,
   InsertOf,
@@ -25,6 +27,7 @@ import type {
   TenantKeyMap,
   UpdateOf,
 } from './types.ts'
+import { resolveAthenaModelTargetTableName } from './model-target.ts'
 
 type RegistryConstraint = RegistryDef<
   Record<string, DatabaseDef<Record<string, SchemaDef<Record<string, AnyModelDef>>>>>
@@ -37,6 +40,15 @@ export interface TypedClientOptions<TMap extends TenantKeyMap = TenantKeyMap>
   extends Pick<AthenaGatewayCallOptions, 'backend' | 'client' | 'headers'> {
   tenantKeyMap?: TMap
   tenantContext?: TenantContext<TMap>
+  experimental?: AthenaClientExperimentalOptions
+}
+
+export interface TypedClientOptionsWithTypecheckedColumns<
+  TMap extends TenantKeyMap = TenantKeyMap,
+> extends TypedClientOptions<TMap> {
+  experimental: AthenaClientExperimentalOptions & {
+    typecheckColumns: true
+  }
 }
 
 /**
@@ -45,11 +57,12 @@ export interface TypedClientOptions<TMap extends TenantKeyMap = TenantKeyMap>
 export interface TypedAthenaClient<
   TRegistry extends RegistryConstraint,
   TTenantMap extends TenantKeyMap = Record<never, string>,
-> extends AthenaSdkClient {
+  TStrict extends boolean = false,
+> extends AthenaSdkClient<TStrict> {
   readonly registry: TRegistry
   readonly tenantKeyMap: Readonly<TTenantMap>
   readonly tenantContext: TenantContext<TTenantMap>
-  withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap>
+  withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap, TStrict>
   fromModel<
     TDatabase extends keyof TRegistry & string,
     TSchema extends keyof TRegistry[TDatabase]['schemas'] & string,
@@ -67,11 +80,14 @@ export interface TypedAthenaClient<
       database: TDatabase
       schema: TSchema
       model: ModelAt<TRegistry, TDatabase, TSchema, TModel>
-    }
+    },
+    TStrict
   >
 }
 
-type BaseClientOptions = Pick<AthenaGatewayCallOptions, 'backend' | 'client' | 'headers'>
+type BaseClientOptions = Pick<AthenaGatewayCallOptions, 'backend' | 'client' | 'headers'> & {
+  experimental?: AthenaClientExperimentalOptions
+}
 
 class TenantHeaderMapper<TMap extends TenantKeyMap> {
   constructor(private readonly tenantKeyMap: TMap) {}
@@ -131,25 +147,24 @@ class RegistryNavigator<TRegistry extends RegistryConstraint> {
     model: string,
     modelDef: AnyModelDef,
   ): string {
-    if (modelDef.meta.tableName) {
-      return modelDef.meta.tableName
-    }
-    const schemaName = modelDef.meta.schema ?? schema
-    const modelName = modelDef.meta.model ?? model
-    return `${schemaName}.${modelName}`
+    return resolveAthenaModelTargetTableName(modelDef, {
+      fallbackSchema: schema,
+      fallbackModel: model,
+    })
   }
 }
 
 class TypedAthenaClientImpl<
   TRegistry extends RegistryConstraint,
   TTenantMap extends TenantKeyMap,
-> implements TypedAthenaClient<TRegistry, TTenantMap> {
+  TStrict extends boolean = false,
+> implements TypedAthenaClient<TRegistry, TTenantMap, TStrict> {
   readonly registry: TRegistry
   readonly tenantKeyMap: Readonly<TTenantMap>
   readonly tenantContext: TenantContext<TTenantMap>
-  readonly db: AthenaSdkClient['db']
+  readonly db: AthenaSdkClient<TStrict>['db']
 
-  private readonly baseClient: AthenaSdkClient
+  private readonly baseClient: AthenaSdkClient<TStrict>
   private readonly registryNavigator: RegistryNavigator<TRegistry>
   private readonly tenantHeaderMapper: TenantHeaderMapper<TTenantMap>
   private readonly clientOptions: BaseClientOptions
@@ -178,29 +193,49 @@ class TypedAthenaClientImpl<
       backend: input.options?.backend,
       client: input.options?.client,
       headers: input.options?.headers,
+      experimental: input.options?.experimental,
     }
 
     this.baseClient = createClient(this.url, this.apiKey, {
       backend: this.clientOptions.backend,
       client: this.clientOptions.client,
       headers: this.tenantHeaderMapper.apply(this.clientOptions.headers, tenantContext),
-    })
+      experimental: this.clientOptions.experimental,
+    }) as AthenaSdkClient<TStrict>
     this.db = this.baseClient.db
   }
 
+  from<TModel extends AthenaModelTarget>(
+    model: TModel,
+  ): TableQueryBuilder<RowOf<TModel>, InsertOf<TModel>, UpdateOf<TModel>, unknown, TStrict>
   from<
     Row = Record<string, unknown>,
     Insert = Partial<Row>,
     Update = Partial<Insert>,
-  >(table: string, options?: AthenaFromOptions): TableQueryBuilder<Row, Insert, Update> {
-    return this.baseClient.from<Row, Insert, Update>(table, options)
+  >(
+    table: string,
+    options?: AthenaFromOptions,
+  ): TableQueryBuilder<Row, Insert, Update, unknown, TStrict>
+  from<
+    Row = Record<string, unknown>,
+    Insert = Partial<Row>,
+    Update = Partial<Insert>,
+  >(
+    tableOrModel: string | AthenaModelTarget<Row, Insert, Update>,
+    options?: AthenaFromOptions,
+  ): TableQueryBuilder<Row, Insert, Update, unknown, TStrict> {
+    const from = this.baseClient.from as unknown as (
+      target: string | AthenaModelTarget<Row, Insert, Update>,
+      options?: AthenaFromOptions,
+    ) => TableQueryBuilder<Row, Insert, Update, unknown, TStrict>
+    return from(tableOrModel, options)
   }
 
   rpc<Row = unknown, Args extends AthenaJsonObject = AthenaJsonObject>(
     fn: string,
     args?: Args,
     options?: AthenaRpcCallOptions,
-  ): RpcQueryBuilder<Row> {
+  ): RpcQueryBuilder<Row, TStrict> {
     return this.baseClient.rpc<Row, Args>(fn, args, options)
   }
 
@@ -217,7 +252,7 @@ class TypedAthenaClientImpl<
     return this.baseClient.verifyConnection(options)
   }
 
-  withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap> {
+  withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap, TStrict> {
     return new TypedAthenaClientImpl({
       registry: this.registry,
       url: this.url,
@@ -229,6 +264,7 @@ class TypedAthenaClientImpl<
           ...this.tenantContext,
           ...(context ?? {}),
         },
+        experimental: this.clientOptions.experimental,
       },
     })
   }
@@ -250,7 +286,8 @@ class TypedAthenaClientImpl<
       database: TDatabase
       schema: TSchema
       model: ModelAt<TRegistry, TDatabase, TSchema, TModel>
-    }
+    },
+    TStrict
   > {
     const modelDef = this.registryNavigator.resolveModel(database, schema, model)
     const tableName = this.registryNavigator.resolveTableName(schema, model, modelDef as AnyModelDef)
@@ -267,7 +304,8 @@ class TypedAthenaClientImpl<
         database: TDatabase
         schema: TSchema
         model: ModelAt<TRegistry, TDatabase, TSchema, TModel>
-      }
+      },
+      TStrict
     >
   }
 }
@@ -282,8 +320,26 @@ export function createTypedClient<
   registry: TRegistry,
   url: string,
   apiKey: string,
+  options: TypedClientOptionsWithTypecheckedColumns<TTenantMap>,
+): TypedAthenaClient<TRegistry, TTenantMap, true>
+export function createTypedClient<
+  TRegistry extends RegistryConstraint,
+  TTenantMap extends TenantKeyMap = Record<never, string>,
+>(
+  registry: TRegistry,
+  url: string,
+  apiKey: string,
   options?: TypedClientOptions<TTenantMap>,
-): TypedAthenaClient<TRegistry, TTenantMap> {
+): TypedAthenaClient<TRegistry, TTenantMap, false>
+export function createTypedClient<
+  TRegistry extends RegistryConstraint,
+  TTenantMap extends TenantKeyMap = Record<never, string>,
+>(
+  registry: TRegistry,
+  url: string,
+  apiKey: string,
+  options?: TypedClientOptions<TTenantMap>,
+): TypedAthenaClient<TRegistry, TTenantMap, false> {
   return new TypedAthenaClientImpl({
     registry,
     url,
