@@ -7,7 +7,7 @@
 
 // Athena client
 export { createClient, AthenaClient } from './client.js'
-export { Backend } from './gateway/types.js'
+export { Backend, AthenaGatewayErrorCode } from './gateway/types.js'
 export { AthenaGatewayError, isAthenaGatewayError } from './gateway/errors.ts'
 export { verifyAthenaGatewayUrl } from './gateway/client.ts'
 export { normalizeAthenaGatewayBaseUrl } from './gateway/url.ts'
@@ -28,6 +28,7 @@ export {
   AthenaErrorKind,
   AthenaErrorCategory,
 } from './auxiliaries.js'
+export { AthenaOperation } from './operation-types.ts'
 export { identifier } from './sql-identifiers.ts'
 export {
   defineDatabase,
@@ -166,6 +167,8 @@ export type {
   AthenaSdkClientWithStorage,
   TableQueryBuilder,
   AthenaResult,
+  AthenaResultError,
+  AthenaResultErrorCode,
   AthenaCreateClientOptionsWithStorage,
   AthenaCreateClientOptionsWithStorageAndTypecheckedColumns,
 } from './client.js'
@@ -233,6 +236,13 @@ export type {
   AthenaStorageUploadProgressHandler,
   AthenaStorageUploadSource,
 } from './storage/file.js'
+export type {
+  AthenaDataOperation,
+  AthenaKnownOperation,
+  AthenaOperationName,
+  AthenaStorageFallbackOperation,
+  AthenaStorageOperation,
+} from './operation-types.ts'
 export type {
   AthenaErrorInput,
   AthenaOperationContext,
@@ -388,7 +398,6 @@ export type {
   AthenaRpcFilterOperator,
   AthenaRpcOrder,
   AthenaRpcPayload,
-  AthenaGatewayErrorCode,
   AthenaGatewayErrorDetails,
   AthenaGatewayConnectionOptions,
   AthenaGatewayConnectionResult,

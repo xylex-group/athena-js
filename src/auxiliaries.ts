@@ -1,6 +1,7 @@
 import type { AthenaResult } from './client.ts'
 import { AthenaGatewayError, isAthenaGatewayError } from './gateway/errors.ts'
 import type { AthenaGatewayErrorCode, AthenaGatewayErrorDetails } from './gateway/types.ts'
+import type { AthenaOperationName } from './operation-types.ts'
 import { parseBooleanFlag as parseBooleanFlagUtil } from './utils/parse-boolean-flag.ts'
 
 export type AthenaErrorKind =
@@ -59,7 +60,7 @@ export const AthenaErrorCategory = {
 
 export interface AthenaOperationContext {
   table?: string
-  operation?: string
+  operation?: AthenaOperationName
   identity?: string | Record<string, unknown>
 }
 
@@ -71,7 +72,7 @@ export interface NormalizedAthenaError {
   status?: number
   constraint?: string
   table?: string
-  operation?: string
+  operation?: AthenaOperationName
   message: string
   raw: unknown
 }
@@ -201,7 +202,7 @@ function isAthenaResultErrorLike(
   status?: number
   constraint?: string
   table?: string
-  operation?: string
+  operation?: AthenaOperationName
   raw?: unknown
 } {
   return (

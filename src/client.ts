@@ -75,6 +75,10 @@ import {
 import type {
   AthenaQueryTracer,
 } from './query-tracing.ts'
+import type {
+  AthenaDataOperation,
+  AthenaOperationName,
+} from './operation-types.ts'
 import {
   isAthenaModelTarget,
   resolveAthenaModelTargetTableName,
@@ -104,9 +108,14 @@ export interface AthenaResult<T> {
   raw: unknown
 }
 
+export type AthenaResultErrorCode =
+  | NormalizedAthenaError['code']
+  | AthenaGatewayErrorDetails['code']
+  | (string & {})
+
 export interface AthenaResultError {
   message: string
-  code: string | null
+  code: AthenaResultErrorCode | null
   athenaCode: NormalizedAthenaError['code']
   gatewayCode?: AthenaGatewayErrorDetails['code'] | null
   kind: NormalizedAthenaError['kind']
@@ -118,7 +127,7 @@ export interface AthenaResultError {
   statusText: string | null
   constraint?: string
   table?: string
-  operation?: string
+  operation?: AthenaOperationName
   endpoint?: AthenaGatewayErrorDetails['endpoint']
   method?: AthenaGatewayErrorDetails['method']
   requestId?: string
@@ -194,7 +203,7 @@ export interface AthenaQueryTraceCallsite {
 export interface AthenaQueryTraceEvent {
   timestamp: string
   durationMs: number
-  operation: 'select' | 'insert' | 'upsert' | 'update' | 'delete' | 'rpc' | 'query'
+  operation: AthenaDataOperation
   endpoint: '/gateway/fetch' | '/gateway/insert' | '/gateway/update' | '/gateway/delete' | '/gateway/rpc' | '/gateway/query' | `/rpc/${string}`
   table?: string
   functionName?: string

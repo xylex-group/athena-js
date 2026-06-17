@@ -855,9 +855,12 @@ if (result.error) {
 Normalized error shape:
 
 ```ts
+type AthenaResultErrorCode = AthenaErrorCode | AthenaGatewayErrorCode | (string & {})
+type AthenaOperationName = AthenaKnownOperation | `storage:${'get' | 'post' | 'put' | 'patch' | 'delete'}` | (string & {})
+
 interface AthenaResultError {
   message: string
-  code: string | null
+  code: AthenaResultErrorCode | null
   athenaCode: string
   gatewayCode?: string | null
   kind: string
@@ -869,7 +872,7 @@ interface AthenaResultError {
   statusText: string | null
   constraint?: string
   table?: string
-  operation?: string
+  operation?: AthenaOperationName
   endpoint?: string
   method?: string
   requestId?: string

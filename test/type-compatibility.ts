@@ -3,6 +3,8 @@ import {
   createClient,
   AthenaClient,
   boolean,
+  AthenaGatewayErrorCode,
+  AthenaOperation,
   createModelFormAdapter,
   defineGeneratorConfig,
   generatorEnv,
@@ -34,9 +36,12 @@ import {
   type AthenaResult,
   type AthenaQueryDebugAst,
   type AthenaGatewayConnectionResult,
+  type AthenaDataOperation,
   type FormValuesOf,
   type ModelFormDefaults,
   type ModelFormValues,
+  type AthenaOperationName,
+  type AthenaResultErrorCode,
   type InsertOf,
   type RowOf,
   type UpdateOf,
@@ -77,6 +82,9 @@ declare function acceptsUserArrayWithCountPromise(
   value: Promise<AthenaResult<UserRow[]>>,
 ): void
 declare function acceptsCountValue(value: number | null | undefined): void
+declare function acceptsAthenaDataOperation(value: AthenaDataOperation): void
+declare function acceptsAthenaOperationName(value: AthenaOperationName | undefined): void
+declare function acceptsAthenaResultErrorCode(value: AthenaResultErrorCode | null): void
 
 declare function acceptsMaybeUserPromise(value: Promise<AthenaResult<UserRow | null>>): void
 declare function acceptsMaybeUserPickPromise(
@@ -150,6 +158,7 @@ const experimentalClient = createClient("https://mirror3.athena-db.com", "api-ke
     traceQueries: {
       logger: event => {
         acceptsString(event.operation)
+        acceptsAthenaDataOperation(event.operation)
         acceptsString(event.sql)
         acceptsUnknown(event.ast)
       },
@@ -168,6 +177,9 @@ const strictColumnsBuilderClient = AthenaClient.builder()
     typecheckColumns: true,
   })
   .build()
+acceptsAthenaOperationName(AthenaOperation.Select)
+acceptsAthenaOperationName(AthenaOperation.GetStorageFile)
+acceptsAthenaResultErrorCode(AthenaGatewayErrorCode.HttpError)
 const experimentalStorageClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     athenaStorageBackend: true,

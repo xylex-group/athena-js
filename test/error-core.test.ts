@@ -4,7 +4,9 @@ import {
   AthenaError,
   AthenaErrorCategory,
   AthenaErrorCode,
+  AthenaGatewayErrorCode,
   AthenaErrorKind,
+  AthenaOperation,
   normalizeAthenaError,
 } from '../src/index.ts'
 
@@ -35,5 +37,11 @@ test('normalizeAthenaError includes expanded classification details', () => {
   assert.equal(normalized.code, AthenaErrorCode.RateLimited)
   assert.equal(normalized.category, AthenaErrorCategory.Server)
   assert.equal(normalized.retryable, true)
+})
+
+test('exports enum-like operation and gateway error helpers', () => {
+  assert.equal(AthenaOperation.Select, 'select')
+  assert.equal(AthenaOperation.GetStorageFile, 'getStorageFile')
+  assert.equal(AthenaGatewayErrorCode.HttpError, 'HTTP_ERROR')
 })
 

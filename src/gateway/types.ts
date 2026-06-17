@@ -234,6 +234,14 @@ export type AthenaGatewayErrorCode =
   | 'INVALID_JSON'
   | 'UNKNOWN_ERROR'
 
+export const AthenaGatewayErrorCode = {
+  NetworkError: 'NETWORK_ERROR',
+  InvalidUrl: 'INVALID_URL',
+  HttpError: 'HTTP_ERROR',
+  InvalidJson: 'INVALID_JSON',
+  UnknownError: 'UNKNOWN_ERROR',
+} as const satisfies Record<string, AthenaGatewayErrorCode>
+
 export interface AthenaGatewayErrorDetails {
   code: AthenaGatewayErrorCode
   message: string

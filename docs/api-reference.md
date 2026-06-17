@@ -39,9 +39,12 @@ Main package auth exports include:
 Most SDK operations return:
 
 ```ts
+type AthenaResultErrorCode = AthenaErrorCode | AthenaGatewayErrorCode | (string & {})
+type AthenaOperationName = AthenaKnownOperation | `storage:${'get' | 'post' | 'put' | 'patch' | 'delete'}` | (string & {})
+
 interface AthenaResultError {
   message: string
-  code: string | null
+  code: AthenaResultErrorCode | null
   athenaCode: AthenaErrorCode
   gatewayCode?: AthenaGatewayErrorCode | null
   kind: AthenaErrorKind
@@ -53,7 +56,7 @@ interface AthenaResultError {
   statusText: string | null
   constraint?: string
   table?: string
-  operation?: string
+  operation?: AthenaOperationName
   endpoint?: AthenaGatewayEndpointPath
   method?: AthenaGatewayMethod
   requestId?: string
@@ -544,6 +547,8 @@ interface AthenaStorageFileModule {
   delete(fileIds: readonly string[], options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse[]>
 }
 ```
+
+`error.athenaCode` is the closed normalized Athena enum-like code. `error.code` stays semi-open because gateways, database payloads, and compatibility envelopes can still surface raw upstream codes. Use `AthenaErrorCode`, `AthenaGatewayErrorCode`, and `AthenaOperation` for autocomplete-friendly matching of the known built-in values.
 
 For typed inline column selection on the DB helper surface, prefer `athena.db.from<Row>(table).select("id, email")`.
 
