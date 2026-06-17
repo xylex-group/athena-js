@@ -21,8 +21,9 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 ### Track B - Typed model architecture
 
 1. [`typed-schema-registry.md`](typed-schema-registry.md) - model contracts, registry composition, and typed client behavior
-2. [`type-safety-playbook.md`](type-safety-playbook.md) - migration strategies, anti-patterns, and form/validation alignment
-3. [`api-reference.md`](api-reference.md) - utility types and generic contracts
+2. [`type-surface-manifest.md`](type-surface-manifest.md) - single-page manifest for the new table DSL, helper types, generated Zod schemas, strict query typing, error/operation typing, and docs routing
+3. [`type-safety-playbook.md`](type-safety-playbook.md) - migration strategies, anti-patterns, and form/validation alignment
+4. [`api-reference.md`](api-reference.md) - utility types and generic contracts
 
 ### Track C - Generator and CI
 
@@ -66,6 +67,7 @@ Runtime client (createClient / AthenaClient.builder)
 - If your issue is how `select(...)`, `insert(...)`, `upsert(...)`, `update(...)`, `delete(...)`, `rpc(...)`, or `query(...)` normalize into builder state and wire payloads: open [`runtime-method-ast-models.md`](runtime-method-ast-models.md).
 - If your issue is response field naming or `customName:columnName` syntax: open [`select-column-aliases.md`](select-column-aliases.md).
 - If your issue is Athena-managed storage, upload URLs, proxied file reads, or storage OpenAPI route coverage: open [`storage/index.md`](storage/index.md).
+- If your issue is the newer type surface itself - table DSL exports, derived helper types, strict column typing, generated schema metadata, or error/operation typing - start at [`type-surface-manifest.md`](type-surface-manifest.md).
 - If your issue is type drift across domains: start at [`type-safety-playbook.md`](type-safety-playbook.md).
 - If your issue is generated artifacts or CI determinism: start at [`generator-quickstart.md`](generator-quickstart.md), then [`generator-config.md`](generator-config.md) and [`generator-cicd.md`](generator-cicd.md).
 - If your issue is auth endpoint parity and typed auth bindings: start at [`auth/index.mdx`](auth/index.mdx).

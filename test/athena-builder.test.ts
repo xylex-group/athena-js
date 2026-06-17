@@ -60,6 +60,148 @@ test('createClient(url, key, { client }) still works', async () => {
   }
 })
 
+test('createClient({ url, key }) routes db, auth, and storage through the unified public base URL', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/auth/get-session')) {
+      return createMockResponse({
+        session: { id: 's_1' },
+        user: { id: 'u_1', email: 'user@example.com' },
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/catalogs')) {
+      return createMockResponse({
+        data: [
+          {
+            id: 's3_1',
+            name: 'documents',
+            bucket: 'documents',
+            provider: 'aws',
+            force_path_style: false,
+            is_active: true,
+            metadata: {},
+            created_at: '2026-06-15T00:00:00Z',
+            updated_at: '2026-06-15T00:00:00Z',
+          },
+        ],
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const client = createClient({
+      url: 'https://acme.v3.athena-db.com',
+      key: 'secret',
+      experimental: { athenaStorageBackend: true },
+    })
+
+    await client.from('users').select('id').limit(1)
+    const session = await client.auth.getSession()
+    const catalogs = await client.storage.listStorageCatalogs()
+
+    assert.equal(session.ok, true)
+    assert.equal(catalogs.data[0].id, 's3_1')
+    assert.equal(calls.length, 3)
+    assert.equal(calls[0].url, 'https://acme.v3.athena-db.com/db/gateway/fetch')
+    assert.equal(calls[1].url, 'https://acme.v3.athena-db.com/auth/get-session')
+    assert.equal(calls[2].url, 'https://acme.v3.athena-db.com/storage/catalogs')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('createClient({ key, db/auth/storage overrides }) honors explicit per-service URLs without a unified root', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/auth/v1/get-session')) {
+      return createMockResponse({
+        session: { id: 's_2' },
+        user: { id: 'u_2', email: 'operator@example.com' },
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/v1/catalogs')) {
+      return createMockResponse({ data: [] }, 200)
+    }
+    return createMockResponse([{ id: 2 }], 200)
+  }
+
+  try {
+    const client = createClient({
+      key: 'secret',
+      db: {
+        url: 'https://gateway.internal.local/rest/v1',
+      },
+      auth: {
+        url: 'https://auth.internal.local/auth/v1',
+      },
+      storage: {
+        url: 'https://storage.internal.local/storage/v1',
+      },
+      experimental: { athenaStorageBackend: true },
+    })
+
+    await client.from('users').select('id').limit(1)
+    const session = await client.auth.getSession()
+    await client.storage.listStorageCatalogs()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 3)
+    assert.equal(calls[0].url, 'https://gateway.internal.local/rest/v1/gateway/fetch')
+    assert.equal(calls[1].url, 'https://auth.internal.local/auth/v1/get-session')
+    assert.equal(calls[2].url, 'https://storage.internal.local/storage/v1/catalogs')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('createClient({ gatewayUrl, authUrl, storageUrl, key }) honors top-level legacy service aliases', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/auth/v1/get-session')) {
+      return createMockResponse({
+        session: { id: 's_3' },
+        user: { id: 'u_3', email: 'legacy@example.com' },
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/v1/catalogs')) {
+      return createMockResponse({ data: [] }, 200)
+    }
+    return createMockResponse([{ id: 3 }], 200)
+  }
+
+  try {
+    const client = createClient({
+      key: 'secret',
+      gatewayUrl: 'https://gateway.athena-db.com',
+      authUrl: 'https://auth.athena-db.com/auth/v1',
+      storageUrl: 'https://storage.athena-db.com/storage/v1',
+      experimental: { athenaStorageBackend: true },
+    })
+
+    await client.from('users').select('id').limit(1)
+    const session = await client.auth.getSession()
+    await client.storage.listStorageCatalogs()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 3)
+    assert.equal(calls[0].url, 'https://gateway.athena-db.com/gateway/fetch')
+    assert.equal(calls[1].url, 'https://auth.athena-db.com/auth/v1/get-session')
+    assert.equal(calls[2].url, 'https://storage.athena-db.com/storage/v1/catalogs')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('createClient throws early for malformed gateway URLs', () => {
   assert.throws(
     () => createClient('not-a-url', 'secret'),
@@ -80,9 +222,9 @@ test('client.verifyConnection probes the configured gateway root', async () => {
     const response = await client.verifyConnection()
     assert.equal(response.ok, true)
     assert.equal(response.reachable, true)
-    assert.equal(response.baseUrl, 'https://athena-db.com')
+    assert.equal(response.baseUrl, 'https://athena-db.com/db')
     assert.equal(calls.length, 1)
-    assert.equal(calls[0].url, 'https://athena-db.com/')
+    assert.equal(calls[0].url, 'https://athena-db.com/db/')
     assert.equal(calls[0].init?.method, 'GET')
   } finally {
     globalThis.fetch = originalFetch
@@ -413,6 +555,49 @@ test('AthenaClient.builder() supports options() and experimental tracing', async
     assert.equal(gatewayHeaders['X-Athena-Client'], 'builder_options_client')
     assert.equal(gatewayHeaders['X-Builder-Options'], '1')
     assert.equal(traces.some(trace => trace.operation === 'select'), true)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('AthenaClient.builder() can build from direct service overrides without a unified root URL', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/auth/v1/get-session')) {
+      return createMockResponse({
+        session: { id: 's_builder_1' },
+        user: { id: 'u_builder_1', email: 'builder@example.com' },
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/v1/catalogs')) {
+      return createMockResponse({ data: [] }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const client = AthenaClient.builder()
+      .key('secret')
+      .options({
+        gatewayUrl: 'https://gateway.builder.local/rest/v1',
+        authUrl: 'https://auth.builder.local/auth/v1',
+        storageUrl: 'https://storage.builder.local/storage/v1',
+        experimental: { athenaStorageBackend: true },
+      })
+      .build()
+
+    await client.from('users').select('id').limit(1)
+    const session = await client.auth.getSession()
+    await client.storage.listStorageCatalogs()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 3)
+    assert.equal(calls[0].url, 'https://gateway.builder.local/rest/v1/gateway/fetch')
+    assert.equal(calls[1].url, 'https://auth.builder.local/auth/v1/get-session')
+    assert.equal(calls[2].url, 'https://storage.builder.local/storage/v1/catalogs')
   } finally {
     globalThis.fetch = originalFetch
   }

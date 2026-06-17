@@ -131,6 +131,29 @@ declare function acceptsUserArrayInsertMutation(
 ): void
 
 const client = createClient("https://mirror3.athena-db.com", "api-key")
+const publicBaseClient = createClient({
+  url: 'https://mirror3.athena-db.com',
+  key: 'api-key',
+})
+const publicBaseOverrideClient = createClient({
+  url: 'https://mirror3.athena-db.com',
+  key: 'api-key',
+  db: { url: 'https://gateway.example.com/rest/v1' },
+  auth: { url: 'https://auth.example.com/auth/v1' },
+  storage: { url: 'https://storage.example.com/storage/v1' },
+})
+const directServiceClient = createClient({
+  key: 'api-key',
+  db: { url: 'https://gateway.example.com/rest/v1' },
+  auth: { url: 'https://auth.example.com/auth/v1' },
+  storage: { url: 'https://storage.example.com/storage/v1' },
+})
+const legacyAliasClient = createClient({
+  key: 'api-key',
+  gatewayUrl: 'https://gateway.example.com/rest/v1',
+  authUrl: 'https://auth.example.com/auth/v1',
+  storageUrl: 'https://storage.example.com/storage/v1',
+})
 const fluentBuilderClient = AthenaClient.builder()
   .url("https://mirror3.athena-db.com")
   .key("api-key")
@@ -149,6 +172,8 @@ const createClientDropIn: typeof fluentBuilderClient = createClient(
   },
 )
 const builderDropIn: ReturnType<typeof createClient> = fluentBuilderClient
+const publicBaseDropIn: ReturnType<typeof createClient> = publicBaseClient
+acceptsCreateClientCompatible(publicBaseDropIn)
 const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     debugAst: true,
@@ -209,13 +234,29 @@ const experimentalStorageOptionsBuilderClient = AthenaClient.builder()
     },
   })
   .build()
+const legacyOverrideBuilderClient = AthenaClient.builder()
+  .key('api-key')
+  .options({
+    gatewayUrl: 'https://gateway.example.com/rest/v1',
+    authUrl: 'https://auth.example.com/auth/v1',
+    storageUrl: 'https://storage.example.com/storage/v1',
+    experimental: {
+      athenaStorageBackend: true,
+    },
+  })
+  .build()
 const normalizedGatewayUrl = normalizeAthenaGatewayBaseUrl('https://mirror3.athena-db.com/')
 acceptsString(normalizedGatewayUrl)
 acceptsGatewayConnectionPromise(client.verifyConnection())
+acceptsGatewayConnectionPromise(publicBaseClient.verifyConnection())
+acceptsGatewayConnectionPromise(publicBaseOverrideClient.verifyConnection())
+acceptsGatewayConnectionPromise(directServiceClient.verifyConnection())
+acceptsGatewayConnectionPromise(legacyAliasClient.verifyConnection())
 acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-db.com'))
 acceptsStorageModule(experimentalStorageClient.storage)
 acceptsStorageModule(experimentalStorageBuilderClient.storage)
 acceptsStorageModule(experimentalStorageOptionsBuilderClient.storage)
+acceptsStorageModule(legacyOverrideBuilderClient.storage)
 acceptsStorageFileAccessPurpose('stream')
 acceptsStorageErrorHandler(error => {
   acceptsStorageErrorDetails(error.toDetails())

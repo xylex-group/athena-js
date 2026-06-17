@@ -26,7 +26,9 @@ type AthenaAdapterE2E = {
 };
 
 testFn("adapter E2E: insert, select, update, delete on athena_adapter_e2e", async () => {
-  const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  const athena = createClient({
+    key: ATHENA_API_KEY,
+    gatewayUrl: ATHENA_URL,
     client: ATHENA_CLIENT,
     backend: { type: "athena" },
     headers: {
