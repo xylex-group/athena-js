@@ -32,8 +32,16 @@ function makePayload(runId: string) {
   }
 }
 
+function createE2EClient() {
+  return createClient({
+    key: ATHENA_API_KEY,
+    gatewayUrl: ATHENA_URL,
+    client: ATHENA_CLIENT,
+  })
+}
+
 test('e2e helpers: requireSuccess + unwrap helpers work on live insert/select flow', async (t) => {
-  const client = createClient(ATHENA_URL, ATHENA_API_KEY, { client: ATHENA_CLIENT })
+  const client = createE2EClient()
   const runId = `helpers-e2e-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
   const payload = makePayload(runId)
 
@@ -95,7 +103,7 @@ test('e2e helpers: requireSuccess + unwrap helpers work on live insert/select fl
 })
 
 test('e2e helpers: normalizeAthenaError + requireSuccess handle real query failures', async () => {
-  const client = createClient(ATHENA_URL, ATHENA_API_KEY, { client: ATHENA_CLIENT })
+  const client = createE2EClient()
 
   const badResult = await client.query(`select id from definitely_missing_${Date.now()}`)
 
@@ -120,7 +128,7 @@ test('e2e helpers: normalizeAthenaError + requireSuccess handle real query failu
 })
 
 test('e2e helpers: withRetry can recover and complete a live read', async () => {
-  const client = createClient(ATHENA_URL, ATHENA_API_KEY, { client: ATHENA_CLIENT })
+  const client = createE2EClient()
 
   let attempts = 0
   const result = await withRetry(
