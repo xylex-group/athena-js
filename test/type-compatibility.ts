@@ -121,6 +121,7 @@ declare function acceptsUserInsertMutation(
 declare function acceptsUserArrayInsertMutation(
   value: PromiseLike<AthenaResult<UserRow[]>>,
 ): void
+declare const envString: string | undefined
 
 const client = createClient("https://mirror3.athena-db.com", "api-key")
 const publicBaseClient = createClient({
@@ -163,9 +164,26 @@ const createClientDropIn: typeof fluentBuilderClient = createClient(
     auth: { baseUrl: 'https://auth.example.com/api/auth' },
   },
 )
+const envConfiguredClient = createClient(envString, envString, {
+  auth: {
+    baseUrl: envString,
+    bearerToken: envString,
+  },
+  client: envString,
+})
+const envConfiguredObjectClient = createClient({
+  url: envString,
+  key: envString,
+  auth: {
+    baseUrl: envString,
+  },
+  client: envString,
+})
 const builderDropIn: ReturnType<typeof createClient> = fluentBuilderClient
 const publicBaseDropIn: ReturnType<typeof createClient> = publicBaseClient
 acceptsCreateClientCompatible(publicBaseDropIn)
+acceptsCreateClientCompatible(envConfiguredClient)
+acceptsCreateClientCompatible(envConfiguredObjectClient)
 const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     debugAst: true,

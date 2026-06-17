@@ -2254,22 +2254,29 @@ export interface AthenaSdkClientWithStorage<TStrict extends boolean = false> ext
 }
 
 export interface AthenaCreateClientServiceUrlConfig {
-  url?: string | null
+  url?: string | null | undefined
 }
 
-export interface AthenaCreateClientAuthOptions extends AthenaAuthClientConfig {
-  url?: string | null
+export interface AthenaCreateClientAuthOptions
+  extends Omit<AthenaAuthClientConfig, 'baseUrl' | 'apiKey' | 'bearerToken'> {
+  url?: string | null | undefined
+  baseUrl?: string | null | undefined
+  apiKey?: string | null | undefined
+  bearerToken?: string | null | undefined
 }
 
-export interface AthenaCreateClientOptions extends Pick<AthenaGatewayCallOptions, 'client' | 'headers' | 'backend'> {
+export interface AthenaCreateClientOptions {
+  client?: string | null | undefined
+  headers?: Record<string, string>
+  backend?: BackendConfig | BackendType
   db?: AthenaCreateClientServiceUrlConfig
   gateway?: AthenaCreateClientServiceUrlConfig
   auth?: AthenaCreateClientAuthOptions
   storage?: AthenaCreateClientServiceUrlConfig
-  dbUrl?: string | null
-  gatewayUrl?: string | null
-  authUrl?: string | null
-  storageUrl?: string | null
+  dbUrl?: string | null | undefined
+  gatewayUrl?: string | null | undefined
+  authUrl?: string | null | undefined
+  storageUrl?: string | null | undefined
   experimental?: AthenaClientExperimentalOptions
 }
 
@@ -2293,23 +2300,23 @@ export interface AthenaCreateClientOptionsWithStorageAndTypecheckedColumns exten
 }
 
 export interface AthenaCreateClientConfig extends AthenaCreateClientOptions {
-  url?: string | null
-  key: string
+  url?: string | null | undefined
+  key: string | null | undefined
 }
 
 export interface AthenaCreateClientConfigWithStorage extends AthenaCreateClientOptionsWithStorage {
-  url?: string | null
-  key: string
+  url?: string | null | undefined
+  key: string | null | undefined
 }
 
 export interface AthenaCreateClientConfigWithTypecheckedColumns extends AthenaCreateClientOptionsWithTypecheckedColumns {
-  url?: string | null
-  key: string
+  url?: string | null | undefined
+  key: string | null | undefined
 }
 
 export interface AthenaCreateClientConfigWithStorageAndTypecheckedColumns extends AthenaCreateClientOptionsWithStorageAndTypecheckedColumns {
-  url?: string | null
-  key: string
+  url?: string | null | undefined
+  key: string | null | undefined
 }
 
 /** Client config for builder */
@@ -2369,6 +2376,32 @@ function resolveServiceUrls(config: AthenaCreateClientConfig) {
   }
 }
 
+function resolveOptionalClientName(value: string | null | undefined): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue ? normalizedValue : undefined
+}
+
+function resolveRequiredClientApiKey(value: string | null | undefined): string {
+  if (value === undefined || value === null) {
+    throw new Error(
+      'Athena API key is required. Pass createClient(url, key) with a real API key, or set key in the config object.',
+    )
+  }
+
+  const normalizedValue = value.trim()
+  if (!normalizedValue) {
+    throw new Error(
+      'Athena API key is required. Pass createClient(url, key) with a real API key, or set key in the config object.',
+    )
+  }
+
+  return normalizedValue
+}
+
 function normalizeAuthClientConfig(
   auth: AthenaCreateClientAuthOptions | undefined,
   defaultBaseUrl?: string,
@@ -2377,17 +2410,29 @@ function normalizeAuthClientConfig(
     return undefined
   }
 
-  const { url, ...rest } = auth ?? {}
+  const {
+    url,
+    baseUrl,
+    apiKey,
+    bearerToken,
+    ...rest
+  } = auth ?? {}
   const normalized: AthenaAuthClientConfig = {
     ...rest,
   }
   const resolvedBaseUrl = resolveClientServiceBaseUrl(
-    url ?? rest.baseUrl ?? defaultBaseUrl,
+    url ?? baseUrl ?? defaultBaseUrl,
     'Athena auth base URL',
   )
 
   if (resolvedBaseUrl !== undefined) {
     normalized.baseUrl = resolvedBaseUrl
+  }
+  if (typeof apiKey === 'string') {
+    normalized.apiKey = apiKey
+  }
+  if (typeof bearerToken === 'string') {
+    normalized.bearerToken = bearerToken
   }
 
   return normalized
@@ -2405,8 +2450,8 @@ function resolveCreateClientConfig(
 
   return {
     baseUrl: resolvedUrls.dbUrl,
-    apiKey: config.key,
-    client: config.client,
+    apiKey: resolveRequiredClientApiKey(config.key),
+    client: resolveOptionalClientName(config.client),
     backend: toBackendConfig(config.backend),
     headers: config.headers,
     auth: config.auth,
@@ -2544,13 +2589,13 @@ export interface AthenaClientBuilder<
   TStrict extends boolean = false,
 > {
   /** Set the public Athena base URL. */
-  url(url: string): AthenaClientBuilder<StorageEnabled, TStrict>
+  url(url: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Set the API key used for all requests. */
-  key(apiKey: string): AthenaClientBuilder<StorageEnabled, TStrict>
+  key(apiKey: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Set the default backend routing strategy. */
   backend(backend: BackendConfig | BackendType): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Set the default Athena client routing key. */
-  client(clientName: string): AthenaClientBuilder<StorageEnabled, TStrict>
+  client(clientName: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Attach static headers to every request. */
   headers(headers: Record<string, string>): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Configure Athena Auth client behavior for `client.auth.*` methods. */
@@ -2624,31 +2669,31 @@ export function createClient(
   config: AthenaCreateClientConfig,
 ): AthenaSdkClientWithAuth<false>
 export function createClient(
-  url: string,
-  apiKey: string,
+  url: string | null | undefined,
+  apiKey: string | null | undefined,
   options: AthenaCreateClientOptionsWithStorageAndTypecheckedColumns,
 ): AthenaSdkClientWithStorage<true>
 export function createClient(
-  url: string,
-  apiKey: string,
+  url: string | null | undefined,
+  apiKey: string | null | undefined,
   options: AthenaCreateClientOptionsWithStorage,
 ): AthenaSdkClientWithStorage<false>
 export function createClient(
-  url: string,
-  apiKey: string,
+  url: string | null | undefined,
+  apiKey: string | null | undefined,
   options: AthenaCreateClientOptionsWithTypecheckedColumns,
 ): AthenaSdkClientWithAuth<true>
 export function createClient(
-  url: string,
-  apiKey: string,
+  url: string | null | undefined,
+  apiKey: string | null | undefined,
   options?: AthenaCreateClientOptions,
 ): AthenaSdkClientWithAuth<false>
 export function createClient(
-  configOrUrl: AthenaCreateClientConfig | string,
-  apiKey?: string,
+  configOrUrl: AthenaCreateClientConfig | string | null | undefined,
+  apiKey?: string | null,
   options?: AthenaCreateClientOptions,
 ): AthenaSdkClientWithAuth<false> {
-  if (typeof configOrUrl === 'string') {
+  if (typeof configOrUrl === 'string' || configOrUrl === null || configOrUrl === undefined) {
     return createClientFromConfig(resolveCreateClientConfig({
       url: configOrUrl,
       key: apiKey ?? '',

@@ -78,17 +78,18 @@ interface AthenaResult<T> {
 
 ```ts
 function createClient(
-  url: string,
-  apiKey: string,
+  url: string | null | undefined,
+  apiKey: string | null | undefined,
   options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
-    db?: { url?: string | null }
-    gateway?: { url?: string | null }
-    auth?: AthenaAuthClientConfig & { url?: string | null }
-    storage?: { url?: string | null }
-    dbUrl?: string | null
-    gatewayUrl?: string | null
-    authUrl?: string | null
-    storageUrl?: string | null
+    client?: string | null | undefined
+    db?: { url?: string | null | undefined }
+    gateway?: { url?: string | null | undefined }
+    auth?: AthenaAuthClientConfig & { url?: string | null | undefined; baseUrl?: string | null | undefined }
+    storage?: { url?: string | null | undefined }
+    dbUrl?: string | null | undefined
+    gatewayUrl?: string | null | undefined
+    authUrl?: string | null | undefined
+    storageUrl?: string | null | undefined
     experimental?: {
       athenaStorageBackend?: boolean
       debugAst?: boolean
@@ -104,22 +105,24 @@ function createClient(
 ```
 
 This is the canonical SDK entry point. The SDK treats `url` as the public unified Athena base URL and resolves services to `${url}/db`, `${url}/auth`, and `${url}/storage` unless you provide explicit service overrides.
+Direct env-style inputs such as `createClient(process.env.ATHENA_URL, process.env.ATHENA_API_KEY, { auth: { baseUrl: process.env.ATHENA_AUTH_URL }, client: process.env.ATHENA_CLIENT })` are supported; the SDK still throws early when the API key is missing.
 
 ### `createClient({ key, ...config })`
 
 ```ts
 function createClient(
   config: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
-    key: string
-    url?: string | null
-    db?: { url?: string | null }
-    gateway?: { url?: string | null }
-    auth?: AthenaAuthClientConfig & { url?: string | null }
-    storage?: { url?: string | null }
-    dbUrl?: string | null
-    gatewayUrl?: string | null
-    authUrl?: string | null
-    storageUrl?: string | null
+    key: string | null | undefined
+    client?: string | null | undefined
+    url?: string | null | undefined
+    db?: { url?: string | null | undefined }
+    gateway?: { url?: string | null | undefined }
+    auth?: AthenaAuthClientConfig & { url?: string | null | undefined; baseUrl?: string | null | undefined }
+    storage?: { url?: string | null | undefined }
+    dbUrl?: string | null | undefined
+    gatewayUrl?: string | null | undefined
+    authUrl?: string | null | undefined
+    storageUrl?: string | null | undefined
     experimental?: {
       athenaStorageBackend?: boolean
       debugAst?: boolean

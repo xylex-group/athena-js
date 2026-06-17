@@ -84,10 +84,10 @@ function resolveBuilderReturn<
 }
 
 class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
-  private rootUrl?: string
-  private apiKey?: string
+  private rootUrl?: string | null
+  private apiKey?: string | null
   private backendConfig: BackendConfig = DEFAULT_BACKEND
-  private clientName?: string
+  private clientName?: string | null
   private defaultHeaders?: Record<string, string>
   private authConfig?: AthenaCreateClientAuthOptions
   private dbUrlOverride?: string
@@ -100,12 +100,12 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
     private readonly buildClient: (config: AthenaCreateClientConfig) => AthenaSdkClientWithAuth<false>,
   ) {}
 
-  url(url: string): AthenaClientBuilder<false, false> {
+  url(url: string | null | undefined): AthenaClientBuilder<false, false> {
     this.rootUrl = url
     return this
   }
 
-  key(apiKey: string): AthenaClientBuilder<false, false> {
+  key(apiKey: string | null | undefined): AthenaClientBuilder<false, false> {
     this.apiKey = apiKey
     return this
   }
@@ -115,7 +115,7 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
     return this
   }
 
-  client(clientName: string): AthenaClientBuilder<false, false> {
+  client(clientName: string | null | undefined): AthenaClientBuilder<false, false> {
     this.clientName = clientName
     return this
   }

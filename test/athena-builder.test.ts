@@ -209,6 +209,24 @@ test('createClient throws early for malformed gateway URLs', () => {
   )
 })
 
+test('createClient throws early for missing API keys even when env-shaped inputs are passed through directly', () => {
+  assert.throws(
+    () => createClient('https://athena-db.com', undefined),
+    /Athena API key is required/,
+  )
+  assert.throws(
+    () => createClient({
+      url: 'https://athena-db.com',
+      key: undefined,
+    }),
+    /Athena API key is required/,
+  )
+  assert.throws(
+    () => AthenaClient.builder().url('https://athena-db.com').key(undefined).build(),
+    /AthenaClient requires key plus either \.url\(\) or a db\/gateway override before \.build\(\)/,
+  )
+})
+
 test('client.verifyConnection probes the configured gateway root', async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = []
   const originalFetch = globalThis.fetch
