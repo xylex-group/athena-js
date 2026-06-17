@@ -103,7 +103,7 @@ function createClient(
 `experimental.findManyAst` opt-ins clean `findMany(...)` calls to use direct AST bodies on `/gateway/fetch` when the request is lossless there; shorthand `where` values are normalized, UUID-like equality filters still fall back to the legacy query path, and nested relation select strings stay off SQL query fallback.
 `experimental.retryReads` enables fixed-policy retries for retryable read failures on `select`, `findMany(...)`, and `query(...)`. It performs two additional attempts internally and does not retry writes.
 `experimental.traceQueries` emits detailed query execution diagnostics for every runtime call.
-`experimental.typecheckColumns` is type-only. When the row keys are known from `from<Table>()`, `from(model)`, `fromModel(...)`, or typed RPC result generics, the SDK validates simple string selects, array literals, and RPC filter/order column names at compile time.
+`experimental.typecheckColumns` is type-only. When the row keys are known from `from<Table>()`, `from(model)`, `fromModel(...)`, `db.from<Row>(...)`, `db.select<Row>(table).single(...)`, or typed RPC result generics, the SDK validates simple string selects, array literals, and RPC filter/order column names at compile time. Typed `db.select<Row>(table, columns)` is intentionally not supported; use `db.from<Row>(table).select(columns)` when you want inline typed column selection.
 For deferred builders, trace callsites are captured from the public SDK seam that declared or finalized the operation and are memoized through the eventual execution, so traces stay anchored to user code across local and CI stack differences.
 
 ### `AthenaQueryTraceOptions`
@@ -431,11 +431,15 @@ interface AthenaDbModule {
     options?: AthenaFromOptions,
   ): TableQueryBuilder<Row, Insert, Update>
 
-  select<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>, SelectedRow = Row>(
+  select<Row = Record<string, AthenaJsonValue | undefined>>(
     table: string,
-    columns?: string | string[],
     options?: AthenaGatewayCallOptions,
-  ): SelectChain<Row, SelectedRow>
+  ): SelectChain<Row, Row>
+  select(
+    table: string,
+    columns: string | string[],
+    options?: AthenaGatewayCallOptions,
+  ): SelectChain<Record<string, AthenaJsonValue | undefined>, Record<string, AthenaJsonValue | undefined>>
 
   insert<Row = Record<string, AthenaJsonValue | undefined>, Insert = Partial<Row>, Update = Partial<Insert>>(
     table: string,
@@ -540,6 +544,8 @@ interface AthenaStorageFileModule {
   delete(fileIds: readonly string[], options?: AthenaStorageCallOptions): Promise<StorageFileMutationResponse[]>
 }
 ```
+
+For typed inline column selection on the DB helper surface, prefer `athena.db.from<Row>(table).select("id, email")`.
 
 ### `getAthenaDebugAst(value)`
 

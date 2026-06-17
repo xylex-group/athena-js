@@ -20,14 +20,11 @@ import type {
   RowOf,
   UpdateOf,
 } from '../schema/types.ts'
-import type { AthenaSelectInput, AthenaValidatedSelectInput } from '../select-column-types.ts'
+import type {
+  AthenaSelectInput,
+} from '../select-column-types.ts'
 
 type AthenaRowShape = Record<string, AthenaJsonValue | undefined>
-type SelectColumnsFor<
-  Row,
-  TStrict extends boolean,
-  TValue extends AthenaSelectInput,
-> = TStrict extends true ? AthenaValidatedSelectInput<Row, TValue> : TValue
 
 type AthenaUpsertOptions<Update> = AthenaGatewayCallOptions & {
   updateBody?: Update
@@ -46,13 +43,15 @@ export interface AthenaDbModule<TStrict extends boolean = false> {
 
   select<
     Row = AthenaRowShape,
-    SelectedRow = Row,
-    const TColumns extends AthenaSelectInput = string,
   >(
     table: string,
-    columns?: SelectColumnsFor<Row, TStrict, TColumns>,
     options?: AthenaGatewayCallOptions,
-  ): SelectChain<Row, SelectedRow, TStrict>
+  ): SelectChain<Row, Row, TStrict>
+  select(
+    table: string,
+    columns: AthenaSelectInput,
+    options?: AthenaGatewayCallOptions,
+  ): SelectChain<AthenaRowShape, AthenaRowShape, TStrict>
 
   insert<
     Row = AthenaRowShape,
@@ -116,16 +115,15 @@ export function createDbModule<TStrict extends boolean = false>(
 ): AthenaDbModule<TStrict> {
   const db: AthenaDbModule<TStrict> = {
     from: input.from,
-    select<
-      Row = AthenaRowShape,
-      SelectedRow = Row,
-      const TColumns extends AthenaSelectInput = string,
-    >(
+    select<Row = AthenaRowShape>(
       table: string,
-      columns?: SelectColumnsFor<Row, TStrict, TColumns>,
-      options?: AthenaGatewayCallOptions,
+      first?: AthenaGatewayCallOptions | AthenaSelectInput,
+      second?: AthenaGatewayCallOptions,
     ) {
-      return input.from<Row>(table).select<SelectedRow, TColumns>(columns, options)
+      if (first && typeof first === 'object' && !Array.isArray(first)) {
+        return input.from<Row>(table).select(undefined, first as AthenaGatewayCallOptions)
+      }
+      return input.from<Row>(table).select(first, second)
     },
     insert<Row = AthenaRowShape, Insert = Partial<Row>>(
       table: string,

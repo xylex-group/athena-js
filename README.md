@@ -319,6 +319,8 @@ await strictAthena.from(users).select("id, email").order("created_at");
 strictAthena.from(users).select("id, missing_column");
 ```
 
+For the DB helper surface, use `strictAthena.db.from<UserRow>("users").select("id, email")` when you want inline typed column validation. `strictAthena.db.select<UserRow>("users")` still gives a typed row-aware chain, but it does not accept inline typed column arguments.
+
 `defineModel(...)` remains fully supported for compatibility and manual contracts.
 
 For full details, see [`docs/typed-schema-registry.md`](./docs/typed-schema-registry.md).

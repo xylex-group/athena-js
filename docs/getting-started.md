@@ -417,7 +417,10 @@ const authSubscriptions = await athena
 
 `experimental.typecheckColumns` is type-only. It validates simple string column
 lists, array literals, and RPC filter/order column names when the SDK already
-knows the row keys from `from<Table>()`, `from(model)`, or `fromModel(...)`.
+knows the row keys from `from<Table>()`, `from(model)`, `fromModel(...)`, or
+`db.from<Row>(...)`. Typed `db.select<Row>(table)` still works for row-aware
+result typing, but inline typed columns should go through
+`db.from<Row>(table).select(...)`.
 
 The `columns` string is comma-separated. To rename fields in the returned payload, use `customName:columnName`, for example:
 

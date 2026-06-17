@@ -321,7 +321,7 @@ strictUsers.select(['id', 'name'])
 strictUsers.select('id,athena.user(id)')
 strictUsers.single('id')
 strictUsers.maybeSingle('id')
-strictColumnsClient.db.select<UserRow>('users', 'id,name')
+strictColumnsClient.db.select<UserRow>('users').single('id,name')
 strictColumnsClient.db.from<UserRow>('users').select(['id', 'name'])
 strictColumnsBuilderClient.rpc<UserRow>('list_users').eq('id', '1').order('name').select('id,name')
 
@@ -331,6 +331,8 @@ strictUsers.select('missing_column')
 strictUsers.select('id, missing_column')
 // @ts-expect-error strict array selects should reject unknown columns
 strictUsers.select(['id', 'missing_column'] as const)
+// @ts-expect-error typed db.select shortcut does not accept inline columns; use db.from(...).select(...)
+strictColumnsClient.db.select<UserRow>('users', 'missing_column')
 // @ts-expect-error strict db.from().select should reject unknown columns
 strictColumnsClient.db.from<UserRow>('users').select('missing_column')
 // @ts-expect-error strict rpc filter columns should reject unknown columns

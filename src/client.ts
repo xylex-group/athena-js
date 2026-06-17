@@ -31,6 +31,7 @@ import { createDbModule } from './db/module.ts'
 import type { AthenaDbModule } from './db/module.ts'
 import { createStorageModule } from './storage/module.ts'
 import type { AthenaStorageClientConfig, AthenaStorageModule } from './storage/module.ts'
+import { createAthenaClientBuilder, toBackendConfig } from './client-builder.ts'
 import {
   compileOrderBy,
   compileSelectShape,
@@ -54,7 +55,6 @@ import {
 } from './query-transport.ts'
 import type { AthenaFindManyAstPayload } from './query-transport.ts'
 import {
-  attachAthenaDebugAst,
   buildDeleteDebugAst,
   buildFindManyCompiledDebugAst,
   buildFindManyDirectDebugAst,
@@ -66,6 +66,15 @@ import {
   buildUpsertDebugAst,
 } from './query-debug-ast.ts'
 import type { AthenaQueryDebugAst } from './query-debug-ast.ts'
+import {
+  captureTraceCallsite,
+  createQueryTracer,
+  createTraceCallsiteStore,
+  executeWithQueryTrace,
+} from './query-tracing.ts'
+import type {
+  AthenaQueryTracer,
+} from './query-tracing.ts'
 import {
   isAthenaModelTarget,
   resolveAthenaModelTargetTableName,
@@ -233,30 +242,6 @@ type SelectColumnsFor<
 const DEFAULT_COLUMNS = '*'
 const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
 const ATHENA_NORMALIZED_ERROR_KEY = '__athenaNormalizedError' as const
-const QUERY_TRACE_STACK_SKIP_PATTERNS = [
-  'src\\client.ts',
-  'src/client.ts',
-  'dist\\client.',
-  'dist/client.',
-  'node_modules\\@xylex-group\\athena',
-  'node_modules/@xylex-group/athena',
-  'node:internal',
-  'internal/process',
-] as const
-
-type AthenaTraceOperation = AthenaQueryTraceEvent['operation']
-type AthenaTraceEndpoint = AthenaQueryTraceEvent['endpoint']
-
-interface AthenaTraceContext {
-  operation: AthenaTraceOperation
-  endpoint: AthenaTraceEndpoint
-  table?: string
-  functionName?: string
-  sql: string
-  payload: unknown
-  ast?: AthenaQueryDebugAst
-  options?: AthenaGatewayCallOptions | AthenaRpcCallOptions
-}
 
 type SelectDebugAstFactory = (input: {
   tableName: string
@@ -264,26 +249,6 @@ type SelectDebugAstFactory = (input: {
   executionState: TableBuilderState
   plan: ReturnType<typeof createSelectTransportPlan>
 }) => AthenaQueryDebugAst
-
-type AthenaQueryTracer = {
-  captureCallsite: () => AthenaQueryTraceCallsite | null
-  publishSuccess: <T>(
-    context: AthenaTraceContext,
-    result: AthenaResult<T>,
-    durationMs: number,
-    callsite: AthenaQueryTraceCallsite | null,
-  ) => void
-  publishFailure: (
-    context: AthenaTraceContext,
-    error: unknown,
-    durationMs: number,
-    callsite: AthenaQueryTraceCallsite | null,
-  ) => void
-}
-
-type AthenaTraceCallsiteStore = {
-  resolve: (callsite?: AthenaQueryTraceCallsite | null) => AthenaQueryTraceCallsite | null
-}
 
 export interface MutationQuery<
   Result,
@@ -496,199 +461,6 @@ function createResultError<T>(
   }
 }
 
-function parseQueryTraceCallsiteFrame(frame: string): AthenaQueryTraceCallsite | null {
-  const trimmed = frame.trim()
-  if (!trimmed) {
-    return null
-  }
-
-  let body = trimmed.replace(/^at\s+/, '')
-  if (body.startsWith('async ')) {
-    body = body.slice(6)
-  }
-
-  let functionName: string | undefined
-  let location = body
-  const wrappedMatch = body.match(/^(.*?)\s+\((.*)\)$/)
-  if (wrappedMatch) {
-    functionName = wrappedMatch[1].trim() || undefined
-    location = wrappedMatch[2].trim()
-  }
-
-  const locationMatch = location.match(/^(.*):(\d+):(\d+)$/)
-  if (!locationMatch) {
-    return null
-  }
-
-  const filePath = locationMatch[1].replace(/^file:\/\//, '')
-  const line = Number(locationMatch[2])
-  const column = Number(locationMatch[3])
-  if (!Number.isFinite(line) || !Number.isFinite(column)) {
-    return null
-  }
-
-  const normalizedPath = filePath.replace(/\\/g, '/')
-  const fileName = normalizedPath.split('/').at(-1) ?? filePath
-  return {
-    filePath,
-    fileName,
-    line,
-    column,
-    frame: trimmed,
-    functionName,
-  }
-}
-
-function captureQueryTraceCallsite(): AthenaQueryTraceCallsite | null {
-  const stack = new Error().stack
-  if (!stack) return null
-  const frames = stack
-    .split('\n')
-    .slice(2)
-    .map(frame => frame.trim())
-    .filter(Boolean)
-
-  for (const frame of frames) {
-    if (QUERY_TRACE_STACK_SKIP_PATTERNS.some(pattern => frame.includes(pattern))) {
-      continue
-    }
-    const callsite = parseQueryTraceCallsiteFrame(frame)
-    if (callsite) return callsite
-  }
-
-  const fallback = frames.find(frame => !frame.includes('captureQueryTraceCallsite'))
-  return fallback ? parseQueryTraceCallsiteFrame(fallback) : null
-}
-
-function defaultQueryTraceLogger(event: AthenaQueryTraceEvent): void {
-  const target = event.table ?? event.functionName ?? 'gateway'
-  const outcomeState = event.outcome?.error ? 'error' : 'ok'
-  const banner = `[athena-js][trace] ${event.operation.toUpperCase()} ${event.endpoint} ${target} ${event.durationMs}ms ${outcomeState}`
-  console.info(banner, event)
-}
-
-function captureTraceCallsite(tracer?: AthenaQueryTracer): AthenaQueryTraceCallsite | null {
-  return tracer?.captureCallsite() ?? null
-}
-
-function createTraceCallsiteStore(
-  tracer?: AthenaQueryTracer,
-  initialCallsite?: AthenaQueryTraceCallsite | null,
-): AthenaTraceCallsiteStore {
-  let storedCallsite = initialCallsite ?? undefined
-
-  return {
-    resolve(callsite) {
-      if (callsite) {
-        storedCallsite = callsite
-        return callsite
-      }
-      if (storedCallsite !== undefined) {
-        return storedCallsite
-      }
-      const capturedCallsite = captureTraceCallsite(tracer)
-      if (capturedCallsite) {
-        storedCallsite = capturedCallsite
-      }
-      return capturedCallsite
-    },
-  }
-}
-
-function createQueryTracer(experimental?: AthenaClientExperimentalOptions): AthenaQueryTracer | undefined {
-  const traceOption = experimental?.traceQueries
-  if (!traceOption) {
-    return undefined
-  }
-
-  const logger =
-    typeof traceOption === 'object' && traceOption.logger ? traceOption.logger : defaultQueryTraceLogger
-
-  const emit = (event: AthenaQueryTraceEvent) => {
-    try {
-      logger(event)
-    } catch (error) {
-      console.warn('[athena-js][trace] logger failed', error)
-    }
-  }
-
-  return {
-    captureCallsite: captureQueryTraceCallsite,
-    publishSuccess<T>(
-      context: AthenaTraceContext,
-      result: AthenaResult<T>,
-      durationMs: number,
-      callsite: AthenaQueryTraceCallsite | null,
-    ) {
-      emit({
-        timestamp: new Date().toISOString(),
-        durationMs,
-        operation: context.operation,
-        endpoint: context.endpoint,
-        table: context.table,
-        functionName: context.functionName,
-        sql: context.sql,
-        payload: context.payload,
-        ast: context.ast,
-        options: context.options,
-        callsite,
-        outcome: {
-          status: result.status,
-          error: result.error,
-          errorDetails: result.errorDetails ?? null,
-          count: result.count ?? null,
-          data: result.data,
-          raw: result.raw,
-        },
-      })
-    },
-    publishFailure(
-      context: AthenaTraceContext,
-      error: unknown,
-      durationMs: number,
-      callsite: AthenaQueryTraceCallsite | null,
-    ) {
-      emit({
-        timestamp: new Date().toISOString(),
-        durationMs,
-        operation: context.operation,
-        endpoint: context.endpoint,
-        table: context.table,
-        functionName: context.functionName,
-        sql: context.sql,
-        payload: context.payload,
-        ast: context.ast,
-        options: context.options,
-        callsite,
-        thrownError: error,
-      })
-    },
-  }
-}
-
-async function executeWithQueryTrace<T>(
-  tracer: AthenaQueryTracer | undefined,
-  context: AthenaTraceContext,
-  runner: () => Promise<AthenaResult<T>>,
-  callsiteOverride?: AthenaQueryTraceCallsite | null,
-): Promise<AthenaResult<T>> {
-  const callsite = tracer ? (callsiteOverride ?? tracer.captureCallsite()) : null
-  const startedAt = tracer ? Date.now() : 0
-  try {
-    const result = await runner()
-    attachAthenaDebugAst(result, context.ast)
-    if (tracer) {
-      tracer.publishSuccess(context, result, Date.now() - startedAt, callsite)
-    }
-    return result
-  } catch (error) {
-    attachAthenaDebugAst(error, context.ast)
-    if (tracer) {
-      tracer.publishFailure(context, error, Date.now() - startedAt, callsite)
-    }
-    throw error
-  }
-}
 
 function toSingleResult<Result>(response: AthenaResult<Result>): AthenaResult<MutationSingleResult<Result>> {
   const payload = response.data
@@ -1716,7 +1488,9 @@ function createRpcBuilder<Row, TStrict extends boolean = false>(
       offset: state.offset,
       order: state.order,
     }
-    const endpoint: AthenaTraceEndpoint = mergedOptions?.get ? `/rpc/${functionName}` : '/gateway/rpc'
+    const endpoint: AthenaQueryTraceEvent['endpoint'] = mergedOptions?.get
+      ? `/rpc/${functionName}`
+      : '/gateway/rpc'
     const sql = buildRpcDebugSql(payload)
     const debugAst = debugAstEnabled
       ? buildRpcDebugAst({
@@ -2664,178 +2438,11 @@ export interface AthenaClientBuilder<
   build(): StorageEnabled extends true ? AthenaSdkClientWithStorage<TStrict> : AthenaSdkClientWithAuth<TStrict>
 }
 
-const DEFAULT_BACKEND: BackendConfig = { type: 'athena' }
-
-function toBackendConfig(b: BackendConfig | BackendType | undefined): BackendConfig {
-  if (!b) return DEFAULT_BACKEND
-  return typeof b === 'string' ? { type: b } : b
-}
-
-function mergeAuthClientConfig(
-  current: AthenaAuthClientConfig | undefined,
-  next: AthenaAuthClientConfig,
-): AthenaAuthClientConfig {
-  const merged: AthenaAuthClientConfig = {
-    ...(current ?? {}),
-    ...next,
-  }
-  if (current?.headers || next.headers) {
-    merged.headers = {
-      ...(current?.headers ?? {}),
-      ...(next.headers ?? {}),
-    }
-  }
-  return merged
-}
-
-function mergeExperimentalOptions(
-  current: AthenaClientExperimentalOptions | undefined,
-  next: AthenaClientExperimentalOptions,
-): AthenaClientExperimentalOptions {
-  const merged: AthenaClientExperimentalOptions = {
-    ...(current ?? {}),
-    ...next,
-  }
-  if (
-    current?.traceQueries &&
-    typeof current.traceQueries === 'object' &&
-    next.traceQueries &&
-    typeof next.traceQueries === 'object'
-  ) {
-    merged.traceQueries = {
-      ...current.traceQueries,
-      ...next.traceQueries,
-    }
-  }
-  if (current?.storage || next.storage) {
-    merged.storage = {
-      ...(current?.storage ?? {}),
-      ...(next.storage ?? {}),
-    }
-  }
-  return merged
-}
-
-class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
-  private baseUrl?: string
-  private apiKey?: string
-  private backendConfig: BackendConfig = DEFAULT_BACKEND
-  private clientName?: string
-  private defaultHeaders?: Record<string, string>
-  private authConfig?: AthenaAuthClientConfig
-  private experimentalOptions?: AthenaClientExperimentalOptions
-
-  url(url: string): AthenaClientBuilder<false, false> {
-    this.baseUrl = url
-    return this
-  }
-
-  key(apiKey: string): AthenaClientBuilder<false, false> {
-    this.apiKey = apiKey
-    return this
-  }
-
-  backend(backend: BackendConfig | BackendType): AthenaClientBuilder<false, false> {
-    this.backendConfig = toBackendConfig(backend)
-    return this
-  }
-
-  client(clientName: string): AthenaClientBuilder<false, false> {
-    this.clientName = clientName
-    return this
-  }
-
-  headers(headers: Record<string, string>): AthenaClientBuilder<false, false> {
-    this.defaultHeaders = headers
-    return this
-  }
-
-  auth(config: AthenaAuthClientConfig): AthenaClientBuilder<false, false> {
-    this.authConfig = mergeAuthClientConfig(this.authConfig, config)
-    return this
-  }
-
-  experimental(
-    options: AthenaClientExperimentalOptions & { athenaStorageBackend: true; typecheckColumns: true },
-  ): AthenaClientBuilder<true, true>
-  experimental(options: AthenaClientExperimentalOptions & { athenaStorageBackend: true }): AthenaClientBuilder<true, false>
-  experimental(options: AthenaClientExperimentalOptions & { typecheckColumns: true }): AthenaClientBuilder<false, true>
-  experimental(options: AthenaClientExperimentalOptions): AthenaClientBuilder<false, false>
-  experimental(
-    options: AthenaClientExperimentalOptions,
-  ): AthenaClientBuilder<false, false> | AthenaClientBuilder<true, false> | AthenaClientBuilder<true, true> | AthenaClientBuilder<false, true> {
-    this.experimentalOptions = mergeExperimentalOptions(this.experimentalOptions, options)
-    if (options.athenaStorageBackend && options.typecheckColumns) {
-      return this as unknown as AthenaClientBuilder<true, true>
-    }
-    if (options.athenaStorageBackend) {
-      return this as unknown as AthenaClientBuilder<true, false>
-    }
-    if (options.typecheckColumns) {
-      return this as unknown as AthenaClientBuilder<false, true>
-    }
-    return this
-  }
-
-  options(options: AthenaCreateClientOptionsWithStorageAndTypecheckedColumns): AthenaClientBuilder<true, true>
-  options(options: AthenaCreateClientOptionsWithStorage): AthenaClientBuilder<true, false>
-  options(options: AthenaCreateClientOptionsWithTypecheckedColumns): AthenaClientBuilder<false, true>
-  options(options: AthenaCreateClientOptions): AthenaClientBuilder<false, false>
-  options(
-    options: AthenaCreateClientOptions,
-  ): AthenaClientBuilder<false, false> | AthenaClientBuilder<true, false> | AthenaClientBuilder<true, true> | AthenaClientBuilder<false, true> {
-    if (options.client !== undefined) {
-      this.clientName = options.client
-    }
-    if (options.backend !== undefined) {
-      this.backendConfig = toBackendConfig(options.backend)
-    }
-    if (options.headers !== undefined) {
-      this.defaultHeaders = {
-        ...(this.defaultHeaders ?? {}),
-        ...options.headers,
-      }
-    }
-    if (options.auth !== undefined) {
-      this.authConfig = mergeAuthClientConfig(this.authConfig, options.auth)
-    }
-    if (options.experimental !== undefined) {
-      this.experimentalOptions = mergeExperimentalOptions(this.experimentalOptions, options.experimental)
-    }
-    if (options.experimental?.athenaStorageBackend && options.experimental.typecheckColumns) {
-      return this as unknown as AthenaClientBuilder<true, true>
-    }
-    if (options.experimental?.athenaStorageBackend) {
-      return this as unknown as AthenaClientBuilder<true, false>
-    }
-    if (options.experimental?.typecheckColumns) {
-      return this as unknown as AthenaClientBuilder<false, true>
-    }
-    return this
-  }
-
-  build(): AthenaSdkClientWithAuth<false> {
-    if (!this.baseUrl || !this.apiKey) {
-      throw new Error('AthenaClient requires url and key; call .url() and .key() before .build()')
-    }
-
-    return createClientFromConfig({
-      baseUrl: this.baseUrl,
-      apiKey: this.apiKey,
-      client: this.clientName,
-      backend: this.backendConfig,
-      headers: this.defaultHeaders,
-      auth: this.authConfig,
-      experimental: this.experimentalOptions,
-    })
-  }
-}
-
 /** Canonical Athena client factory with builder-based configuration. */
 export class AthenaClient {
   /** Create a fluent builder for a strongly-typed Athena SDK client. */
   static builder(): AthenaClientBuilder<false, false> {
-    return new AthenaClientBuilderImpl()
+    return createAthenaClientBuilder(config => createClientFromConfig(config))
   }
 
   /** Build a client from process environment variables. */
