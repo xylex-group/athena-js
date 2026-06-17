@@ -966,7 +966,9 @@ export interface AthenaStorageModule extends AthenaStorageBaseModule {
 type StorageEnvelopeKind = 'raw' | 'athena'
 
 interface StorageModuleRuntimeOptions {
+  baseUrl?: string
   onError?: AthenaStorageErrorHandler
+  stripBasePath?: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1109,6 +1111,24 @@ function storagePath(path: string): AthenaGatewayEndpointPath {
   return path as AthenaGatewayEndpointPath
 }
 
+function resolveStorageEndpointPath(
+  endpoint: AthenaGatewayEndpointPath,
+  runtimeOptions?: StorageModuleRuntimeOptions,
+): AthenaGatewayEndpointPath {
+  if (!runtimeOptions?.stripBasePath) {
+    return endpoint
+  }
+
+  const [pathname, queryText] = String(endpoint).split('?', 2)
+  const trimmedPathname = pathname.startsWith('/storage/')
+    ? pathname.slice('/storage'.length)
+    : pathname === '/storage'
+      ? '/'
+      : pathname
+  const resolvedPath = trimmedPathname.startsWith('/') ? trimmedPathname : `/${trimmedPathname}`
+  return storagePath(queryText ? `${resolvedPath}?${queryText}` : resolvedPath)
+}
+
 function withPathParam(path: string, name: string, value: string): string {
   return path.replace(`{${name}}`, encodeURIComponent(value))
 }
@@ -1162,8 +1182,10 @@ async function callStorageEndpoint<T>(
   try {
     const baseUrl = options?.baseUrl
       ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
-      : gateway.baseUrl
-    url = buildAthenaGatewayUrl(baseUrl, endpoint)
+      : runtimeOptions?.baseUrl
+        ? normalizeAthenaGatewayBaseUrl(runtimeOptions.baseUrl)
+        : gateway.baseUrl
+    url = buildAthenaGatewayUrl(baseUrl, resolveStorageEndpointPath(endpoint, runtimeOptions))
     headers = gateway.buildHeaders(options)
   } catch (error) {
     return rejectStorageError(
@@ -1303,8 +1325,10 @@ async function callStorageBinaryEndpoint(
   try {
     const baseUrl = options?.baseUrl
       ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
-      : gateway.baseUrl
-    url = buildAthenaGatewayUrl(baseUrl, endpoint)
+      : runtimeOptions?.baseUrl
+        ? normalizeAthenaGatewayBaseUrl(runtimeOptions.baseUrl)
+        : gateway.baseUrl
+    url = buildAthenaGatewayUrl(baseUrl, resolveStorageEndpointPath(endpoint, runtimeOptions))
     headers = gateway.buildHeaders(options)
   } catch (error) {
     return rejectStorageError(
@@ -1495,8 +1519,10 @@ async function callStorageUploadBinaryEndpoint<T>(
   try {
     const baseUrl = options?.baseUrl
       ? normalizeAthenaGatewayBaseUrl(options.baseUrl)
-      : gateway.baseUrl
-    url = buildAthenaGatewayUrl(baseUrl, endpoint)
+      : runtimeOptions?.baseUrl
+        ? normalizeAthenaGatewayBaseUrl(runtimeOptions.baseUrl)
+        : gateway.baseUrl
+    url = buildAthenaGatewayUrl(baseUrl, resolveStorageEndpointPath(endpoint, runtimeOptions))
     headers = gateway.buildHeaders(options)
   } catch (error) {
     return rejectStorageError(
@@ -1631,6 +1657,7 @@ export function createStorageModule(
   gateway: AthenaGatewayClient,
   runtimeOptions?: AthenaStorageClientConfig,
 ): AthenaStorageModule {
+  const resolvedRuntimeOptions = runtimeOptions as StorageModuleRuntimeOptions | undefined
   const callRaw = <T>(
     path: string,
     method: AthenaGatewayMethod,
@@ -1643,7 +1670,7 @@ export function createStorageModule(
     'raw',
     payload,
     options,
-    runtimeOptions,
+    resolvedRuntimeOptions,
   )
   const callAthena = <T>(
     path: string,
@@ -1657,7 +1684,7 @@ export function createStorageModule(
     'athena',
     payload,
     options,
-    runtimeOptions,
+    resolvedRuntimeOptions,
   )
   const base: AthenaStorageBaseModule = {
     listStorageCatalogs(options) {
@@ -1699,7 +1726,7 @@ export function createStorageModule(
         withPathParam('/storage/files/{file_id}/proxy', 'file_id', fileId),
         query,
       )
-      return callStorageBinaryEndpoint(gateway, storagePath(path), 'GET', options, runtimeOptions)
+      return callStorageBinaryEndpoint(gateway, storagePath(path), 'GET', options, resolvedRuntimeOptions)
     },
     updateStorageFile(fileId, input, options) {
       return callAthena(withPathParam('/storage/files/{file_id}', 'file_id', fileId), 'PATCH', input, options)
@@ -1752,7 +1779,7 @@ export function createStorageModule(
         storagePath(withPathParam('/storage/files/{file_id}/upload', 'file_id', fileId)),
         body,
         options,
-        runtimeOptions,
+        resolvedRuntimeOptions,
       )
     },
     search(input, options) {

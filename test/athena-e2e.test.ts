@@ -12,7 +12,11 @@ if (!ATHENA_URL || !ATHENA_API_KEY) {
 }
 
 test('e2e: insert, filter, and delete rows in test table (athena_logging client)', async () => {
-  const client = createClient(ATHENA_URL, ATHENA_API_KEY, { client: ATHENA_CLIENT })
+  const client = createClient({
+    key: ATHENA_API_KEY,
+    gatewayUrl: ATHENA_URL,
+    client: ATHENA_CLIENT,
+  })
   const runId = `e2e-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
   const uuid = crypto.randomUUID()
   const payload = {

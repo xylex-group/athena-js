@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `2.7.0`
+current version: `2.8.0`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments plus Athena-native React hooks for client-side use.
 
 ## Install
@@ -24,10 +24,14 @@ npm install react  # React >=17 required for the hook
 ```ts
 import { createClient } from "@xylex-group/athena";
 
-const athenaClient = createClient(ATHENA_URL, ATHENA_API_KEY, {
-  client: "CLIENT_NAME",
-  backend: { type: "athena" },
-});
+const athenaClient = createClient(
+  ATHENA_URL,
+  ATHENA_API_KEY,
+  {
+    client: "CLIENT_NAME",
+    backend: { type: "athena" },
+  },
+);
 
 const { data, error } = await athenaClient.from("orchestral_sections").findMany({
   select: {
@@ -45,6 +49,34 @@ if (error) {
 } else {
   console.table(data);
 }
+```
+
+`createClient(url, key)` is the canonical SDK shape. The SDK treats `url` as the public unified Athena base URL and derives:
+
+- DB: `${url}/db`
+- Auth: `${url}/auth`
+- Storage: `${url}/storage`
+
+You can still override individual services when needed:
+
+```ts
+const athena = createClient({
+  key: ATHENA_API_KEY,
+  db: { url: process.env.ATHENA_DB_URL },
+  auth: { url: process.env.ATHENA_AUTH_URL },
+  storage: { url: process.env.ATHENA_STORAGE_URL },
+});
+```
+
+Legacy top-level aliases are also supported:
+
+```ts
+const athena = createClient({
+  key: ATHENA_API_KEY,
+  gatewayUrl: process.env.ATHENA_DB_URL,
+  authUrl: process.env.ATHENA_AUTH_URL,
+  storageUrl: process.env.ATHENA_STORAGE_URL,
+});
 ```
 
 Example version baseline: SDK `@xylex-group/athena` `2.4.0`, Athena server `3.12.3` verified on 2026-06-04.

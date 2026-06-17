@@ -1,8 +1,8 @@
-import type { AthenaAuthClientConfig } from './auth/types.ts'
 import type { BackendConfig, BackendType } from './gateway/types.ts'
 import type {
   AthenaClientBuilder,
-  AthenaClientConfig,
+  AthenaCreateClientAuthOptions,
+  AthenaCreateClientConfig,
   AthenaClientExperimentalOptions,
   AthenaCreateClientOptions,
   AthenaCreateClientOptionsWithStorage,
@@ -29,10 +29,10 @@ function mergeHeaders(
 }
 
 function mergeAuthClientConfig(
-  current: AthenaAuthClientConfig | undefined,
-  next: AthenaAuthClientConfig,
-): AthenaAuthClientConfig {
-  const merged: AthenaAuthClientConfig = {
+  current: AthenaCreateClientAuthOptions | undefined,
+  next: AthenaCreateClientAuthOptions,
+): AthenaCreateClientAuthOptions {
+  const merged: AthenaCreateClientAuthOptions = {
     ...(current ?? {}),
     ...next,
   }
@@ -84,20 +84,24 @@ function resolveBuilderReturn<
 }
 
 class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
-  private baseUrl?: string
+  private rootUrl?: string
   private apiKey?: string
   private backendConfig: BackendConfig = DEFAULT_BACKEND
   private clientName?: string
   private defaultHeaders?: Record<string, string>
-  private authConfig?: AthenaAuthClientConfig
+  private authConfig?: AthenaCreateClientAuthOptions
+  private dbUrlOverride?: string
+  private gatewayUrlOverride?: string
+  private authUrlOverride?: string
+  private storageUrlOverride?: string
   private experimentalOptions?: AthenaClientExperimentalOptions
 
   constructor(
-    private readonly buildClient: (config: AthenaClientConfig) => AthenaSdkClientWithAuth<false>,
+    private readonly buildClient: (config: AthenaCreateClientConfig) => AthenaSdkClientWithAuth<false>,
   ) {}
 
   url(url: string): AthenaClientBuilder<false, false> {
-    this.baseUrl = url
+    this.rootUrl = url
     return this
   }
 
@@ -121,7 +125,7 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
     return this
   }
 
-  auth(config: AthenaAuthClientConfig): AthenaClientBuilder<false, false> {
+  auth(config: AthenaCreateClientAuthOptions): AthenaClientBuilder<false, false> {
     this.authConfig = mergeAuthClientConfig(this.authConfig, config)
     return this
   }
@@ -167,6 +171,27 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
     if (options.auth !== undefined) {
       this.authConfig = mergeAuthClientConfig(this.authConfig, options.auth)
     }
+    if (options.db?.url !== undefined && options.db.url !== null) {
+      this.dbUrlOverride = options.db.url
+    }
+    if (options.gateway?.url !== undefined && options.gateway.url !== null) {
+      this.gatewayUrlOverride = options.gateway.url
+    }
+    if (options.dbUrl !== undefined && options.dbUrl !== null) {
+      this.dbUrlOverride = options.dbUrl
+    }
+    if (options.gatewayUrl !== undefined && options.gatewayUrl !== null) {
+      this.gatewayUrlOverride = options.gatewayUrl
+    }
+    if (options.authUrl !== undefined && options.authUrl !== null) {
+      this.authUrlOverride = options.authUrl
+    }
+    if (options.storage?.url !== undefined && options.storage.url !== null) {
+      this.storageUrlOverride = options.storage.url
+    }
+    if (options.storageUrl !== undefined && options.storageUrl !== null) {
+      this.storageUrlOverride = options.storageUrl
+    }
     if (options.experimental !== undefined) {
       this.experimentalOptions = mergeExperimentalOptions(this.experimentalOptions, options.experimental)
     }
@@ -183,24 +208,31 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
   }
 
   build(): AthenaSdkClientWithAuth<false> {
-    if (!this.baseUrl || !this.apiKey) {
-      throw new Error('AthenaClient requires url and key; call .url() and .key() before .build()')
+    if ((!this.rootUrl && !this.dbUrlOverride && !this.gatewayUrlOverride) || !this.apiKey) {
+      throw new Error(
+        'AthenaClient requires key plus either .url() or a db/gateway override before .build()',
+      )
     }
 
     return this.buildClient({
-      baseUrl: this.baseUrl,
-      apiKey: this.apiKey,
+      url: this.rootUrl,
+      key: this.apiKey,
       client: this.clientName,
       backend: this.backendConfig,
       headers: this.defaultHeaders,
+      db: this.dbUrlOverride ? { url: this.dbUrlOverride } : undefined,
+      gateway: this.gatewayUrlOverride ? { url: this.gatewayUrlOverride } : undefined,
       auth: this.authConfig,
+      authUrl: this.authUrlOverride,
+      storage: this.storageUrlOverride ? { url: this.storageUrlOverride } : undefined,
+      storageUrl: this.storageUrlOverride,
       experimental: this.experimentalOptions,
     })
   }
 }
 
 export function createAthenaClientBuilder(
-  buildClient: (config: AthenaClientConfig) => AthenaSdkClientWithAuth<false>,
+  buildClient: (config: AthenaCreateClientConfig) => AthenaSdkClientWithAuth<false>,
 ): AthenaClientBuilder<false, false> {
   return new AthenaClientBuilderImpl(buildClient)
 }

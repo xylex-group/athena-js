@@ -81,7 +81,14 @@ function createClient(
   url: string,
   apiKey: string,
   options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
-    auth?: AthenaAuthClientConfig
+    db?: { url?: string | null }
+    gateway?: { url?: string | null }
+    auth?: AthenaAuthClientConfig & { url?: string | null }
+    storage?: { url?: string | null }
+    dbUrl?: string | null
+    gatewayUrl?: string | null
+    authUrl?: string | null
+    storageUrl?: string | null
     experimental?: {
       athenaStorageBackend?: boolean
       debugAst?: boolean
@@ -92,9 +99,46 @@ function createClient(
       typecheckColumns?: boolean
       storage?: AthenaStorageClientConfig
     }
-  },
+  }
 ): AthenaSdkClientWithAuth
 ```
+
+This is the canonical SDK entry point. The SDK treats `url` as the public unified Athena base URL and resolves services to `${url}/db`, `${url}/auth`, and `${url}/storage` unless you provide explicit service overrides.
+
+### `createClient({ key, ...config })`
+
+```ts
+function createClient(
+  config: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
+    key: string
+    url?: string | null
+    db?: { url?: string | null }
+    gateway?: { url?: string | null }
+    auth?: AthenaAuthClientConfig & { url?: string | null }
+    storage?: { url?: string | null }
+    dbUrl?: string | null
+    gatewayUrl?: string | null
+    authUrl?: string | null
+    storageUrl?: string | null
+    experimental?: {
+      athenaStorageBackend?: boolean
+      debugAst?: boolean
+      enableErrorNormalization?: boolean
+      findManyAst?: boolean
+      retryReads?: boolean
+      traceQueries?: boolean | AthenaQueryTraceOptions
+      typecheckColumns?: boolean
+      storage?: AthenaStorageClientConfig
+    }
+  }
+): AthenaSdkClientWithAuth
+```
+
+The object form is the backwards-compatible escape hatch for direct service URLs. Resolution order is:
+
+- DB: `db.url` -> `gateway.url` -> `dbUrl` -> `gatewayUrl` -> `${url}/db`
+- Auth: `auth.url` -> `auth.baseUrl` -> `authUrl` -> `${url}/auth`
+- Storage: `storage.url` -> `storageUrl` -> `${url}/storage`
 
 `experimental.athenaStorageBackend` exposes the experimental `client.storage.*` bindings. Default clients do not include `.storage`; `createClient(..., { experimental: { athenaStorageBackend: true } })`, `AthenaClient.builder().experimental(...)`, and `AthenaClient.builder().options(...)` narrow the returned client type to `AthenaSdkClientWithStorage`.
 `experimental.storage.onError` registers a client-level observer for storage request failures. It receives the same `AthenaStorageError` instance that will be thrown, and observer failures do not mask the original request error.
