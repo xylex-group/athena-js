@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `2.8.1`
+current version: `2.8.2`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments plus Athena-native React hooks for client-side use.
 
 ## Install
@@ -411,6 +411,13 @@ export default defineGeneratorConfig({
   },
 });
 ```
+
+Important:
+
+- `output.format = "table-builder"` is stable generator behavior, not an experimental flag.
+- `experimental.findManyAst` is a separate runtime transport opt-in for `findMany(...)`; it does not enable generated table artifacts.
+- the default generator mode is still legacy `define-model`, and the default model target is still schema-scoped (`athena/models/{schema_kebab}/{model_kebab}.ts`)
+- if you want flat `athena/models/*.ts` files, set `output.targets.model = "athena/models/{model_kebab}.ts"` (or `ATHENA_GENERATOR_MODEL_TARGET=athena/models/{model_kebab}.ts`); multi-schema collisions are still auto-scoped by schema when needed
 
 Common copy-paste starts:
 
