@@ -5,7 +5,7 @@ This section documents the storage surface that is currently exposed by `@xylex-
 The JavaScript SDK has two storage layers to be aware of:
 
 - `client.storage.*`: the experimental managed-storage SDK namespace in this package.
-- Athena server OpenAPI storage routes: lower-level bucket/object endpoints exposed by the Athena server. Some of those routes are not wrapped by this SDK yet; they are mapped below so the gap is explicit.
+- Athena server OpenAPI storage routes: lower-level bucket/object endpoints exposed by the Athena server. The JS SDK wraps the current storage parity surface under grouped `file`, `folder`, `permission`, `object`, `bucket`, `multipart`, and `audit` namespaces.
 
 ## Enable the SDK storage namespace
 
@@ -93,6 +93,18 @@ These are the methods currently exposed by `AthenaStorageModule`.
 | `file.delete(fileId)` | `DELETE /storage/files/{file_id}` | Athena envelope | `StorageFileMutationResponse` | Delete one managed file by id. |
 | `file.delete(fileIds)` | `DELETE /storage/files/{file_id}` per id | Athena envelope | `StorageFileMutationResponse[]` | Delete multiple managed files. |
 | `delete(fileIdOrIds)` | Same as `file.delete(...)` | Athena envelope | `StorageFileMutationResponse` or array | Short alias for file deletion. |
+| `file.search(input)` | `POST /storage/files/search` | Athena envelope | `StorageListFilesResponse` | Search managed files with pagination and optional metadata/name/resource/status/visibility filters. |
+| `file.update(fileId, input)` / `file.updateMany(input)` | `PATCH /storage/files/{file_id}` / `POST /storage/files/update-many` | Athena envelope | `StorageFileMutationResponse` / `StorageFileMutationManyResponse` | Move files and/or patch mutable metadata fields. |
+| `file.copy(fileId, input)` | `POST /storage/files/{file_id}/copy` | Athena envelope | `StorageFileMutationResponse` | Copy a managed file, with optional server-side encryption headers. |
+| `file.proxyUrl(fileId, query)` | `GET /storage/files/{file_id}/proxy-url` | Athena envelope | `Record<string, unknown>` | Resolve the Athena proxy URL string for a managed file. |
+| `file.versions(fileId)` | `GET /storage/files/{file_id}/versions` | Athena envelope | `Record<string, unknown>` | List S3 object versions for a managed file. |
+| `file.restoreVersion(fileId, versionId)` | `POST /storage/files/{file_id}/versions/{version_id}/restore` | Athena envelope | `Record<string, unknown>` | Restore a managed file object version. |
+| `file.deleteVersion(fileId, versionId)` | `DELETE /storage/files/{file_id}/versions/{version_id}` | Athena envelope | `Record<string, unknown>` | Delete a managed file object version. |
+| `file.retention.get(fileId, query)` / `file.retention.set(fileId, input)` | `GET/POST /storage/files/{file_id}/retention` | Athena envelope | `Record<string, unknown>` | Read or set S3 object-lock retention for a managed file. |
+| `object.*` | `POST /storage/objects/*` | Athena envelope | `Record<string, unknown>` | Raw object list/head/exists/validate/update/copy/url/public-url/delete/upload-url/version/post-policy operations. |
+| `bucket.*` | `POST /storage/buckets/*` | Athena envelope | `Record<string, unknown>` | Raw bucket list/create/delete plus lifecycle, policy, public-access, and CORS operations. |
+| `multipart.*` | `POST /storage/multipart/*` | Athena envelope | `Record<string, unknown>` or `StorageFileMutationResponse` | Managed multipart create/sign-part/complete/abort/list-parts operations. |
+| `permission.*` / `audit.list(input)` | `POST /storage/permissions/*` and `/storage/audit/list` | Athena envelope | Permission/audit response types | Managed file permission and audit event operations. |
 
 Raw JSON endpoints return the parsed response body. Athena-envelope endpoints unwrap `{ status, message, data }` and return `data`. The binary proxy endpoint returns the original `Response` on success.
 
@@ -193,6 +205,95 @@ interface AthenaStorageUploadProgress {
 ```
 
 `GetStorageFileUrlQuery` stays string-compatible so existing presigned URL purposes keep working if the server accepts additional purpose values later. For the proxy route, the current known purposes are `read`, `download`, and `stream`.
+
+Presigned upload responses can include signed request headers. The high-level `file.upload(...)` helper and the low-level `upload.put(...)` helper replay those headers automatically.
+
+Server-side encryption options are additive on supported upload/copy/multipart/post-policy inputs:
+
+```ts
+type StorageServerSideEncryptionOptions = {
+  server_side_encryption?: "AES256" | "aws:kms" | "aws:kms:dsse" | (string & {})
+  sse?: "AES256" | "aws:kms" | "aws:kms:dsse" | (string & {})
+  ssekms_key_id?: string
+  kms_key_id?: string
+  bucket_key_enabled?: boolean
+}
+```
+
+Managed file list and search inputs accept pagination plus filters:
+
+```ts
+const page = await athena.storage.file.search({
+  query: "invoice",
+  limit: 50,
+  offset: 0,
+  s3_id: "8f915f08-29f7-4dc0-9c6b-bucket-id",
+  key_prefix: "organizations/org_1/",
+  metadata: { type: "invoice" },
+  visibility: "private",
+})
+```
+
+Proxy downloads can pass `Range` through normal storage call headers:
+
+```ts
+const partial = await athena.storage.file.proxy(
+  "file_1",
+  { purpose: "stream" },
+  { headers: { Range: "bytes=0-1023" } },
+)
+```
+
+Raw object and bucket administration methods use the common ad hoc credential shape:
+
+```ts
+const s3 = {
+  endpoint: "https://s3.us-east-1.amazonaws.com",
+  region: "us-east-1",
+  access_key_id: process.env.S3_ACCESS_KEY_ID!,
+  secret_key: process.env.S3_SECRET_ACCESS_KEY!,
+  bucket: "acme-documents",
+}
+
+await athena.storage.object.validate({
+  ...s3,
+  key: "reports/q1.pdf",
+  checksum_sha256: "expected-sha256",
+})
+
+await athena.storage.object.postPolicy({
+  ...s3,
+  key: "browser/q1.pdf",
+  content_type: "application/pdf",
+  server_side_encryption: "AES256",
+})
+
+await athena.storage.bucket.lifecycle.set({
+  ...s3,
+  rules: [{ id: "expire-tmp", prefix: "tmp/", expiration_days: 7 }],
+})
+
+await athena.storage.bucket.publicAccess.set({
+  ...s3,
+  block_public_acls: true,
+  ignore_public_acls: true,
+  block_public_policy: true,
+  restrict_public_buckets: true,
+})
+```
+
+Managed file versions and retention are grouped under `file`:
+
+```ts
+const versions = await athena.storage.file.versions("file_1")
+
+await athena.storage.file.restoreVersion("file_1", "version_1")
+
+await athena.storage.file.retention.set("file_1", {
+  mode: "GOVERNANCE",
+  retain_until: "2026-07-01T00:00:00Z",
+})
+```
 
 ## Catalogs and credentials
 
@@ -536,23 +637,30 @@ Observer errors are ignored so they do not replace the original storage failure.
 
 ## Server OpenAPI storage routes
 
-The routes below exist in the Athena server OpenAPI reference. They are useful for understanding the lower-level storage contract, but they are not currently exposed as typed `client.storage.*` methods in this SDK version unless an SDK method is listed in the rightmost column.
+The routes below exist in the Athena server OpenAPI reference and are exposed through grouped `client.storage.*` namespaces. They are useful when you need to map a server route to the SDK method name.
 
 | Server route | Purpose | Request shape | SDK coverage |
 | --- | --- | --- | --- |
-| [`POST /storage/buckets/list`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/list/post) | List accessible buckets for supplied S3-compatible credentials. | `endpoint`, `region`, `access_key_id`, `secret_key` | Not wrapped. Use `listStorageCatalogs()` for registered catalogs, or call the server route directly for ad hoc credential checks. |
-| [`POST /storage/buckets/create`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/create/post) | Create a bucket. | Common credential fields plus `bucket` | Not wrapped. |
-| [`POST /storage/buckets/delete`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/delete/post) | Delete an empty bucket. | Common credential fields plus `bucket` | Not wrapped. |
-| [`POST /storage/objects`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/post) | List objects using S3 `ListObjectsV2`. | Common credential fields plus `bucket`, optional `prefix`, `delimiter`, `continuation_token`, `max_keys` | Not wrapped. `listStorageFiles()` lists managed file records, not raw S3 object listings. |
-| [`POST /storage/objects/head`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/head/post) | Load object metadata without downloading the body. | Common credential fields plus `bucket`, `key` | Not wrapped. `getStorageFile()` loads managed metadata by file id. |
-| [`POST /storage/objects/update`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/update/post) | Update object headers and/or ACL. | Common credential fields plus `bucket`, `key`, optional ACL/header/metadata fields | Not wrapped. `updateStorageFile()` updates managed file key/bucket metadata only. |
-| [`POST /storage/objects/url`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/url/post) | Generate a presigned GET URL for a raw object. | Common credential fields plus `bucket`, `key` | Not wrapped. `getStorageFileUrl()` generates a URL for an Athena-managed file id. |
-| [`POST /storage/objects/upload-url`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/upload-url/post) | Generate a presigned PUT URL for a raw object. | Common credential fields plus `bucket`, `key`, optional `content_type` | Not wrapped. `createStorageUploadUrl()` creates a managed file record and upload URL. |
-| [`POST /storage/objects/folder`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/folder/post) | Create a folder placeholder/prefix. | Common credential fields plus `bucket`, `prefix` | Not wrapped. |
-| [`POST /storage/objects/delete`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/delete/post) | Delete a raw object. | Common credential fields plus `bucket`, `key` | Not wrapped. `deleteStorageFile()` deletes by managed file id. |
-| [`POST /storage/buckets/cors`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/cors/post) | Read bucket CORS configuration. | Common credential fields plus `bucket` | Not wrapped. |
-| [`POST /storage/buckets/cors/set`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/cors/set/post) | Apply bucket CORS rules. | Common credential fields plus `bucket`, `rules` | Not wrapped. |
-| [`POST /storage/buckets/cors/delete`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/cors/delete/post) | Remove bucket CORS configuration. | Common credential fields plus `bucket` | Not wrapped. |
+| [`POST /storage/buckets/list`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/list/post) | List accessible buckets for supplied S3-compatible credentials. | `endpoint`, `region`, `access_key_id`, `secret_key` | `bucket.list(input)` |
+| [`POST /storage/buckets/create`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/create/post) | Create a bucket. | Common credential fields plus `bucket` | `bucket.create(input)` |
+| [`POST /storage/buckets/delete`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/delete/post) | Delete an empty bucket. | Common credential fields plus `bucket` | `bucket.delete(input)` |
+| `POST /storage/buckets/lifecycle`, `/set`, `/delete` | Read, set, or delete lifecycle rules. | Common credential fields plus lifecycle `rules` for set. | `bucket.lifecycle.get/set/delete(input)` |
+| `POST /storage/buckets/policy`, `/set`, `/delete` | Read, set, or delete bucket policy. | Common credential fields plus `policy` for set. | `bucket.policy.get/set/delete(input)` |
+| `POST /storage/buckets/public-access`, `/set`, `/delete` | Read, set, or delete public-access block configuration. | Common credential fields plus public access booleans for set. | `bucket.publicAccess.get/set/delete(input)` |
+| [`POST /storage/objects`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/post) | List objects using S3 `ListObjectsV2`. | Common credential fields plus `bucket`, optional `prefix`, `delimiter`, `continuation_token`, `max_keys` | `object.list(input)` |
+| [`POST /storage/objects/head`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/head/post) | Load object metadata without downloading the body. | Common credential fields plus `bucket`, `key` | `object.head(input)` |
+| `POST /storage/objects/exists` / `/validate` | Check object existence or validate checksum/ETag. | Common credential fields plus `bucket`, `key`, optional `checksum_sha256` or `etag`. | `object.exists(input)` / `object.validate(input)` |
+| [`POST /storage/objects/update`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/update/post) | Update object headers and/or ACL. | Common credential fields plus `bucket`, `key`, optional ACL/header/metadata fields | `object.update(input)` |
+| [`POST /storage/objects/url`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/url/post) | Generate a presigned GET URL for a raw object. | Common credential fields plus `bucket`, `key` | `object.url(input)` |
+| [`POST /storage/objects/upload-url`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/upload-url/post) | Generate a presigned PUT URL for a raw object. | Common credential fields plus `bucket`, `key`, optional `content_type` and SSE fields | `object.uploadUrl(input)` |
+| `POST /storage/objects/post-policy` | Generate a signed POST policy for browser uploads. | Common credential fields plus `bucket`, `key`, size/content/SSE options. | `object.postPolicy(input)` |
+| `POST /storage/objects/versions`, `/restore`, `/delete` | List, restore, or delete raw object versions. | Common credential fields plus object key/version fields. | `object.versions/restoreVersion/deleteVersion(input)` |
+| [`POST /storage/objects/folder`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/folder/post) | Create a folder placeholder/prefix. | Common credential fields plus `bucket`, `prefix` | `object.folder.create(input)` |
+| `POST /storage/objects/folder/delete`, `/rename` | Delete or rename raw object folder prefixes. | Common credential fields plus prefix fields. | `object.folder.delete/rename(input)` |
+| [`POST /storage/objects/delete`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/objects/delete/post) | Delete a raw object. | Common credential fields plus `bucket`, `key` | `object.delete(input)` |
+| [`POST /storage/buckets/cors`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/cors/post) | Read bucket CORS configuration. | Common credential fields plus `bucket` | `bucket.cors.get(input)` |
+| [`POST /storage/buckets/cors/set`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/cors/set/post) | Apply bucket CORS rules. | Common credential fields plus `bucket`, `rules` | `bucket.cors.set(input)` |
+| [`POST /storage/buckets/cors/delete`](https://docs.athena-cluster.com/docs/reference/athena-openapi/storage/buckets/cors/delete/post) | Remove bucket CORS configuration. | Common credential fields plus `bucket` | `bucket.cors.delete(input)` |
 
 Common credential fields are:
 
@@ -565,7 +673,7 @@ type RawStorageCredentialFields = {
 }
 ```
 
-A direct call helper can be kept in application code when you need a server route that is not wrapped by the SDK yet:
+A direct call helper can still be useful for testing custom server builds or routes newer than the installed SDK:
 
 ```ts
 async function callRawStorageRoute<TResponse>(

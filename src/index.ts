@@ -157,6 +157,7 @@ export type {
   UpdateStorageCatalogRequest,
   UpdateStorageFileRequest,
 } from './storage/module.js'
+export type * from './storage/module.js'
 export type {
   AthenaStorageEnv,
   AthenaStorageFileConfig,

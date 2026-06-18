@@ -1475,6 +1475,113 @@ test('grouped storage namespaces forward auth context and expose low-level uploa
   }
 })
 
+test('storage parity routes map to expected endpoints', async () => {
+  const originalFetch = globalThis.fetch
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    const parsedUrl = new URL(String(url))
+    if (parsedUrl.pathname === '/storage/files/file_1/proxy') {
+      return new Response('partial', { status: 206 })
+    }
+    return createMockResponse({ status: 'success', message: 'ok', data: { ok: true } })
+  }
+
+  const objectBase = {
+    endpoint: 'https://s3.example.com',
+    region: 'us-east-1',
+    access_key_id: 'AKIA_TEST',
+    secret_key: 'secret',
+    bucket: 'documents',
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      experimental: { athenaStorageBackend: true },
+    })
+
+    await client.storage.file.proxyUrl('file_1', { purpose: 'download' })
+    await client.storage.file.versions('file_1')
+    await client.storage.file.restoreVersion('file_1', 'version_1')
+    await client.storage.file.deleteVersion('file_1', 'version_1')
+    await client.storage.file.retention.get('file_1', { version_id: 'version_1' })
+    await client.storage.file.retention.set('file_1', {
+      mode: 'GOVERNANCE',
+      retain_until: '2026-07-01T00:00:00Z',
+    })
+    await client.storage.file.proxy('file_1', { purpose: 'stream' }, {
+      headers: { Range: 'bytes=0-1' },
+    })
+    await client.storage.object.validate({ ...objectBase, key: 'reports/report.pdf', checksum_sha256: 'abc123' })
+    await client.storage.object.versions({ ...objectBase, key: 'reports/' })
+    await client.storage.object.restoreVersion({ ...objectBase, key: 'reports/report.pdf', version_id: 'version_1' })
+    await client.storage.object.deleteVersion({ ...objectBase, key: 'reports/report.pdf', version_id: 'version_1' })
+    await client.storage.object.postPolicy({
+      ...objectBase,
+      key: 'reports/report.pdf',
+      content_type: 'application/pdf',
+      server_side_encryption: 'AES256',
+    })
+    await client.storage.bucket.lifecycle.get(objectBase)
+    await client.storage.bucket.lifecycle.set({
+      ...objectBase,
+      rules: [{ id: 'tmp', prefix: 'tmp/', expiration_days: 7 }],
+    })
+    await client.storage.bucket.lifecycle.delete(objectBase)
+    await client.storage.bucket.policy.get(objectBase)
+    await client.storage.bucket.policy.set({
+      ...objectBase,
+      policy: { Version: '2012-10-17', Statement: [] },
+    })
+    await client.storage.bucket.policy.delete(objectBase)
+    await client.storage.bucket.publicAccess.get(objectBase)
+    await client.storage.bucket.publicAccess.set({ ...objectBase, block_public_acls: true })
+    await client.storage.bucket.publicAccess.delete(objectBase)
+
+    const observed = calls.map(call => {
+      const parsedUrl = new URL(call.url)
+      return {
+        method: call.init?.method,
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        body: typeof call.init?.body === 'string' ? JSON.parse(call.init.body) : undefined,
+        range: (call.init?.headers as Record<string, string> | undefined)?.Range,
+      }
+    })
+
+    assert.deepEqual(observed.map(call => `${call.method} ${call.path}`), [
+      'GET /storage/files/file_1/proxy-url?purpose=download',
+      'GET /storage/files/file_1/versions',
+      'POST /storage/files/file_1/versions/version_1/restore',
+      'DELETE /storage/files/file_1/versions/version_1',
+      'GET /storage/files/file_1/retention?version_id=version_1',
+      'POST /storage/files/file_1/retention',
+      'GET /storage/files/file_1/proxy?purpose=stream',
+      'POST /storage/objects/validate',
+      'POST /storage/objects/versions',
+      'POST /storage/objects/versions/restore',
+      'POST /storage/objects/versions/delete',
+      'POST /storage/objects/post-policy',
+      'POST /storage/buckets/lifecycle',
+      'POST /storage/buckets/lifecycle/set',
+      'POST /storage/buckets/lifecycle/delete',
+      'POST /storage/buckets/policy',
+      'POST /storage/buckets/policy/set',
+      'POST /storage/buckets/policy/delete',
+      'POST /storage/buckets/public-access',
+      'POST /storage/buckets/public-access/set',
+      'POST /storage/buckets/public-access/delete',
+    ])
+    assert.equal(observed[6].range, 'bytes=0-1')
+    assert.equal(observed[7].body.checksum_sha256, 'abc123')
+    assert.equal(observed[11].body.server_side_encryption, 'AES256')
+    assert.deepEqual(observed[13].body.rules, [{ id: 'tmp', prefix: 'tmp/', expiration_days: 7 }])
+    assert.equal(observed[19].body.block_public_acls, true)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('storage file facade uploads with prefix templates and wraps list download delete', async () => {
   const originalFetch = globalThis.fetch
   const calls: Array<{ url: string; init?: RequestInit }> = []

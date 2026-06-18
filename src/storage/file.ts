@@ -8,6 +8,7 @@ import type {
   StorageBatchUploadUrlResponse,
   StorageFileMutationResponse,
   StorageListFilesResponse,
+  StorageServerSideEncryptionOptions,
   StorageUploadUrlResponse,
 } from './module.ts'
 
@@ -66,7 +67,7 @@ export interface AthenaStorageUploadProgress {
 
 export type AthenaStorageUploadProgressHandler = (progress: AthenaStorageUploadProgress) => void
 
-export interface AthenaStorageFileUploadInput extends AthenaStorageUploadConstraints {
+export interface AthenaStorageFileUploadInput extends AthenaStorageUploadConstraints, StorageServerSideEncryptionOptions {
   s3_id: string
   bucket?: string
   files: AthenaStorageUploadSource | ArrayLike<AthenaStorageUploadSource> | readonly AthenaStorageUploadSource[]
@@ -231,6 +232,11 @@ export function createStorageFileModule(
           size_bytes: source.sizeBytes,
           public: input.public,
           metadata: input.metadata,
+          server_side_encryption: input.server_side_encryption,
+          sse: input.sse,
+          ssekms_key_id: input.ssekms_key_id,
+          kms_key_id: input.kms_key_id,
+          bucket_key_enabled: input.bucket_key_enabled,
         },
       }
     })
@@ -248,10 +254,17 @@ export function createStorageFileModule(
     for (let index = 0; index < uploadRequests.length; index += 1) {
       const request = uploadRequests[index]
       const uploadUrl = uploadUrls[index]
-      const response = await putUploadBody(uploadUrl.upload.url, request.source, input, options, progress => {
-        aggregateLoaded[index] = progress.loaded
-        input.onProgress?.(createProgressSnapshot('uploading', sources, index, progress.loaded, sum(aggregateLoaded)))
-      })
+      const response = await putUploadBody(
+        uploadUrl.upload.url,
+        uploadUrl.upload.headers ?? {},
+        request.source,
+        input,
+        options,
+        progress => {
+          aggregateLoaded[index] = progress.loaded
+          input.onProgress?.(createProgressSnapshot('uploading', sources, index, progress.loaded, sum(aggregateLoaded)))
+        },
+      )
       uploaded.push({
         file: uploadUrl.file,
         upload: uploadUrl.upload,
@@ -405,12 +418,14 @@ function validateUploadConstraints(sources: readonly NormalizedUploadSource[], i
 
 async function putUploadBody(
   url: string,
+  uploadHeaders: Record<string, string>,
   source: NormalizedUploadSource,
   input: AthenaStorageFileUploadInput,
   options: AthenaStorageCallOptions | undefined,
   onProgress: (progress: { loaded: number }) => void,
 ): Promise<Response> {
-  const headers = new Headers(input.uploadHeaders)
+  const headers = new Headers(uploadHeaders)
+  new Headers(input.uploadHeaders).forEach((value, key) => headers.set(key, value))
   if (source.contentType && !headers.has('Content-Type')) {
     headers.set('Content-Type', source.contentType)
   }

@@ -157,6 +157,484 @@ export const storageSdkManifest = {
       responseEnvelope: 'athena',
       responseType: 'StorageFolderMutationResponse',
     },
+    {
+      name: 'searchStorageFiles',
+      method: 'POST',
+      path: '/storage/files/search',
+      requestType: 'SearchStorageFilesRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageListFilesResponse',
+    },
+    {
+      name: 'confirmStorageUpload',
+      method: 'POST',
+      path: '/storage/files/{file_id}/confirm-upload',
+      pathParams: ['file_id'],
+      requestType: 'ConfirmStorageUploadRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationResponse',
+    },
+    {
+      name: 'uploadStorageFileBinary',
+      method: 'PUT',
+      path: '/storage/files/{file_id}/upload',
+      pathParams: ['file_id'],
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationResponse',
+      binary: true,
+    },
+    {
+      name: 'copyStorageFile',
+      method: 'POST',
+      path: '/storage/files/{file_id}/copy',
+      pathParams: ['file_id'],
+      requestType: 'CopyStorageFileRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationResponse',
+    },
+    {
+      name: 'deleteManyStorageFiles',
+      method: 'POST',
+      path: '/storage/files/delete-many',
+      requestType: 'DeleteManyStorageFilesRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationManyResponse',
+    },
+    {
+      name: 'updateManyStorageFiles',
+      method: 'POST',
+      path: '/storage/files/update-many',
+      requestType: 'UpdateManyStorageFilesRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationManyResponse',
+    },
+    {
+      name: 'restoreStorageFile',
+      method: 'POST',
+      path: '/storage/files/{file_id}/restore',
+      pathParams: ['file_id'],
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationResponse',
+    },
+    {
+      name: 'purgeStorageFile',
+      method: 'DELETE',
+      path: '/storage/files/{file_id}/purge',
+      pathParams: ['file_id'],
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationResponse',
+    },
+    {
+      name: 'getStorageFilePublicUrl',
+      method: 'GET',
+      path: '/storage/files/{file_id}/public-url',
+      pathParams: ['file_id'],
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageFileProxyUrl',
+      method: 'GET',
+      path: '/storage/files/{file_id}/proxy-url',
+      pathParams: ['file_id'],
+      queryParams: ['purpose'],
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStorageFileVersions',
+      method: 'GET',
+      path: '/storage/files/{file_id}/versions',
+      pathParams: ['file_id'],
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'restoreStorageFileVersion',
+      method: 'POST',
+      path: '/storage/files/{file_id}/versions/{version_id}/restore',
+      pathParams: ['file_id', 'version_id'],
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageFileVersion',
+      method: 'DELETE',
+      path: '/storage/files/{file_id}/versions/{version_id}',
+      pathParams: ['file_id', 'version_id'],
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageFileRetention',
+      method: 'GET',
+      path: '/storage/files/{file_id}/retention',
+      pathParams: ['file_id'],
+      queryParams: ['version_id'],
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'setStorageFileRetention',
+      method: 'POST',
+      path: '/storage/files/{file_id}/retention',
+      pathParams: ['file_id'],
+      requestType: 'StorageFileRetentionRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStorageFolders',
+      method: 'POST',
+      path: '/storage/folders/list',
+      requestType: 'ListStorageFoldersRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'treeStorageFolders',
+      method: 'POST',
+      path: '/storage/folders/tree',
+      requestType: 'TreeStorageFoldersRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStoragePermissions',
+      method: 'POST',
+      path: '/storage/permissions/list',
+      requestType: 'StoragePermissionListRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StoragePermissionListResponse',
+    },
+    {
+      name: 'grantStoragePermission',
+      method: 'POST',
+      path: '/storage/permissions/grant',
+      requestType: 'StoragePermissionGrantRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'revokeStoragePermission',
+      method: 'POST',
+      path: '/storage/permissions/revoke',
+      requestType: 'StoragePermissionRevokeRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'checkStoragePermission',
+      method: 'POST',
+      path: '/storage/permissions/check',
+      requestType: 'StoragePermissionCheckRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StoragePermissionCheckResponse',
+    },
+    {
+      name: 'listStorageObjects',
+      method: 'POST',
+      path: '/storage/objects',
+      requestType: 'StorageListObjectsRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'headStorageObject',
+      method: 'POST',
+      path: '/storage/objects/head',
+      requestType: 'StorageObjectRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'existsStorageObject',
+      method: 'POST',
+      path: '/storage/objects/exists',
+      requestType: 'StorageObjectRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'validateStorageObject',
+      method: 'POST',
+      path: '/storage/objects/validate',
+      requestType: 'StorageObjectValidateRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'updateStorageObject',
+      method: 'POST',
+      path: '/storage/objects/update',
+      requestType: 'StorageUpdateObjectRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'copyStorageObject',
+      method: 'POST',
+      path: '/storage/objects/copy',
+      requestType: 'StorageObjectCopyRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageObjectUrl',
+      method: 'POST',
+      path: '/storage/objects/url',
+      requestType: 'StorageObjectRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageObjectPublicUrl',
+      method: 'POST',
+      path: '/storage/objects/public-url',
+      requestType: 'StorageObjectPublicUrlRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageObject',
+      method: 'POST',
+      path: '/storage/objects/delete',
+      requestType: 'StorageObjectRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'createStorageObjectUploadUrl',
+      method: 'POST',
+      path: '/storage/objects/upload-url',
+      requestType: 'StoragePresignUploadRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'createStorageObjectPostPolicy',
+      method: 'POST',
+      path: '/storage/objects/post-policy',
+      requestType: 'StorageSignedPostPolicyRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStorageObjectVersions',
+      method: 'POST',
+      path: '/storage/objects/versions',
+      requestType: 'StorageObjectVersionListRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'restoreStorageObjectVersion',
+      method: 'POST',
+      path: '/storage/objects/versions/restore',
+      requestType: 'StorageObjectVersionMutationRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageObjectVersion',
+      method: 'POST',
+      path: '/storage/objects/versions/delete',
+      requestType: 'StorageObjectVersionMutationRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'createStorageObjectFolder',
+      method: 'POST',
+      path: '/storage/objects/folder',
+      requestType: 'StorageObjectFolderCreateRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageObjectFolder',
+      method: 'POST',
+      path: '/storage/objects/folder/delete',
+      requestType: 'StorageObjectFolderDeleteRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'renameStorageObjectFolder',
+      method: 'POST',
+      path: '/storage/objects/folder/rename',
+      requestType: 'StorageObjectFolderRenameRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStorageBuckets',
+      method: 'POST',
+      path: '/storage/buckets/list',
+      requestType: "Omit<StorageObjectBaseRequest, 'bucket'>",
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'createStorageBucket',
+      method: 'POST',
+      path: '/storage/buckets/create',
+      requestType: 'StorageObjectBaseRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageBucket',
+      method: 'POST',
+      path: '/storage/buckets/delete',
+      requestType: 'StorageObjectBaseRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageBucketLifecycle',
+      method: 'POST',
+      path: '/storage/buckets/lifecycle',
+      requestType: 'StorageBucketLifecycleRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'setStorageBucketLifecycle',
+      method: 'POST',
+      path: '/storage/buckets/lifecycle/set',
+      requestType: 'StorageSetBucketLifecycleRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageBucketLifecycle',
+      method: 'POST',
+      path: '/storage/buckets/lifecycle/delete',
+      requestType: 'StorageBucketLifecycleRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageBucketPolicy',
+      method: 'POST',
+      path: '/storage/buckets/policy',
+      requestType: 'StorageBucketPolicyRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'setStorageBucketPolicy',
+      method: 'POST',
+      path: '/storage/buckets/policy/set',
+      requestType: 'StorageSetBucketPolicyRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageBucketPolicy',
+      method: 'POST',
+      path: '/storage/buckets/policy/delete',
+      requestType: 'StorageBucketPolicyRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageBucketPublicAccess',
+      method: 'POST',
+      path: '/storage/buckets/public-access',
+      requestType: 'StoragePublicAccessBlockRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'setStorageBucketPublicAccess',
+      method: 'POST',
+      path: '/storage/buckets/public-access/set',
+      requestType: 'StorageSetPublicAccessBlockRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageBucketPublicAccess',
+      method: 'POST',
+      path: '/storage/buckets/public-access/delete',
+      requestType: 'StoragePublicAccessBlockRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'getStorageBucketCors',
+      method: 'POST',
+      path: '/storage/buckets/cors',
+      requestType: 'StorageBucketCorsRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'setStorageBucketCors',
+      method: 'POST',
+      path: '/storage/buckets/cors/set',
+      requestType: 'StorageSetBucketCorsRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'deleteStorageBucketCors',
+      method: 'POST',
+      path: '/storage/buckets/cors/delete',
+      requestType: 'StorageBucketCorsRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'createStorageMultipartUpload',
+      method: 'POST',
+      path: '/storage/multipart/create',
+      requestType: 'StorageMultipartCreateRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'signStorageMultipartPart',
+      method: 'POST',
+      path: '/storage/multipart/sign-part',
+      requestType: 'StorageMultipartSignPartRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'completeStorageMultipartUpload',
+      method: 'POST',
+      path: '/storage/multipart/complete',
+      requestType: 'StorageMultipartCompleteRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageFileMutationResponse',
+    },
+    {
+      name: 'abortStorageMultipartUpload',
+      method: 'POST',
+      path: '/storage/multipart/abort',
+      requestType: 'StorageMultipartAbortRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStorageMultipartParts',
+      method: 'POST',
+      path: '/storage/multipart/list-parts',
+      requestType: 'StorageMultipartListPartsRequest',
+      responseEnvelope: 'athena',
+      responseType: 'Record<string, unknown>',
+    },
+    {
+      name: 'listStorageAuditEvents',
+      method: 'POST',
+      path: '/storage/audit/list',
+      requestType: 'StorageAuditQueryRequest',
+      responseEnvelope: 'athena',
+      responseType: 'StorageAuditListResponse',
+    },
   ],
 } as const
 
@@ -909,7 +1387,7 @@ export interface StorageBatchUploadUrlResponseWithPut {
   files: StorageUploadUrlResponseWithPut[]
 }
 
-export interface AthenaStorageFileUploadRequest {
+export interface AthenaStorageFileUploadRequest extends StorageServerSideEncryptionOptions {
   s3_id?: string
   s3Id?: string
   bucket?: string
@@ -1635,7 +2113,7 @@ async function putPresignedUploadBody(
 }
 
 function attachManagedUpload(upload: PresignedFileUrlResponse): AthenaStorageManagedUpload {
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = { ...(upload.headers ?? {}) }
   return {
     ...upload,
     method: 'PUT',
@@ -1687,6 +2165,11 @@ function normalizeUploadUrlRequest(input: AthenaStorageFileUploadRequest): Creat
     public: input.public,
     visibility: input.visibility,
     metadata: input.metadata,
+    server_side_encryption: input.server_side_encryption,
+    sse: input.sse,
+    ssekms_key_id: input.ssekms_key_id,
+    kms_key_id: input.kms_key_id,
+    bucket_key_enabled: input.bucket_key_enabled,
   }
 }
 
@@ -2143,6 +2626,18 @@ export function createStorageModule(
     uploadUrl(input, options) {
       return callAthena('/storage/objects/upload-url', 'POST', input, options)
     },
+    versions(input, options) {
+      return callAthena('/storage/objects/versions', 'POST', input, options)
+    },
+    restoreVersion(input, options) {
+      return callAthena('/storage/objects/versions/restore', 'POST', input, options)
+    },
+    deleteVersion(input, options) {
+      return callAthena('/storage/objects/versions/delete', 'POST', input, options)
+    },
+    postPolicy(input, options) {
+      return callAthena('/storage/objects/post-policy', 'POST', input, options)
+    },
     folder: objectFolder,
   }
   const bucket: AthenaStorageBucketNamespace = {
@@ -2154,6 +2649,39 @@ export function createStorageModule(
     },
     delete(input, options) {
       return callAthena('/storage/buckets/delete', 'POST', input, options)
+    },
+    lifecycle: {
+      get(input, options) {
+        return callAthena('/storage/buckets/lifecycle', 'POST', input, options)
+      },
+      set(input, options) {
+        return callAthena('/storage/buckets/lifecycle/set', 'POST', input, options)
+      },
+      delete(input, options) {
+        return callAthena('/storage/buckets/lifecycle/delete', 'POST', input, options)
+      },
+    },
+    policy: {
+      get(input, options) {
+        return callAthena('/storage/buckets/policy', 'POST', input, options)
+      },
+      set(input, options) {
+        return callAthena('/storage/buckets/policy/set', 'POST', input, options)
+      },
+      delete(input, options) {
+        return callAthena('/storage/buckets/policy/delete', 'POST', input, options)
+      },
+    },
+    publicAccess: {
+      get(input, options) {
+        return callAthena('/storage/buckets/public-access', 'POST', input, options)
+      },
+      set(input, options) {
+        return callAthena('/storage/buckets/public-access/set', 'POST', input, options)
+      },
+      delete(input, options) {
+        return callAthena('/storage/buckets/public-access/delete', 'POST', input, options)
+      },
     },
     cors: {
       get(input, options) {

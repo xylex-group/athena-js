@@ -2,7 +2,7 @@
 
 This file is generated from the TypeScript source and is intended to document every public SDK method surface with a usage example.
 
-Total documented method paths: **356**
+Total documented method paths: **357**
 
 Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 
@@ -22,6 +22,7 @@ Regenerate with: `node scripts/generate-sdk-method-reference.mjs`
 | `root.createClient` | `{    (config: AthenaCreateClientConfigWithStorageAndTypecheckedColumns): AthenaSdkClientWithStorage<true>;    (config: AthenaCreateClientConfigWithStorage): AthenaSdkClientWithStorage<false>;    (config: AthenaCreateClientConfigWithTypecheckedColumns): AthenaSdkClientWithAuth<true>;    (config: AthenaCreateClientConfig): AthenaSdkClientWithAuth<false>;    (url: string \| null \| undefined, apiKey: string \| null \| undefined, options: AthenaCreateClientOptionsWithStorageAndTypecheckedColumns): AthenaSdkClientWithStorage<true>;    (url: string \| null \| undefined, apiKey: string \| null \| undefined, options: AthenaCreateClientOptionsWithStorage): AthenaSdkClientWithStorage<false>;    (url: string \| null \| undefined, apiKey: string \| null \| undefined, options: AthenaCreateClientOptionsWithTypecheckedColumns): AthenaSdkClientWithAuth<true>;    (url: string \| null \| undefined, apiKey: string \| null \| undefined, options?: AthenaCreateClientOptions): AthenaSdkClientWithAuth<false>;}` | `const athena = createClient("https://...", "api_key")` | Create client (convenience wrapper; use AthenaClient.builder() for full control) |
 | `root.createModelFormAdapter` | `<TModel extends AnyModelDef>(model: TModel) => ModelFormAdapter<TModel>` | `const adapter = createModelFormAdapter(model)` | Creates a small model-aware adapter for form defaults and payload normalization. |
 | `root.createPostgresIntrospectionProvider` | `(options: PostgresIntrospectionProviderOptions) => SchemaIntrospectionProvider` | `createPostgresIntrospectionProvider(/* ... */)` | Creates a PostgreSQL-backed schema introspection provider. |
+| `root.createStorageModule` | `(gateway: AthenaGatewayClient, runtimeOptions?: AthenaStorageClientConfig) => AthenaStorageModule` | `createStorageModule(/* ... */)` | — |
 | `root.createTypedClient` | `{    <TRegistry extends RegistryConstraint, TTenantMap extends TenantKeyMap = Record<never, string>>(registry: TRegistry, url: string, apiKey: string, options: TypedClientOptionsWithTypecheckedColumns<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap, true>;    <TRegistry extends RegistryConstraint, TTenantMap extends TenantKeyMap = Record<never, string>>(registry: TRegistry, url: string, apiKey: string, options?: TypedClientOptions<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap, false>;}` | `const typed = createTypedClient(registry, "https://...", "api_key")` | Creates a typed client bound to a registry contract and optional tenant header mapping. |
 | `root.defineAthenaAuthConfig` | `<TConfig extends AthenaAuthServerConfig>(config: TConfig) => TConfig` | `defineAthenaAuthConfig(/* ... */)` | — |
 | `root.defineAuthEmailTemplate` | `<TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps>(definition: AthenaAuthEmailTemplateDefinition<TProps>) => AthenaAuthEmailTemplateBuilder<TProps>` | `defineAuthEmailTemplate(/* ... */)` | — |

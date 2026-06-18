@@ -53,6 +53,13 @@ import {
   type StorageFileAccessPurpose,
   type StorageFileMutationResponse,
   type StorageListFilesResponse,
+  type StorageObjectValidateRequest,
+  type StorageServerSideEncryptionOptions,
+  type StorageSetBucketLifecycleRequest,
+  type StorageSetBucketPolicyRequest,
+  type StorageSetPublicAccessBlockRequest,
+  type StorageSignedPostPolicyRequest,
+  type StorageFileRetentionRequest,
   type StorageUploadUrlResponse,
 } from "../src/index.ts"
 import type {
@@ -114,6 +121,13 @@ declare function acceptsStorageFileMutationPromise(
   value: Promise<StorageFileMutationResponse>,
 ): void
 declare function acceptsResponseArrayPromise(value: Promise<Response[]>): void
+declare function acceptsStorageSseOptions(value: StorageServerSideEncryptionOptions): void
+declare function acceptsStorageObjectValidateRequest(value: StorageObjectValidateRequest): void
+declare function acceptsStoragePostPolicyRequest(value: StorageSignedPostPolicyRequest): void
+declare function acceptsStorageLifecycleRequest(value: StorageSetBucketLifecycleRequest): void
+declare function acceptsStorageBucketPolicyRequest(value: StorageSetBucketPolicyRequest): void
+declare function acceptsStoragePublicAccessRequest(value: StorageSetPublicAccessBlockRequest): void
+declare function acceptsStorageRetentionRequest(value: StorageFileRetentionRequest): void
 
 declare function acceptsUserInsertMutation(
   value: PromiseLike<AthenaResult<UserRow>>,
@@ -293,6 +307,9 @@ acceptsStorageUploadUrlPromise(
   experimentalStorageClient.storage.createStorageUploadUrl({
     s3_id: 's3_1',
     storage_key: 'reports/report.pdf',
+    server_side_encryption: 'aws:kms',
+    ssekms_key_id: 'kms-key',
+    bucket_key_enabled: true,
   }),
 )
 experimentalStorageClient.storage.getStorageFileUrl('file_1', { purpose: 'download' }).then(result => {
@@ -300,6 +317,11 @@ experimentalStorageClient.storage.getStorageFileUrl('file_1', { purpose: 'downlo
 })
 acceptsResponsePromise(
   experimentalStorageClient.storage.getStorageFileProxy('file_1', { purpose: 'stream' }),
+)
+acceptsResponsePromise(
+  experimentalStorageClient.storage.file.proxy('file_1', { purpose: 'stream' }, {
+    headers: { Range: 'bytes=0-1023' },
+  }),
 )
 acceptsStorageFileUploadResultPromise(
   experimentalStorageClient.storage.file.upload({
@@ -310,6 +332,7 @@ acceptsStorageFileUploadResultPromise(
     maxFiles: 1,
     maxFileSizeMb: 10,
     vars: { organization_id: 'org_1' },
+    server_side_encryption: 'AES256',
   }),
 )
 const maybeDebugAst = getAthenaDebugAst({}) as AthenaQueryDebugAst | null
@@ -324,6 +347,129 @@ acceptsResponsePromise(experimentalStorageClient.storage.file.download('file_1')
 acceptsResponseArrayPromise(experimentalStorageClient.storage.file.download(['file_1', 'file_2']))
 acceptsStorageFileMutationPromise(experimentalStorageClient.storage.file.delete('file_1'))
 acceptsStorageFileMutationPromise(experimentalStorageClient.storage.delete('file_1'))
+acceptsUnknown(experimentalStorageClient.storage.file.proxyUrl('file_1', { purpose: 'download' }))
+acceptsUnknown(experimentalStorageClient.storage.file.versions('file_1'))
+acceptsUnknown(experimentalStorageClient.storage.file.restoreVersion('file_1', 'version_1'))
+acceptsUnknown(experimentalStorageClient.storage.file.deleteVersion('file_1', 'version_1'))
+acceptsUnknown(experimentalStorageClient.storage.file.retention.get('file_1', { version_id: 'version_1' }))
+acceptsUnknown(experimentalStorageClient.storage.file.retention.set('file_1', {
+  mode: 'GOVERNANCE',
+  retain_until: '2026-07-01T00:00:00Z',
+}))
+acceptsUnknown(experimentalStorageClient.storage.object.validate({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/report.pdf',
+  checksum_sha256: 'abc123',
+}))
+acceptsUnknown(experimentalStorageClient.storage.object.versions({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/',
+}))
+acceptsUnknown(experimentalStorageClient.storage.object.restoreVersion({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/report.pdf',
+  version_id: 'version_1',
+}))
+acceptsUnknown(experimentalStorageClient.storage.object.deleteVersion({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/report.pdf',
+  version_id: 'version_1',
+}))
+acceptsUnknown(experimentalStorageClient.storage.object.postPolicy({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/report.pdf',
+  content_type: 'application/pdf',
+  server_side_encryption: 'aws:kms',
+}))
+acceptsUnknown(experimentalStorageClient.storage.bucket.lifecycle.set({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  rules: [{ id: 'expire-old', prefix: 'tmp/', expiration_days: 30 }],
+}))
+acceptsUnknown(experimentalStorageClient.storage.bucket.policy.set({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  policy: { Version: '2012-10-17', Statement: [] },
+}))
+acceptsUnknown(experimentalStorageClient.storage.bucket.publicAccess.set({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  block_public_acls: true,
+}))
+acceptsStorageSseOptions({ sse: 'AES256', bucket_key_enabled: true })
+acceptsStorageObjectValidateRequest({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/report.pdf',
+  etag: '"etag"',
+})
+acceptsStoragePostPolicyRequest({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  key: 'reports/report.pdf',
+  min_size: 0,
+  max_size: 1024,
+})
+acceptsStorageLifecycleRequest({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  rules: [{ status: 'Enabled', abort_incomplete_multipart_upload_days: 7 }],
+})
+acceptsStorageBucketPolicyRequest({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  policy: '{}',
+})
+acceptsStoragePublicAccessRequest({
+  endpoint: 'https://s3.example.com',
+  region: 'us-east-1',
+  access_key_id: 'AKIA_TEST',
+  secret_key: 'secret',
+  bucket: 'documents',
+  restrict_public_buckets: true,
+})
+acceptsStorageRetentionRequest({ mode: 'COMPLIANCE', retain_until_date: '2026-07-01T00:00:00Z' })
 const storageUploadHookOptions: UseStorageUploadOptions = {
   storage: experimentalStorageClient.storage,
   s3_id: 's3_1',
