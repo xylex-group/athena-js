@@ -6,6 +6,11 @@
 
 - _No unreleased changes yet._
 
+## [2.8.2](https://github.com/xylex-group/athena-js/compare/v2.8.1...v2.8.2) (2026-06-18)
+
+- Release channel: stable
+- Tag: `v2.8.2`
+
 ## [2.8.1](https://github.com/xylex-group/athena-js/compare/v2.8.0...v2.8.1) (2026-06-18)
 
 - Release channel: stable
