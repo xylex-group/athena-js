@@ -1,4 +1,5 @@
 import type {
+  AthenaAdminHasPermissionRequest,
   AthenaAdminRevokeUserSessionRequest,
   AthenaAdminRevokeUserSessionsRequest,
   AthenaAdminSuccessResponse,
@@ -15,6 +16,7 @@ import type {
   AthenaAuthBindings,
   AthenaAuthEmailListQuery,
   AthenaAuthEmailListResponse,
+  AthenaAuthGuardResult,
   AthenaAuthHealthResponse,
   AthenaAuthOkResponse,
   AthenaAuthLinkedAccount,
@@ -78,6 +80,7 @@ import { buildSdkHeaderValue } from '../sdk-version.ts'
 const DEFAULT_AUTH_BASE_URL = 'http://localhost:3001/api/auth'
 const SDK_NAME = 'xylex-group/athena-auth'
 const SDK_HEADER_VALUE = buildSdkHeaderValue(SDK_NAME)
+const NO_CACHE_HEADER_VALUE = 'no-cache'
 
 type AuthRequestContext = {
   endpoint: AthenaAuthEndpointPath
@@ -103,6 +106,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeHeaderValue(value?: string | null): string | undefined {
   return value ? value : undefined
+}
+
+function isCacheControlHeaderName(name: string): boolean {
+  return name.toLowerCase() === 'cache-control'
 }
 
 function parseResponseBody(rawText: string, contentType: string | null) {
@@ -180,6 +187,64 @@ function mergeCallOptions(
   }
 }
 
+function toSessionGuardFailure(
+  sessionResult: AthenaAuthResult<AthenaAuthSessionResponse>,
+): AthenaAuthGuardResult {
+  if (sessionResult.status === 401 || sessionResult.data == null) {
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 401,
+      error: sessionResult.error ?? 'Unauthorized',
+      sessionResult,
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'upstream_error',
+    status: sessionResult.status,
+    error: sessionResult.error ?? 'Failed to resolve current session',
+    sessionResult,
+  }
+}
+
+function toPermissionGuardFailure(
+  permissionResult: AthenaAuthResult<AthenaAdminHasPermissionResponse>,
+  sessionResult: AthenaAuthResult<AthenaAuthSessionResponse>,
+): AthenaAuthGuardResult {
+  if (permissionResult.status === 401) {
+    return {
+      ok: false,
+      reason: 'unauthorized',
+      status: 401,
+      error: permissionResult.error ?? 'Unauthorized',
+      sessionResult,
+      permissionResult,
+    }
+  }
+
+  if (permissionResult.status === 403) {
+    return {
+      ok: false,
+      reason: 'forbidden',
+      status: 403,
+      error: permissionResult.error ?? 'Forbidden',
+      sessionResult,
+      permissionResult,
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'upstream_error',
+    status: permissionResult.status,
+    error: permissionResult.error ?? 'Failed to resolve permission check',
+    sessionResult,
+    permissionResult,
+  }
+}
+
 function extractFetchOptions<T extends AthenaAuthFetchCompatibleInput | undefined>(input: T) {
   if (!input) {
     return {
@@ -200,6 +265,7 @@ function buildHeaders(
   config: AthenaAuthClientConfig,
   options?: AthenaAuthCallOptions,
 ): Record<string, string> {
+  const forceNoCache = Boolean(config.forceNoCache || options?.forceNoCache)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Athena-Sdk': SDK_HEADER_VALUE,
@@ -216,17 +282,34 @@ function buildHeaders(
     headers.Authorization = `Bearer ${bearerToken}`
   }
 
+  const cookie = options?.cookie ?? config.cookie
+  if (cookie) {
+    headers.Cookie = cookie
+  }
+
+  const sessionToken = options?.sessionToken ?? config.sessionToken
+  if (sessionToken) {
+    headers['X-Athena-Auth-Session-Token'] = sessionToken
+  }
+
   const mergedExtraHeaders = {
     ...(config.headers ?? {}),
     ...(options?.headers ?? {}),
   }
 
   Object.entries(mergedExtraHeaders).forEach(([key, value]) => {
+    if (forceNoCache && isCacheControlHeaderName(key)) {
+      return
+    }
     const normalized = normalizeHeaderValue(value)
     if (normalized) {
       headers[key] = normalized
     }
   })
+
+  if (forceNoCache) {
+    headers['Cache-Control'] = NO_CACHE_HEADER_VALUE
+  }
 
   return headers
 }
@@ -596,6 +679,78 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       return payload
     })
 
+  const requireSession: AthenaAuthBindings['requireSession'] = async (input, options) => {
+    const sessionInput = input?.fetchOptions
+      ? { fetchOptions: input.fetchOptions }
+      : undefined
+    const sessionResult = await getGeneric<AthenaAuthSessionResponse>(
+      '/get-session',
+      sessionInput,
+      options,
+    )
+
+    if (!sessionResult.ok || sessionResult.data == null) {
+      return toSessionGuardFailure(sessionResult)
+    }
+
+    return {
+      ok: true,
+      session: sessionResult.data,
+    }
+  }
+
+  const requirePermission = async (
+    endpoint: '/admin/has-permission' | '/organization/has-permission',
+    input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ): Promise<AthenaAuthGuardResult> => {
+    const sessionGuard = await requireSession(
+      input?.fetchOptions ? { fetchOptions: input.fetchOptions } : undefined,
+      options,
+    )
+
+    if (!sessionGuard.ok) {
+      return sessionGuard
+    }
+
+    const permissionResult = await postGeneric<AthenaAdminHasPermissionResponse>(
+      endpoint,
+      input,
+      options,
+    )
+
+    if (!permissionResult.ok) {
+      return toPermissionGuardFailure(permissionResult, {
+        ok: true,
+        status: 200,
+        data: sessionGuard.session,
+        error: null,
+        errorDetails: null,
+        raw: sessionGuard.session,
+      })
+    }
+
+    if (!permissionResult.data?.success) {
+      return {
+        ok: false,
+        reason: 'forbidden',
+        status: 403,
+        error: permissionResult.data?.error ?? 'Forbidden',
+        sessionResult: {
+          ok: true,
+          status: 200,
+          data: sessionGuard.session,
+          error: null,
+          errorDetails: null,
+          raw: sessionGuard.session,
+        },
+        permissionResult,
+      }
+    }
+
+    return sessionGuard
+  }
+
   const listUserEmailsWithFallback: AthenaAuthBindings['user']['email']['list'] = async (input, options) => {
     const primary = await getWithQuery<AthenaAuthEmailListResponse, AthenaAuthEmailListQuery>(
       '/email/list',
@@ -832,6 +987,8 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         input,
         options,
       ),
+    requirePermission: (input, options) =>
+      requirePermission('/organization/has-permission', input, options),
     invitation: {
       cancel: (input, options) =>
         executePostWithCompatibleInput<
@@ -1105,6 +1262,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
 
   const auth: AthenaAuthBindings = {
     getSession: (input, options) => getGeneric('/get-session', input, options),
+    requireSession,
     signOut,
     forgetPassword: (input, options) => postGeneric('/forget-password', input, options),
     resetPassword: authResetPassword,
@@ -1208,6 +1366,8 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
       },
       hasPermission: (input, options) =>
         postGeneric<AthenaAdminHasPermissionResponse>('/admin/has-permission', input, options),
+      requirePermission: (input, options) =>
+        requirePermission('/admin/has-permission', input, options),
       apiKey: {
         create: (input, options) => postGeneric('/admin/api-key/create', input, options),
       },
@@ -1400,6 +1560,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         input,
         options,
       ),
+    requireSession,
     listSessions: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) =>
       executeGetWithCompatibleInput<AthenaAuthSession[]>(
         resolvedConfig,

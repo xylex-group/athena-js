@@ -79,6 +79,42 @@ const athena = createClient({
 });
 ```
 
+You can also derive one-off client variants without rebuilding the base config:
+
+```ts
+const athena = AthenaClient.fromEnvironment({
+  client: "web-dashboard",
+  auth: {
+    credentials: "include",
+  },
+  experimental: {
+    retryReads: true,
+  },
+});
+
+const requestAthena = athena.withSession(session, {
+  requestHeaders: request.headers,
+  forceNoCache: true,
+  headers: { "X-Workspace-Id": "ws_123" },
+});
+```
+
+`withSession(...)` is the shortest request-scoped path when you already have a session object and incoming request headers:
+
+- it derives `userId`, `organizationId`, `bearerToken`, `sessionToken`, and request cookies for you
+- it still lets you add `headers`, `forceNoCache`, or auth overrides for impersonation
+- it keeps the base client immutable
+
+Use `withContext(...)` when you want the same request-scoped behavior but already have raw values instead of a session object:
+
+- it binds `userId`, `organizationId`, auth tokens/cookies, extra headers, and `forceNoCache`
+- it can force `Cache-Control: no-cache` onto SDK-managed gateway, auth, and storage requests
+- it keeps the base client immutable
+
+Use `withOptions(...)` only when you intentionally need to re-target the client itself, such as overriding `url`, `key`, `client`, or service URLs.
+
+If you already pass `client: "web-dashboard"`, the SDK sends `X-Athena-Client` for you. You do not need to duplicate that header manually.
+
 Example version baseline: SDK `@xylex-group/athena` `2.4.0`, Athena server `3.12.3` verified on 2026-06-04.
 
 `.findMany({ select, where, orderBy, limit })` is the clean canonical read surface.
@@ -92,20 +128,24 @@ For method-by-method runtime AST/state/payload models across `select(...)`, muta
 
 ### Gateway auth-session forwarding
 
-If you need Athena server-side auth rollout to inspect auth context on normal query requests, the SDK now mirrors available auth state into gateway headers while still forwarding the original headers too.
+If you need Athena server-side auth rollout to inspect auth context on normal query requests, the SDK now lets you bind auth state once and mirrors that context into gateway headers while still forwarding the original headers too.
 
 Current behavior:
 
 - `headers.Cookie` containing an Athena auth session cookie keeps `Cookie` and also adds `X-Athena-Auth-Session-Token`
 - `headers.Authorization: Bearer ...` keeps `Authorization` and also adds `X-Athena-Auth-Bearer-Token`
-- `createClient(..., { auth: { bearerToken } })` mirrors that token onto gateway/query requests as `X-Athena-Auth-Bearer-Token`
+- `createClient(..., { auth: { cookie, sessionToken, bearerToken } })` binds the same defaults onto `client.auth.*` and mirrors the available token context onto gateway/query requests
 
-Server-side cookie forwarding example:
+Server-side request-scoped auth context example:
 
 ```ts
 const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
-  headers: {
-    Cookie: request.headers.get("cookie") ?? "",
+  auth: {
+    baseUrl: AUTH_BASE_URL,
+    cookie: request.headers.get("cookie") ?? "",
+    bearerToken: session?.session?.token,
+    sessionToken: session?.session?.token,
+    credentials: "include",
   },
 });
 ```
@@ -123,8 +163,11 @@ const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
   client: "CLIENT_NAME",
   auth: {
     baseUrl: "http://localhost:3001/api/auth",
-    // optional: bearer token if you are not using cookie-based sessions
+    cookie: request.headers.get("cookie") ?? "",
+    // optional: bearer token or explicit session token if you are not relying only on cookies
     bearerToken: process.env.AUTH_BEARER_TOKEN,
+    sessionToken: process.env.AUTH_SESSION_TOKEN,
+    credentials: "include",
   },
 });
 
@@ -150,6 +193,15 @@ await athena.auth.resetPassword({ newPassword: "new-secret", token: "reset_token
 await athena.auth.verifyEmail({ token: "verify_token", callbackURL: "https://app/verified" });
 await athena.auth.changePassword({ currentPassword: "old-secret", newPassword: "new-secret" });
 await athena.auth.user.update({ name: "Demo User" });
+```
+
+If you need a one-off override such as impersonation, pass it per call:
+
+```ts
+await athena.auth.admin.hasPermission(
+  { permissions: ["admin:read"] },
+  { bearerToken: impersonationToken },
+);
 ```
 
 #### React Email templates for admin HTML routes
@@ -317,6 +369,14 @@ await typed
   .fromModel("primary", "public", "users")
   .select("*");
 
+const requestScoped = typed.withContext({
+  organizationId: "org_1",
+  userId: "user_1",
+  headers: {
+    "X-Request-Id": "req_1",
+  },
+});
+
 const insert = users.schemas.form.parse({
   email: "ada@example.com",
   mood: "",
@@ -353,7 +413,7 @@ strictAthena.from(users).select("id, missing_column");
 
 For the DB helper surface, use `strictAthena.db.from<UserRow>("users").select("id, email")` when you want inline typed column validation. `strictAthena.db.select<UserRow>("users")` still gives a typed row-aware chain, but it does not accept inline typed column arguments.
 
-`defineModel(...)` remains fully supported for compatibility and manual contracts.
+`defineModel(...)` is deprecated and retained for compatibility and manual low-level contracts. Prefer `table(...).schema(...).columns(...).primaryKey(...)` for new model authoring.
 
 For full details, see [`docs/typed-schema-registry.md`](./docs/typed-schema-registry.md).
 
@@ -416,7 +476,8 @@ Important:
 
 - `output.format = "table-builder"` is stable generator behavior, not an experimental flag.
 - `experimental.findManyAst` is a separate runtime transport opt-in for `findMany(...)`; it does not enable generated table artifacts.
-- the default generator mode is still legacy `define-model`, and the default model target is still schema-scoped (`athena/models/{schema_kebab}/{model_kebab}.ts`)
+- the default generator mode is now safe direct `table-builder` output with `output.preset = "athena-direct"`
+- the default registry target is `athena/registry.generated.ts`; opt into `output.preset = "legacy"` only when you intentionally need `athena/config.ts`
 - if you want flat `athena/models/*.ts` files, set `output.targets.model = "athena/models/{model_kebab}.ts"` (or `ATHENA_GENERATOR_MODEL_TARGET=athena/models/{model_kebab}.ts`); multi-schema collisions are still auto-scoped by schema when needed
 
 Common copy-paste starts:
@@ -427,7 +488,6 @@ DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db athena-js genera
 
 # direct postgres + Zero-style output + multiple schemas
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db \
-ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder \
 ATHENA_GENERATOR_SCHEMAS=public,analytics \
 athena-js generate --dry-run
 
@@ -459,7 +519,8 @@ Generator supports:
 - PostgreSQL direct introspection (`provider.mode = "direct"`, `provider.connectionString` from your `PG_URL`/`DATABASE_URL`)
 - PostgreSQL gateway-only introspection (`provider.mode = "gateway"` via Athena `POST /gateway/query`)
 - Multiple schema syncs such as `public` plus `athena`, with schema-safe default output paths
-- Two output formats: legacy `define-model` artifacts (default) or the new Zero-style `table-builder` format via `output.format`
+- Default safe direct output via `output.preset = "athena-direct"` and `output.format = "table-builder"`
+- Optional compatibility fallbacks to legacy `define-model` artifacts or `athena/config.ts` when explicitly requested
 - Placeholder-driven output paths
 - Feature flags (`features.emitRegistry`, `features.emitRelations`)
 - Typed env-backed config fields via `generatorEnv(...)` for connection strings, schema lists, naming styles, flags, and placeholder maps
@@ -732,7 +793,9 @@ const exactLiteral = quoteSqlStringLiteral("Athena's SDK");
 `clearAuthCookies()` clears cookies matching Athena/Better Auth prefixes (`athena-auth`, `__Secure-athena-auth`, `better-auth`, `__Secure-better-auth`) and also attempts parent-domain cleanup for subdomain deployments.
 For SQL identifiers, keep using `identifier(...)`; `sqlText(...)`-style helpers are for literal values only.
 
-### Retry helper
+### Retry helper (deprecated)
+
+Prefer `experimental.retryReads` for ordinary SDK-managed `select`, `findMany(...)`, and `query(...)` retries. `withRetry(...)` remains available for compatibility and for cases where you need explicit call-site retry control.
 
 ```ts
 import { withRetry } from "@xylex-group/athena";

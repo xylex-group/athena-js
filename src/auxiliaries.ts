@@ -875,6 +875,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * @deprecated Prefer `experimental.retryReads` for standard SDK-managed read
+ * retries, or a call-site retry policy when you need custom write/replay
+ * behavior. This helper is retained for compatibility.
+ *
  * Retries an async operation with configurable backoff and retry policy.
  *
  * `retries` represents additional attempts after the first failure.

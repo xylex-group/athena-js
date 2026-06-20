@@ -18,23 +18,22 @@ Default output paths:
 - `athena/models/{schema_kebab}/{model_kebab}.ts`
 - `athena/schemas/{schema}.ts`
 - `athena/relations.ts`
-- `athena/config.ts` (legacy compatibility default)
+- `athena/registry.generated.ts`
 
 The default schema selection is `public`.
-The default output format is still legacy `define-model`.
+The default output format is now `table-builder`.
+The default output preset is now `athena-direct`.
 
-If `athena/config.ts` is a handwritten seam in your app, switch to the safe
-direct preset:
+If you intentionally need the older compatibility seam instead:
 
 ```bash
-ATHENA_GENERATOR_OUTPUT_PRESET=athena-direct
-ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder
+ATHENA_GENERATOR_OUTPUT_PRESET=legacy
+ATHENA_GENERATOR_OUTPUT_FORMAT=define-model
 
 athena-js generate --dry-run
 ```
 
-That keeps live generation under `athena/*` but moves registry output to
-`athena/registry.generated.ts`.
+That switches registry output back to `athena/config.ts`.
 
 Useful zero-config env overrides:
 
@@ -108,9 +107,9 @@ That picks up:
 - `provider.apiKey` from `ATHENA_API_KEY`, `ATHENA_GATEWAY_API_KEY`, or `ATHENA_GENERATOR_API_KEY`
 - `provider.database` from `ATHENA_GENERATOR_DB`, `ATHENA_DATABASE`, or `PGDATABASE`
 
-## Minimal table-builder output
+## Minimal modern direct output
 
-If you want the new Zero-style surface and nothing else:
+If you want the new Zero-style surface plus the safer direct registry target:
 
 ```ts
 import { defineGeneratorConfig } from "@xylex-group/athena";
@@ -131,7 +130,7 @@ Important:
 
 - `output.format = "table-builder"` is stable and does not require an experimental flag
 - `experimental.findManyAst` is a separate runtime opt-in and does not affect generator output
-- `output.preset = "athena-direct"` is the recommended direct `athena/*` layout because it keeps registry output off `athena/config.ts`
+- `output.preset = "athena-direct"` is the default direct `athena/*` layout because it keeps registry output off `athena/config.ts`
 - if you want flat `athena/models/*.ts` files instead of schema-scoped defaults, set `output.targets.model = "athena/models/{model_kebab}.ts"` or `ATHENA_GENERATOR_MODEL_TARGET=athena/models/{model_kebab}.ts`
 
 That yields files shaped like:
@@ -165,6 +164,7 @@ Generated registry files also export an internal metadata block:
 import { __athena_schema_meta, registry } from "./athena/registry.generated";
 
 __athena_schema_meta.schemaVersion; // 1
+__athena_schema_meta.outputPreset; // "athena-direct"
 __athena_schema_meta.outputFormat; // "table-builder"
 ```
 
@@ -302,7 +302,7 @@ export default defineGeneratorConfig({
     format: generatorEnv.oneOf(
       "ATHENA_GENERATOR_OUTPUT_FORMAT",
       ["define-model", "table-builder"] as const,
-      { default: "define-model" },
+      { default: "table-builder" },
     ),
     preset: generatorEnv.oneOf(
       "ATHENA_GENERATOR_OUTPUT_PRESET",
@@ -331,7 +331,7 @@ const { data } = await athena.fromModel("primary", "public", "users").select("id
 
 ## What the define-model output still looks like
 
-The legacy format remains the default:
+If you explicitly opt into `output.format = "define-model"`, it emits the deprecated `defineModel(...)` surface:
 
 ```ts
 import { defineModel } from "@xylex-group/athena";

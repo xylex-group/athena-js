@@ -49,8 +49,8 @@ const ATHENA_DIRECT_TARGETS: GeneratorOutputTargets = {
   registry: 'athena/registry.generated.ts',
 }
 
-const DEFAULT_OUTPUT_FORMAT: GeneratorOutputFormat = 'define-model'
-const DEFAULT_OUTPUT_PRESET: GeneratorOutputPreset = 'legacy'
+const DEFAULT_OUTPUT_FORMAT: GeneratorOutputFormat = 'table-builder'
+const DEFAULT_OUTPUT_PRESET: GeneratorOutputPreset = 'athena-direct'
 
 const DEFAULT_NAMING: GeneratorNamingConfig = {
   modelType: 'pascal',
@@ -412,6 +412,7 @@ function normalizeOutputConfig(output: GeneratorOutputConfig | undefined): Norma
   const preset = output?.preset ?? DEFAULT_OUTPUT_PRESET
   return {
     format: output?.format ?? DEFAULT_OUTPUT_FORMAT,
+    preset,
     targets: {
       ...OUTPUT_PRESET_TARGETS[preset],
       ...(output?.targets ?? {}),

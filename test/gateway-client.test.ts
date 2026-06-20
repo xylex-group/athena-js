@@ -128,6 +128,18 @@ test('buildHeaders merges options headers', () => {
   assert.equal(headers['X-Call'], '2')
 })
 
+test('buildHeaders forceNoCache sets Cache-Control and overrides cache-control headers', () => {
+  const client = createAthenaGatewayClient({
+    forceNoCache: true,
+    headers: { 'cache-control': 'public, max-age=60' },
+  })
+  const headers = client.buildHeaders({
+    headers: { 'Cache-Control': 'private, max-age=120' },
+  })
+  assert.equal(headers['Cache-Control'], 'no-cache')
+  assert.equal(headers['cache-control'], undefined)
+})
+
 test('buildHeaders mirrors auth session token from cookie headers', () => {
   const client = createAthenaGatewayClient({})
   const headers = client.buildHeaders({

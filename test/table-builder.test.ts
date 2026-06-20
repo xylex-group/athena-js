@@ -42,6 +42,21 @@ test('table builder stores schema-aware metadata and explicit column mappings', 
   assert.deepEqual(account.meta.columns?.mood?.enumValues, ['happy', 'sad'])
 })
 
+test('table builder allows zero-arg primaryKey for tables without a primary key', () => {
+  const auditLog = table('audit_log')
+    .schema('athena')
+    .columns({
+      id: string(),
+      action: string(),
+    })
+    .primaryKey()
+
+  assert.equal(auditLog.kind, 'table')
+  assert.equal(auditLog.schemaName, 'athena')
+  assert.equal(auditLog.tableName, 'audit_log')
+  assert.deepEqual(auditLog.meta.primaryKey, [])
+})
+
 test('table builder supports separate schema() and from() mapping', () => {
   const userPref = table('userPref')
     .schema('public')

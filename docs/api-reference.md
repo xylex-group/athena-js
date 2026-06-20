@@ -17,7 +17,7 @@ Main package exports include:
 
 - runtime client constructors (`createClient`, `AthenaClient`)
 - query builder contracts (`AthenaSdkClient`, `TableQueryBuilder`, `RpcQueryBuilder`)
-- typed registry builders (`defineModel`, `defineSchema`, `defineDatabase`, `defineRegistry`, `createTypedClient`)
+- typed registry builders (`defineModel` deprecated, `defineSchema`, `defineDatabase`, `defineRegistry`, `createTypedClient`)
 - generator config/pipeline helpers
 - result and error helpers
 
@@ -82,6 +82,9 @@ function createClient(
   apiKey: string | null | undefined,
   options?: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
     client?: string | null | undefined
+    userId?: string | null | undefined
+    organizationId?: string | null | undefined
+    forceNoCache?: boolean
     db?: { url?: string | null | undefined }
     gateway?: { url?: string | null | undefined }
     auth?: AthenaAuthClientConfig & { url?: string | null | undefined; baseUrl?: string | null | undefined }
@@ -106,6 +109,7 @@ function createClient(
 
 This is the canonical SDK entry point. The SDK treats `url` as the public unified Athena base URL and resolves services to `${url}/db`, `${url}/auth`, and `${url}/storage` unless you provide explicit service overrides.
 Direct env-style inputs such as `createClient(process.env.ATHENA_URL, process.env.ATHENA_API_KEY, { auth: { baseUrl: process.env.ATHENA_AUTH_URL }, client: process.env.ATHENA_CLIENT })` are supported; the SDK still throws early when the API key is missing.
+The `auth` block accepts the full `AthenaAuthClientConfig` surface, including `bearerToken`, `cookie`, `sessionToken`, `headers`, and `credentials`. When those auth-context fields are set at client construction time, `client.auth.*` uses them by default and gateway/query calls inherit the same context through `Cookie`, `X-Athena-Auth-Session-Token`, and `X-Athena-Auth-Bearer-Token` when applicable.
 
 ### `createClient({ key, ...config })`
 
@@ -114,6 +118,9 @@ function createClient(
   config: Pick<AthenaGatewayCallOptions, "client" | "headers" | "backend"> & {
     key: string | null | undefined
     client?: string | null | undefined
+    userId?: string | null | undefined
+    organizationId?: string | null | undefined
+    forceNoCache?: boolean
     url?: string | null | undefined
     db?: { url?: string | null | undefined }
     gateway?: { url?: string | null | undefined }
@@ -143,6 +150,9 @@ The object form is the backwards-compatible escape hatch for direct service URLs
 - Auth: `auth.url` -> `auth.baseUrl` -> `authUrl` -> `${url}/auth`
 - Storage: `storage.url` -> `storageUrl` -> `${url}/storage`
 
+Per-call overrides still win over these client-wide auth defaults. Use call-level `fetchOptions` on `client.auth.*` or call-level `headers` on gateway/query builders when you need impersonation or another one-off credential.
+`forceNoCache: true` is a client-wide sticky switch. It forces `Cache-Control: no-cache` onto SDK-managed gateway, auth, and storage requests and overrides any `cache-control` header supplied through client-level or per-call headers.
+
 `experimental.athenaStorageBackend` exposes the experimental `client.storage.*` bindings. Default clients do not include `.storage`; `createClient(..., { experimental: { athenaStorageBackend: true } })`, `AthenaClient.builder().experimental(...)`, and `AthenaClient.builder().options(...)` narrow the returned client type to `AthenaSdkClientWithStorage`.
 `experimental.storage.onError` registers a client-level observer for storage request failures. It receives the same `AthenaStorageError` instance that will be thrown, and observer failures do not mask the original request error.
 `experimental.enableErrorNormalization` is deprecated and retained as a no-op compatibility flag because failed `AthenaResult` values now expose structured normalized `error` objects by default.
@@ -152,6 +162,115 @@ The object form is the backwards-compatible escape hatch for direct service URLs
 `experimental.traceQueries` emits detailed query execution diagnostics for every runtime call.
 `experimental.typecheckColumns` is type-only. When the row keys are known from `from<Table>()`, `from(model)`, `fromModel(...)`, `db.from<Row>(...)`, `db.select<Row>(table).single(...)`, or typed RPC result generics, the SDK validates simple string selects, array literals, and RPC filter/order column names at compile time. Typed `db.select<Row>(table, columns)` is intentionally not supported; use `db.from<Row>(table).select(columns)` when you want inline typed column selection.
 For deferred builders, trace callsites are captured from the public SDK seam that declared or finalized the operation and are memoized through the eventual execution, so traces stay anchored to user code across local and CI stack differences.
+
+### `client.withContext(context?)`
+
+```ts
+interface AthenaClientContextOptions {
+  userId?: string | null | undefined
+  organizationId?: string | null | undefined
+  forceNoCache?: boolean
+  headers?: Record<string, string>
+  auth?: {
+    bearerToken?: string | null | undefined
+    cookie?: string | null | undefined
+    sessionToken?: string | null | undefined
+    headers?: Record<string, string>
+    credentials?: AthenaAuthCredentials
+    signal?: AbortSignal
+  }
+}
+
+interface AthenaSdkClient {
+  withContext(context?: AthenaClientContextOptions): AthenaSdkClient
+}
+
+interface AthenaSdkClientWithAuth extends AthenaSdkClient {
+  withContext(context?: AthenaClientContextOptions): AthenaSdkClientWithAuth
+}
+
+interface AthenaSdkClientWithStorage extends AthenaSdkClientWithAuth {
+  withContext(context?: AthenaClientContextOptions): AthenaSdkClientWithStorage
+}
+```
+
+Derives a request-scoped client without mutating the base client.
+
+Behavior:
+
+- binds `userId`, `organizationId`, auth tokens/cookies, extra headers, and `forceNoCache`
+- keeps the original `url`, `key`, `client`, and service URLs intact
+- storage-enabled clients keep `.storage`
+- strict-column clients keep their compile-time column checks
+
+Use this for session-scoped or tenant-scoped requests. It is the preferred alternative to manually building `X-User-Id`, `X-Organization-Id`, `Cookie`, or bearer-token headers in application wrappers.
+
+### `client.withOptions(options?)`
+
+```ts
+interface AthenaClientOverrideOptions extends Omit<AthenaCreateClientOptions, "experimental"> {
+  url?: string | null | undefined
+  key?: string | null | undefined
+}
+
+interface AthenaSdkClientWithAuth {
+  withOptions(options?: AthenaClientOverrideOptions): AthenaSdkClientWithAuth
+}
+
+interface AthenaSdkClientWithStorage extends AthenaSdkClientWithAuth {
+  withOptions(options?: AthenaClientOverrideOptions): AthenaSdkClientWithStorage
+}
+```
+
+Derives a new client from an existing one without mutating the base client.
+
+Behavior:
+
+- headers merge with the base client headers
+- `auth.headers` merge with the base auth headers
+- `url`, `key`, `client`, `userId`, `organizationId`, `db`, `gateway`, `auth`, `storage`, and legacy `*Url` aliases can all be overridden
+- `undefined` override values do not clear the base client configuration
+- storage-enabled clients keep `.storage`
+- strict-column clients keep their compile-time column checks
+
+This is the advanced escape hatch. Prefer `withContext(...)` for normal request-scoped auth/session/tenant binding.
+
+### `client.withSession(session, options?)`
+
+```ts
+interface AthenaClientSessionLike {
+  user?: {
+    id?: string | null | undefined
+  } | null | undefined
+  session?: {
+    token?: string | null | undefined
+    activeOrganizationId?: string | null | undefined
+  } | null | undefined
+}
+
+interface AthenaClientSessionOptions extends AthenaClientContextOptions {
+  requestHeaders?: AthenaHeaderBag | Record<string, string | null | undefined>
+}
+
+interface AthenaSdkClient {
+  withSession(
+    session?: AthenaClientSessionLike | null,
+    options?: AthenaClientSessionOptions,
+  ): AthenaSdkClient
+}
+```
+
+Derives a request-scoped client from a session-shaped object plus optional request headers.
+
+Behavior:
+
+- derives `userId` from `session.user.id`
+- derives `organizationId` from `session.session.activeOrganizationId`
+- derives `bearerToken` and `sessionToken` from `session.session.token`
+- derives auth cookies from `options.requestHeaders`
+- still accepts explicit overrides through `options.headers`, `options.auth`, and `forceNoCache`
+
+Use this when you already have a Better Auth-style or Athena-style session object and want the shortest possible SDK setup in route handlers or server actions.
 
 ### `AthenaQueryTraceOptions`
 
@@ -380,8 +499,22 @@ Creates a cloned `Headers` set suitable for upstream proxy calls and normalizes 
 
 Reads:
 
-- `ATHENA_URL` or `ATHENA_GATEWAY_URL`
-- `ATHENA_API_KEY` or `ATHENA_GATEWAY_API_KEY`
+- URL aliases: `ATHENA_URL`, `NEXT_PUBLIC_ATHENA_URL`
+- gateway URL aliases: `ATHENA_DB_URL`, `ATHENA_GATEWAY_URL`, `NEXT_PUBLIC_ATHENA_DB_API_URL`
+- API key aliases: `ATHENA_API_KEY`, `NEXT_PUBLIC_ATHENA_API_KEY`, `ATHENA_GATEWAY_API_KEY`, `X_API_KEY`
+- client aliases: `ATHENA_CLIENT`, `NEXT_PUBLIC_ATHENA_CLIENT`
+- auth URL aliases: `ATHENA_AUTH_URL`, `NEXT_PUBLIC_ATHENA_AUTH_URL`
+- storage URL aliases: `ATHENA_STORAGE_URL`, `NEXT_PUBLIC_ATHENA_STORAGE_URL`
+
+`AthenaClient.fromEnvironment(options?)` also accepts ordinary `createClient(...)` options plus:
+
+```ts
+interface AthenaClientFromEnvironmentOptions extends AthenaCreateClientOptions {
+  env?: Record<string, string | undefined>
+  url?: string | null | undefined
+  key?: string | null | undefined
+}
+```
 
 Throws when URL or key is missing.
 
@@ -1271,10 +1404,11 @@ type AthenaErrorCategory = "transport" | "client" | "server" | "database" | "unk
 - `requireAffected(result, { min? }, context?)`
 - `coerceInt(value, options?)`
 - `assertInt(value, label?, options?)`
-- `withRetry(config, fn)`
+- `withRetry(config, fn)` (deprecated)
 - `AthenaError` class
 
 `normalizeAthenaError(...)` is deprecated. Prefer the structured `result.error` envelope on failed `AthenaResult` values and the fields already attached to thrown SDK errors.
+`withRetry(...)` is deprecated. Prefer `experimental.retryReads` for normal SDK-managed read retries, or an explicit app-local retry policy when you need custom replay behavior.
 
 ## Typed schema and registry API
 
@@ -1290,11 +1424,16 @@ function defineDatabase<Schemas extends Record<string, SchemaDef<Record<string, 
 function defineRegistry<Databases extends Record<string, DatabaseDef<Record<string, SchemaDef<Record<string, AnyModelDef>>>>>>(databases: Databases): RegistryDef<Databases>
 ```
 
+`defineModel(...)` is deprecated. Prefer `table(...).schema(...).columns(...).primaryKey(...)` for new model contracts, while `defineSchema(...)`, `defineDatabase(...)`, and `defineRegistry(...)` remain the active registry grouping helpers.
+
 ### Typed client
 
 ```ts
 interface TypedClientOptions<TMap extends TenantKeyMap = TenantKeyMap>
-  extends Pick<AthenaGatewayCallOptions, "backend" | "client" | "headers"> {
+  extends Pick<
+    AthenaGatewayCallOptions,
+    "backend" | "client" | "headers" | "forceNoCache" | "userId" | "organizationId"
+  > {
   tenantKeyMap?: TMap
   tenantContext?: TenantContext<TMap>
 }
@@ -1304,6 +1443,7 @@ interface TypedAthenaClient<TRegistry, TTenantMap> extends AthenaSdkClient {
   readonly tenantKeyMap: Readonly<TTenantMap>
   readonly tenantContext: TenantContext<TTenantMap>
 
+  withContext(context?: AthenaClientContextOptions): TypedAthenaClient<TRegistry, TTenantMap>
   withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap>
 
   fromModel<
@@ -1323,6 +1463,8 @@ interface TypedAthenaClient<TRegistry, TTenantMap> extends AthenaSdkClient {
 
 function createTypedClient(registry, url, apiKey, options?): TypedAthenaClient
 ```
+
+`withContext(...)` is the preferred request-scoped API for typed clients too. Use it for `userId`, `organizationId`, `forceNoCache`, and extra request headers. Keep `withTenantContext(...)` for `tenantKeyMap`-driven header values.
 
 ### Utility types
 
@@ -1427,11 +1569,11 @@ Use these after large API-level updates or generated contract changes.
   - `model`: `athena/models/{schema_kebab}/{model_kebab}.ts`
   - `schema`: `athena/schemas/{schema_kebab}.ts`
   - `database`: `athena/relations.ts`
-  - `registry`: `athena/config.ts` (legacy compatibility default)
-- safe direct preset:
+  - `registry`: `athena/registry.generated.ts` (default safe direct preset)
+- default safe direct preset:
   - `output.preset: "athena-direct"`
-  - recommended with `output.format: "table-builder"`
-  - moves registry output to `athena/registry.generated.ts`
+  - pairs with the default `output.format: "table-builder"`
+  - keeps registry output on `athena/registry.generated.ts`
 - naming:
   - `modelType: "pascal"`
   - `modelConst: "camel"`

@@ -8,6 +8,10 @@ import type {
 } from './types.ts'
 
 /**
+ * @deprecated Prefer `table(...).schema(...).columns(...).primaryKey(...)` for
+ * new model contracts. `defineModel(...)` is retained for legacy compatibility,
+ * manual low-level contracts, and legacy generator output.
+ *
  * Declares a model contract with explicit metadata and typed row/insert/update shapes.
  */
 export function defineModel<

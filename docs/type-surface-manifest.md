@@ -43,7 +43,7 @@ const users = table("users")
   .primaryKey("id");
 ```
 
-`defineModel(...)` remains fully supported for compatibility and lower-level
+`defineModel(...)` is deprecated and retained for compatibility and lower-level
 manual contracts. This is additive, not a replacement-only migration.
 
 ## 2) Root export manifest
@@ -58,7 +58,7 @@ manual contracts. This is additive, not a replacement-only migration.
 | `boolean` | boolean column helper |
 | `json` | JSON column helper with optional runtime Zod schema |
 | `enumeration` | enum column helper from runtime tuple values |
-| `defineModel` | legacy/manual model contract builder |
+| `defineModel` | deprecated legacy/manual model contract builder |
 | `defineSchema` | groups models/tables into a schema |
 | `defineDatabase` | groups schemas into a database |
 | `defineRegistry` | groups databases into a registry |
@@ -535,6 +535,7 @@ export const __athena_schema_meta = {
   schemaVersion: 1,
   generatedAt: "...",
   database: "app",
+  outputPreset: "athena-direct",
   outputFormat: "table-builder",
 } as const;
 ```
@@ -565,8 +566,9 @@ vars already exist.
 Common defaults:
 
 - default schema selection: `public`
-- default output format: `define-model`
-- default table-builder opt-in: `output.format = "table-builder"`
+- default output preset: `athena-direct`
+- default output format: `table-builder`
+- legacy compatibility opt-ins: `output.preset = "legacy"` and/or `output.format = "define-model"`
 
 Useful env knobs:
 
@@ -641,4 +643,4 @@ Use this page as the hub, then jump out to the narrower docs when needed.
 
 If you need a condensed intro paragraph for another docs site:
 
-> Athena JS now exposes a Zero-style table DSL built around `table(...).schema(...).columns(...).primaryKey(...)`, with first-class derived TypeScript helpers (`RowOf`, `InsertOf`, `UpdateOf`, `FormValuesOf`), generated Zod schemas (`row`, `insert`, `update`, `form`), registry-aware typed clients, opt-in compile-time column checking, normalized debug AST tracing, and a richer error/operation type surface. The older `defineModel(...)` path remains fully supported, but new model contracts should prefer the table DSL and derive from the exported model/table value instead of duplicating interfaces by hand.
+> Athena JS now exposes a Zero-style table DSL built around `table(...).schema(...).columns(...).primaryKey(...)`, with first-class derived TypeScript helpers (`RowOf`, `InsertOf`, `UpdateOf`, `FormValuesOf`), generated Zod schemas (`row`, `insert`, `update`, `form`), registry-aware typed clients, opt-in compile-time column checking, normalized debug AST tracing, and a richer error/operation type surface. The older `defineModel(...)` path is deprecated and retained for compatibility, but new model contracts should prefer the table DSL and derive from the exported model/table value instead of duplicating interfaces by hand.

@@ -62,10 +62,6 @@ function generateUsage(): string {
   ].join('\n')
 }
 
-function usesSchemaScopedModelTarget(target: string): boolean {
-  return /\{schema(?:_[a-z]+)?\}/.test(target)
-}
-
 function normalizePath(pathValue: string): string {
   return pathValue.replace(/\\/g, '/')
 }
@@ -78,39 +74,74 @@ function isFlatSchemaTarget(target: string): boolean {
   return normalizePath(target) === 'athena/schema.ts'
 }
 
+function formatProviderLine(
+  result: Awaited<ReturnType<typeof runSchemaGenerator>>,
+): string {
+  const { provider } = result.config
+  if (provider.kind === 'postgres') {
+    const schemaList = Array.isArray(provider.schemas)
+      ? provider.schemas.join(',')
+      : typeof provider.schemas === 'string'
+        ? provider.schemas
+        : 'public'
+    const database = provider.database ? ` database=${provider.database}` : ''
+    const backend = provider.mode === 'gateway' && provider.backend ? ` backend=${provider.backend}` : ''
+    return `[provider] kind=${provider.kind} mode=${provider.mode}${database}${backend} schemas=${schemaList}`
+  }
+
+  const datacenter = provider.datacenter ? ` datacenter=${provider.datacenter}` : ''
+  return `[provider] kind=${provider.kind} mode=${provider.mode} keyspace=${provider.keyspace} contactPoints=${provider.contactPoints.join(',')}${datacenter}`
+}
+
+function formatFilterLine(
+  result: Awaited<ReturnType<typeof runSchemaGenerator>>,
+): string | undefined {
+  const { includeTables, excludeTables } = result.config.filter
+  if (includeTables.length === 0 && excludeTables.length === 0) {
+    return undefined
+  }
+
+  return `[filter] include=${includeTables.length > 0 ? includeTables.join(',') : '-'} exclude=${excludeTables.length > 0 ? excludeTables.join(',') : '-'}`
+}
+
 function formatGeneratorModeLines(
   result: Awaited<ReturnType<typeof runSchemaGenerator>>,
 ): string[] {
   const lines = [
-    `[mode] format=${result.config.output.format} modelTarget=${result.config.output.targets.model}`,
+    `[mode] preset=${result.config.output.preset} format=${result.config.output.format} modelTarget=${result.config.output.targets.model}`,
+    formatProviderLine(result),
     `[targets] schema=${result.config.output.targets.schema} database=${result.config.output.targets.database} registry=${result.config.output.targets.registry}`,
   ]
+  const filterLine = formatFilterLine(result)
+  if (filterLine) {
+    lines.push(filterLine)
+  }
 
   if (result.config.output.format === 'define-model') {
     lines.push(
-      '[note] Zero-style table-builder files are not active. Set output.format="table-builder" or ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder to emit table(...).schema(...).columns(...).primaryKey(...).',
+      '[note] Legacy define-model compatibility output is active. Set output.format="table-builder" or ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder to emit table(...).schema(...).columns(...).primaryKey(...).',
+    )
+  }
+
+  if (result.config.output.preset === 'legacy') {
+    lines.push(
+      '[note] Legacy preset is active. It keeps registry output on athena/config.ts for compatibility; prefer output.preset="athena-direct" for the default safe direct layout.',
     )
   }
 
   lines.push(
-    '[note] Table-builder generation is stable. experimental.findManyAst only affects runtime findMany(...) transport and does not enable generator table output.',
+    '[note] Default generator mode is preset=athena-direct + format=table-builder. experimental.findManyAst only affects runtime findMany(...) transport and does not enable generator table output.',
   )
 
   if (isLegacyConfigRegistryTarget(result.config.output.targets.registry)) {
     lines.push(
-      '[warn] Registry target points at athena/config.ts. That file is often a handwritten runtime seam; prefer output.preset="athena-direct" or output.targets.registry="athena/registry.generated.ts".',
+      '[warn] Registry target points at athena/config.ts. That file is often a handwritten runtime seam; prefer output.preset="athena-direct" or output.targets.registry="athena/registry.generated.ts" unless you intentionally need legacy compatibility.',
     )
   }
 
   if (isFlatSchemaTarget(result.config.output.targets.schema)) {
     lines.push(
       '[warn] Schema target points at athena/schema.ts. Prefer schema-scoped output such as athena/schemas/{schema_kebab}.ts.',
-    )
-  }
-
-  if (usesSchemaScopedModelTarget(result.config.output.targets.model)) {
-    lines.push(
-      '[note] Flat athena/models/*.ts output is opt-in. Set output.targets.model="athena/models/{model_kebab}.ts" or ATHENA_GENERATOR_MODEL_TARGET=athena/models/{model_kebab}.ts; multi-schema collisions are still auto-scoped by schema when needed.',
     )
   }
 

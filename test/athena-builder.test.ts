@@ -495,10 +495,13 @@ test('AthenaClient.builder() supports auth() for auth namespace routing', async 
   const originalFetch = globalThis.fetch
   globalThis.fetch = async (url, init) => {
     calls.push({ url: String(url), init })
-    return createMockResponse({
-      session: { id: 's_1' },
-      user: { id: 'u_1', email: 'user@example.com' },
-    }, 200)
+    if (String(url).endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_1' },
+        user: { id: 'u_1', email: 'user@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
   }
 
   try {
@@ -508,18 +511,32 @@ test('AthenaClient.builder() supports auth() for auth namespace routing', async 
       .auth({
         baseUrl: 'https://auth.example.com/api/auth',
         apiKey: 'auth-key',
+        bearerToken: 'builder-bearer',
+        cookie: 'athena-auth.session_token=builder-session; theme=dark',
+        sessionToken: 'builder-session',
         headers: { 'X-Auth-From': 'builder' },
       })
       .build()
 
+    await client.from('users').select('id').limit(1)
     const result = await client.auth.getSession()
 
     assert.equal(result.ok, true)
-    assert.equal(calls.length, 1)
-    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
-    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://athena-db.com/db/gateway/fetch')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/get-session')
+
+    const gatewayHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(gatewayHeaders.Cookie, 'athena-auth.session_token=builder-session; theme=dark')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Session-Token'], 'builder-session')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Bearer-Token'], 'builder-bearer')
+
+    const headers = calls[1].init?.headers as Record<string, string>
     assert.equal(headers.apikey, 'auth-key')
     assert.equal(headers['x-api-key'], 'auth-key')
+    assert.equal(headers.Authorization, 'Bearer builder-bearer')
+    assert.equal(headers.Cookie, 'athena-auth.session_token=builder-session; theme=dark')
+    assert.equal(headers['X-Athena-Auth-Session-Token'], 'builder-session')
     assert.equal(headers['X-Auth-From'], 'builder')
   } finally {
     globalThis.fetch = originalFetch
@@ -575,6 +592,236 @@ test('AthenaClient.builder() supports options() and experimental tracing', async
     assert.equal(traces.some(trace => trace.operation === 'select'), true)
   } finally {
     globalThis.fetch = originalFetch
+  }
+})
+
+test('createClient forceNoCache applies no-cache to gateway auth and storage requests', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_no_cache' },
+        user: { id: 'u_no_cache', email: 'no-cache@example.com' },
+      }, 200)
+    }
+    if (requestUrl.endsWith('/storage/catalogs')) {
+      return createMockResponse({ data: [] }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'secret', {
+      forceNoCache: true,
+      headers: { 'cache-control': 'private, max-age=60' },
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+        headers: { 'Cache-Control': 'public, max-age=120' },
+      },
+      experimental: {
+        athenaStorageBackend: true,
+      },
+    })
+
+    await client.from('users').select('id').limit(1)
+    const session = await client.auth.getSession()
+    await client.storage.listStorageCatalogs()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 3)
+
+    for (const call of calls) {
+      const headers = call.init?.headers as Record<string, string>
+      assert.equal(headers['Cache-Control'], 'no-cache')
+      assert.equal(headers['cache-control'], undefined)
+    }
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('client.withContext binds request-scoped gateway and auth context', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_context' },
+        user: { id: 'u_context', email: 'context@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const baseClient = createClient('https://athena-db.com', 'secret', {
+      client: 'context_client',
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+        credentials: 'include',
+      },
+    })
+    const scopedClient = baseClient.withContext({
+      userId: 'user_1',
+      organizationId: 'org_1',
+      forceNoCache: true,
+      headers: { 'X-Request-Id': 'req_1' },
+      auth: {
+        bearerToken: 'context-bearer',
+        cookie: 'athena-auth.session_token=context-session; theme=dark',
+        sessionToken: 'context-session',
+      },
+    })
+
+    await scopedClient.from('users').select('id').limit(1)
+    const session = await scopedClient.auth.getSession()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 2)
+
+    const gatewayHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(gatewayHeaders['X-User-Id'], 'user_1')
+    assert.equal(gatewayHeaders['X-Organization-Id'], 'org_1')
+    assert.equal(gatewayHeaders['X-Request-Id'], 'req_1')
+    assert.equal(gatewayHeaders['Cache-Control'], 'no-cache')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Bearer-Token'], 'context-bearer')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Session-Token'], 'context-session')
+    assert.equal(gatewayHeaders.Cookie, 'athena-auth.session_token=context-session; theme=dark')
+
+    const authHeaders = calls[1].init?.headers as Record<string, string>
+    assert.equal(authHeaders.Authorization, 'Bearer context-bearer')
+    assert.equal(authHeaders.Cookie, 'athena-auth.session_token=context-session; theme=dark')
+    assert.equal(authHeaders['X-Athena-Auth-Session-Token'], 'context-session')
+    assert.equal(authHeaders['Cache-Control'], 'no-cache')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('client.withSession derives auth and scope context from session plus request headers', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_session' },
+        user: { id: 'u_session', email: 'session@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const baseClient = createClient('https://athena-db.com', 'secret', {
+      client: 'session_client',
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+        credentials: 'include',
+      },
+    })
+    const scopedClient = baseClient.withSession(
+      {
+        user: { id: 'user_2' },
+        session: {
+          token: 'session-token-2',
+          activeOrganizationId: 'org_2',
+        },
+      },
+      {
+        requestHeaders: new Headers({
+          cookie: 'athena-auth.session_token=session-token-2; theme=dark',
+        }),
+        forceNoCache: true,
+        headers: { 'X-Request-Id': 'req_2' },
+      },
+    )
+
+    await scopedClient.from('users').select('id').limit(1)
+    const session = await scopedClient.auth.getSession()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 2)
+
+    const gatewayHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(gatewayHeaders['X-User-Id'], 'user_2')
+    assert.equal(gatewayHeaders['X-Organization-Id'], 'org_2')
+    assert.equal(gatewayHeaders['X-Request-Id'], 'req_2')
+    assert.equal(gatewayHeaders['Cache-Control'], 'no-cache')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Bearer-Token'], 'session-token-2')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Session-Token'], 'session-token-2')
+    assert.equal(gatewayHeaders.Cookie, 'athena-auth.session_token=session-token-2; theme=dark')
+
+    const authHeaders = calls[1].init?.headers as Record<string, string>
+    assert.equal(authHeaders.Authorization, 'Bearer session-token-2')
+    assert.equal(authHeaders.Cookie, 'athena-auth.session_token=session-token-2; theme=dark')
+    assert.equal(authHeaders['X-Athena-Auth-Session-Token'], 'session-token-2')
+    assert.equal(authHeaders['Cache-Control'], 'no-cache')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('AthenaClient.fromEnvironment resolves common public env aliases', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  const originalEnv = {
+    NEXT_PUBLIC_ATHENA_URL: process.env.NEXT_PUBLIC_ATHENA_URL,
+    NEXT_PUBLIC_ATHENA_API_KEY: process.env.NEXT_PUBLIC_ATHENA_API_KEY,
+    NEXT_PUBLIC_ATHENA_CLIENT: process.env.NEXT_PUBLIC_ATHENA_CLIENT,
+    NEXT_PUBLIC_ATHENA_AUTH_URL: process.env.NEXT_PUBLIC_ATHENA_AUTH_URL,
+  }
+
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/auth/get-session')) {
+      return createMockResponse({
+        session: { id: 's_env' },
+        user: { id: 'u_env', email: 'env@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  process.env.NEXT_PUBLIC_ATHENA_URL = 'https://env.athena-db.com'
+  process.env.NEXT_PUBLIC_ATHENA_API_KEY = 'env-secret'
+  process.env.NEXT_PUBLIC_ATHENA_CLIENT = 'env-client'
+  process.env.NEXT_PUBLIC_ATHENA_AUTH_URL = 'https://env.athena-db.com/auth'
+
+  try {
+    const client = AthenaClient.fromEnvironment({
+      auth: {
+        credentials: 'include',
+      },
+    })
+
+    await client.from('users').select('id').limit(1)
+    const session = await client.auth.getSession()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://env.athena-db.com/db/gateway/fetch')
+    assert.equal(calls[1].url, 'https://env.athena-db.com/auth/get-session')
+
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers['X-Athena-Client'], 'env-client')
+  } finally {
+    globalThis.fetch = originalFetch
+    Object.entries(originalEnv).forEach(([key, value]) => {
+      if (value === undefined) {
+        delete process.env[key]
+        return
+      }
+
+      process.env[key] = value
+    })
   }
 })
 
@@ -641,6 +888,164 @@ test('createClient mirrors auth bearerToken onto gateway requests', async () => 
     assert.equal(calls.length, 1)
     const headers = calls[0].init?.headers as Record<string, string>
     assert.equal(headers['X-Athena-Auth-Bearer-Token'], 'gateway-auth-bearer')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('client.withOptions creates a derived client with merged headers and auth overrides', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_with_options' },
+        user: { id: 'u_with_options', email: 'with-options@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const baseClient = createClient('https://athena-db.com', 'secret', {
+      client: 'browser_client',
+      headers: { 'X-Base': '1' },
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+        cookie: 'athena-auth.session_token=base-session; theme=dark',
+        credentials: 'include',
+      },
+    })
+    const derivedClient = baseClient.withOptions({
+      headers: { 'X-Child': '2' },
+      auth: {
+        bearerToken: 'derived-bearer',
+      },
+    })
+
+    await baseClient.from('users').select('id').limit(1)
+    await derivedClient.from('users').select('id').limit(1)
+    const session = await derivedClient.auth.getSession()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 3)
+
+    const baseGatewayHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(baseGatewayHeaders['X-Base'], '1')
+    assert.equal(baseGatewayHeaders['X-Child'], undefined)
+    assert.equal(baseGatewayHeaders['X-Athena-Auth-Bearer-Token'], undefined)
+    assert.equal(baseGatewayHeaders.Cookie, 'athena-auth.session_token=base-session; theme=dark')
+
+    const derivedGatewayHeaders = calls[1].init?.headers as Record<string, string>
+    assert.equal(derivedGatewayHeaders['X-Base'], '1')
+    assert.equal(derivedGatewayHeaders['X-Child'], '2')
+    assert.equal(derivedGatewayHeaders['X-Athena-Auth-Bearer-Token'], 'derived-bearer')
+    assert.equal(derivedGatewayHeaders.Cookie, 'athena-auth.session_token=base-session; theme=dark')
+
+    assert.equal(calls[2].url, 'https://auth.example.com/api/auth/get-session')
+    const derivedAuthHeaders = calls[2].init?.headers as Record<string, string>
+    assert.equal(derivedAuthHeaders.Authorization, 'Bearer derived-bearer')
+    assert.equal(derivedAuthHeaders.Cookie, 'athena-auth.session_token=base-session; theme=dark')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('client.withOptions can override unified base url api key and client name', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_override' },
+        user: { id: 'u_override', email: 'override@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const baseClient = createClient('https://athena-db.com', 'secret', {
+      client: 'base_client',
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+      },
+    })
+    const derivedClient = baseClient.withOptions({
+      url: 'https://override.athena-db.com',
+      key: 'override-secret',
+      client: 'override_client',
+      auth: {
+        baseUrl: 'https://override-auth.example.com/api/auth',
+      },
+    })
+
+    await derivedClient.from('users').select('id').limit(1)
+    const session = await derivedClient.auth.getSession()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://override.athena-db.com/db/gateway/fetch')
+    const gatewayHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(gatewayHeaders.apikey, 'override-secret')
+    assert.equal(gatewayHeaders['x-api-key'], 'override-secret')
+    assert.equal(gatewayHeaders['X-Athena-Client'], 'override_client')
+
+    assert.equal(calls[1].url, 'https://override-auth.example.com/api/auth/get-session')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('client.withOptions keeps base values when optional overrides are undefined', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    if (requestUrl.endsWith('/get-session')) {
+      return createMockResponse({
+        session: { id: 's_undefined_override' },
+        user: { id: 'u_undefined_override', email: 'undefined-override@example.com' },
+      }, 200)
+    }
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const maybeClientName: string | undefined = undefined
+    const maybeUnifiedUrl: string | undefined = undefined
+    const maybeAuthBaseUrl: string | undefined = undefined
+    const baseClient = createClient('https://athena-db.com', 'secret', {
+      client: 'base_client',
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+      },
+    })
+    const derivedClient = baseClient.withOptions({
+      client: maybeClientName,
+      url: maybeUnifiedUrl,
+      auth: {
+        baseUrl: maybeAuthBaseUrl,
+        bearerToken: 'derived-bearer',
+      },
+    })
+
+    await derivedClient.from('users').select('id').limit(1)
+    const session = await derivedClient.auth.getSession()
+
+    assert.equal(session.ok, true)
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://athena-db.com/db/gateway/fetch')
+    const gatewayHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(gatewayHeaders['X-Athena-Client'], 'base_client')
+    assert.equal(gatewayHeaders['X-Athena-Auth-Bearer-Token'], 'derived-bearer')
+
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/get-session')
   } finally {
     globalThis.fetch = originalFetch
   }

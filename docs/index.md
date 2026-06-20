@@ -46,7 +46,7 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 ```text
 Runtime client (createClient / AthenaClient.builder)
   -> Optional typed client (createTypedClient)
-    -> Registry contracts (defineModel / defineSchema / defineDatabase / defineRegistry)
+    -> Registry contracts (table DSL / defineModel compatibility / defineSchema / defineDatabase / defineRegistry)
       -> Optional generator pipeline (athena-js generate)
         -> Generated model/schema/database/registry files
           -> Runtime query builders + app/domain form surfaces

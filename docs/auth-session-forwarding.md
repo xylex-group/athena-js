@@ -1,6 +1,6 @@
 # Auth Session Forwarding for Gateway Requests
 
-This page documents how `@xylex-group/athena` forwards Athena Auth session context onto gateway/query requests.
+This page documents how `@xylex-group/athena` binds Athena Auth context onto `client.auth.*` and forwards the same context onto gateway/query requests.
 
 The short version:
 
@@ -9,6 +9,7 @@ The short version:
   - `X-Athena-Auth-Session-Token`
   - `X-Athena-Auth-Bearer-Token`
 - this is intended to let the Athena server do optional session-aware DB authentication without breaking existing header/cookie behavior
+- when you configure `createClient(..., { auth: { ... } })`, the same bound auth context is also used by `client.auth.*` by default
 
 ## What this applies to
 
@@ -26,9 +27,34 @@ This forwarding behavior applies to the gateway request surfaces created by `cre
 
 This does **not** change:
 
-- `client.auth.*` request behavior beyond the existing auth client contract
 - `verifyConnection(...)`
 - browser cookie storage itself
+
+`client.auth.*` still follows the existing auth client contract. The change is that `auth.cookie`, `auth.sessionToken`, and `auth.bearerToken` can now be bound once at client construction instead of being repeated on every auth call.
+
+## Client-wide auth context binding
+
+If you already resolved auth state in a server runtime, bind it once:
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  auth: {
+    baseUrl: ATHENA_AUTH_URL,
+    cookie: request.headers.get("cookie") ?? "",
+    bearerToken: session?.session?.token,
+    sessionToken: session?.session?.token,
+    credentials: "include",
+  },
+})
+```
+
+That gives you one request-scoped client where:
+
+- `client.auth.*` sends the configured auth cookie/token defaults automatically
+- gateway/query calls keep forwarding `Cookie`
+- gateway/query calls also mirror `X-Athena-Auth-Session-Token` and `X-Athena-Auth-Bearer-Token` when available
+
+If you need impersonation or another one-off credential, pass per-call overrides. Call-level `fetchOptions` and call-level headers still win over the bound defaults.
 
 ## Header contract
 
@@ -68,7 +94,7 @@ Authorization: Bearer bearer_123
 X-Athena-Auth-Bearer-Token: bearer_123
 ```
 
-### `createClient(..., { auth: { bearerToken } })`
+### `createClient(..., { auth: { bearerToken, cookie, sessionToken } })`
 
 If you configure the client like this:
 
@@ -76,15 +102,17 @@ If you configure the client like this:
 const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
   auth: {
     baseUrl: ATHENA_AUTH_URL,
+    cookie: request.headers.get("cookie") ?? "",
     bearerToken: accessToken,
+    sessionToken: sessionToken,
   },
 })
 ```
 
-then the same token is used on two different surfaces:
+then the same auth context is used on two different surfaces:
 
-- `client.auth.*` sends `Authorization: Bearer <token>` to the auth server
-- gateway/query calls send `X-Athena-Auth-Bearer-Token: <token>`
+- `client.auth.*` sends `Authorization: Bearer <token>`, `Cookie`, and `X-Athena-Auth-Session-Token` when those values are configured
+- gateway/query calls keep `Cookie`, send `X-Athena-Auth-Session-Token: <token>` when a session token is available, and send `X-Athena-Auth-Bearer-Token: <token>` when a bearer token is available
 
 This is useful when you already have a bearer-token-based auth flow and want Athena server-side auth rollout to opt into the same token without requiring every query caller to set raw headers manually.
 
@@ -116,17 +144,19 @@ If you need the mirrored bearer token to vary per request, prefer one of these:
 
 ## Recommended usage patterns
 
-### 1. Server runtime: forward inbound cookies
+### 1. Server runtime: bind inbound auth context once
 
-If you are in a Node/Next/Express route handler and want Athena to mirror the session token automatically, forward the inbound cookie header:
+If you are in a Node/Next/Express route handler and want both `client.auth.*` and gateway calls to share one auth context, bind it through `auth`:
 
 ```ts
 import { createClient } from "@xylex-group/athena"
 
 export async function GET(request: Request) {
   const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
-    headers: {
-      Cookie: request.headers.get("cookie") ?? "",
+    auth: {
+      baseUrl: process.env.ATHENA_AUTH_URL!,
+      cookie: request.headers.get("cookie") ?? "",
+      credentials: "include",
     },
   })
 
@@ -136,7 +166,8 @@ export async function GET(request: Request) {
 
 The SDK will:
 
-- keep `Cookie`
+- send `Cookie` on `client.auth.*`
+- keep `Cookie` on gateway/query calls
 - parse the Athena session cookie if present
 - add `X-Athena-Auth-Session-Token`
 
@@ -146,8 +177,9 @@ If your app already resolved the session token separately, pass it directly:
 
 ```ts
 const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
-  headers: {
-    "X-Athena-Auth-Session-Token": sessionToken,
+  auth: {
+    baseUrl: ATHENA_AUTH_URL,
+    sessionToken,
   },
 })
 ```
@@ -175,6 +207,7 @@ The SDK will forward both:
 const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
   auth: {
     baseUrl: ATHENA_AUTH_URL,
+    cookie: request.headers.get("cookie") ?? "",
     bearerToken: accessToken,
   },
 })

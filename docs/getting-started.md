@@ -81,9 +81,47 @@ Repeated fluent configuration calls compose:
 - `auth(...)` + `options({ auth })` merge auth config and auth headers
 - `experimental(...)` + `options({ experimental })` merge experimental flags
 
+### Bind request context with `withSession(...)`
+
+If you already have a base client and only need request-scoped session or tenant context, bind a new client instead of rebuilding `url`, `key`, `client`, and auth defaults yourself.
+
+```ts
+const athena = AthenaClient.fromEnvironment({
+  client: "web-dashboard",
+  auth: {
+    credentials: "include",
+  },
+  experimental: {
+    retryReads: true,
+  },
+});
+
+const requestAthena = athena.withSession(session, {
+  requestHeaders: request.headers,
+  forceNoCache: true,
+  headers: { "X-Workspace-Id": "ws_123" },
+});
+```
+
+`withSession(...)`:
+
+- derives `userId`, `organizationId`, `bearerToken`, `sessionToken`, and request cookies for you
+- can still merge extra headers and force `Cache-Control: no-cache`
+- keeps the original client immutable
+
+Use `withContext(...)` when you already have raw values instead of a session object:
+
+- binds `userId`, `organizationId`, auth tokens/cookies, extra headers, and `forceNoCache`
+- can force `Cache-Control: no-cache` onto SDK-managed gateway, auth, and storage requests
+- keeps the original client immutable
+
+Use `withOptions(...)` only for advanced re-targeting such as overriding `url`, `key`, `client`, or service URLs.
+
+Passing `client: "web-dashboard"` already emits `X-Athena-Client`; you do not need to add that header manually.
+
 ## 3.0) Optional auth context forwarding for gateway requests
 
-If you want Athena server-side auth rollout to inspect auth context on normal query requests, the SDK can now mirror auth state into gateway headers.
+If you want Athena server-side auth rollout to inspect auth context on normal query requests, the SDK can now bind auth state once and mirror it into gateway headers.
 
 Forwarded/mirrored behavior:
 
@@ -91,12 +129,16 @@ Forwarded/mirrored behavior:
 - `headers.Authorization: Bearer ...` keeps the original `Authorization` header and also adds `X-Athena-Auth-Bearer-Token`
 - `createClient(..., { auth: { bearerToken } })` mirrors that token onto gateway/query requests as `X-Athena-Auth-Bearer-Token`
 
-Server-side cookie forwarding example:
+Server-side request-scoped auth context example:
 
 ```ts
 const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
-  headers: {
-    Cookie: request.headers.get("cookie") ?? "",
+  auth: {
+    baseUrl: process.env.ATHENA_AUTH_URL!,
+    cookie: request.headers.get("cookie") ?? "",
+    bearerToken: session?.session?.token,
+    sessionToken: session?.session?.token,
+    credentials: "include",
   },
 })
 ```
@@ -107,10 +149,13 @@ Client-wide bearer example:
 const athena = createClient(process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!, {
   auth: {
     baseUrl: process.env.ATHENA_AUTH_URL,
+    cookie: request.headers.get("cookie") ?? "",
     bearerToken: process.env.ATHENA_AUTH_BEARER_TOKEN,
   },
 })
 ```
+
+Per-call auth overrides still win, so impersonation or one-off credentials can be passed through `client.auth.*(..., { bearerToken, cookie, sessionToken })` or per-call gateway headers without rebuilding the whole client contract.
 
 For precedence rules, browser/server caveats, and rollout guidance, see [`auth-session-forwarding.md`](auth-session-forwarding.md).
 
@@ -119,8 +164,14 @@ For precedence rules, browser/server caveats, and rollout guidance, see [`auth-s
 ```ts
 import { AthenaClient } from "@xylex-group/athena";
 
-const athena = AthenaClient.fromEnvironment();
+const athena = AthenaClient.fromEnvironment({
+  auth: {
+    credentials: "include",
+  },
+});
 ```
+
+It resolves common app/runtime aliases too, including `NEXT_PUBLIC_ATHENA_URL`, `NEXT_PUBLIC_ATHENA_API_KEY`, `NEXT_PUBLIC_ATHENA_CLIENT`, `ATHENA_GATEWAY_API_KEY`, `X_API_KEY`, and `NEXT_PUBLIC_ATHENA_AUTH_URL`.
 
 ## 3.1) Optional query tracing (experimental)
 
@@ -537,6 +588,8 @@ requireAffected(inserted, { min: 1 });
 
 ## 9) Move to typed model registry
 
+Prefer `table(...).schema(...).columns(...).primaryKey(...)` for new model authoring. The `defineModel(...)` example below is a deprecated compatibility path that still works when you need legacy/manual contracts.
+
 When runtime strings and payload types start drifting, define model contracts once and use `fromModel(...)`.
 
 ```ts
@@ -598,6 +651,8 @@ await tenantBound.fromModel("app", "public", "users").select("id, email");
 ```
 
 `withTenantContext(...)` returns a new client and merges context values.
+
+Use `withContext(...)` alongside it when you need request-scoped `userId`, `organizationId`, `forceNoCache`, or extra headers without encoding them into `tenantKeyMap`.
 
 ## 11) Form contracts with Zod and React Hook Form
 

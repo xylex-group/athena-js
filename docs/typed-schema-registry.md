@@ -20,7 +20,7 @@ The typed path is additive.
 ## 1) Core contracts
 
 The canonical authoring surface is now the Zero-style table DSL. `defineModel(...)`
-still exists for compatibility and low-level manual contracts.
+is deprecated and retained only for compatibility and low-level manual contracts.
 
 ```ts
 import {
@@ -55,7 +55,7 @@ const client = createTypedClient(registry, process.env.ATHENA_URL!, process.env.
 
 Preferred authoring is `.schema("public")` plus `.from("user_pref")` only when the DB table name differs from the TypeScript key. `.from("schema.table")` remains supported for compatibility.
 
-`defineModel`, `defineSchema`, `defineDatabase`, and `defineRegistry` remain lightweight identity builders with explicit type signatures:
+`defineSchema`, `defineDatabase`, and `defineRegistry` remain lightweight identity builders with explicit type signatures. `defineModel(...)` remains available only as a deprecated compatibility builder:
 
 ```ts
 import {
@@ -83,6 +83,8 @@ const registry = defineRegistry({ app: primaryDb });
 
 const client = createTypedClient(registry, process.env.ATHENA_URL!, process.env.ATHENA_API_KEY!);
 ```
+
+Treat the `defineModel(...)` example above as legacy compatibility authoring. Prefer the table DSL for new model declarations.
 
 ## 2) Model metadata contract
 
@@ -112,6 +114,8 @@ or cross-namespace.
 - `.registry`
 - `.tenantKeyMap`
 - `.tenantContext`
+- `.withContext(context)`
+- `.withSession(session, options?)`
 - `.withTenantContext(context)`
 - `.fromModel(database, schema, model)`
 
@@ -132,6 +136,8 @@ await typed
   .select("id, email")
   .eq("active", true);
 ```
+
+Use `withSession(...)` when you already have a session object plus request headers and want the SDK to derive `userId`, `organizationId`, token defaults, and cookies automatically. Use `withContext(...)` for raw request-scoped gateway context such as `userId`, `organizationId`, `forceNoCache`, and extra headers. Keep `withTenantContext(...)` for values that should flow through `tenantKeyMap`.
 
 If you already have the exported Athena table/model value in scope, the root client can also infer the runtime target directly:
 
@@ -181,6 +187,19 @@ strictTyped.fromModel("app", "public", "users").select("id, missing_column");
 const scoped = typed.withTenantContext({ organizationId: "org-1" });
 const scopedAgain = scoped.withTenantContext({ workspaceId: "ws-2" });
 // scopedAgain sends both tenant headers
+```
+
+`withContext(...)` also returns a new client, but it targets the root Athena request context instead of the tenant-header map:
+
+```ts
+const requestScoped = typed.withContext({
+  organizationId: "org-1",
+  userId: "user-7",
+  forceNoCache: true,
+  headers: {
+    "X-Request-Id": "req_123",
+  },
+});
 ```
 
 ## 4) Types generated from model metadata
@@ -270,11 +289,11 @@ By default, generator target templates are:
 - `athena/models/{schema_kebab}/{model_kebab}.ts`
 - `athena/schemas/{schema_kebab}.ts`
 - `athena/relations.ts`
-- `athena/config.ts` (legacy compatibility default)
+- `athena/registry.generated.ts` (default safe direct preset)
 
 These can be changed via `output.targets`.
 
-Recommended safe direct layout:
+Default safe direct layout:
 
 ```ts
 output: {
@@ -291,7 +310,7 @@ better fit when `athena/config.ts` is a handwritten runtime seam.
 A practical rollout sequence for existing code:
 
 1. Keep existing `from("table")` or `from("table", { schema: "..." })` call sites untouched for now.
-2. Add `table(...)` declarations per bounded domain, or `defineModel(...)` when you need a lower-level contract.
+2. Add `table(...)` declarations per bounded domain. Use `defineModel(...)` only for legacy compatibility or when you explicitly need the lower-level contract.
 3. Build a local registry from manual contracts.
 4. Move call sites to `fromModel(...)` only where stability gains are high.
 5. Replace manual contracts with generated output once generator config and checks are stable.

@@ -1227,6 +1227,9 @@ export interface AthenaAuthCallOptions {
   baseUrl?: string
   apiKey?: string
   bearerToken?: string
+  cookie?: string
+  sessionToken?: string
+  forceNoCache?: boolean
   headers?: Record<string, string>
   credentials?: AthenaAuthCredentials
   signal?: AbortSignal
@@ -1240,6 +1243,29 @@ export interface AthenaAuthClientConfig extends AthenaAuthCallOptions {
   fetch?: typeof fetch
   reactEmail?: AthenaAuthReactEmailConfig
 }
+
+export type AthenaAuthGuardReason =
+  | 'unauthorized'
+  | 'forbidden'
+  | 'upstream_error'
+
+export interface AthenaAuthGuardSuccess {
+  ok: true
+  session: AthenaAuthSessionResponse
+}
+
+export interface AthenaAuthGuardFailure {
+  ok: false
+  reason: AthenaAuthGuardReason
+  status: number
+  error: string
+  sessionResult?: AthenaAuthResult<AthenaAuthSessionResponse>
+  permissionResult?: AthenaAuthResult<AthenaAdminHasPermissionResponse>
+}
+
+export type AthenaAuthGuardResult =
+  | AthenaAuthGuardSuccess
+  | AthenaAuthGuardFailure
 
 export interface AthenaAuthEmailTemplateDefinition<
   TProps extends AthenaAuthReactEmailProps = AthenaAuthReactEmailProps,
@@ -1380,6 +1406,11 @@ export interface AthenaAuthOrganizationBindings {
     input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAdminHasPermissionResponse>>
+  /** Resolve the current session and require organization-level permissions in one call. */
+  requirePermission: (
+    input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthGuardResult>
   invitation: {
     /** Cancel an organization invitation. Route: `POST /organization/cancel-invitation`. */
     cancel: (
@@ -1439,6 +1470,8 @@ export interface AthenaAuthOrganizationBindings {
 export interface AthenaAuthBindings {
   /** Get current session. Route: `GET /get-session`. */
   getSession: AthenaAuthSdkClient['getSession']
+  /** Resolve the current session into a typed guard result. */
+  requireSession: AthenaAuthSdkClient['requireSession']
   /** Sign out current session. Route: `POST /sign-out`. */
   signOut: AthenaAuthSdkClient['signOut']
   /** Trigger password reset email flow. Route: `POST /forget-password`. */
@@ -1676,6 +1709,11 @@ export interface AthenaAuthBindings {
       input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
       options?: AthenaAuthCallOptions,
     ) => Promise<AthenaAuthResult<AthenaAdminHasPermissionResponse>>
+    /** Resolve the current session and require admin permissions in one call. */
+    requirePermission: (
+      input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions,
+    ) => Promise<AthenaAuthGuardResult>
     apiKey: {
       /** Create admin-scoped API key. Route: `POST /admin/api-key/create`. */
       create: (
@@ -1909,6 +1947,10 @@ export interface AthenaAuthSdkClient {
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthSessionResponse>>
+  requireSession: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthGuardResult>
   listSessions: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,

@@ -174,6 +174,7 @@ export function renderRegistryArtifact(
   registryConstName: string,
   databaseName: string,
   generatedAt: string,
+  outputPreset: NormalizedAthenaGeneratorConfig['output']['preset'],
   outputFormat: NormalizedAthenaGeneratorConfig['output']['format'],
   schemaVersion: number,
 ): GeneratedArtifact {
@@ -185,6 +186,7 @@ export const __athena_schema_meta = {
   schemaVersion: ${schemaVersion},
   generatedAt: ${escapeStringLiteral(generatedAt)},
   database: ${escapeStringLiteral(databaseName)},
+  outputPreset: ${escapeStringLiteral(outputPreset)},
   outputFormat: ${escapeStringLiteral(outputFormat)},
 } as const
 
@@ -383,6 +385,7 @@ export function composeGeneratorArtifacts<TModel extends ModelArtifactDescriptor
         toSafeIdentifier('registry', config.naming.registryConst, 'registry'),
         databaseName,
         snapshot.generatedAt,
+        config.output.preset,
         config.output.format,
         config.internal.schemaVersion,
       ),

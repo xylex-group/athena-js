@@ -2243,14 +2243,45 @@ export interface AthenaSdkClient<TStrict extends boolean = false> {
   ): RpcQueryBuilder<Row, TStrict>
   query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
   verifyConnection(options?: AthenaGatewayConnectionOptions): Promise<AthenaGatewayConnectionResult>
+  withContext(context?: AthenaClientContextOptions): AthenaSdkClient<TStrict>
+  withSession(
+    session?: AthenaClientSessionLike | null,
+    options?: AthenaClientSessionOptions,
+  ): AthenaSdkClient<TStrict>
 }
 
 export interface AthenaSdkClientWithAuth<TStrict extends boolean = false> extends AthenaSdkClient<TStrict> {
   auth: AthenaAuthBindings
+  withContext(context?: AthenaClientContextOptions): AthenaSdkClientWithAuth<TStrict>
+  withSession(
+    session?: AthenaClientSessionLike | null,
+    options?: AthenaClientSessionOptions,
+  ): AthenaSdkClientWithAuth<TStrict>
+  withOptions(options?: AthenaClientOverrideOptions): AthenaSdkClientWithAuth<TStrict>
 }
 
 export interface AthenaSdkClientWithStorage<TStrict extends boolean = false> extends AthenaSdkClientWithAuth<TStrict> {
   storage: AthenaStorageModule
+  withContext(context?: AthenaClientContextOptions): AthenaSdkClientWithStorage<TStrict>
+  withSession(
+    session?: AthenaClientSessionLike | null,
+    options?: AthenaClientSessionOptions,
+  ): AthenaSdkClientWithStorage<TStrict>
+  withOptions(options?: AthenaClientOverrideOptions): AthenaSdkClientWithStorage<TStrict>
+}
+
+export interface AthenaHeaderBag {
+  get(name: string): string | null
+}
+
+export interface AthenaClientSessionLike {
+  user?: {
+    id?: string | null | undefined
+  } | null | undefined
+  session?: {
+    token?: string | null | undefined
+    activeOrganizationId?: string | null | undefined
+  } | null | undefined
 }
 
 export interface AthenaCreateClientServiceUrlConfig {
@@ -2258,15 +2289,20 @@ export interface AthenaCreateClientServiceUrlConfig {
 }
 
 export interface AthenaCreateClientAuthOptions
-  extends Omit<AthenaAuthClientConfig, 'baseUrl' | 'apiKey' | 'bearerToken'> {
+  extends Omit<AthenaAuthClientConfig, 'baseUrl' | 'apiKey' | 'bearerToken' | 'cookie' | 'sessionToken'> {
   url?: string | null | undefined
   baseUrl?: string | null | undefined
   apiKey?: string | null | undefined
   bearerToken?: string | null | undefined
+  cookie?: string | null | undefined
+  sessionToken?: string | null | undefined
 }
 
 export interface AthenaCreateClientOptions {
   client?: string | null | undefined
+  userId?: string | null | undefined
+  organizationId?: string | null | undefined
+  forceNoCache?: boolean
   headers?: Record<string, string>
   backend?: BackendConfig | BackendType
   db?: AthenaCreateClientServiceUrlConfig
@@ -2319,17 +2355,170 @@ export interface AthenaCreateClientConfigWithStorageAndTypecheckedColumns extend
   key: string | null | undefined
 }
 
+export interface AthenaClientOverrideOptions extends Omit<AthenaCreateClientOptions, 'experimental'> {
+  url?: string | null | undefined
+  key?: string | null | undefined
+}
+
+export interface AthenaClientContextOptions {
+  userId?: string | null | undefined
+  organizationId?: string | null | undefined
+  forceNoCache?: boolean
+  headers?: Record<string, string>
+  auth?: Omit<AthenaCreateClientAuthOptions, 'url' | 'baseUrl' | 'apiKey'>
+}
+
+export interface AthenaClientSessionOptions extends AthenaClientContextOptions {
+  requestHeaders?: AthenaHeaderBag | Record<string, string | null | undefined>
+}
+
+export interface AthenaClientFromEnvironmentOptions extends AthenaCreateClientOptions {
+  env?: Record<string, string | undefined>
+  url?: string | null | undefined
+  key?: string | null | undefined
+}
+
 /** Client config for builder */
 export interface AthenaClientConfig {
   baseUrl: string
   apiKey: string
   client?: string
+  userId?: string | null | undefined
+  organizationId?: string | null | undefined
+  forceNoCache?: boolean
   backend?: BackendConfig
   headers?: Record<string, string>
   auth?: AthenaCreateClientAuthOptions
   authUrl?: string
   storageUrl?: string
   experimental?: AthenaClientExperimentalOptions
+}
+
+const ATHENA_ENV_URL_KEYS = ['ATHENA_URL', 'NEXT_PUBLIC_ATHENA_URL'] as const
+const ATHENA_ENV_GATEWAY_URL_KEYS = [
+  'ATHENA_DB_URL',
+  'ATHENA_GATEWAY_URL',
+  'NEXT_PUBLIC_ATHENA_DB_API_URL',
+] as const
+const ATHENA_ENV_AUTH_URL_KEYS = ['ATHENA_AUTH_URL', 'NEXT_PUBLIC_ATHENA_AUTH_URL'] as const
+const ATHENA_ENV_STORAGE_URL_KEYS = ['ATHENA_STORAGE_URL', 'NEXT_PUBLIC_ATHENA_STORAGE_URL'] as const
+const ATHENA_ENV_KEY_KEYS = [
+  'ATHENA_API_KEY',
+  'NEXT_PUBLIC_ATHENA_API_KEY',
+  'ATHENA_GATEWAY_API_KEY',
+  'X_API_KEY',
+] as const
+const ATHENA_ENV_CLIENT_KEYS = ['ATHENA_CLIENT', 'NEXT_PUBLIC_ATHENA_CLIENT'] as const
+
+function normalizeOptionalString(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue ? normalizedValue : undefined
+}
+
+function readFirstEnvValue(
+  env: Record<string, string | undefined>,
+  keys: readonly string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = normalizeOptionalString(env[key])
+    if (value) {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function readHeaderBagValue(
+  headers: AthenaClientSessionOptions['requestHeaders'],
+  targetKey: string,
+): string | undefined {
+  if (!headers) {
+    return undefined
+  }
+
+  if (typeof (headers as AthenaHeaderBag).get === 'function') {
+    return normalizeOptionalString((headers as AthenaHeaderBag).get(targetKey))
+  }
+
+  const normalizedTargetKey = targetKey.toLowerCase()
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== normalizedTargetKey) {
+      continue
+    }
+
+    if (typeof value === 'string') {
+      return normalizeOptionalString(value)
+    }
+
+    return undefined
+  }
+
+  return undefined
+}
+
+function resolveSessionContextOptions(
+  session?: AthenaClientSessionLike | null,
+  options?: AthenaClientSessionOptions,
+): AthenaClientContextOptions | undefined {
+  const sessionToken = normalizeOptionalString(session?.session?.token)
+  const requestCookie =
+    readHeaderBagValue(options?.requestHeaders, 'cookie') ??
+    readHeaderBagValue(options?.headers, 'cookie')
+
+  const authInput = options?.auth
+  const resolvedUserId =
+    options?.userId !== undefined ? options.userId : session?.user?.id
+  const resolvedOrganizationId =
+    options?.organizationId !== undefined
+      ? options.organizationId
+      : session?.session?.activeOrganizationId
+  const resolvedBearerToken =
+    authInput?.bearerToken !== undefined ? authInput.bearerToken : sessionToken
+  const resolvedSessionToken =
+    authInput?.sessionToken !== undefined ? authInput.sessionToken : sessionToken
+  const resolvedCookie =
+    authInput?.cookie !== undefined ? authInput.cookie : requestCookie
+
+  const auth =
+    authInput !== undefined ||
+    resolvedBearerToken !== undefined ||
+    resolvedSessionToken !== undefined ||
+    resolvedCookie !== undefined
+      ? {
+          ...(authInput ?? {}),
+          ...(resolvedBearerToken !== undefined
+            ? { bearerToken: resolvedBearerToken }
+            : {}),
+          ...(resolvedSessionToken !== undefined
+            ? { sessionToken: resolvedSessionToken }
+            : {}),
+          ...(resolvedCookie !== undefined ? { cookie: resolvedCookie } : {}),
+          headers: authInput?.headers ? { ...authInput.headers } : undefined,
+        }
+      : undefined
+
+  if (
+    resolvedUserId === undefined &&
+    resolvedOrganizationId === undefined &&
+    options?.forceNoCache === undefined &&
+    !options?.headers &&
+    !auth
+  ) {
+    return undefined
+  }
+
+  return {
+    userId: resolvedUserId,
+    organizationId: resolvedOrganizationId,
+    forceNoCache: options?.forceNoCache,
+    headers: options?.headers ? { ...options.headers } : undefined,
+    auth,
+  }
 }
 
 function resolveClientServiceBaseUrl(
@@ -2402,6 +2591,119 @@ function resolveRequiredClientApiKey(value: string | null | undefined): string {
   return normalizedValue
 }
 
+function hasHeaderIgnoreCase(headers: Record<string, string>, targetKey: string): boolean {
+  const normalizedTargetKey = targetKey.toLowerCase()
+  return Object.keys(headers).some(key => key.toLowerCase() === normalizedTargetKey)
+}
+
+function mergeClientHeaders(
+  current: Record<string, string> | undefined,
+  next: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!current && !next) {
+    return undefined
+  }
+  return {
+    ...(current ?? {}),
+    ...(next ?? {}),
+  }
+}
+
+function mergeDefinedObject<T extends object>(
+  current: T | undefined,
+  next: Partial<T> | undefined,
+): T | undefined {
+  if (!current && !next) {
+    return undefined
+  }
+
+  const merged = {
+    ...(current ?? {}),
+  } as T
+  const mutableMerged = merged as Record<string, unknown>
+  for (const [key, value] of Object.entries(next ?? {})) {
+    if (value !== undefined) {
+      mutableMerged[key] = value
+    }
+  }
+  return merged
+}
+
+function mergeAuthClientOptions(
+  current: AthenaCreateClientAuthOptions | undefined,
+  next: AthenaCreateClientAuthOptions | undefined,
+): AthenaCreateClientAuthOptions | undefined {
+  const merged = mergeDefinedObject(current, next)
+  if (!merged) {
+    return undefined
+  }
+
+  const mergedHeaders = mergeClientHeaders(current?.headers, next?.headers)
+  if (mergedHeaders) {
+    merged.headers = mergedHeaders
+  }
+  return merged
+}
+
+function mergeServiceUrlOverrides(
+  current: AthenaCreateClientServiceUrlConfig | undefined,
+  next: AthenaCreateClientServiceUrlConfig | undefined,
+): AthenaCreateClientServiceUrlConfig | undefined {
+  return mergeDefinedObject(current, next)
+}
+
+function toClientContextOverrides(
+  context?: AthenaClientContextOptions,
+): AthenaClientOverrideOptions | undefined {
+  if (!context) {
+    return undefined
+  }
+
+  return {
+    userId: context.userId,
+    organizationId: context.organizationId,
+    forceNoCache: context.forceNoCache,
+    headers: context.headers,
+    auth: context.auth
+      ? {
+          ...context.auth,
+          headers: context.auth.headers ? { ...context.auth.headers } : undefined,
+        }
+      : undefined,
+  }
+}
+
+function mergeClientOverrideOptions(
+  base: AthenaCreateClientConfig,
+  overrides?: AthenaClientOverrideOptions,
+): AthenaCreateClientConfig {
+  if (!overrides) {
+    return {
+      ...base,
+      headers: base.headers ? { ...base.headers } : undefined,
+      auth: base.auth
+        ? {
+            ...base.auth,
+            headers: base.auth.headers ? { ...base.auth.headers } : undefined,
+          }
+        : undefined,
+      db: base.db ? { ...base.db } : undefined,
+      gateway: base.gateway ? { ...base.gateway } : undefined,
+      storage: base.storage ? { ...base.storage } : undefined,
+    }
+  }
+
+  const merged = mergeDefinedObject(base, overrides) ?? { ...base }
+  return {
+    ...merged,
+    headers: mergeClientHeaders(base.headers, overrides.headers),
+    auth: mergeAuthClientOptions(base.auth, overrides.auth),
+    db: mergeServiceUrlOverrides(base.db, overrides.db),
+    gateway: mergeServiceUrlOverrides(base.gateway, overrides.gateway),
+    storage: mergeServiceUrlOverrides(base.storage, overrides.storage),
+  }
+}
+
 function normalizeAuthClientConfig(
   auth: AthenaCreateClientAuthOptions | undefined,
   defaultBaseUrl?: string,
@@ -2415,6 +2717,8 @@ function normalizeAuthClientConfig(
     baseUrl,
     apiKey,
     bearerToken,
+    cookie,
+    sessionToken,
     ...rest
   } = auth ?? {}
   const normalized: AthenaAuthClientConfig = {
@@ -2434,6 +2738,12 @@ function normalizeAuthClientConfig(
   if (typeof bearerToken === 'string') {
     normalized.bearerToken = bearerToken
   }
+  if (typeof cookie === 'string') {
+    normalized.cookie = cookie
+  }
+  if (typeof sessionToken === 'string') {
+    normalized.sessionToken = sessionToken
+  }
 
   return normalized
 }
@@ -2452,6 +2762,9 @@ function resolveCreateClientConfig(
     baseUrl: resolvedUrls.dbUrl,
     apiKey: resolveRequiredClientApiKey(config.key),
     client: resolveOptionalClientName(config.client),
+    userId: config.userId,
+    organizationId: config.organizationId,
+    forceNoCache: config.forceNoCache,
     backend: toBackendConfig(config.backend),
     headers: config.headers,
     auth: config.auth,
@@ -2461,30 +2774,55 @@ function resolveCreateClientConfig(
   }
 }
 
+function createClientFromInput<TStrict extends boolean = false>(
+  sourceConfig: AthenaCreateClientConfig,
+): AthenaSdkClientWithAuth<TStrict> {
+  return createClientFromConfig(resolveCreateClientConfig(sourceConfig), sourceConfig)
+}
+
 function createClientFromConfig<TStrict extends boolean = false>(
   config: AthenaClientConfig,
+  sourceConfig: AthenaCreateClientConfig,
 ): AthenaSdkClientWithAuth<TStrict> {
+  const normalizedAuthConfig = normalizeAuthClientConfig(config.auth, config.authUrl)
   const gatewayHeaders: Record<string, string> = {
     ...(config.headers ?? {}),
   }
   if (
-    config.auth?.bearerToken &&
-    gatewayHeaders['X-Athena-Auth-Bearer-Token'] === undefined &&
-    gatewayHeaders['x-athena-auth-bearer-token'] === undefined
+    normalizedAuthConfig?.bearerToken &&
+    !hasHeaderIgnoreCase(gatewayHeaders, 'X-Athena-Auth-Bearer-Token')
   ) {
-    gatewayHeaders['X-Athena-Auth-Bearer-Token'] = config.auth.bearerToken
+    gatewayHeaders['X-Athena-Auth-Bearer-Token'] = normalizedAuthConfig.bearerToken
+  }
+  if (
+    normalizedAuthConfig?.cookie &&
+    !hasHeaderIgnoreCase(gatewayHeaders, 'Cookie')
+  ) {
+    gatewayHeaders.Cookie = normalizedAuthConfig.cookie
+  }
+  if (
+    normalizedAuthConfig?.sessionToken &&
+    !hasHeaderIgnoreCase(gatewayHeaders, 'X-Athena-Auth-Session-Token')
+  ) {
+    gatewayHeaders['X-Athena-Auth-Session-Token'] = normalizedAuthConfig.sessionToken
   }
 
   const gateway = createAthenaGatewayClient({
     baseUrl: config.baseUrl,
     apiKey: config.apiKey,
     client: config.client,
+    userId: config.userId,
+    organizationId: config.organizationId,
+    forceNoCache: config.forceNoCache,
     backend: config.backend,
     headers: gatewayHeaders,
   })
   const formatGatewayResult = createResultFormatter(config.experimental)
   const queryTracer = createQueryTracer(config.experimental)
-  const auth = createAuthClient(normalizeAuthClientConfig(config.auth, config.authUrl))
+  const auth = createAuthClient({
+    ...(normalizedAuthConfig ?? {}),
+    ...(config.forceNoCache ? { forceNoCache: true } : {}),
+  })
   function from<TModel extends AthenaModelTarget>(
     model: TModel,
   ): TableQueryBuilder<RowOf<TModel>, InsertOf<TModel>, UpdateOf<TModel>, unknown, TStrict>
@@ -2555,6 +2893,19 @@ function createClientFromConfig<TStrict extends boolean = false>(
     queryTracer,
   ) as AthenaSdkClient<TStrict>['query']
   const db = createDbModule({ from, rpc, query })
+  const withContext: AthenaSdkClientWithAuth<TStrict>['withContext'] = context =>
+    createClientFromInput<TStrict>(
+      mergeClientOverrideOptions(sourceConfig, toClientContextOverrides(context)),
+    )
+  const withSession: AthenaSdkClientWithAuth<TStrict>['withSession'] = (session, options) =>
+    createClientFromInput<TStrict>(
+      mergeClientOverrideOptions(
+        sourceConfig,
+        toClientContextOverrides(resolveSessionContextOptions(session, options)),
+      ),
+    )
+  const authWithOptions: AthenaSdkClientWithAuth<TStrict>['withOptions'] = options =>
+    createClientFromInput<TStrict>(mergeClientOverrideOptions(sourceConfig, options))
 
   const sdkClient: AthenaSdkClientWithAuth<TStrict> = {
     from,
@@ -2563,11 +2914,32 @@ function createClientFromConfig<TStrict extends boolean = false>(
     query,
     verifyConnection: gateway.verifyConnection,
     auth: auth.auth,
+    withContext,
+    withSession,
+    withOptions: authWithOptions,
   }
 
   if (config.experimental?.athenaStorageBackend) {
+    const storageWithContext: AthenaSdkClientWithStorage<TStrict>['withContext'] = context =>
+      createClientFromInput<TStrict>(
+        mergeClientOverrideOptions(sourceConfig, toClientContextOverrides(context)),
+      ) as AthenaSdkClientWithStorage<TStrict>
+    const storageWithSession: AthenaSdkClientWithStorage<TStrict>['withSession'] = (session, options) =>
+      createClientFromInput<TStrict>(
+        mergeClientOverrideOptions(
+          sourceConfig,
+          toClientContextOverrides(resolveSessionContextOptions(session, options)),
+        ),
+      ) as AthenaSdkClientWithStorage<TStrict>
+    const storageWithOptions: AthenaSdkClientWithStorage<TStrict>['withOptions'] = options =>
+      createClientFromInput<TStrict>(
+        mergeClientOverrideOptions(sourceConfig, options),
+      ) as AthenaSdkClientWithStorage<TStrict>
     const storageClient: AthenaSdkClientWithStorage<TStrict> = {
       ...sdkClient,
+      withContext: storageWithContext,
+      withSession: storageWithSession,
+      withOptions: storageWithOptions,
       storage: createStorageModule(gateway, {
         ...config.experimental.storage,
         ...(config.storageUrl
@@ -2624,33 +2996,42 @@ export interface AthenaClientBuilder<
 export class AthenaClient {
   /** Create a fluent builder for a strongly-typed Athena SDK client. */
   static builder(): AthenaClientBuilder<false, false> {
-    return createAthenaClientBuilder(config => createClientFromConfig(resolveCreateClientConfig(config)))
+    return createAthenaClientBuilder(config => createClientFromInput(config))
   }
 
   /** Build a client from process environment variables. */
-  static fromEnvironment(): AthenaSdkClientWithAuth<false> {
-    const url = process.env.ATHENA_URL
+  static fromEnvironment(
+    options: AthenaClientFromEnvironmentOptions = {},
+  ): AthenaSdkClientWithAuth<false> {
+    const env = options.env ?? process.env
+    const url = options.url ?? readFirstEnvValue(env, ATHENA_ENV_URL_KEYS)
     const gatewayUrl =
-      process.env.ATHENA_DB_URL ??
-      process.env.ATHENA_GATEWAY_URL
-    const authUrl = process.env.ATHENA_AUTH_URL
-    const storageUrl = process.env.ATHENA_STORAGE_URL
-    const key =
-      process.env.ATHENA_API_KEY ??
-      process.env.ATHENA_GATEWAY_API_KEY
+      options.gatewayUrl ?? readFirstEnvValue(env, ATHENA_ENV_GATEWAY_URL_KEYS)
+    const authUrl =
+      options.authUrl ?? readFirstEnvValue(env, ATHENA_ENV_AUTH_URL_KEYS)
+    const storageUrl =
+      options.storageUrl ?? readFirstEnvValue(env, ATHENA_ENV_STORAGE_URL_KEYS)
+    const key = options.key ?? readFirstEnvValue(env, ATHENA_ENV_KEY_KEYS)
+    const client =
+      options.client ?? readFirstEnvValue(env, ATHENA_ENV_CLIENT_KEYS)
 
     if ((!url && !gatewayUrl) || !key) {
       throw new Error(
-        'ATHENA_API_KEY plus ATHENA_URL or ATHENA_GATEWAY_URL (optionally ATHENA_DB_URL, ATHENA_AUTH_URL, ATHENA_STORAGE_URL) are required',
+        'AthenaClient.fromEnvironment() requires an API key plus a public or gateway URL. Supported aliases include ATHENA_API_KEY, NEXT_PUBLIC_ATHENA_API_KEY, ATHENA_GATEWAY_API_KEY, X_API_KEY, ATHENA_URL, NEXT_PUBLIC_ATHENA_URL, ATHENA_GATEWAY_URL, and ATHENA_DB_URL.',
       )
     }
 
+    const { env: _env, ...clientOptions } = options
+    void _env
+
     return createClient({
+      ...clientOptions,
       url,
       gatewayUrl,
       authUrl,
       storageUrl,
       key,
+      client,
     })
   }
 }
@@ -2694,12 +3075,12 @@ export function createClient(
   options?: AthenaCreateClientOptions,
 ): AthenaSdkClientWithAuth<false> {
   if (typeof configOrUrl === 'string' || configOrUrl === null || configOrUrl === undefined) {
-    return createClientFromConfig(resolveCreateClientConfig({
+    return createClientFromInput({
       url: configOrUrl,
       key: apiKey ?? '',
       ...options,
-    }))
+    })
   }
 
-  return createClientFromConfig(resolveCreateClientConfig(configOrUrl))
+  return createClientFromInput(configOrUrl)
 }

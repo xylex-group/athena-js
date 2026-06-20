@@ -31,7 +31,7 @@ If you only do one thing first, do item 1.
 Treat your contracts in this order:
 
 1. database reality (tables, keys, nullability)
-2. model contract (`defineModel<Row, Insert, Update>`)
+2. model contract (`table(...).schema(...).columns(...).primaryKey(...)` preferred, `defineModel<Row, Insert, Update>` deprecated compatibility)
 3. service-boundary validators (for example Zod)
 4. UI form state
 5. runtime call payload
@@ -227,7 +227,7 @@ This keeps tenancy behavior consistent and testable.
 
 ### Phase 1: Contract introduction
 
-- add `defineModel` for high-value entities
+- add `table(...)` model contracts for high-value entities, or keep `defineModel(...)` only when a legacy compatibility seam still requires it
 - define explicit `Insert`/`Update`
 
 ### Phase 2: Typed runtime adoption

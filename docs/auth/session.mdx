@@ -3,6 +3,7 @@
 ## Endpoints and methods
 
 - `auth.getSession()` -> `GET /get-session`
+- `auth.requireSession()` -> `GET /get-session` + typed guard result
 - `auth.signOut()` -> `POST /sign-out`
 - `auth.session.list()` -> `GET /list-sessions`
 - `auth.session.revoke()` -> `POST /revoke-session` or `POST /revoke-sessions` (payload-shape dependent)
@@ -14,6 +15,7 @@
 import { client } from "./auth-client"
 
 const session = await client.auth.getSession()
+const requiredSession = await client.auth.requireSession()
 const signOut = await client.auth.signOut()
 
 const sessions = await client.auth.session.list()
@@ -34,4 +36,12 @@ await client.auth.session.revoke([
 await client.auth.session.revoke({ tokens: ["session_token_5", "session_token_6"] })
 
 const revokeOther = await client.auth.session.revokeOther()
+```
+
+`requireSession()` is the small route-handler-friendly helper. It resolves the current session and normalizes missing-session cases into:
+
+```ts
+type AthenaAuthGuardResult =
+  | { ok: true; session: { session: AthenaAuthSession; user: AthenaAuthUser } }
+  | { ok: false; reason: "unauthorized" | "forbidden" | "upstream_error"; status: number; error: string }
 ```

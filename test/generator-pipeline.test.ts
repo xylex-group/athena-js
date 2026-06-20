@@ -171,12 +171,13 @@ test('runSchemaGenerator loads athena.config.ts and writes generated artifacts',
     assert.equal(result.files.length, 4)
     assert.equal(result.writtenFiles.length, 4)
     assert.deepEqual(result.skippedFiles, [])
-    assert.equal(result.config.output.format, 'define-model')
+    assert.equal(result.config.output.preset, 'athena-direct')
+    assert.equal(result.config.output.format, 'table-builder')
 
     const modelPath = join(root, 'src', 'generated', 'phase-two', 'public', 'users.model.ts')
     const content = readFileSync(modelPath, 'utf8')
-    assert.equal(content.includes('export interface PublicUsersRow'), true)
-    assert.equal(content.includes('email: string'), true)
+    assert.equal(content.includes("export const users = table('users')"), true)
+    assert.equal(content.includes("email: string()"), true)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -218,6 +219,7 @@ test('runSchemaGenerator supports table-builder output format', async () => {
 
     assert.equal(result.files.length, 4)
     assert.deepEqual(result.skippedFiles, [])
+    assert.equal(result.config.output.preset, 'athena-direct')
     assert.equal(result.config.output.format, 'table-builder')
     const modelFile = result.files.find(file => file.kind === 'model')
     const registryFile = result.files.find(file => file.kind === 'registry')
@@ -237,18 +239,15 @@ test('runSchemaGenerator works without a config file when environment defaults a
   const root = mkdtempSync(join(tmpdir(), 'athena-generator-env-only-run-'))
   const previousValues = new Map<string, string | undefined>([
     ['DATABASE_URL', process.env.DATABASE_URL],
-    ['ATHENA_GENERATOR_OUTPUT_FORMAT', process.env.ATHENA_GENERATOR_OUTPUT_FORMAT],
   ])
 
   delete process.env.DATABASE_URL
-  delete process.env.ATHENA_GENERATOR_OUTPUT_FORMAT
 
   try {
     writeFileSync(
       join(root, '.env.local'),
       [
         'DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/phase_two',
-        'ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder',
       ].join('\n'),
       'utf8',
     )
@@ -260,6 +259,7 @@ test('runSchemaGenerator works without a config file when environment defaults a
     })
 
     assert.equal(result.configPath, '[environment defaults]')
+    assert.equal(result.config.output.preset, 'athena-direct')
     assert.equal(result.files.length, 4)
     assert.equal(result.config.output.format, 'table-builder')
     const modelFile = result.files.find(file => file.kind === 'model')
@@ -370,7 +370,7 @@ test('runSchemaGenerator can operate in gateway-only mode without direct pg_url 
 
     const modelPath = join(root, 'src', 'generated', 'phase-two', 'public', 'users.model.ts')
     const content = readFileSync(modelPath, 'utf8')
-    assert.equal(content.includes('export interface PublicUsersRow'), true)
+    assert.equal(content.includes("export const users = table('users')"), true)
   } finally {
     restore()
     rmSync(root, { recursive: true, force: true })
@@ -428,7 +428,7 @@ test('runSchemaGenerator does not overwrite existing database/registry files but
     const databaseContent = readFileSync(databasePath, 'utf8')
     const registryContent = readFileSync(registryPath, 'utf8')
 
-    assert.equal(modelContent.includes('export interface PublicUsersRow'), true)
+    assert.equal(modelContent.includes("export const users = table('users')"), true)
     assert.equal(schemaContent.includes('defineSchema({'), true)
     assert.equal(databaseContent, '// keep custom database content\n')
     assert.equal(registryContent, '// keep custom registry content\n')
@@ -521,6 +521,7 @@ test('runSchemaGenerator can filter generated tables down to a smaller surface',
 
     const modelPaths = result.files.filter(file => file.kind === 'model').map(file => file.path)
     assert.deepEqual(modelPaths, ['athena/models/public/users.ts'])
+    assert.equal(result.config.output.preset, 'athena-direct')
     assert.deepEqual(Object.keys(result.snapshot.schemas.public.tables), ['users'])
     assert.equal(result.config.output.targets.registry, 'athena/registry.generated.ts')
   } finally {

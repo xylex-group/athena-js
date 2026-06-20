@@ -227,9 +227,61 @@ const envConfiguredObjectClient = createClient({
 })
 const builderDropIn: ReturnType<typeof createClient> = fluentBuilderClient
 const publicBaseDropIn: ReturnType<typeof createClient> = publicBaseClient
+const sessionLike = {
+  user: { id: envString },
+  session: {
+    token: envString,
+    activeOrganizationId: envString,
+  },
+}
+const overriddenClient = publicBaseClient.withOptions({
+  client: 'override-client',
+  headers: { 'X-App-Source': 'browser' },
+  auth: {
+    baseUrl: 'https://auth.override.example.com/api/auth',
+  },
+})
+const envOverrideClient = publicBaseClient.withOptions({
+  url: envString,
+  key: envString,
+  client: envString,
+  forceNoCache: true,
+  auth: {
+    baseUrl: envString,
+    bearerToken: envString,
+  },
+})
+const contextClient = publicBaseClient.withContext({
+  userId: envString,
+  organizationId: envString,
+  forceNoCache: true,
+  headers: { 'X-Request-Id': 'req_1' },
+  auth: {
+    bearerToken: envString,
+    cookie: envString,
+    sessionToken: envString,
+  },
+})
+const sessionClient = publicBaseClient.withSession(sessionLike, {
+  requestHeaders: new Headers({
+    cookie: 'athena-auth.session_token=session_1',
+  }),
+  forceNoCache: true,
+})
+const envBootstrapClient = AthenaClient.fromEnvironment({
+  auth: {
+    baseUrl: envString,
+  },
+  client: envString,
+})
 acceptsCreateClientCompatible(publicBaseDropIn)
 acceptsCreateClientCompatible(envConfiguredClient)
 acceptsCreateClientCompatible(envConfiguredObjectClient)
+acceptsCreateClientCompatible(overriddenClient)
+acceptsCreateClientCompatible(envOverrideClient)
+acceptsCreateClientCompatible(contextClient)
+acceptsCreateClientCompatible(sessionClient)
+acceptsCreateClientCompatible(envBootstrapClient)
 const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     debugAst: true,
@@ -286,6 +338,21 @@ const experimentalStorageOptionsBuilderClient = AthenaClient.builder()
     },
   })
   .build()
+const strictOverrideClient = strictColumnsClient.withOptions({
+  forceNoCache: true,
+  headers: { 'X-Strict-Context': '1' },
+})
+const strictContextClient = strictColumnsClient.withContext({
+  organizationId: 'org_1',
+})
+const strictSessionClient = strictColumnsClient.withSession(sessionLike)
+const overriddenStorageClient = experimentalStorageClient.withOptions({
+  headers: { 'X-Storage-Context': '1' },
+})
+const contextStorageClient = experimentalStorageClient.withContext({
+  organizationId: 'org_1',
+})
+const sessionStorageClient = experimentalStorageClient.withSession(sessionLike)
 const legacyOverrideBuilderClient = AthenaClient.builder()
   .key('api-key')
   .options({
@@ -308,6 +375,9 @@ acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-d
 acceptsStorageModule(experimentalStorageClient.storage)
 acceptsStorageModule(experimentalStorageBuilderClient.storage)
 acceptsStorageModule(experimentalStorageOptionsBuilderClient.storage)
+acceptsStorageModule(overriddenStorageClient.storage)
+acceptsStorageModule(contextStorageClient.storage)
+acceptsStorageModule(sessionStorageClient.storage)
 acceptsStorageModule(legacyOverrideBuilderClient.storage)
 acceptsStorageFileAccessPurpose('stream')
 acceptsStorageErrorHandler(error => {
@@ -568,6 +638,9 @@ const strictUsers = strictColumnsClient.from<UserRow>('users')
 strictUsers.select('id, name')
 strictUsers.select(['id', 'name'])
 strictUsers.select('id,athena.user(id)')
+strictOverrideClient.from<UserRow>('users').select('id, name')
+strictContextClient.from<UserRow>('users').select('id, name')
+strictSessionClient.from<UserRow>('users').select('id, name')
 strictUsers.single('id')
 strictUsers.maybeSingle('id')
 strictColumnsClient.db.select<UserRow>('users').single('id,name')
@@ -576,6 +649,12 @@ strictColumnsBuilderClient.rpc<UserRow>('list_users').eq('id', '1').order('name'
 
 // @ts-expect-error strict simple select should reject unknown columns
 strictUsers.select('missing_column')
+// @ts-expect-error strict withOptions client should reject unknown columns
+strictOverrideClient.from<UserRow>('users').select('missing_column')
+// @ts-expect-error strict withContext client should reject unknown columns
+strictContextClient.from<UserRow>('users').select('missing_column')
+// @ts-expect-error strict withSession client should reject unknown columns
+strictSessionClient.from<UserRow>('users').select('missing_column')
 // @ts-expect-error strict simple select lists should reject unknown columns
 strictUsers.select('id, missing_column')
 // @ts-expect-error strict array selects should reject unknown columns
@@ -1036,6 +1115,13 @@ const typedClient = createTypedClient(typedRegistry, 'https://athena-db.com', 'a
     organizationId: 'X-Organization-Id',
   },
 })
+const typedContextClient = typedClient.withContext({
+  organizationId: 'org_1',
+  headers: {
+    'X-Request-Id': 'req_1',
+  },
+})
+const typedSessionClient = typedClient.withSession(sessionLike)
 
 typedClient
   .withTenantContext({ organizationId: 'org_1' })
@@ -1056,6 +1142,14 @@ typedClient
   .fromModel('primary', 'public', 'organizations')
   .update({ owner_user_id: 'user_2' })
   .eq('slug', 'org-slug')
+  .select('id,slug')
+
+typedContextClient
+  .fromModel('primary', 'public', 'organizations')
+  .select('id,slug')
+
+typedSessionClient
+  .fromModel('primary', 'public', 'organizations')
   .select('id,slug')
 
 declare function acceptsOrganizationFindManyPromise(

@@ -97,6 +97,189 @@ test('createClient exposes auth namespace and routes auth calls to configured au
   }
 })
 
+test('createClient auth config binds auth context defaults onto client.auth requests', async () => {
+  const { calls, restore } = mockFetch({ success: true })
+  try {
+    const client = createClient('https://gateway.example.com', 'gateway-key', {
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+        bearerToken: 'bearer-default',
+        cookie: 'athena-auth.session_token=session-default; theme=dark',
+        sessionToken: 'session-default',
+        credentials: 'include',
+      },
+    })
+
+    const result = await client.auth.admin.hasPermission({
+      permissions: ['admin:read'],
+    })
+
+    assert.equal(result.ok, true)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/admin/has-permission')
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers.Authorization, 'Bearer bearer-default')
+    assert.equal(headers.Cookie, 'athena-auth.session_token=session-default; theme=dark')
+    assert.equal(headers['X-Athena-Auth-Session-Token'], 'session-default')
+    assert.equal(calls[0].init?.credentials, 'include')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.requireSession resolves the current session into a typed guard result', async () => {
+  const { calls, restore } = mockFetch({
+    session: { id: 's_guard', token: 'token_guard' },
+    user: { id: 'u_guard', email: 'guard@example.com' },
+  })
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const result = await client.auth.requireSession()
+
+    assert.deepEqual(result, {
+      ok: true,
+      session: {
+        session: { id: 's_guard', token: 'token_guard' },
+        user: { id: 'u_guard', email: 'guard@example.com' },
+      },
+    })
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+  } finally {
+    restore()
+  }
+})
+
+test('auth.admin.requirePermission resolves session and permission in one guard call', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (String(url).endsWith('/get-session')) {
+      return new Response(JSON.stringify({
+        session: { id: 's_admin', token: 'token_admin' },
+        user: { id: 'u_admin', email: 'admin@example.com' },
+      }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ success: true }), { status: 200 })
+  }
+
+  try {
+    const client = createClient('https://gateway.example.com', 'gateway-key', {
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+        cookie: 'athena-auth.session_token=token_admin',
+        credentials: 'include',
+      },
+    })
+    const result = await client.auth.admin.requirePermission({
+      permissions: ['admin:read'],
+    })
+
+    assert.deepEqual(result, {
+      ok: true,
+      session: {
+        session: { id: 's_admin', token: 'token_admin' },
+        user: { id: 'u_admin', email: 'admin@example.com' },
+      },
+    })
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/admin/has-permission')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('auth.admin.requirePermission returns unauthorized when no current session is present', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const result = await client.auth.admin.requirePermission({
+      permissions: ['admin:read'],
+    })
+
+    assert.equal(result.ok, false)
+    if (result.ok) {
+      throw new Error('expected unauthorized guard result')
+    }
+    assert.equal(result.reason, 'unauthorized')
+    assert.equal(result.status, 401)
+    assert.equal(result.error, 'Unauthorized')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('auth.admin.requirePermission returns forbidden when permission check denies access', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (String(url).endsWith('/get-session')) {
+      return new Response(JSON.stringify({
+        session: { id: 's_forbidden', token: 'token_forbidden' },
+        user: { id: 'u_forbidden', email: 'forbidden@example.com' },
+      }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ success: false, error: 'Forbidden' }), { status: 200 })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const result = await client.auth.admin.requirePermission({
+      permissions: ['admin:read'],
+    })
+
+    assert.equal(result.ok, false)
+    if (result.ok) {
+      throw new Error('expected forbidden guard result')
+    }
+    assert.equal(result.reason, 'forbidden')
+    assert.equal(result.status, 403)
+    assert.equal(result.error, 'Forbidden')
+    assert.equal(calls.length, 2)
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/admin/has-permission')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('auth.organization.requirePermission targets the organization permission route', async () => {
+  const original = globalThis.fetch
+  const calls: Captured[] = []
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (String(url).endsWith('/get-session')) {
+      return new Response(JSON.stringify({
+        session: { id: 's_org', token: 'token_org' },
+        user: { id: 'u_org', email: 'org@example.com' },
+      }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ success: true }), { status: 200 })
+  }
+
+  try {
+    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth' })
+    const result = await client.auth.organization.requirePermission({
+      permissions: ['org:manage'],
+    })
+
+    assert.equal(result.ok, true)
+    assert.equal(calls.length, 2)
+    assert.equal(calls[1].url, 'https://auth.example.com/api/auth/organization/has-permission')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
 test('auth requests include the package sdk version header', async () => {
   const { calls, restore } = mockFetch({
     session: { id: 's_1' },
@@ -347,18 +530,27 @@ test('generic request infers methods safely and supports query', async () => {
 test('supports fetchOptions compatibility input and call overrides', async () => {
   const { calls, restore } = mockFetch({ redirect: false, token: 't', user: { id: 'u', email: 'u@x.com' } })
   try {
-    const client = createAuthClient({ baseUrl: 'https://auth.example.com/api/auth', apiKey: 'config-key' })
+    const client = createAuthClient({
+      baseUrl: 'https://auth.example.com/api/auth',
+      apiKey: 'config-key',
+      cookie: 'config_cookie=1',
+      sessionToken: 'config-session',
+    })
     await client.signIn.email(
       {
         email: 'u@x.com',
         password: 'secret',
         fetchOptions: {
           bearerToken: 'fetch-token',
+          cookie: 'fetch_cookie=1',
+          sessionToken: 'fetch-session',
           headers: { 'X-Fetch-Only': 'yes' },
         },
       },
       {
         bearerToken: 'call-token',
+        cookie: 'call_cookie=1',
+        sessionToken: 'call-session',
         headers: { 'X-Call-Only': 'yes' },
         credentials: 'omit',
       },
@@ -366,6 +558,8 @@ test('supports fetchOptions compatibility input and call overrides', async () =>
 
     const headers = calls[0].init?.headers as Record<string, string>
     assert.equal(headers.Authorization, 'Bearer call-token')
+    assert.equal(headers.Cookie, 'call_cookie=1')
+    assert.equal(headers['X-Athena-Auth-Session-Token'], 'call-session')
     assert.equal(headers.apikey, 'config-key')
     assert.equal(headers['x-api-key'], 'config-key')
     assert.equal(headers['X-Fetch-Only'], 'yes')

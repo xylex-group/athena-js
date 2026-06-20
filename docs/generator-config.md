@@ -126,12 +126,12 @@ export default defineGeneratorConfig({
     format: generatorEnv.oneOf(
       "ATHENA_GENERATOR_OUTPUT_FORMAT",
       ["define-model", "table-builder"] as const,
-      { default: "define-model" },
+      { default: "table-builder" },
     ),
     preset: generatorEnv.oneOf(
       "ATHENA_GENERATOR_OUTPUT_PRESET",
       ["legacy", "athena-direct"] as const,
-      { default: "legacy" },
+      { default: "athena-direct" },
     ),
     targets: {
       model: generatorEnv("ATHENA_GENERATOR_MODEL_TARGET", {
@@ -144,7 +144,7 @@ export default defineGeneratorConfig({
         default: "athena/relations.ts",
       }),
       registry: generatorEnv("ATHENA_GENERATOR_REGISTRY_TARGET", {
-        default: "athena/config.ts",
+        default: "athena/registry.generated.ts",
       }),
     },
     placeholderMap: generatorEnv.json("ATHENA_GENERATOR_PLACEHOLDER_MAP", {
@@ -225,12 +225,12 @@ export default defineGeneratorConfig({
     format: generatorEnv.oneOf(
       "ATHENA_GENERATOR_OUTPUT_FORMAT",
       ["define-model", "table-builder"] as const,
-      { default: "define-model" },
+      { default: "table-builder" },
     ),
     preset: generatorEnv.oneOf(
       "ATHENA_GENERATOR_OUTPUT_PRESET",
       ["legacy", "athena-direct"] as const,
-      { default: "legacy" },
+      { default: "athena-direct" },
     ),
     targets: {
       model: generatorEnv("ATHENA_GENERATOR_MODEL_TARGET", {
@@ -238,7 +238,7 @@ export default defineGeneratorConfig({
       }),
       schema: "athena/schemas/{schema_kebab}.ts",
       database: "athena/relations.ts",
-      registry: "athena/config.ts",
+      registry: "athena/registry.generated.ts",
     },
     placeholderMap: generatorEnv.json("ATHENA_GENERATOR_PLACEHOLDER_MAP", {
       default: { namespace: "{database_kebab}/{schema_kebab}" },
@@ -356,19 +356,20 @@ interface GeneratorOutputTargets {
 
 ### Defaults
 
-- `format`: `"define-model"`
+- `format`: `"table-builder"`
+- `preset`: `"athena-direct"`
 - `model`: `athena/models/{schema_kebab}/{model_kebab}.ts`
 - `schema`: `athena/schemas/{schema_kebab}.ts`
 - `database`: `athena/relations.ts`
-- `registry`: `athena/config.ts` (legacy compatibility default)
+- `registry`: `athena/registry.generated.ts`
 
 The defaults include the schema name in model and schema paths so `public.users`
 and `athena.users` can be generated in the same run without path collisions.
 
 Important:
 
-- the legacy registry default is preserved for additive compatibility
-- if `athena/config.ts` is a handwritten runtime/auth seam in your app, prefer `output.preset = "athena-direct"` or `output.targets.registry = "athena/registry.generated.ts"`
+- the safe direct preset is now the default
+- opt into `output.preset = "legacy"` only when you intentionally want registry output on `athena/config.ts`
 - current CLI dry-runs warn when registry output still points at `athena/config.ts`
 
 ### `output.preset`
@@ -376,8 +377,8 @@ Important:
 Use `output.preset` to start from a known target layout before applying any
 explicit `output.targets` overrides:
 
-- `"legacy"`: preserves the current compatibility defaults, including `registry: "athena/config.ts"`
-- `"athena-direct"`: keeps models and schema assemblies in `athena/*` but moves registry output to `athena/registry.generated.ts`
+- `"legacy"`: compatibility mode that keeps registry output on `athena/config.ts`
+- `"athena-direct"`: default safe direct layout that keeps models and schema assemblies in `athena/*` and writes registry output to `athena/registry.generated.ts`
 
 Recommended safe direct layout:
 
@@ -405,10 +406,10 @@ the conflicting files back under schema folders.
 
 Use `output.format` to choose the model artifact style:
 
-- `"define-model"`: emits legacy `defineModel<...>` files
+- `"define-model"`: emits legacy deprecated `defineModel<...>` files
 - `"table-builder"`: emits Zero-style `table(...).columns(...).primaryKey(...)` files with exported Zod schemas
 
-`"table-builder"` is stable generator output. It does not require an
+`"table-builder"` is now the default and is stable generator output. It does not require an
 experimental flag. The runtime-only client flag `experimental.findManyAst`
 controls `findMany(...)` transport behavior and is unrelated to generated model
 artifacts.
@@ -577,7 +578,7 @@ Defaults:
 
 Artifact types:
 
-- `model`: row/interfaces + `defineModel`
+- `model`: table-builder contracts by default, or legacy row/interfaces + deprecated `defineModel` when `output.format = "define-model"`
 - `schema`: `defineSchema` object
 - `database`: `defineDatabase` object
 - `registry`: `defineRegistry` object (`features.emitRegistry` must be true)

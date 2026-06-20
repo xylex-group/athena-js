@@ -79,6 +79,7 @@ export interface GeneratorOutputConfig {
  */
 export interface NormalizedGeneratorOutputConfig {
   format: GeneratorOutputFormat
+  preset: GeneratorOutputPreset
   targets: GeneratorOutputTargets
   placeholderMap: Record<string, string>
 }

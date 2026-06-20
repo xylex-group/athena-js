@@ -170,6 +170,89 @@ test('typed client preserves existing tenant context and applies incremental con
   }
 })
 
+test('typed client withContext forwards request-scoped headers and cache directives', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createTypedClient(registry, 'https://athena-db.com', 'secret', {
+      tenantKeyMap: {
+        workspaceId: 'X-Workspace-Id',
+      },
+      tenantContext: {
+        workspaceId: 'workspace-default',
+      },
+      headers: {
+        'X-App-Source': 'typed-test',
+      },
+    })
+
+    await client
+      .withContext({
+        userId: 'user-1',
+        organizationId: 'org-1',
+        forceNoCache: true,
+        headers: {
+          'X-Request-Id': 'req-1',
+        },
+      })
+      .fromModel('app_db', 'public', 'users')
+      .select('*')
+
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers['X-App-Source'], 'typed-test')
+    assert.equal(headers['X-Request-Id'], 'req-1')
+    assert.equal(headers['X-User-Id'], 'user-1')
+    assert.equal(headers['X-Organization-Id'], 'org-1')
+    assert.equal(headers['X-Workspace-Id'], 'workspace-default')
+    assert.equal(headers['Cache-Control'], 'no-cache')
+  } finally {
+    restore()
+  }
+})
+
+test('typed client withSession derives request-scoped context from session and cookies', async () => {
+  const { calls, restore } = mockFetch()
+  try {
+    const client = createTypedClient(registry, 'https://athena-db.com', 'secret', {
+      tenantKeyMap: {
+        workspaceId: 'X-Workspace-Id',
+      },
+      tenantContext: {
+        workspaceId: 'workspace-default',
+      },
+    })
+
+    await client
+      .withSession(
+        {
+          user: { id: 'user-2' },
+          session: {
+            token: 'session-token-2',
+            activeOrganizationId: 'org-2',
+          },
+        },
+        {
+          requestHeaders: new Headers({
+            cookie: 'athena-auth.session_token=session-token-2; theme=dark',
+          }),
+          forceNoCache: true,
+        },
+      )
+      .fromModel('app_db', 'public', 'users')
+      .select('*')
+
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers['X-User-Id'], 'user-2')
+    assert.equal(headers['X-Organization-Id'], 'org-2')
+    assert.equal(headers['X-Workspace-Id'], 'workspace-default')
+    assert.equal(headers['X-Athena-Auth-Bearer-Token'], 'session-token-2')
+    assert.equal(headers['X-Athena-Auth-Session-Token'], 'session-token-2')
+    assert.equal(headers.Cookie, 'athena-auth.session_token=session-token-2; theme=dark')
+    assert.equal(headers['Cache-Control'], 'no-cache')
+  } finally {
+    restore()
+  }
+})
+
 test('typed client uses explicit tableName override when provided', async () => {
   const { calls, restore } = mockFetch()
   try {

@@ -157,6 +157,7 @@ interface AthenaTableColumnsBuilder<
   schema<TNextSchemaName extends string>(
     schemaName: TNextSchemaName,
   ): AthenaTableColumnsBuilder<TName, TMappedName, TNextSchemaName, TColumns>
+  primaryKey(): AthenaTableDef<TColumns, TName, TMappedName, TSchemaName>
   primaryKey<
     TPrimaryKey extends readonly [
       Extract<keyof TColumns, string>,
@@ -273,7 +274,7 @@ function finalizeTable<
   mappedName: TMappedName,
   schemaName: TSchemaName,
   columns: TColumns,
-  primaryKey: readonly [Extract<keyof TColumns, string>, ...Array<Extract<keyof TColumns, string>>],
+  primaryKey: ReadonlyArray<Extract<keyof TColumns, string>>,
 ): AthenaTableDef<TColumns, TName, TMappedName, TSchemaName> {
   const target = resolveTableTarget(name, mappedName, schemaName)
   const model = defineModel<
@@ -336,7 +337,7 @@ function createColumnsBuilder<
       resolveTableTarget(name, mappedName, normalizedSchemaName)
       return createColumnsBuilder(name, mappedName, normalizedSchemaName as TNextSchemaName, columns)
     },
-    primaryKey(...keys) {
+    primaryKey(...keys: Array<Extract<keyof TColumns, string>>) {
       return finalizeTable(name, mappedName, schemaName, columns, keys)
     },
   }

@@ -195,6 +195,7 @@ export interface AthenaGatewayBaseOptions {
   client?: string
   backend?: BackendOption
   publishEvent?: string
+  forceNoCache?: boolean
   headers?: Record<string, string>
   userId?: string | null
   organizationId?: string | null

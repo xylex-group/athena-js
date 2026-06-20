@@ -124,10 +124,14 @@ athena-js generate --help
 
 `athena-js generate --dry-run` now prints:
 
+- the active `output.preset`
 - the active `output.format`
+- the resolved provider mode/database/schema selection
 - the resolved `model`, `schema`, `database`, and `registry` targets
 - a warning when registry output still points at `athena/config.ts`
 - the generated file list
+
+The default generator mode is `preset=athena-direct` plus `format=table-builder`. `legacy` and `define-model` are compatibility-only when explicitly selected.
 
 Normal write mode also prints protected skip lines when existing `database` or
 `registry` artifacts are preserved instead of overwritten.

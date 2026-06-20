@@ -78,10 +78,11 @@ test('loadGeneratorConfig applies athena folder defaults when output targets are
     )
 
     const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.config.output.preset, 'athena-direct')
     assert.equal(loaded.config.output.targets.model, 'athena/models/{schema_kebab}/{model_kebab}.ts')
     assert.equal(loaded.config.output.targets.schema, 'athena/schemas/{schema_kebab}.ts')
     assert.equal(loaded.config.output.targets.database, 'athena/relations.ts')
-    assert.equal(loaded.config.output.targets.registry, 'athena/config.ts')
+    assert.equal(loaded.config.output.targets.registry, 'athena/registry.generated.ts')
     assert.deepEqual(loaded.config.filter, {
       includeTables: [],
       excludeTables: [],
@@ -115,6 +116,8 @@ test('loadGeneratorConfig supports the athena-direct output preset', async () =>
     )
 
     const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.config.output.preset, 'athena-direct')
+    assert.equal(loaded.config.output.format, 'table-builder')
     assert.equal(loaded.config.output.targets.model, 'athena/models/{schema_kebab}/{model_kebab}.ts')
     assert.equal(loaded.config.output.targets.schema, 'athena/schemas/{schema_kebab}.ts')
     assert.equal(loaded.config.output.targets.database, 'athena/relations.ts')
@@ -142,6 +145,8 @@ test('loadGeneratorConfig supports provider-only config files with default outpu
     )
 
     const loaded = await loadGeneratorConfig({ cwd: root })
+    assert.equal(loaded.config.output.preset, 'athena-direct')
+    assert.equal(loaded.config.output.format, 'table-builder')
     assert.equal(loaded.config.output.targets.model, 'athena/models/{schema_kebab}/{model_kebab}.ts')
     if (loaded.config.provider.kind !== 'postgres' || loaded.config.provider.mode !== 'direct') {
       throw new Error('Expected direct postgres provider.')
@@ -223,15 +228,11 @@ test('loadGeneratorConfig builds a direct postgres config from environment when 
   const root = mkdtempSync(join(tmpdir(), 'athena-generator-env-only-direct-'))
   const previousValues = new Map<string, string | undefined>([
     ['DATABASE_URL', process.env.DATABASE_URL],
-    ['ATHENA_GENERATOR_OUTPUT_FORMAT', process.env.ATHENA_GENERATOR_OUTPUT_FORMAT],
-    ['ATHENA_GENERATOR_OUTPUT_PRESET', process.env.ATHENA_GENERATOR_OUTPUT_PRESET],
     ['ATHENA_GENERATOR_MODEL_TYPE', process.env.ATHENA_GENERATOR_MODEL_TYPE],
     ['ATHENA_GENERATOR_TABLES', process.env.ATHENA_GENERATOR_TABLES],
   ])
 
   delete process.env.DATABASE_URL
-  delete process.env.ATHENA_GENERATOR_OUTPUT_FORMAT
-  delete process.env.ATHENA_GENERATOR_OUTPUT_PRESET
   delete process.env.ATHENA_GENERATOR_MODEL_TYPE
   delete process.env.ATHENA_GENERATOR_TABLES
 
@@ -240,8 +241,6 @@ test('loadGeneratorConfig builds a direct postgres config from environment when 
       join(root, '.env.local'),
       [
         'DATABASE_URL=postgres://postgres:from_env@127.0.0.1:5432/env_only_db',
-        'ATHENA_GENERATOR_OUTPUT_FORMAT=table-builder',
-        'ATHENA_GENERATOR_OUTPUT_PRESET=athena-direct',
         'ATHENA_GENERATOR_MODEL_TYPE=snake',
         'ATHENA_GENERATOR_TABLES=users, public.notifications',
       ].join('\n'),
@@ -250,6 +249,7 @@ test('loadGeneratorConfig builds a direct postgres config from environment when 
 
     const loaded = await loadGeneratorConfig({ cwd: root })
     assert.equal(loaded.configPath, '[environment defaults]')
+    assert.equal(loaded.config.output.preset, 'athena-direct')
     assert.equal(loaded.config.output.format, 'table-builder')
     assert.equal(loaded.config.output.targets.registry, 'athena/registry.generated.ts')
     assert.equal(loaded.config.naming.modelType, 'snake')

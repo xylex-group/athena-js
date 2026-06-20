@@ -30,6 +30,7 @@ import { buildSdkHeaderValue } from "../sdk-version.ts";
 const DEFAULT_CLIENT = "railway_direct";
 const SDK_NAME = "xylex-group/athena";
 const SDK_HEADER_VALUE = buildSdkHeaderValue(SDK_NAME);
+const NO_CACHE_HEADER_VALUE = 'no-cache'
 
 function parseResponseBody(rawText: string, contentType: string | null) {
   if (!rawText) {
@@ -54,6 +55,10 @@ function parseResponseBody(rawText: string, contentType: string | null) {
 
 function normalizeHeaderValue(value?: string | null) {
   return value ? value : undefined;
+}
+
+function isCacheControlHeaderName(name: string) {
+  return name.toLowerCase() === 'cache-control'
 }
 
 function resolveHeaderValue(
@@ -265,6 +270,7 @@ function buildHeaders(
   options?: AthenaGatewayCallOptions,
 ): Record<string, string> {
   const mergedStripNulls = options?.stripNulls ?? true;
+  const forceNoCache = Boolean(config.forceNoCache || options?.forceNoCache)
   const extraHeaders = {
     ...(config.headers ?? {}),
     ...(options?.headers ?? {}),
@@ -338,11 +344,16 @@ function buildHeaders(
   const athenaClientKeys = ["x-athena-client", "X-Athena-Client"];
   Object.entries(extraHeaders).forEach(([key, value]) => {
     if (athenaClientKeys.includes(key)) return;
+    if (forceNoCache && isCacheControlHeaderName(key)) return;
     const normalized = normalizeHeaderValue(value);
     if (normalized) {
       headers[key] = normalized;
     }
   });
+
+  if (forceNoCache) {
+    headers['Cache-Control'] = NO_CACHE_HEADER_VALUE
+  }
 
   return headers;
 }

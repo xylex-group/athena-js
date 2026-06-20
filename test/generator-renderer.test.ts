@@ -165,12 +165,13 @@ test('generateArtifactsFromSnapshot renders model/schema/database/registry outpu
   const registryFile = artifacts.files.find(file => file.kind === 'registry')
   assert.ok(modelFile)
   assert.ok(registryFile)
-  assert.equal(modelFile.content.includes("table: string"), true)
-  assert.equal(modelFile.content.includes("'space name'?: string | null"), true)
-  assert.equal(modelFile.content.includes("mood?: 'happy' | 'sad' | null"), true)
-  assert.equal(modelFile.content.includes('relations:'), true)
+  assert.equal(modelFile.content.includes("export const users = table('users')"), true)
+  assert.equal(modelFile.content.includes("'space name': string().optional()"), true)
+  assert.equal(modelFile.content.includes("mood: enumeration(['happy', 'sad'] as const).optional()"), true)
+  assert.equal(modelFile.content.includes('Object.assign(users.meta, {'), true)
   assert.equal(registryFile.content.includes('export const __athena_schema_meta = {'), true)
   assert.equal(registryFile.content.includes('schemaVersion: 1'), true)
+  assert.equal(registryFile.content.includes("outputPreset: 'athena-direct'"), true)
 })
 
 test('generateArtifactsFromSnapshot can disable registry emission with feature flags', () => {
@@ -218,7 +219,7 @@ test('generateArtifactsFromSnapshot default targets are safe for multiple schema
   assert.equal(paths.includes('athena/schemas/public.ts'), true)
   assert.equal(paths.includes('athena/schemas/athena.ts'), true)
   assert.equal(paths.includes('athena/relations.ts'), true)
-  assert.equal(paths.includes('athena/config.ts'), true)
+  assert.equal(paths.includes('athena/registry.generated.ts'), true)
 })
 
 test('generateArtifactsFromSnapshot auto-scopes colliding multi-schema output paths', () => {
@@ -319,5 +320,75 @@ test('generateArtifactsFromSnapshot can render the zero-style table builder form
   assert.equal(modelFile.content.includes('Object.assign(users.meta, {'), true)
   assert.equal(modelFile.content.includes('export const users_row_schema = users.schemas.row'), true)
   assert.equal(modelFile.content.includes('export type PublicUsersFormValues = FormValuesOf<typeof users>'), true)
+  assert.equal(registryFile.content.includes("outputPreset: 'athena-direct'"), true)
   assert.equal(registryFile.content.includes('outputFormat: \'table-builder\''), true)
+})
+
+test('generateArtifactsFromSnapshot renders zero-arg primaryKey for tables without a primary key', () => {
+  const config = defineGeneratorConfig({
+    provider: {
+      kind: 'postgres',
+      mode: 'direct',
+      connectionString: 'postgres://postgres:postgres@127.0.0.1:5432/app_db',
+      database: 'app_db',
+      schemas: ['athena'],
+    },
+    output: {
+      format: 'table-builder',
+      targets: {
+        model: 'src/generated/{database_kebab}/{schema_kebab}/{model_kebab}.ts',
+        schema: 'src/generated/{database_kebab}/{schema_kebab}/index.ts',
+        database: 'src/generated/{database_kebab}/index.ts',
+        registry: 'src/generated/index.ts',
+      },
+    },
+  })
+
+  const noPrimaryKeySnapshot: IntrospectionSnapshot = {
+    backend: 'postgresql',
+    database: 'app_db',
+    generatedAt: new Date('2026-05-15T00:00:00.000Z').toISOString(),
+    schemas: {
+      athena: {
+        name: 'athena',
+        tables: {
+          account: {
+            schema: 'athena',
+            name: 'account',
+            primaryKey: [],
+            columns: {
+              id: {
+                name: 'id',
+                dataType: 'text',
+                udtName: 'text',
+                typeKind: 'scalar',
+                isNullable: false,
+                isPrimaryKey: false,
+                hasDefault: false,
+                isGenerated: false,
+                arrayDimensions: 0,
+              },
+              user_id: {
+                name: 'user_id',
+                dataType: 'text',
+                udtName: 'text',
+                typeKind: 'scalar',
+                isNullable: false,
+                isPrimaryKey: false,
+                hasDefault: false,
+                isGenerated: false,
+                arrayDimensions: 0,
+              },
+            },
+            relations: {},
+          },
+        },
+      },
+    },
+  }
+
+  const artifacts = generateArtifactsFromSnapshot(noPrimaryKeySnapshot, config)
+  const modelFile = artifacts.files.find(file => file.kind === 'model')
+  assert.ok(modelFile)
+  assert.equal(modelFile.content.includes('.primaryKey()'), true)
 })

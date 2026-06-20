@@ -14,6 +14,7 @@
 - `auth.admin.user.remove()` -> `POST /admin/remove-user`
 - `auth.admin.user.setPassword()` -> `POST /admin/set-user-password`
 - `auth.admin.hasPermission()` -> `POST /admin/has-permission`
+- `auth.admin.requirePermission()` -> `GET /get-session` + `POST /admin/has-permission`
 - `auth.admin.apiKey.create()` -> `POST /admin/api-key/create`
 - `auth.admin.athenaClient.create()` -> `POST /admin/athena-client/create`
 - `auth.admin.athenaClient.list()` -> `GET /admin/athena-client/list`
@@ -117,6 +118,18 @@ await client.auth.admin.user.setPassword({
 await client.auth.admin.hasPermission({
   permissions: { users: ["manage"] },
 })
+
+const adminGuard = await client.auth.admin.requirePermission({
+  permissions: { users: ["manage"] },
+})
+
+if (!adminGuard.ok) {
+  return new Response(JSON.stringify({ error: adminGuard.error }), {
+    status: adminGuard.status,
+  })
+}
+
+const currentSession = adminGuard.session
 
 await client.auth.admin.apiKey.create({
   name: "admin-key",

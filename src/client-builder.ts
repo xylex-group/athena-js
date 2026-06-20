@@ -88,6 +88,9 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
   private apiKey?: string | null
   private backendConfig: BackendConfig = DEFAULT_BACKEND
   private clientName?: string | null
+  private defaultUserId?: string | null
+  private defaultOrganizationId?: string | null
+  private forceNoCacheEnabled = false
   private defaultHeaders?: Record<string, string>
   private authConfig?: AthenaCreateClientAuthOptions
   private dbUrlOverride?: string
@@ -162,6 +165,15 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
     if (options.client !== undefined) {
       this.clientName = options.client
     }
+    if (options.userId !== undefined) {
+      this.defaultUserId = options.userId
+    }
+    if (options.organizationId !== undefined) {
+      this.defaultOrganizationId = options.organizationId
+    }
+    if (options.forceNoCache !== undefined) {
+      this.forceNoCacheEnabled = options.forceNoCache
+    }
     if (options.backend !== undefined) {
       this.backendConfig = toBackendConfig(options.backend)
     }
@@ -218,6 +230,9 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
       url: this.rootUrl,
       key: this.apiKey,
       client: this.clientName,
+      userId: this.defaultUserId,
+      organizationId: this.defaultOrganizationId,
+      forceNoCache: this.forceNoCacheEnabled,
       backend: this.backendConfig,
       headers: this.defaultHeaders,
       db: this.dbUrlOverride ? { url: this.dbUrlOverride } : undefined,

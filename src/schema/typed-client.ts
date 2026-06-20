@@ -1,6 +1,11 @@
 import {
   createClient,
+  type AthenaCreateClientAuthOptions,
+  type AthenaClientSessionLike,
+  type AthenaClientSessionOptions,
+  type AthenaClientContextOptions,
   type AthenaClientExperimentalOptions,
+  type AthenaHeaderBag,
   type AthenaFromOptions,
   type AthenaResult,
   type AthenaSdkClient,
@@ -37,7 +42,11 @@ type RegistryConstraint = RegistryDef<
  * Options for creating typed Athena clients.
  */
 export interface TypedClientOptions<TMap extends TenantKeyMap = TenantKeyMap>
-  extends Pick<AthenaGatewayCallOptions, 'backend' | 'client' | 'headers'> {
+  extends Pick<
+    AthenaGatewayCallOptions,
+    'backend' | 'client' | 'headers' | 'forceNoCache' | 'userId' | 'organizationId'
+  > {
+  auth?: Omit<AthenaCreateClientAuthOptions, 'url' | 'baseUrl' | 'apiKey'>
   tenantKeyMap?: TMap
   tenantContext?: TenantContext<TMap>
   experimental?: AthenaClientExperimentalOptions
@@ -62,6 +71,11 @@ export interface TypedAthenaClient<
   readonly registry: TRegistry
   readonly tenantKeyMap: Readonly<TTenantMap>
   readonly tenantContext: TenantContext<TTenantMap>
+  withContext(context?: AthenaClientContextOptions): TypedAthenaClient<TRegistry, TTenantMap, TStrict>
+  withSession(
+    session?: AthenaClientSessionLike | null,
+    options?: AthenaClientSessionOptions,
+  ): TypedAthenaClient<TRegistry, TTenantMap, TStrict>
   withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap, TStrict>
   fromModel<
     TDatabase extends keyof TRegistry & string,
@@ -85,10 +99,6 @@ export interface TypedAthenaClient<
   >
 }
 
-type BaseClientOptions = Pick<AthenaGatewayCallOptions, 'backend' | 'client' | 'headers'> & {
-  experimental?: AthenaClientExperimentalOptions
-}
-
 class TenantHeaderMapper<TMap extends TenantKeyMap> {
   constructor(private readonly tenantKeyMap: TMap) {}
 
@@ -109,6 +119,102 @@ class TenantHeaderMapper<TMap extends TenantKeyMap> {
     }
 
     return Object.keys(headers).length > 0 ? headers : undefined
+  }
+}
+
+function normalizeOptionalString(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue ? normalizedValue : undefined
+}
+
+function readHeaderBagValue(
+  headers: AthenaClientSessionOptions['requestHeaders'],
+  targetKey: string,
+): string | undefined {
+  if (!headers) {
+    return undefined
+  }
+
+  if (typeof (headers as AthenaHeaderBag).get === 'function') {
+    return normalizeOptionalString((headers as AthenaHeaderBag).get(targetKey))
+  }
+
+  const normalizedTargetKey = targetKey.toLowerCase()
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== normalizedTargetKey) {
+      continue
+    }
+
+    if (typeof value === 'string') {
+      return normalizeOptionalString(value)
+    }
+
+    return undefined
+  }
+
+  return undefined
+}
+
+function resolveSessionContextOptions(
+  session?: AthenaClientSessionLike | null,
+  options?: AthenaClientSessionOptions,
+): AthenaClientContextOptions | undefined {
+  const sessionToken = normalizeOptionalString(session?.session?.token)
+  const requestCookie =
+    readHeaderBagValue(options?.requestHeaders, 'cookie') ??
+    readHeaderBagValue(options?.headers, 'cookie')
+  const authInput = options?.auth
+  const resolvedUserId =
+    options?.userId !== undefined ? options.userId : session?.user?.id
+  const resolvedOrganizationId =
+    options?.organizationId !== undefined
+      ? options.organizationId
+      : session?.session?.activeOrganizationId
+  const resolvedBearerToken =
+    authInput?.bearerToken !== undefined ? authInput.bearerToken : sessionToken
+  const resolvedSessionToken =
+    authInput?.sessionToken !== undefined ? authInput.sessionToken : sessionToken
+  const resolvedCookie =
+    authInput?.cookie !== undefined ? authInput.cookie : requestCookie
+
+  const auth =
+    authInput !== undefined ||
+    resolvedBearerToken !== undefined ||
+    resolvedSessionToken !== undefined ||
+    resolvedCookie !== undefined
+      ? {
+          ...(authInput ?? {}),
+          ...(resolvedBearerToken !== undefined
+            ? { bearerToken: resolvedBearerToken }
+            : {}),
+          ...(resolvedSessionToken !== undefined
+            ? { sessionToken: resolvedSessionToken }
+            : {}),
+          ...(resolvedCookie !== undefined ? { cookie: resolvedCookie } : {}),
+          headers: authInput?.headers ? { ...authInput.headers } : undefined,
+        }
+      : undefined
+
+  if (
+    resolvedUserId === undefined &&
+    resolvedOrganizationId === undefined &&
+    options?.forceNoCache === undefined &&
+    !options?.headers &&
+    !auth
+  ) {
+    return undefined
+  }
+
+  return {
+    userId: resolvedUserId,
+    organizationId: resolvedOrganizationId,
+    forceNoCache: options?.forceNoCache,
+    headers: options?.headers ? { ...options.headers } : undefined,
+    auth,
   }
 }
 
@@ -167,7 +273,7 @@ class TypedAthenaClientImpl<
   private readonly baseClient: AthenaSdkClient<TStrict>
   private readonly registryNavigator: RegistryNavigator<TRegistry>
   private readonly tenantHeaderMapper: TenantHeaderMapper<TTenantMap>
-  private readonly clientOptions: BaseClientOptions
+  private readonly clientOptions: TypedClientOptions<TTenantMap>
   private readonly url: string
   private readonly apiKey: string
 
@@ -193,6 +299,12 @@ class TypedAthenaClientImpl<
       backend: input.options?.backend,
       client: input.options?.client,
       headers: input.options?.headers,
+      forceNoCache: input.options?.forceNoCache,
+      userId: input.options?.userId,
+      organizationId: input.options?.organizationId,
+      auth: input.options?.auth,
+      tenantKeyMap,
+      tenantContext,
       experimental: input.options?.experimental,
     }
 
@@ -200,6 +312,10 @@ class TypedAthenaClientImpl<
       backend: this.clientOptions.backend,
       client: this.clientOptions.client,
       headers: this.tenantHeaderMapper.apply(this.clientOptions.headers, tenantContext),
+      forceNoCache: this.clientOptions.forceNoCache,
+      userId: this.clientOptions.userId,
+      organizationId: this.clientOptions.organizationId,
+      auth: this.clientOptions.auth,
       experimental: this.clientOptions.experimental,
     }) as AthenaSdkClient<TStrict>
     this.db = this.baseClient.db
@@ -250,6 +366,56 @@ class TypedAthenaClientImpl<
     options?: AthenaGatewayConnectionOptions,
   ): Promise<AthenaGatewayConnectionResult> {
     return this.baseClient.verifyConnection(options)
+  }
+
+  withContext(context?: AthenaClientContextOptions): TypedAthenaClient<TRegistry, TTenantMap, TStrict> {
+    const headers = {
+      ...(this.clientOptions.headers ?? {}),
+      ...(context?.headers ?? {}),
+    }
+    const auth =
+      this.clientOptions.auth || context?.auth
+        ? {
+            ...(this.clientOptions.auth ?? {}),
+            ...(context?.auth ?? {}),
+            headers:
+              this.clientOptions.auth?.headers || context?.auth?.headers
+                ? {
+                    ...(this.clientOptions.auth?.headers ?? {}),
+                    ...(context?.auth?.headers ?? {}),
+                  }
+                : undefined,
+          }
+        : undefined
+
+    return new TypedAthenaClientImpl({
+      registry: this.registry,
+      url: this.url,
+      apiKey: this.apiKey,
+      options: {
+        ...this.clientOptions,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        auth,
+        tenantKeyMap: this.tenantKeyMap as TTenantMap,
+        tenantContext: {
+          ...this.tenantContext,
+        },
+        ...(context?.userId !== undefined ? { userId: context.userId } : {}),
+        ...(context?.organizationId !== undefined
+          ? { organizationId: context.organizationId }
+          : {}),
+        ...(context?.forceNoCache !== undefined
+          ? { forceNoCache: context.forceNoCache }
+          : {}),
+      },
+    })
+  }
+
+  withSession(
+    session?: AthenaClientSessionLike | null,
+    options?: AthenaClientSessionOptions,
+  ): TypedAthenaClient<TRegistry, TTenantMap, TStrict> {
+    return this.withContext(resolveSessionContextOptions(session, options))
   }
 
   withTenantContext(context: TenantContext<TTenantMap>): TypedAthenaClient<TRegistry, TTenantMap, TStrict> {
