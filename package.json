@@ -38,53 +38,53 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "browser": {
-        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.js",
         "import": "./dist/browser.js",
         "require": "./dist/browser.cjs",
-        "default": "./dist/browser.js"
+        "types": "./dist/browser.d.ts"
       },
+      "default": "./dist/index.js",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.ts"
     },
     "./browser": {
-      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js",
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs",
-      "default": "./dist/browser.js"
-    },
-    "./next/client": {
-      "types": "./dist/next/client.d.ts",
-      "import": "./dist/next/client.js",
-      "require": "./dist/next/client.cjs",
-      "default": "./dist/next/client.js"
-    },
-    "./next/server": {
-      "types": "./dist/next/server.d.ts",
-      "import": "./dist/next/server.js",
-      "require": "./dist/next/server.cjs",
-      "default": "./dist/next/server.js"
+      "types": "./dist/browser.d.ts"
     },
     "./cookies": {
-      "types": "./dist/cookies.d.ts",
+      "default": "./dist/cookies.js",
       "import": "./dist/cookies.js",
       "require": "./dist/cookies.cjs",
-      "default": "./dist/cookies.js"
+      "types": "./dist/cookies.d.ts"
+    },
+    "./next/client": {
+      "default": "./dist/next/client.js",
+      "import": "./dist/next/client.js",
+      "require": "./dist/next/client.cjs",
+      "types": "./dist/next/client.d.ts"
+    },
+    "./next/server": {
+      "default": "./dist/next/server.js",
+      "import": "./dist/next/server.js",
+      "require": "./dist/next/server.cjs",
+      "types": "./dist/next/server.d.ts"
     },
     "./package.json": "./package.json",
     "./react": {
-      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js",
       "import": "./dist/react.js",
       "require": "./dist/react.cjs",
-      "default": "./dist/react.js"
+      "types": "./dist/react.d.ts"
     },
     "./utils": {
-      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js",
       "import": "./dist/utils.js",
       "require": "./dist/utils.cjs",
-      "default": "./dist/utils.js"
+      "types": "./dist/utils.d.ts"
     }
   },
   "files": [
@@ -161,14 +161,14 @@
       "browser": [
         "dist/browser.d.ts"
       ],
+      "cookies": [
+        "dist/cookies.d.ts"
+      ],
       "next/client": [
         "dist/next/client.d.ts"
       ],
       "next/server": [
         "dist/next/server.d.ts"
-      ],
-      "cookies": [
-        "dist/cookies.d.ts"
       ],
       "react": [
         "dist/react.d.ts"
@@ -178,5 +178,5 @@
       ]
     }
   },
-  "version": "2.8.2"
+  "version": "2.9.0"
 }
