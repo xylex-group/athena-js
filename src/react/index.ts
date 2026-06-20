@@ -12,6 +12,7 @@ export { AthenaQueryClientProvider, useAthenaQueryClient } from './provider.ts'
 export { useQuery } from './use-query.ts'
 export { useMutation } from './use-mutation.ts'
 export { useSession } from './use-session.ts'
+export { useAthenaSessionClient } from './use-athena-session-client.ts'
 export { useStorageUpload } from './use-storage-upload.ts'
 export {
   createModelFormAdapter,
@@ -80,6 +81,10 @@ export type {
   AthenaStateAdapter,
   AthenaUnsubscribe,
 } from './types.ts'
+export type {
+  UseAthenaSessionClientOptions,
+  UseAthenaSessionClientResult,
+} from './use-athena-session-client.ts'
 export type {
   UseSessionOptions,
   UseSessionResult,

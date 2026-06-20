@@ -20,6 +20,7 @@ export type {
   AthenaAuthQueryPrimitive,
   AthenaAuthQueryValue,
   AthenaAuthCredentials,
+  AthenaAuthGetUserResponse,
   AthenaAuthCallOptions,
   AthenaAuthClientConfig,
   AthenaAuthGuardReason,

@@ -57,6 +57,21 @@ test('table builder allows zero-arg primaryKey for tables without a primary key'
   assert.deepEqual(auditLog.meta.primaryKey, [])
 })
 
+test('table builder exposes withoutPrimaryKey as the canonical no-pk helper', () => {
+  const account = table('account')
+    .schema('athena')
+    .columns({
+      id: string(),
+      user_id: string(),
+    })
+    .withoutPrimaryKey()
+
+  assert.equal(account.kind, 'table')
+  assert.equal(account.schemaName, 'athena')
+  assert.equal(account.tableName, 'account')
+  assert.deepEqual(account.meta.primaryKey, [])
+})
+
 test('table builder supports separate schema() and from() mapping', () => {
   const userPref = table('userPref')
     .schema('public')

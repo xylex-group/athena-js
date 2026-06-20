@@ -115,6 +115,33 @@ Use `withOptions(...)` only when you intentionally need to re-target the client 
 
 If you already pass `client: "web-dashboard"`, the SDK sends `X-Athena-Client` for you. You do not need to duplicate that header manually.
 
+### Next.js and React shortcuts
+
+If you are in a Next.js app, use the higher-level adapters instead of rebuilding request context by hand:
+
+```ts
+import { createAthenaBrowserClient } from "@xylex-group/athena/next/client";
+import { createAthenaServerClient, resolveAthenaServerContext } from "@xylex-group/athena/next/server";
+import { useAthenaSessionClient } from "@xylex-group/athena/react";
+
+const athena = createAthenaBrowserClient();
+const requestAthena = await createAthenaServerClient();
+const { client: scopedAthena, organizationId, session } = await resolveAthenaServerContext();
+
+function Example() {
+  const { client, organizationId, refetch } = useAthenaSessionClient(athena);
+  void refetch;
+  return organizationId ? client : athena;
+}
+```
+
+These helpers:
+
+- resolve Athena URL, API key, client name, and auth defaults from environment aliases
+- bind request `cookie` and bearer context automatically on the server
+- derive the current organization from `session.session.activeOrganizationId`
+- return a pre-scoped client so normal Athena queries inherit current user + org context without app-local header assembly
+
 Example version baseline: SDK `@xylex-group/athena` `2.4.0`, Athena server `3.12.3` verified on 2026-06-04.
 
 `.findMany({ select, where, orderBy, limit })` is the clean canonical read surface.

@@ -145,7 +145,9 @@ export const ${descriptor.tableConstName} = table(${escapeStringLiteral(descript
   .columns({
 ${columnLines}
   })
-  .primaryKey(${descriptor.table.primaryKey.map(value => escapeStringLiteral(value)).join(', ')})
+  ${descriptor.table.primaryKey.length > 0
+    ? `.primaryKey(${descriptor.table.primaryKey.map(value => escapeStringLiteral(value)).join(', ')})`
+    : '.withoutPrimaryKey()'}
 ${relationsAssignment ? `${relationsAssignment}` : ''}
 export type ${descriptor.rowTypeName} = RowOf<typeof ${descriptor.tableConstName}>
 export type ${descriptor.insertTypeName} = InsertOf<typeof ${descriptor.tableConstName}>

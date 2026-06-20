@@ -15,6 +15,9 @@ const sourceFiles = [
   'src/react/use-query.ts',
   'src/react/use-mutation.ts',
   'src/react/use-session.ts',
+  'src/react/use-athena-session-client.ts',
+  'src/next/client.ts',
+  'src/next/server.ts',
   'src/cookies/index.ts',
   'src/utils/index.ts',
   'src/auxiliaries.ts',
@@ -270,6 +273,9 @@ function collectExportedFunctionsFromEntry(sourceFilePath, prefix) {
 
 function exampleForPath(pathName, minArgs) {
   if (pathName.startsWith('athena.auth.')) {
+    if (pathName.endsWith('.getUser')) {
+      return `await ${pathName}()`
+    }
     if (pathName.endsWith('.token')) {
       return `await ${pathName}({ token: \"token\" })`
     }
@@ -393,6 +399,28 @@ function exampleForPath(pathName, minArgs) {
     if (method === 'useQuery') return 'const query = useQuery({ queryKey: ["users"], queryFn: () => athena.from("users").select() })'
     if (method === 'useMutation') return 'const mutation = useMutation({ mutationFn: (v) => athena.from("users").insert(v).select() })'
     if (method === 'useSession') return 'const session = useSession(athena)'
+    if (method === 'useAthenaSessionClient') {
+      return 'const sessionClient = useAthenaSessionClient(athena)'
+    }
+    return `${pathName}(/* ... */)`
+  }
+
+  if (pathName.startsWith('next.client.')) {
+    const method = pathName.split('.').at(-1)
+    if (method === 'createAthenaBrowserClient') {
+      return 'const athena = createAthenaBrowserClient()'
+    }
+    return `${pathName}(/* ... */)`
+  }
+
+  if (pathName.startsWith('next.server.')) {
+    const method = pathName.split('.').at(-1)
+    if (method === 'createAthenaServerClient') {
+      return 'const athena = await createAthenaServerClient()'
+    }
+    if (method === 'resolveAthenaServerContext') {
+      return 'const context = await resolveAthenaServerContext()'
+    }
     return `${pathName}(/* ... */)`
   }
 
@@ -461,7 +489,11 @@ const reactExports = [
   ...collectExportedFunctionsFromEntry('src/react/use-query.ts', 'react'),
   ...collectExportedFunctionsFromEntry('src/react/use-mutation.ts', 'react'),
   ...collectExportedFunctionsFromEntry('src/react/use-session.ts', 'react'),
+  ...collectExportedFunctionsFromEntry('src/react/use-athena-session-client.ts', 'react'),
 ]
+
+const nextClientExports = collectExportedFunctionsFromEntry('src/next/client.ts', 'next.client')
+const nextServerExports = collectExportedFunctionsFromEntry('src/next/server.ts', 'next.server')
 
 const cookieExports = collectExportedFunctionsFromEntry('src/cookies/index.ts', 'cookies')
 const utilsExports = collectExportedFunctionsFromEntry('src/utils/index.ts', 'utils')
@@ -494,6 +526,10 @@ const sections = [
   {
     title: 'React Runtime Methods (`@xylex-group/athena/react`)',
     entries: dedupeEntries([...reactExports, ...reactQueryClientClass]),
+  },
+  {
+    title: 'Next.js Helpers (`@xylex-group/athena/next/*`)',
+    entries: dedupeEntries([...nextClientExports, ...nextServerExports]),
   },
   {
     title: 'Cookie Methods (`@xylex-group/athena/cookies`)',

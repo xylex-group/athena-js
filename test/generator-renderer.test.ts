@@ -324,7 +324,7 @@ test('generateArtifactsFromSnapshot can render the zero-style table builder form
   assert.equal(registryFile.content.includes('outputFormat: \'table-builder\''), true)
 })
 
-test('generateArtifactsFromSnapshot renders zero-arg primaryKey for tables without a primary key', () => {
+test('generateArtifactsFromSnapshot renders withoutPrimaryKey for tables without a primary key', () => {
   const config = defineGeneratorConfig({
     provider: {
       kind: 'postgres',
@@ -390,5 +390,5 @@ test('generateArtifactsFromSnapshot renders zero-arg primaryKey for tables witho
   const artifacts = generateArtifactsFromSnapshot(noPrimaryKeySnapshot, config)
   const modelFile = artifacts.files.find(file => file.kind === 'model')
   assert.ok(modelFile)
-  assert.equal(modelFile.content.includes('.primaryKey()'), true)
+  assert.equal(modelFile.content.includes('.withoutPrimaryKey()'), true)
 })

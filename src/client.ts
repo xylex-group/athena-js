@@ -2378,6 +2378,28 @@ export interface AthenaClientFromEnvironmentOptions extends AthenaCreateClientOp
   key?: string | null | undefined
 }
 
+export interface AthenaClientFromEnvironmentOptionsWithStorage
+  extends AthenaClientFromEnvironmentOptions {
+  experimental: AthenaClientExperimentalOptions & {
+    athenaStorageBackend: true
+  }
+}
+
+export interface AthenaClientFromEnvironmentOptionsWithTypecheckedColumns
+  extends AthenaClientFromEnvironmentOptions {
+  experimental: AthenaClientExperimentalOptions & {
+    typecheckColumns: true
+  }
+}
+
+export interface AthenaClientFromEnvironmentOptionsWithStorageAndTypecheckedColumns
+  extends AthenaClientFromEnvironmentOptions {
+  experimental: AthenaClientExperimentalOptions & {
+    athenaStorageBackend: true
+    typecheckColumns: true
+  }
+}
+
 /** Client config for builder */
 export interface AthenaClientConfig {
   baseUrl: string
@@ -3000,6 +3022,18 @@ export class AthenaClient {
   }
 
   /** Build a client from process environment variables. */
+  static fromEnvironment(
+    options: AthenaClientFromEnvironmentOptionsWithStorageAndTypecheckedColumns,
+  ): AthenaSdkClientWithStorage<true>
+  static fromEnvironment(
+    options: AthenaClientFromEnvironmentOptionsWithStorage,
+  ): AthenaSdkClientWithStorage<false>
+  static fromEnvironment(
+    options: AthenaClientFromEnvironmentOptionsWithTypecheckedColumns,
+  ): AthenaSdkClientWithAuth<true>
+  static fromEnvironment(
+    options?: AthenaClientFromEnvironmentOptions,
+  ): AthenaSdkClientWithAuth<false>
   static fromEnvironment(
     options: AthenaClientFromEnvironmentOptions = {},
   ): AthenaSdkClientWithAuth<false> {

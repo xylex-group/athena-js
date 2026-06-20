@@ -97,6 +97,33 @@ test('createClient exposes auth namespace and routes auth calls to configured au
   }
 })
 
+test('auth.getUser projects the current session into a user payload', async () => {
+  const { calls, restore } = mockFetch({
+    session: { id: 's_user' },
+    user: { id: 'u_user', email: 'user@example.com' },
+  })
+  try {
+    const client = createClient('https://gateway.example.com', 'gateway-key', {
+      auth: {
+        baseUrl: 'https://auth.example.com/api/auth',
+      },
+    })
+
+    const result = await client.auth.getUser()
+    assert.equal(result.ok, true)
+    assert.deepEqual(result.data, {
+      user: {
+        id: 'u_user',
+        email: 'user@example.com',
+      },
+    })
+    assert.equal(calls[0].url, 'https://auth.example.com/api/auth/get-session')
+    assert.equal(calls[0].init?.method, 'GET')
+  } finally {
+    restore()
+  }
+})
+
 test('createClient auth config binds auth context defaults onto client.auth requests', async () => {
   const { calls, restore } = mockFetch({ success: true })
   try {

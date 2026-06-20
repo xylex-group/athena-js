@@ -179,6 +179,10 @@ export interface AthenaAuthSessionResponse {
   user: AthenaAuthUser
 }
 
+export interface AthenaAuthGetUserResponse {
+  user: AthenaAuthUser | null
+}
+
 export interface AthenaAuthOrganization {
   id: string
   name: string
@@ -1470,6 +1474,8 @@ export interface AthenaAuthOrganizationBindings {
 export interface AthenaAuthBindings {
   /** Get current session. Route: `GET /get-session`. */
   getSession: AthenaAuthSdkClient['getSession']
+  /** Get current user as a Better Auth-style compatibility projection. Route: `GET /get-session`. */
+  getUser: AthenaAuthSdkClient['getUser']
   /** Resolve the current session into a typed guard result. */
   requireSession: AthenaAuthSdkClient['requireSession']
   /** Sign out current session. Route: `POST /sign-out`. */
@@ -1947,6 +1953,10 @@ export interface AthenaAuthSdkClient {
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,
   ) => Promise<AthenaAuthResult<AthenaAuthSessionResponse>>
+  getUser: (
+    input?: AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions,
+  ) => Promise<AthenaAuthResult<AthenaAuthGetUserResponse>>
   requireSession: (
     input?: AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions,

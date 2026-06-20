@@ -75,10 +75,16 @@ import type {
   AthenaStateAdapter,
   UseMutationOptions,
   UseMutationResult,
+  UseAthenaSessionClientResult,
   UseQueryOptions,
   UseQueryResult,
   UseStorageUploadOptions,
 } from "../src/react/index.ts"
+import { createAthenaBrowserClient } from '../src/next/client.ts'
+import {
+  createAthenaServerClient,
+  resolveAthenaServerContext,
+} from '../src/next/server.ts'
 
 interface UserRow {
   id: string
@@ -105,6 +111,7 @@ declare function acceptsNumber(value: number): void
 declare function acceptsString(value: string): void
 declare function acceptsStorageFileAccessPurpose(value: StorageFileAccessPurpose): void
 declare function acceptsUnknown(value: unknown): void
+declare function acceptsUnknownPromise(value: Promise<unknown>): void
 declare function acceptsResponsePromise(value: Promise<Response>): void
 declare function acceptsGatewayConnectionPromise(
   value: Promise<AthenaGatewayConnectionResult>,
@@ -141,6 +148,9 @@ declare function acceptsStorageBucketPolicyRequest(value: StorageSetBucketPolicy
 declare function acceptsStoragePublicAccessRequest(value: StorageSetPublicAccessBlockRequest): void
 declare function acceptsStorageRetentionRequest(value: StorageFileRetentionRequest): void
 declare function acceptsAuthAdminLimits(value: AthenaAuthAdminLimits): void
+declare function acceptsAthenaSessionClientResult<TClient>(
+  value: UseAthenaSessionClientResult<TClient>,
+): void
 declare function acceptsAdminTemplateCreateRequest(
   value: AthenaAdminEmailTemplateCreateRequest,
 ): void
@@ -274,6 +284,89 @@ const envBootstrapClient = AthenaClient.fromEnvironment({
   },
   client: envString,
 })
+const envStrictBootstrapClient = AthenaClient.fromEnvironment({
+  env: {
+    ATHENA_GATEWAY_URL: 'https://gateway.example.com/rest/v1',
+    ATHENA_AUTH_URL: 'https://auth.example.com/api/auth',
+    ATHENA_API_KEY: 'api-key',
+  },
+  experimental: {
+    typecheckColumns: true,
+  },
+})
+const envStorageBootstrapClient = AthenaClient.fromEnvironment({
+  env: {
+    ATHENA_GATEWAY_URL: 'https://gateway.example.com/rest/v1',
+    ATHENA_AUTH_URL: 'https://auth.example.com/api/auth',
+    ATHENA_STORAGE_URL: 'https://storage.example.com/storage/v1',
+    ATHENA_API_KEY: 'api-key',
+  },
+  experimental: {
+    athenaStorageBackend: true,
+  },
+})
+const envStrictStorageBootstrapClient = AthenaClient.fromEnvironment({
+  env: {
+    ATHENA_GATEWAY_URL: 'https://gateway.example.com/rest/v1',
+    ATHENA_AUTH_URL: 'https://auth.example.com/api/auth',
+    ATHENA_STORAGE_URL: 'https://storage.example.com/storage/v1',
+    ATHENA_API_KEY: 'api-key',
+  },
+  experimental: {
+    athenaStorageBackend: true,
+    typecheckColumns: true,
+  },
+})
+const browserBootstrapClient = createAthenaBrowserClient({
+  env: {
+    NEXT_PUBLIC_ATHENA_DB_API_URL: 'https://gateway.example.com/rest/v1',
+    NEXT_PUBLIC_ATHENA_AUTH_URL: 'https://auth.example.com/api/auth',
+    NEXT_PUBLIC_ATHENA_API_KEY: 'public-api-key',
+  },
+})
+const browserStorageBootstrapClient = createAthenaBrowserClient({
+  env: {
+    NEXT_PUBLIC_ATHENA_DB_API_URL: 'https://gateway.example.com/rest/v1',
+    NEXT_PUBLIC_ATHENA_AUTH_URL: 'https://auth.example.com/api/auth',
+    NEXT_PUBLIC_ATHENA_STORAGE_URL: 'https://storage.example.com/storage/v1',
+    NEXT_PUBLIC_ATHENA_API_KEY: 'public-api-key',
+  },
+  storage: true,
+})
+const serverBootstrapClientPromise = createAthenaServerClient({
+  gatewayUrl: 'https://gateway.example.com/rest/v1',
+  authUrl: 'https://auth.example.com/api/auth',
+  key: 'api-key',
+  requestCookies: 'athena-auth.session_token=session_1',
+})
+const serverScopedClientPromise = createAthenaServerClient({
+  gatewayUrl: 'https://gateway.example.com/rest/v1',
+  authUrl: 'https://auth.example.com/api/auth',
+  key: 'api-key',
+  requestCookies: 'athena-auth.session_token=session_1',
+  storage: true,
+  session: {
+    user: { id: 'u_1' },
+    session: {
+      token: 'session_1',
+      activeOrganizationId: 'org_1',
+    },
+  },
+})
+const resolvedServerContextPromise = resolveAthenaServerContext({
+  gatewayUrl: 'https://gateway.example.com/rest/v1',
+  authUrl: 'https://auth.example.com/api/auth',
+  key: 'api-key',
+  requestCookies: 'athena-auth.session_token=session_1',
+})
+createAthenaServerClient({
+  gatewayUrl: 'https://gateway.example.com/rest/v1',
+  authUrl: 'https://auth.example.com/api/auth',
+  key: 'api-key',
+  requestCookies: 'athena-auth.session_token=session_1',
+  // @ts-expect-error next server helper should not accept caller-scoped organization overrides
+  organizationId: 'org_1',
+})
 acceptsCreateClientCompatible(publicBaseDropIn)
 acceptsCreateClientCompatible(envConfiguredClient)
 acceptsCreateClientCompatible(envConfiguredObjectClient)
@@ -282,6 +375,17 @@ acceptsCreateClientCompatible(envOverrideClient)
 acceptsCreateClientCompatible(contextClient)
 acceptsCreateClientCompatible(sessionClient)
 acceptsCreateClientCompatible(envBootstrapClient)
+acceptsCreateClientCompatible(envStrictBootstrapClient)
+acceptsCreateClientCompatible(browserBootstrapClient)
+publicBaseClient.auth.getUser().then(result => {
+  acceptsUnknown(result.data?.user ?? null)
+})
+acceptsStorageModule(envStorageBootstrapClient.storage)
+acceptsStorageModule(envStrictStorageBootstrapClient.storage)
+acceptsStorageModule(browserStorageBootstrapClient.storage)
+acceptsUnknownPromise(serverBootstrapClientPromise)
+acceptsUnknownPromise(serverScopedClientPromise)
+acceptsUnknownPromise(resolvedServerContextPromise)
 const experimentalClient = createClient("https://mirror3.athena-db.com", "api-key", {
   experimental: {
     debugAst: true,
@@ -936,6 +1040,9 @@ const stateAdapter: AthenaStateAdapter = {
 }
 acceptsAthenaStateAdapter(stateAdapter)
 
+const sessionClientHookResult = {} as UseAthenaSessionClientResult<typeof publicBaseClient>
+acceptsAthenaSessionClientResult(sessionClientHookResult)
+
 interface OrganizationRow {
   id: string
   slug: string
@@ -1364,15 +1471,25 @@ const zeroStyleProfile = table('profiles')
   })
   .primaryKey('id')
 
+const zeroStyleAuditLog = table('audit_log')
+  .schema('athena')
+  .columns({
+    id: string(),
+    action: string(),
+  })
+  .withoutPrimaryKey()
+
 type ZeroStyleProfileRow = RowOf<typeof zeroStyleProfile>
 type ZeroStyleProfileInsert = InsertOf<typeof zeroStyleProfile>
 type ZeroStyleProfileUpdate = UpdateOf<typeof zeroStyleProfile>
 type ZeroStyleProfileFormValues = FormValuesOf<typeof zeroStyleProfile>
+type ZeroStyleAuditLogRow = RowOf<typeof zeroStyleAuditLog>
 
 declare function acceptsZeroStyleProfileRow(value: ZeroStyleProfileRow): void
 declare function acceptsZeroStyleProfileInsert(value: ZeroStyleProfileInsert): void
 declare function acceptsZeroStyleProfileUpdate(value: ZeroStyleProfileUpdate): void
 declare function acceptsZeroStyleProfileFormValues(value: ZeroStyleProfileFormValues): void
+declare function acceptsZeroStyleAuditLogRow(value: ZeroStyleAuditLogRow): void
 declare function acceptsZeroStyleProfileSchemaName(value: 'public'): void
 declare function acceptsZeroStyleProfileTableName(value: 'profiles'): void
 declare function acceptsZeroStyleProfileQualifiedName(value: 'public.profiles'): void
@@ -1386,6 +1503,12 @@ declare function acceptsZeroStyleProfileInsertMutation(
 acceptsZeroStyleProfileSchemaName(zeroStyleProfile.schemaName)
 acceptsZeroStyleProfileTableName(zeroStyleProfile.tableName)
 acceptsZeroStyleProfileQualifiedName(zeroStyleProfile.qualifiedName)
+acceptsZeroStyleAuditLogRow(
+  zeroStyleAuditLog.schemas.row.parse({
+    id: 'audit_1',
+    action: 'created',
+  }),
+)
 
 const zeroStyleRow = zeroStyleProfile.schemas.row.parse({
   id: 'prof_1',

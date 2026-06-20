@@ -55,6 +55,18 @@
       "require": "./dist/browser.cjs",
       "default": "./dist/browser.js"
     },
+    "./next/client": {
+      "types": "./dist/next/client.d.ts",
+      "import": "./dist/next/client.js",
+      "require": "./dist/next/client.cjs",
+      "default": "./dist/next/client.js"
+    },
+    "./next/server": {
+      "types": "./dist/next/server.d.ts",
+      "import": "./dist/next/server.js",
+      "require": "./dist/next/server.cjs",
+      "default": "./dist/next/server.js"
+    },
     "./cookies": {
       "types": "./dist/cookies.d.ts",
       "import": "./dist/cookies.js",
@@ -148,6 +160,12 @@
       ],
       "browser": [
         "dist/browser.d.ts"
+      ],
+      "next/client": [
+        "dist/next/client.d.ts"
+      ],
+      "next/server": [
+        "dist/next/server.d.ts"
       ],
       "cookies": [
         "dist/cookies.d.ts"

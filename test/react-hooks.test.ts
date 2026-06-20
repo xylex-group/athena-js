@@ -6,10 +6,12 @@ import type { ReactTestRenderer } from 'react-test-renderer'
 import {
   AthenaQueryClientProvider,
   createAthenaQueryClient,
+  useAthenaSessionClient,
   useSession,
   useMutation,
   useQuery,
   useStorageUpload,
+  type UseAthenaSessionClientResult,
   type UseMutationResult,
   type UseSessionResult,
   type UseQueryResult,
@@ -52,6 +54,14 @@ function MutationProbe<TVariables, TData>(props: {
 function SessionProbe(props: {
   onChange: (value: UseSessionResult) => void
   hook: () => UseSessionResult
+}) {
+  props.onChange(props.hook())
+  return null
+}
+
+function AthenaSessionClientProbe<TClient>(props: {
+  onChange: (value: UseAthenaSessionClientResult<TClient>) => void
+  hook: () => UseAthenaSessionClientResult<TClient>
 }) {
   props.onChange(props.hook())
   return null
@@ -662,4 +672,111 @@ test('useSession surfaces error details on failed session request', async () => 
   assert.equal(latest.data, null)
   assert.equal(latest.error?.code, 'HTTP_ERROR')
   assert.equal(latest.isPending, false)
+})
+
+test('useAthenaSessionClient derives a scoped client and current organization id', async () => {
+  let activeOrganizationId = 'org_1'
+  const baseClient = {
+    auth: {
+      getSession: async () => ({
+        ok: true,
+        status: 200,
+        data: {
+          session: {
+            id: 's_1',
+            token: 'session-token',
+            activeOrganizationId,
+          },
+          user: {
+            id: 'u_1',
+            email: 'u@example.com',
+          },
+        },
+        error: null,
+        errorDetails: null,
+        raw: null,
+      }),
+    },
+    withSession: (session?: { session?: { activeOrganizationId?: string | null } } | null) => ({
+      scopedOrganizationId: session?.session?.activeOrganizationId ?? null,
+    }),
+  }
+
+  let latest: UseAthenaSessionClientResult<typeof baseClient> | undefined
+  await act(async () => {
+    create(
+      createElement(AthenaSessionClientProbe, {
+        onChange: value => {
+          latest = value
+        },
+        hook: () => useAthenaSessionClient(baseClient),
+      }),
+    )
+    await flush()
+  })
+
+  assert(latest)
+  assert.equal(latest.userId, 'u_1')
+  assert.equal(latest.organizationId, 'org_1')
+  assert.equal(latest.session?.session.activeOrganizationId, 'org_1')
+  assert.deepEqual(latest.client, {
+    scopedOrganizationId: 'org_1',
+  })
+
+  await act(async () => {
+    activeOrganizationId = 'org_2'
+    const refetched = await latest!.refetch()
+    assert.equal(refetched?.session.activeOrganizationId, 'org_2')
+    await flush()
+  })
+
+  assert(latest)
+  assert.equal(latest.organizationId, 'org_2')
+  assert.deepEqual(latest.client, {
+    scopedOrganizationId: 'org_2',
+  })
+})
+
+test('useAthenaSessionClient returns the base client when the user is unauthorized', async () => {
+  let withSessionCalls = 0
+  const baseClient = {
+    auth: {
+      getSession: async () => ({
+        ok: false,
+        status: 401,
+        data: null,
+        error: 'Unauthorized',
+        errorDetails: {
+          code: 'HTTP_ERROR' as const,
+          message: 'Unauthorized',
+          status: 401,
+        },
+        raw: null,
+      }),
+    },
+    withSession: () => {
+      withSessionCalls += 1
+      return { scoped: true }
+    },
+  }
+
+  let latest: UseAthenaSessionClientResult<typeof baseClient> | undefined
+  await act(async () => {
+    create(
+      createElement(AthenaSessionClientProbe, {
+        onChange: value => {
+          latest = value
+        },
+        hook: () => useAthenaSessionClient(baseClient),
+      }),
+    )
+    await flush()
+  })
+
+  assert(latest)
+  assert.equal(latest.session, null)
+  assert.equal(latest.organizationId, null)
+  assert.equal(latest.client, baseClient)
+  assert.equal(withSessionCalls, 0)
+  assert.equal(latest.error?.status, 401)
 })

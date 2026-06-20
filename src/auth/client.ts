@@ -11,6 +11,7 @@ import type {
   AthenaAuthErrorCode,
   AthenaAuthErrorDetails,
   AthenaAuthFetchCompatibleInput,
+  AthenaAuthGetUserResponse,
   AthenaAuthGenericInput,
   AthenaAuthGenericQueryInput,
   AthenaAuthBindings,
@@ -699,6 +700,28 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
     }
   }
 
+  const getUser: AthenaAuthBindings['getUser'] = async (input, options) => {
+    const sessionResult = await getGeneric<AthenaAuthSessionResponse>(
+      '/get-session',
+      input,
+      options,
+    )
+
+    if (!sessionResult.ok) {
+      return {
+        ...sessionResult,
+        data: null,
+      }
+    }
+
+    return {
+      ...sessionResult,
+      data: {
+        user: sessionResult.data?.user ?? null,
+      } satisfies AthenaAuthGetUserResponse,
+    }
+  }
+
   const requirePermission = async (
     endpoint: '/admin/has-permission' | '/organization/has-permission',
     input: AthenaAdminHasPermissionRequest & AthenaAuthFetchCompatibleInput,
@@ -1262,6 +1285,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
 
   const auth: AthenaAuthBindings = {
     getSession: (input, options) => getGeneric('/get-session', input, options),
+    getUser,
     requireSession,
     signOut,
     forgetPassword: (input, options) => postGeneric('/forget-password', input, options),
@@ -1560,6 +1584,7 @@ export function createAuthClient(config: AthenaAuthClientConfig = {}): AthenaAut
         input,
         options,
       ),
+    getUser,
     requireSession,
     listSessions: (input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) =>
       executeGetWithCompatibleInput<AthenaAuthSession[]>(

@@ -119,6 +119,33 @@ Use `withOptions(...)` only for advanced re-targeting such as overriding `url`, 
 
 Passing `client: "web-dashboard"` already emits `X-Athena-Client`; you do not need to add that header manually.
 
+### Next.js and React shortcuts
+
+If you are in a Next.js app, use the higher-level adapters instead of rebuilding request context by hand:
+
+```ts
+import { createAthenaBrowserClient } from "@xylex-group/athena/next/client";
+import { createAthenaServerClient, resolveAthenaServerContext } from "@xylex-group/athena/next/server";
+import { useAthenaSessionClient } from "@xylex-group/athena/react";
+
+const athena = createAthenaBrowserClient();
+const requestAthena = await createAthenaServerClient();
+const { client: scopedAthena, organizationId, session } = await resolveAthenaServerContext();
+
+function Example() {
+  const { client, organizationId, refetch } = useAthenaSessionClient(athena);
+  void refetch;
+  return organizationId ? client : athena;
+}
+```
+
+These helpers:
+
+- resolve Athena URL, API key, client name, and auth defaults from environment aliases
+- bind request `cookie` and bearer context automatically on the server
+- derive the current organization from `session.session.activeOrganizationId`
+- return a pre-scoped client so normal Athena queries inherit current user + org context without app-local header assembly
+
 ## 3.0) Optional auth context forwarding for gateway requests
 
 If you want Athena server-side auth rollout to inspect auth context on normal query requests, the SDK can now bind auth state once and mirror it into gateway headers.
