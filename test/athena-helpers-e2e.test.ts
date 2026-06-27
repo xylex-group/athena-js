@@ -16,10 +16,16 @@ import { AthenaGatewayError } from '../src/gateway/errors.ts'
 const ATHENA_URL = process.env.ATHENA_URL ?? 'https://mirror3.athena-db.com'
 const ATHENA_API_KEY = process.env.ATHENA_API_KEY ?? 'x'
 const ATHENA_CLIENT = process.env.ATHENA_CLIENT ?? 'athena_logging'
+const RUN_ATHENA_E2E =
+  process.env.ATHENA_E2E === '1' &&
+  ATHENA_API_KEY !== 'x' &&
+  ATHENA_API_KEY !== 'replace-me'
 
 if (!ATHENA_URL || !ATHENA_API_KEY) {
   throw new Error('ATHENA_URL and ATHENA_API_KEY are required for E2E tests')
 }
+
+const e2eTest = RUN_ATHENA_E2E ? test : test.skip
 
 function makePayload(runId: string) {
   return {
@@ -40,7 +46,7 @@ function createE2EClient() {
   })
 }
 
-test('e2e helpers: requireSuccess + unwrap helpers work on live insert/select flow', async (t) => {
+e2eTest('e2e helpers: requireSuccess + unwrap helpers work on live insert/select flow', async (t) => {
   const client = createE2EClient()
   const runId = `helpers-e2e-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
   const payload = makePayload(runId)
@@ -102,7 +108,7 @@ test('e2e helpers: requireSuccess + unwrap helpers work on live insert/select fl
   }
 })
 
-test('e2e helpers: normalizeAthenaError + requireSuccess handle real query failures', async () => {
+e2eTest('e2e helpers: normalizeAthenaError + requireSuccess handle real query failures', async () => {
   const client = createE2EClient()
 
   const badResult = await client.query(`select id from definitely_missing_${Date.now()}`)
@@ -127,7 +133,7 @@ test('e2e helpers: normalizeAthenaError + requireSuccess handle real query failu
   assert.ok(normalized.message.length > 0)
 })
 
-test('e2e helpers: withRetry can recover and complete a live read', async () => {
+e2eTest('e2e helpers: withRetry can recover and complete a live read', async () => {
   const client = createE2EClient()
 
   let attempts = 0

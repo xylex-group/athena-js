@@ -38,6 +38,8 @@ export interface AthenaAdapterBaseOptions {
   url?: string | null | undefined
   gatewayUrl?: string | null | undefined
   authUrl?: string | null | undefined
+  chatUrl?: string | null | undefined
+  chatWsUrl?: string | null | undefined
   storageUrl?: string | null | undefined
   key?: string | null | undefined
   client?: string | null | undefined
@@ -234,6 +236,8 @@ export function createAdapterClient<
     url: options?.url,
     gatewayUrl: options?.gatewayUrl,
     authUrl: options?.authUrl,
+    chatUrl: options?.chatUrl,
+    chatWsUrl: options?.chatWsUrl,
     storageUrl: options?.storageUrl,
     key: options?.key,
     client: options?.client,

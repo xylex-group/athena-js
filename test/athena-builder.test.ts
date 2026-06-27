@@ -239,8 +239,58 @@ test('createClient({ gatewayUrl, authUrl, chatUrl, chatWsUrl, storageUrl, key })
   }
 })
 
+test('client.request acts as a low-level escape hatch across configured services', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url)
+    calls.push({ url: requestUrl, init })
+    return createMockResponse({ ok: true, path: new URL(requestUrl).pathname }, 200)
+  }
+
+  try {
+    const client = createClient({
+      url: 'https://acme.v3.athena-db.com',
+      key: 'secret',
+      auth: {
+        bearerToken: 'bearer_1',
+        sessionToken: 'session_1',
+      },
+      experimental: { athenaStorageBackend: true },
+    })
+
+    const chatResponse = await client.request<{ ok: boolean; path: string }>({
+      service: 'chat',
+      path: '/rooms',
+      query: { limit: 5 },
+    })
+    const authResponse = await client.request<{ ok: boolean; path: string }>({
+      service: 'auth',
+      path: '/get-session',
+    })
+
+    assert.equal(chatResponse.ok, true)
+    assert.equal(chatResponse.data?.path, '/chat/rooms')
+    assert.equal(authResponse.data?.path, '/auth/get-session')
+    assert.equal(calls[0].url, 'https://acme.v3.athena-db.com/chat/rooms?limit=5')
+    assert.equal(calls[1].url, 'https://acme.v3.athena-db.com/auth/get-session')
+
+    const chatHeaders = calls[0].init?.headers as Record<string, string>
+    assert.equal(chatHeaders['x-api-key'], 'secret')
+    assert.equal(chatHeaders['X-Athena-Auth-Bearer-Token'], 'bearer_1')
+    assert.equal(chatHeaders['X-Athena-Auth-Session-Token'], 'session_1')
+
+    const authHeaders = calls[1].init?.headers as Record<string, string>
+    assert.equal(authHeaders.Authorization, 'Bearer bearer_1')
+    assert.equal(authHeaders['X-Athena-Auth-Session-Token'], 'session_1')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
 test('chat realtime connect uses configured ws url and auto-hello payload', async () => {
-  const originalWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket
+  const globalWithWebSocket = globalThis as { WebSocket?: unknown }
+  const originalWebSocket = globalWithWebSocket.WebSocket
   const socketCalls: Array<{ url: string; messages: string[] }> = []
 
   class MockSocket {
@@ -256,7 +306,7 @@ test('chat realtime connect uses configured ws url and auto-hello payload', asyn
     close() {}
   }
 
-  ;(globalThis as { WebSocket?: unknown }).WebSocket = MockSocket as unknown
+  globalWithWebSocket.WebSocket = MockSocket as unknown
 
   try {
     const client = createClient({
@@ -282,7 +332,7 @@ test('chat realtime connect uses configured ws url and auto-hello payload', asyn
       room_subscriptions: ['room_1'],
     })
   } finally {
-    ;(globalThis as { WebSocket?: unknown }).WebSocket = originalWebSocket
+    globalWithWebSocket.WebSocket = originalWebSocket
   }
 })
 

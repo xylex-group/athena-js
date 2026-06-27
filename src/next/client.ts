@@ -8,7 +8,7 @@ import {
   type AthenaAdapterBaseOptions,
 } from './shared.ts'
 
-export interface AthenaBrowserClientOptions extends AthenaAdapterBaseOptions {}
+export type AthenaBrowserClientOptions = AthenaAdapterBaseOptions
 
 type AthenaBrowserClientOptionsWithStorage = AthenaBrowserClientOptions & {
   storage: true

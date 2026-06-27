@@ -6,12 +6,18 @@ import { createClient } from '../src/client.ts'
 const ATHENA_URL = process.env.ATHENA_URL ?? 'https://mirror3.athena-db.com'
 const ATHENA_API_KEY = process.env.ATHENA_API_KEY ?? 'x'
 const ATHENA_CLIENT = process.env.ATHENA_CLIENT ?? 'athena_logging'
+const RUN_ATHENA_E2E =
+  process.env.ATHENA_E2E === '1' &&
+  ATHENA_API_KEY !== 'x' &&
+  ATHENA_API_KEY !== 'replace-me'
 
 if (!ATHENA_URL || !ATHENA_API_KEY) {
   throw new Error('ATHENA_URL and ATHENA_API_KEY are required for E2E tests')
 }
 
-test('e2e: insert, filter, and delete rows in test table (athena_logging client)', async () => {
+const e2eTest = RUN_ATHENA_E2E ? test : test.skip
+
+e2eTest('e2e: insert, filter, and delete rows in test table (athena_logging client)', async () => {
   const client = createClient({
     key: ATHENA_API_KEY,
     gatewayUrl: ATHENA_URL,

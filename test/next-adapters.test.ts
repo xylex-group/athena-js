@@ -188,7 +188,7 @@ test('resolveAthenaServerContext resolves the current organization and returns a
 })
 
 test('createAthenaBrowserClient resolves public env aliases and defaults auth credentials to include', async () => {
-  const { calls, restore } = mockFetch(url =>
+  const { calls, restore } = mockFetch(() =>
     new Response(JSON.stringify({
       session: { id: 's_browser' },
       user: { id: 'u_browser', email: 'browser@example.com' },

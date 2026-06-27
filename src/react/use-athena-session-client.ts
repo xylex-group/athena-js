@@ -55,7 +55,7 @@ type InferScopedClient<TClient> = TClient extends {
   ? TScopedClient
   : TClient
 
-export interface UseAthenaSessionClientOptions extends UseSessionOptions {}
+export type UseAthenaSessionClientOptions = UseSessionOptions
 
 export interface UseAthenaSessionClientResult<
   TClient,

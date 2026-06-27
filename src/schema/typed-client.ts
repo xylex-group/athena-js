@@ -7,6 +7,8 @@ import {
   type AthenaClientExperimentalOptions,
   type AthenaHeaderBag,
   type AthenaFromOptions,
+  type AthenaRequestOptions,
+  type AthenaRequestResponse,
   type AthenaResult,
   type AthenaSdkClient,
   type RpcQueryBuilder,
@@ -360,6 +362,12 @@ class TypedAthenaClientImpl<
     options?: AthenaGatewayCallOptions,
   ): Promise<AthenaResult<Row[]>> {
     return this.baseClient.query<Row>(query, options)
+  }
+
+  request<T = unknown>(
+    options: AthenaRequestOptions,
+  ): Promise<AthenaRequestResponse<T>> {
+    return this.baseClient.request<T>(options)
   }
 
   verifyConnection(

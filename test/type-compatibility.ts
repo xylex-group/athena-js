@@ -116,6 +116,9 @@ declare function acceptsResponsePromise(value: Promise<Response>): void
 declare function acceptsGatewayConnectionPromise(
   value: Promise<AthenaGatewayConnectionResult>,
 ): void
+declare function acceptsRawRequestPromise(
+  value: Promise<{ ok: boolean; status: number; statusText: string; headers: Headers; data: unknown; raw: Response }>,
+): void
 declare function acceptsStorageBinaryCallOptions(value: AthenaStorageBinaryCallOptions): void
 declare function acceptsStorageModule(value: AthenaStorageModule): void
 declare function acceptsStorageConfig(value: AthenaStorageClientConfig): void
@@ -505,6 +508,8 @@ acceptsGatewayConnectionPromise(publicBaseClient.verifyConnection())
 acceptsGatewayConnectionPromise(publicBaseOverrideClient.verifyConnection())
 acceptsGatewayConnectionPromise(directServiceClient.verifyConnection())
 acceptsGatewayConnectionPromise(legacyAliasClient.verifyConnection())
+acceptsRawRequestPromise(client.request({ service: 'chat', path: '/rooms' }))
+acceptsRawRequestPromise(publicBaseClient.request({ service: 'auth', path: '/get-session' }))
 acceptsGatewayConnectionPromise(verifyAthenaGatewayUrl('https://mirror3.athena-db.com'))
 acceptsStorageModule(experimentalStorageClient.storage)
 acceptsStorageModule(experimentalStorageBuilderClient.storage)

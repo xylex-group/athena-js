@@ -35,6 +35,7 @@ import type { AthenaStorageClientConfig, AthenaStorageModule } from './storage/m
 import { createChatModule } from './chat/module.ts'
 import type { AthenaChatModule, AthenaChatWebSocketFactory } from './chat/types.ts'
 import { createAthenaClientBuilder, toBackendConfig } from './client-builder.ts'
+import { buildSdkHeaderValue } from './sdk-version.ts'
 import {
   compileOrderBy,
   compileSelectShape,
@@ -127,6 +128,48 @@ export interface AthenaResultError {
   requestId?: string
   cause?: string
   raw: unknown
+}
+
+export type AthenaRequestService = 'db' | 'auth' | 'chat' | 'storage'
+export type AthenaRequestMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'HEAD'
+  | 'OPTIONS'
+
+export interface AthenaRequestQueryValueMap {
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | Array<string | number | boolean | null | undefined>
+}
+
+export interface AthenaRequestOptions {
+  service?: AthenaRequestService
+  url?: string
+  path?: string
+  method?: AthenaRequestMethod
+  headers?: Record<string, string>
+  query?: AthenaRequestQueryValueMap
+  body?: RequestInit['body'] | Record<string, unknown> | unknown[] | null
+  signal?: AbortSignal
+  credentials?: RequestInit['credentials']
+  responseType?: 'json' | 'text' | 'response'
+}
+
+export interface AthenaRequestResponse<T = unknown> {
+  ok: boolean
+  status: number
+  statusText: string
+  headers: Headers
+  data: T | string | null
+  raw: Response
 }
 
 export interface AthenaClientExperimentalOptions {
@@ -245,6 +288,7 @@ type SelectColumnsFor<
 const DEFAULT_COLUMNS = '*'
 const SAFE_CAST_PATTERN = /^[a-z_][a-z0-9_]*(?:\[\])?$/i
 const ATHENA_NORMALIZED_ERROR_KEY = '__athenaNormalizedError' as const
+const SDK_NAME = 'xylex-group/athena'
 
 type SelectDebugAstFactory = (input: {
   tableName: string
@@ -497,6 +541,54 @@ function asAthenaJsonObject(value: unknown): AthenaJsonObject {
 
 function asAthenaJsonObjectArray(values: unknown[]): AthenaJsonObject[] {
   return values as unknown as AthenaJsonObject[]
+}
+
+function parseArbitraryResponseBody(rawText: string, contentType: string | null) {
+  if (!rawText) {
+    return null as unknown
+  }
+
+  const contentTypeSuggestsJson =
+    contentType?.toLowerCase().includes('application/json') ?? false
+  const looksJson =
+    contentTypeSuggestsJson || rawText.startsWith('{') || rawText.startsWith('[')
+
+  if (!looksJson) {
+    return rawText as unknown
+  }
+
+  try {
+    return JSON.parse(rawText) as unknown
+  } catch {
+    return rawText as unknown
+  }
+}
+
+function toRequestQueryString(query?: AthenaRequestQueryValueMap): string {
+  if (!query) {
+    return ''
+  }
+
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null) {
+      continue
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null) {
+          params.append(key, String(item))
+        }
+      }
+      continue
+    }
+
+    params.set(key, String(value))
+  }
+
+  const encoded = params.toString()
+  return encoded ? `?${encoded}` : ''
 }
 
 function normalizeSelectColumnsInput(columns?: AthenaSelectInput): string | string[] | undefined {
@@ -2244,6 +2336,7 @@ export interface AthenaSdkClient<TStrict extends boolean = false> {
     options?: AthenaRpcCallOptions,
   ): RpcQueryBuilder<Row, TStrict>
   query<Row = unknown>(query: string, options?: AthenaGatewayCallOptions): Promise<AthenaResult<Row[]>>
+  request<T = unknown>(options: AthenaRequestOptions): Promise<AthenaRequestResponse<T>>
   verifyConnection(options?: AthenaGatewayConnectionOptions): Promise<AthenaGatewayConnectionResult>
   withContext(context?: AthenaClientContextOptions): AthenaSdkClient<TStrict>
   withSession(
@@ -2966,6 +3059,139 @@ function createClientFromConfig<TStrict extends boolean = false>(
     wsUrl: config.chatWsUrl,
     webSocketFactory: config.chat?.webSocketFactory ?? undefined,
   })
+  const request: AthenaSdkClient<TStrict>['request'] = async <T = unknown>(
+    options: AthenaRequestOptions,
+  ): Promise<AthenaRequestResponse<T>> => {
+    const method = options.method ?? 'GET'
+    const responseType = options.responseType ?? 'json'
+    const service = options.service ?? 'db'
+    const baseUrlByService: Record<AthenaRequestService, string | undefined> = {
+      db: config.baseUrl,
+      auth: config.authUrl,
+      chat: config.chatUrl,
+      storage: config.storageUrl,
+    }
+
+    const resolvedBaseUrl = options.url ?? baseUrlByService[service]
+    if (!resolvedBaseUrl) {
+      throw new Error(
+        `Athena ${service} base URL is not configured. Pass createClient({ url }) for unified routing or set the service-specific URL first.`,
+      )
+    }
+
+    const normalizedBaseUrl = normalizeAthenaGatewayBaseUrl(resolvedBaseUrl, {
+      label: `Athena ${service} base URL`,
+    })
+    const normalizedPath = options.url
+      ? ''
+      : (() => {
+          const path = options.path?.trim()
+          if (!path) {
+            throw new Error('client.request(...) requires either an absolute url or a non-empty path.')
+          }
+          return path.startsWith('/') ? path : `/${path}`
+        })()
+    const targetUrl = options.url
+      ? `${normalizedBaseUrl}${toRequestQueryString(options.query)}`
+      : `${normalizedBaseUrl}${normalizedPath}${toRequestQueryString(options.query)}`
+
+    const headers: Record<string, string> = {
+      'X-Athena-Sdk': buildSdkHeaderValue(SDK_NAME),
+      ...(config.headers ?? {}),
+      ...(options.headers ?? {}),
+    }
+
+    if (service !== 'auth') {
+      headers.apikey = headers.apikey ?? config.apiKey
+      headers['x-api-key'] = headers['x-api-key'] ?? config.apiKey
+      if (config.client && !hasHeaderIgnoreCase(headers, 'X-Athena-Client')) {
+        headers['X-Athena-Client'] = config.client
+      }
+      if (config.userId && !hasHeaderIgnoreCase(headers, 'X-User-Id')) {
+        headers['X-User-Id'] = config.userId
+      }
+      if (config.organizationId && !hasHeaderIgnoreCase(headers, 'X-Organization-Id')) {
+        headers['X-Organization-Id'] = config.organizationId
+      }
+      if (normalizedAuthConfig?.sessionToken && !hasHeaderIgnoreCase(headers, 'X-Athena-Auth-Session-Token')) {
+        headers['X-Athena-Auth-Session-Token'] = normalizedAuthConfig.sessionToken
+      }
+      if (normalizedAuthConfig?.bearerToken && !hasHeaderIgnoreCase(headers, 'X-Athena-Auth-Bearer-Token')) {
+        headers['X-Athena-Auth-Bearer-Token'] = normalizedAuthConfig.bearerToken
+      }
+      if (normalizedAuthConfig?.cookie && !hasHeaderIgnoreCase(headers, 'Cookie')) {
+        headers.Cookie = normalizedAuthConfig.cookie
+      }
+    } else {
+      const authApiKey = normalizedAuthConfig?.apiKey ?? config.apiKey
+      if (authApiKey && !hasHeaderIgnoreCase(headers, 'x-api-key')) {
+        headers.apikey = headers.apikey ?? authApiKey
+        headers['x-api-key'] = headers['x-api-key'] ?? authApiKey
+      }
+      if (normalizedAuthConfig?.bearerToken && !hasHeaderIgnoreCase(headers, 'Authorization')) {
+        headers.Authorization = `Bearer ${normalizedAuthConfig.bearerToken}`
+      }
+      if (normalizedAuthConfig?.cookie && !hasHeaderIgnoreCase(headers, 'Cookie')) {
+        headers.Cookie = normalizedAuthConfig.cookie
+      }
+      if (normalizedAuthConfig?.sessionToken && !hasHeaderIgnoreCase(headers, 'X-Athena-Auth-Session-Token')) {
+        headers['X-Athena-Auth-Session-Token'] = normalizedAuthConfig.sessionToken
+      }
+    }
+
+    const shouldSendJsonBody =
+      options.body !== undefined &&
+      options.body !== null &&
+      !(options.body instanceof FormData) &&
+      !(options.body instanceof Blob) &&
+      !(options.body instanceof URLSearchParams) &&
+      !(options.body instanceof ArrayBuffer) &&
+      !ArrayBuffer.isView(options.body) &&
+      typeof options.body !== 'string'
+
+    if (shouldSendJsonBody && !hasHeaderIgnoreCase(headers, 'Content-Type')) {
+      headers['Content-Type'] = 'application/json'
+    }
+
+    const response = await fetch(targetUrl, {
+      method,
+      headers,
+      body:
+        options.body === undefined || options.body === null
+          ? undefined
+          : shouldSendJsonBody
+            ? JSON.stringify(options.body)
+            : (options.body as RequestInit['body']),
+      signal: options.signal,
+      credentials: options.credentials,
+    })
+
+    if (responseType === 'response') {
+      return {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: null,
+        raw: response,
+      }
+    }
+
+    const rawText = await response.text()
+    const parsed =
+      responseType === 'text'
+        ? rawText
+        : parseArbitraryResponseBody(rawText, response.headers.get('content-type'))
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data: parsed as T | string | null,
+      raw: response,
+    }
+  }
   const withContext: AthenaSdkClientWithAuth<TStrict>['withContext'] = context =>
     createClientFromInput<TStrict>(
       mergeClientOverrideOptions(sourceConfig, toClientContextOverrides(context)),
@@ -2985,6 +3211,7 @@ function createClientFromConfig<TStrict extends boolean = false>(
     db,
     rpc,
     query,
+    request,
     verifyConnection: gateway.verifyConnection,
     auth: auth.auth,
     chat,
