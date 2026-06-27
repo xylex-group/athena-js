@@ -49,4 +49,4 @@ systemd_service_name: null
 target: nodejs
 url: null
 url_storybook: null
-version: 2.9.0
+version: 2.10.0
