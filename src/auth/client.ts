@@ -203,6 +203,25 @@ function copyDefinedField(
   }
 }
 
+function normalizeEmailTemplateAttachmentsValue(value: unknown): unknown {
+  if (typeof value === 'string' || value == null) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => normalizeEmailTemplateAttachmentsValue(item))
+  }
+
+  if (typeof value !== 'object') {
+    return value
+  }
+
+  const attachment = { ...(value as Record<string, unknown>) }
+  copyDefinedField(attachment, attachment, 'file_url', 'fileUrl')
+  delete attachment.fileUrl
+  return attachment
+}
+
 function normalizeAdminEmailTemplatePayload(payload: Record<string, unknown>): Record<string, unknown> {
   const normalized = { ...payload }
 
@@ -214,6 +233,19 @@ function normalizeAdminEmailTemplatePayload(payload: Record<string, unknown>): R
   copyDefinedField(normalized, payload, 'variable_bindings', 'variableBindings')
   copyDefinedField(normalized, payload, 'attachment_failure_mode', 'attachmentFailureMode')
   copyDefinedField(normalized, payload, 'is_active', 'isActive')
+
+  if (Object.hasOwn(payload, 'attachments')) {
+    normalized.attachments = normalizeEmailTemplateAttachmentsValue(payload.attachments)
+  }
+
+  delete normalized.templateKey
+  delete normalized.eventType
+  delete normalized.subjectTemplate
+  delete normalized.textTemplate
+  delete normalized.htmlTemplate
+  delete normalized.variableBindings
+  delete normalized.attachmentFailureMode
+  delete normalized.isActive
 
   return normalized
 }
@@ -245,6 +277,19 @@ function normalizeAdminEmailTemplateSendPayload(payload: Record<string, unknown>
   copyDefinedField(normalized, payload, 'user_id', 'userId')
   copyDefinedField(normalized, payload, 'organization_id', 'organizationId')
   copyDefinedField(normalized, payload, 'session_token', 'sessionToken')
+  copyDefinedField(normalized, payload, 'attachment_failure_mode', 'attachmentFailureMode')
+
+  if (Object.hasOwn(payload, 'attachments')) {
+    normalized.attachments = normalizeEmailTemplateAttachmentsValue(payload.attachments)
+  }
+
+  delete normalized.templateId
+  delete normalized.recipientEmail
+  delete normalized.renderVariables
+  delete normalized.userId
+  delete normalized.organizationId
+  delete normalized.sessionToken
+  delete normalized.attachmentFailureMode
 
   return normalized
 }

@@ -17,6 +17,8 @@ Main package exports include:
 
 - runtime client constructors (`createClient`, `AthenaClient`)
 - query builder contracts (`AthenaSdkClient`, `TableQueryBuilder`, `RpcQueryBuilder`)
+- low-level service hatch (`client.request(...)`)
+- chat runtime surface (`client.chat`, chat types, realtime helpers)
 - typed registry builders (`defineModel` deprecated, `defineSchema`, `defineDatabase`, `defineRegistry`, `createTypedClient`)
 - generator config/pipeline helpers
 - result and error helpers
@@ -88,10 +90,13 @@ function createClient(
     db?: { url?: string | null | undefined }
     gateway?: { url?: string | null | undefined }
     auth?: AthenaAuthClientConfig & { url?: string | null | undefined; baseUrl?: string | null | undefined }
+    chat?: { url?: string | null | undefined; wsUrl?: string | null | undefined; webSocketFactory?: AthenaChatWebSocketFactory | null | undefined }
     storage?: { url?: string | null | undefined }
     dbUrl?: string | null | undefined
     gatewayUrl?: string | null | undefined
     authUrl?: string | null | undefined
+    chatUrl?: string | null | undefined
+    chatWsUrl?: string | null | undefined
     storageUrl?: string | null | undefined
     experimental?: {
       athenaStorageBackend?: boolean
@@ -107,7 +112,7 @@ function createClient(
 ): AthenaSdkClientWithAuth
 ```
 
-This is the canonical SDK entry point. The SDK treats `url` as the public unified Athena base URL and resolves services to `${url}/db`, `${url}/auth`, and `${url}/storage` unless you provide explicit service overrides.
+This is the canonical SDK entry point. The SDK treats `url` as the public unified Athena base URL and resolves services to `${url}/db`, `${url}/auth`, `${url}/chat`, and `${url}/storage` unless you provide explicit service overrides. Chat realtime defaults to the same host converted to `ws:` / `wss:` with `/chat/ws`.
 Direct env-style inputs such as `createClient(process.env.ATHENA_URL, process.env.ATHENA_API_KEY, { auth: { baseUrl: process.env.ATHENA_AUTH_URL }, client: process.env.ATHENA_CLIENT })` are supported; the SDK still throws early when the API key is missing.
 The `auth` block accepts the full `AthenaAuthClientConfig` surface, including `bearerToken`, `cookie`, `sessionToken`, `headers`, and `credentials`. When those auth-context fields are set at client construction time, `client.auth.*` uses them by default and gateway/query calls inherit the same context through `Cookie`, `X-Athena-Auth-Session-Token`, and `X-Athena-Auth-Bearer-Token` when applicable.
 
@@ -125,10 +130,13 @@ function createClient(
     db?: { url?: string | null | undefined }
     gateway?: { url?: string | null | undefined }
     auth?: AthenaAuthClientConfig & { url?: string | null | undefined; baseUrl?: string | null | undefined }
+    chat?: { url?: string | null | undefined; wsUrl?: string | null | undefined; webSocketFactory?: AthenaChatWebSocketFactory | null | undefined }
     storage?: { url?: string | null | undefined }
     dbUrl?: string | null | undefined
     gatewayUrl?: string | null | undefined
     authUrl?: string | null | undefined
+    chatUrl?: string | null | undefined
+    chatWsUrl?: string | null | undefined
     storageUrl?: string | null | undefined
     experimental?: {
       athenaStorageBackend?: boolean
@@ -148,6 +156,8 @@ The object form is the backwards-compatible escape hatch for direct service URLs
 
 - DB: `db.url` -> `gateway.url` -> `dbUrl` -> `gatewayUrl` -> `${url}/db`
 - Auth: `auth.url` -> `auth.baseUrl` -> `authUrl` -> `${url}/auth`
+- Chat HTTP: `chat.url` -> `chatUrl` -> `${url}/chat`
+- Chat realtime: `chat.wsUrl` -> `chatWsUrl` -> derived unified-root websocket URL
 - Storage: `storage.url` -> `storageUrl` -> `${url}/storage`
 
 Per-call overrides still win over these client-wide auth defaults. Use call-level `fetchOptions` on `client.auth.*` or call-level `headers` on gateway/query builders when you need impersonation or another one-off credential.
@@ -271,6 +281,62 @@ Behavior:
 - still accepts explicit overrides through `options.headers`, `options.auth`, and `forceNoCache`
 
 Use this when you already have a Better Auth-style or Athena-style session object and want the shortest possible SDK setup in route handlers or server actions.
+
+### `client.request(options)`
+
+```ts
+type AthenaRequestService = "db" | "auth" | "chat" | "storage"
+
+type AthenaRequestMethod =
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "PATCH"
+  | "DELETE"
+  | "HEAD"
+  | "OPTIONS"
+
+interface AthenaRequestQueryValueMap {
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | Array<string | number | boolean | null | undefined>
+}
+
+interface AthenaRequestOptions {
+  service?: AthenaRequestService
+  url?: string
+  path?: string
+  method?: AthenaRequestMethod
+  headers?: Record<string, string>
+  query?: AthenaRequestQueryValueMap
+  body?: RequestInit["body"] | Record<string, unknown> | unknown[] | null
+  signal?: AbortSignal
+  credentials?: RequestInit["credentials"]
+  responseType?: "json" | "text" | "response"
+}
+
+interface AthenaRequestResponse<T = unknown> {
+  ok: boolean
+  status: number
+  statusText: string
+  headers: Headers
+  data: T | string | null
+  raw: Response
+}
+```
+
+`client.request(...)` is the low-level escape hatch for routes the fluent SDK does not wrap yet.
+
+Behavior:
+
+- use `service` plus `path` to target a configured SDK service
+- use `url` to bypass service routing and hit an absolute URL directly
+- configured API key, `X-Athena-Client`, auth session/bearer context, and scoped `userId` / `organizationId` headers are mirrored automatically on configured service calls
+- `responseType: "json"` is the default; use `"text"` or `"response"` when you need raw transport control
 
 ### `AthenaQueryTraceOptions`
 
@@ -505,6 +571,8 @@ Reads:
 - client aliases: `ATHENA_CLIENT`, `NEXT_PUBLIC_ATHENA_CLIENT`
 - auth URL aliases: `ATHENA_AUTH_URL`, `NEXT_PUBLIC_ATHENA_AUTH_URL`
 - storage URL aliases: `ATHENA_STORAGE_URL`, `NEXT_PUBLIC_ATHENA_STORAGE_URL`
+- chat URL aliases: `ATHENA_CHAT_URL`, `NEXT_PUBLIC_ATHENA_CHAT_URL`
+- chat websocket URL aliases: `ATHENA_CHAT_WS_URL`, `NEXT_PUBLIC_ATHENA_CHAT_WS_URL`
 
 `AthenaClient.fromEnvironment(options?)` also accepts ordinary `createClient(...)` options plus:
 
@@ -517,6 +585,34 @@ interface AthenaClientFromEnvironmentOptions extends AthenaCreateClientOptions {
 ```
 
 Throws when URL or key is missing.
+
+## Chat module
+
+`AthenaSdkClientWithAuth` now exposes:
+
+- `chat.room.list(query?, options?)`
+- `chat.room.create(input, options?)`
+- `chat.room.get(roomId, options?)`
+- `chat.room.update(roomId, input, options?)`
+- `chat.room.archive(roomId, options?)`
+- `chat.room.readCursor.upTo(roomId, input?, options?)`
+- `chat.room.member.list(roomId, options?)`
+- `chat.room.member.add(roomId, input, options?)`
+- `chat.room.member.remove(roomId, userId, options?)`
+- `chat.room.message.list(roomId, query?, options?)`
+- `chat.room.message.send(roomId, input, options?)`
+- `chat.room.message.update(roomId, messageId, input, options?)`
+- `chat.room.message.delete(roomId, messageId, options?)`
+- `chat.message.reaction.add(messageId, input, options?)`
+- `chat.message.reaction.remove(messageId, emoji, options?)`
+- `chat.message.search(input, options?)`
+- `chat.realtime.info(options?)`
+- `chat.realtime.connect(options?)`
+
+Realtime notes:
+
+- `chat.realtime.info()` derives its HTTP info endpoint from `chat.wsUrl` / `chatWsUrl` when needed
+- `chat.realtime.connect()` uses the configured websocket URL and returns a connection helper with `send`, `readUpTo`, `ping`, and `close`
 
 ### `AthenaClient.builder()`
 

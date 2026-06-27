@@ -1,6 +1,6 @@
 # athena-js
 
-current version: `2.10.0`
+current version: `2.10.1`
 `@xylex-group/athena` is a database driver and API gateway SDK that lets you interact with SQL backends over HTTP through a fluent builder API. It ships a typed query builder for Node.js / server environments plus Athena-native React hooks for client-side use.
 
 ## Install
@@ -55,6 +55,8 @@ if (error) {
 
 - DB: `${url}/db`
 - Auth: `${url}/auth`
+- Chat: `${url}/chat`
+- Chat realtime: `${url}` converted to `ws:` / `wss:` plus `/chat/ws`
 - Storage: `${url}/storage`
 
 You can still override individual services when needed:
@@ -64,6 +66,10 @@ const athena = createClient({
   key: ATHENA_API_KEY,
   db: { url: process.env.ATHENA_DB_URL },
   auth: { url: process.env.ATHENA_AUTH_URL },
+  chat: {
+    url: process.env.ATHENA_CHAT_URL,
+    wsUrl: process.env.ATHENA_CHAT_WS_URL,
+  },
   storage: { url: process.env.ATHENA_STORAGE_URL },
 });
 ```
@@ -75,6 +81,8 @@ const athena = createClient({
   key: ATHENA_API_KEY,
   gatewayUrl: process.env.ATHENA_DB_URL,
   authUrl: process.env.ATHENA_AUTH_URL,
+  chatUrl: process.env.ATHENA_CHAT_URL,
+  chatWsUrl: process.env.ATHENA_CHAT_WS_URL,
   storageUrl: process.env.ATHENA_STORAGE_URL,
 });
 ```
@@ -114,6 +122,42 @@ Use `withContext(...)` when you want the same request-scoped behavior but alread
 Use `withOptions(...)` only when you intentionally need to re-target the client itself, such as overriding `url`, `key`, `client`, or service URLs.
 
 If you already pass `client: "web-dashboard"`, the SDK sends `X-Athena-Client` for you. You do not need to duplicate that header manually.
+
+### Low-level request hatch
+
+If you need to hit a route the fluent SDK has not wrapped yet, use `client.request(...)`:
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  auth: {
+    baseUrl: AUTH_BASE_URL,
+    credentials: "include",
+  },
+});
+
+const response = await athena.request<{
+  ok: boolean;
+}>({
+  service: "chat",
+  method: "POST",
+  path: "/rooms",
+  body: {
+    slug: "support",
+    name: "Support",
+  },
+});
+
+if (!response.ok) {
+  throw new Error(`chat route failed: ${response.status}`);
+}
+```
+
+Rules:
+
+- use `service: "db" | "auth" | "chat" | "storage"` plus `path` for configured SDK services
+- use `url` for absolute one-off targets
+- `query`, `headers`, `body`, `signal`, `credentials`, and `responseType` are supported
+- auth/session, API key, org/user context, and client headers are mirrored onto configured service calls automatically
 
 ### Next.js and React shortcuts
 
@@ -249,8 +293,8 @@ function WelcomeEmail(props: { name: string }) {
 }
 
 await athena.auth.admin.email.template.create({
-  templateKey: "welcome",
-  subjectTemplate: "Welcome",
+  template_key: "welcome",
+  subject_template: "Welcome",
   react: {
     component: WelcomeEmail,
     props: { name: "Ava" },
@@ -298,6 +342,46 @@ pnpm add @react-email/components @react-email/render
 ```
 
 Auth responses follow the same envelope style: `{ ok, status, data, error, errorDetails, raw }`.
+
+#### Chat module
+
+The root client now exposes `client.chat` for room, message, search, and realtime flows:
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  chatWsUrl: process.env.ATHENA_CHAT_WS_URL,
+});
+
+const rooms = await athena.chat.room.list({ limit: 20 });
+const created = await athena.chat.room.create({
+  slug: "engineering",
+  name: "Engineering",
+});
+
+await athena.chat.room.message.send(created.data?.id ?? "room_1", {
+  body: "Hello team",
+});
+
+const socket = athena.chat.realtime.connect({
+  token: "chat_token",
+  onMessage(event) {
+    console.log(event);
+  },
+});
+
+socket.ping();
+socket.close();
+```
+
+Available chat surfaces:
+
+- `chat.room.list/create/get/update/archive`
+- `chat.room.readCursor.upTo`
+- `chat.room.member.list/add/remove`
+- `chat.room.message.list/send/update/delete`
+- `chat.message.reaction.add/remove`
+- `chat.message.search`
+- `chat.realtime.info/connect`
 
 #### Native auth bootstrap helpers
 

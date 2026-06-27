@@ -1027,6 +1027,8 @@ export interface AthenaAdminEmailTemplateSendRequest {
   user_id?: string
   organization_id?: string
   session_token?: string
+  attachments?: string | AthenaAuthEmailTemplateAttachment | AthenaAuthEmailTemplateAttachment[]
+  attachment_failure_mode?: 'fail' | 'skip'
   metadata?: AthenaAuthLooseRecord
 }
 

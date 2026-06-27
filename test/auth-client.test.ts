@@ -885,6 +885,13 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     await client.auth.admin.email.template.send({
       template_id: 'tmpl_1',
       recipient_email: 'to@example.com',
+      attachments: [
+        {
+          file_url: 'https://cdn.example.com/invoice.pdf',
+          filename: 'invoice.pdf',
+        },
+      ],
+      attachment_failure_mode: 'skip',
     })
     await client.auth.admin.email.eventType.list()
     await client.auth.admin.email.list()
@@ -896,6 +903,11 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     await client.auth.admin.emailTemplate.send({
       template_id: 'legacy_tmpl_1',
       recipient_email: 'legacy@example.com',
+      attachments: {
+        fileUrl: 'https://cdn.example.com/legacy.pdf',
+        filename: 'legacy.pdf',
+      } as unknown as { file_url: string; filename?: string },
+      attachmentFailureMode: 'fail' as unknown as 'fail',
     })
     await client.auth.admin.emailEventType.list()
 
@@ -953,6 +965,29 @@ test('auth.admin and auth.apiKey bindings map to expected endpoints', async () =
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/delete')?.init?.method, 'POST')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/send')?.init?.method, 'POST')
     assert.equal(calls.find(call => call.url === 'https://auth.example.com/api/auth/admin/email-event-type/list')?.init?.method, 'GET')
+
+    const sendCalls = calls.filter(call => call.url === 'https://auth.example.com/api/auth/admin/email-template/send')
+    assert.equal(sendCalls.length, 2)
+    assert.deepEqual(JSON.parse(sendCalls[0].init?.body as string), {
+      template_id: 'tmpl_1',
+      recipient_email: 'to@example.com',
+      attachments: [
+        {
+          file_url: 'https://cdn.example.com/invoice.pdf',
+          filename: 'invoice.pdf',
+        },
+      ],
+      attachment_failure_mode: 'skip',
+    })
+    assert.deepEqual(JSON.parse(sendCalls[1].init?.body as string), {
+      template_id: 'legacy_tmpl_1',
+      recipient_email: 'legacy@example.com',
+      attachments: {
+        file_url: 'https://cdn.example.com/legacy.pdf',
+        filename: 'legacy.pdf',
+      },
+      attachment_failure_mode: 'fail',
+    })
   } finally {
     restore()
   }

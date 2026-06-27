@@ -34,11 +34,15 @@
 - `auth.admin.email.template.create()` -> `POST /admin/email-template/create`
 - `auth.admin.email.template.update()` -> `POST /admin/email-template/update`
 - `auth.admin.email.template.delete()` -> `POST /admin/email-template/delete`
+- `auth.admin.email.template.send()` -> `POST /admin/email-template/send`
+- `auth.admin.email.eventType.list()` -> `GET /admin/email-event-type/list`
 - `auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list` (legacy alias)
 - `auth.admin.emailTemplate.get()` -> `GET /admin/email-template/get` (legacy alias)
 - `auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create` (legacy alias)
 - `auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
 - `auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
+- `auth.admin.emailTemplate.send()` -> `POST /admin/email-template/send` (legacy alias)
+- `auth.admin.emailEventType.list()` -> `GET /admin/email-event-type/list` (legacy alias)
 
 ## React Email payload support
 
@@ -57,6 +61,8 @@ react: {
 
 When `react` is present, the SDK renders `element` to `htmlBody` or `htmlTemplate` before sending.
 For template routes, `variables` is auto-derived from `react.props` when omitted.
+Canonical template payload fields are snake_case: `template_key`, `event_type`, `subject_template`, `text_template`, `html_template`, `variable_bindings`, `attachments`, `attachment_failure_mode`, and `is_active`.
+Legacy camelCase request keys such as `templateKey`, `eventType`, `subjectTemplate`, `variableBindings`, `attachmentFailureMode`, and `isActive` are still accepted for compatibility, but responses for this surface are snake_case.
 For template routes, the SDK rejects payloads with more than `64` variables or variable names longer than `128` characters.
 For reusable flows, prefer `defineAuthEmailTemplate(...)` from the root SDK export.
 
@@ -188,8 +194,16 @@ await client.auth.admin.email.failure.delete({
 await client.auth.admin.email.list()
 
 await client.auth.admin.email.template.create({
-  templateKey: "welcome",
-  subjectTemplate: "Welcome",
+  template_key: "welcome",
+  subject_template: "Welcome",
+  event_type: "email.verification",
+  variable_bindings: [
+    {
+      name: "organization_slug",
+      source: "athena.organizations.slug",
+      required: true,
+    },
+  ],
 })
 await client.auth.admin.email.template.get({
   query: { id: "tmpl_1" },
@@ -197,9 +211,17 @@ await client.auth.admin.email.template.get({
 await client.auth.admin.email.template.list()
 await client.auth.admin.email.template.update({
   id: "tmpl_1",
-  subjectTemplate: "Welcome Updated",
+  subject_template: "Welcome Updated",
+})
+await client.auth.admin.email.template.send({
+  template_id: "tmpl_1",
+  recipient_email: "to@example.com",
+  render_variables: {
+    verification_url: "https://app.example.com/verify",
+  },
 })
 await client.auth.admin.email.template.delete({ id: "tmpl_1" })
+await client.auth.admin.email.eventType.list()
 
 // legacy alias
 await client.auth.admin.emailTemplate.create({
@@ -214,5 +236,10 @@ await client.auth.admin.emailTemplate.update({
   id: "legacy_tmpl_1",
   subjectTemplate: "Legacy Updated",
 })
+await client.auth.admin.emailTemplate.send({
+  templateId: "legacy_tmpl_1",
+  recipientEmail: "to@example.com",
+})
 await client.auth.admin.emailTemplate.delete({ id: "legacy_tmpl_1" })
+await client.auth.admin.emailEventType.list()
 ```
