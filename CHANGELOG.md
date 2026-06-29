@@ -6,6 +6,11 @@
 
 - _No unreleased changes yet._
 
+## [2.11.0](https://github.com/xylex-group/athena-js/compare/v2.10.0...v2.11.0) (2026-06-29)
+
+- Release channel: stable
+- Tag: `v2.11.0`
+
 ## [2.10.0](https://github.com/xylex-group/athena-js/compare/v2.9.0...v2.10.0) (2026-06-27)
 
 - Release channel: stable
