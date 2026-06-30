@@ -1,0 +1,28 @@
+{
+  "name": "ListCaptures",
+  "description": "List all captures for a specific payment. This endpoint returns a paginated list of all captures that have been created for a given payment. Each capture represents funds that have been captured from an authorized payment.",
+  "inputSchema": {
+    "properties": {
+      "payment_id": {
+        "description": "The ID of the payment to list captures for. Provide the payment ID (e.g., 'tr_WDqYK6vllg') to retrieve all associated captures.",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve test mode captures, or omit for live mode."
+      }
+    },
+    "required": [
+      "payment_id"
+    ],
+    "type": "object"
+  }
+}

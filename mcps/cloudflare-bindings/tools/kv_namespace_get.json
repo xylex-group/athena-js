@@ -1,0 +1,17 @@
+{
+  "name": "kv_namespace_get",
+  "description": "Get details of a kv namespace in your Cloudflare account.\n\t\tUse this tool when you need to get details of a specific kv namespace in your Cloudflare account.\n\t\tReturns a kv namespace with the following properties:\n\t\t\t- id: The id of the kv namespace.\n\t\t\t- title: The title of the kv namespace.\n\t\t\t- supports_url_encoding: Whether the kv namespace supports url encoding.\n\t\t\t- beta: Whether the kv namespace is in beta.\n\t\t",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "namespace_id": {
+        "type": "string",
+        "description": "The ID of the KV namespace"
+      }
+    },
+    "required": [
+      "namespace_id"
+    ]
+  }
+}

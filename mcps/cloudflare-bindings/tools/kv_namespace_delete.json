@@ -1,0 +1,17 @@
+{
+  "name": "kv_namespace_delete",
+  "description": "Delete a kv namespace in your Cloudflare account",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "namespace_id": {
+        "type": "string",
+        "description": "The ID of the KV namespace"
+      }
+    },
+    "required": [
+      "namespace_id"
+    ]
+  }
+}

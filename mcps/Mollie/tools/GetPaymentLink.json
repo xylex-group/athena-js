@@ -1,0 +1,28 @@
+{
+  "name": "GetPaymentLink",
+  "description": "Retrieve a single payment link by ID.",
+  "inputSchema": {
+    "properties": {
+      "payment_link_id": {
+        "description": "Provide the ID of the related payment link.",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "payment_link_id"
+    ],
+    "type": "object"
+  }
+}

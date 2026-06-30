@@ -1,0 +1,122 @@
+{
+  "name": "CreateMandate",
+  "description": "Create a new mandate for a customer to authorize recurring payments. IMPORTANT: In most cases, mandates are created automatically when a customer makes their first payment. Manual mandate creation is only needed for specific use cases like importing existing mandates or creating SEPA Direct Debit mandates with pre-existing authorization. Requires the customer's name and payment method details (IBAN for direct debit, card token for credit card, email for PayPal). This endpoint requires the 'mandates.write' scope.",
+  "inputSchema": {
+    "properties": {
+      "customer_id": {
+        "description": "The ID of the customer to create a mandate for (e.g., 'cst_abc123').",
+        "type": "string"
+      },
+      "method": {
+        "description": "The payment method for the mandate. Supported values: 'directdebit' (SEPA Direct Debit), 'creditcard', 'paypal'. The method determines which additional fields are required.",
+        "type": "string"
+      },
+      "consumer_name": {
+        "description": "The full name of the consumer (account holder) who is giving the mandate authorization. Required for all payment methods.",
+        "type": "string"
+      },
+      "consumer_account": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "For 'directdebit': The consumer's IBAN (e.g., 'NL55INGB0000000000'). For 'creditcard': The card token from a previous payment. Leave empty for 'paypal'."
+      },
+      "consumer_bic": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "For 'directdebit': Optional BIC/SWIFT code of the consumer's bank (e.g., 'INGBNL2A'). Not used for other payment methods."
+      },
+      "consumer_email": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "For 'paypal': The consumer's email address. Not used for other payment methods."
+      },
+      "signature_date": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional date when the mandate was signed by the consumer in YYYY-MM-DD format (e.g., '2025-01-15'). Defaults to today if not provided."
+      },
+      "mandate_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional custom reference for the mandate. If not provided, Mollie generates a unique reference automatically."
+      },
+      "paypal_billing_agreement_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "For 'paypal': The billing agreement ID from PayPal (e.g., 'B-12345')."
+      },
+      "pay_pal_vault_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "For 'paypal': The Vault ID from PayPal (e.g., '8kk8451t')."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to create a test mode mandate, or omit for live mode."
+      }
+    },
+    "required": [
+      "customer_id",
+      "method",
+      "consumer_name"
+    ],
+    "type": "object"
+  }
+}

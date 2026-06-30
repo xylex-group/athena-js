@@ -1,0 +1,68 @@
+{
+  "name": "r2_buckets_list",
+  "description": "List r2 buckets in your Cloudflare account",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "cursor": {
+        "description": "Query param: Pagination cursor received during the last List Buckets call. R2 buckets are paginated using cursors instead of page numbers.",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "direction": {
+        "description": "Direction to order buckets",
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "name_contains": {
+        "description": "Bucket names to filter by. Only buckets with this phrase in their name will be returned.",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "per_page": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "start_after": {
+        "description": "Bucket name to start searching after. Buckets are ordered lexicographically.",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+}

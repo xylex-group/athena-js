@@ -1,0 +1,45 @@
+{
+  "name": "UpdateSubscription",
+  "description": "Update an existing subscription's settings. You can change the amount, interval, description, number of remaining payments, start date, webhook URL, or mandate. Changes take effect from the next scheduled payment. This is useful for price changes, interval modifications, or updating payment methods. This endpoint requires the 'subscriptions.write' scope.",
+  "inputSchema": {
+    "properties": {
+      "customer_id": {
+        "description": "The ID of the customer who owns the subscription (e.g., 'cst_abc123').",
+        "type": "string"
+      },
+      "subscription_id": {
+        "description": "The ID of the subscription to update (e.g., 'sub_abc123').",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve a test mode subscription, or omit for live mode."
+      },
+      "request_body": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "customer_id",
+      "subscription_id"
+    ],
+    "type": "object"
+  }
+}

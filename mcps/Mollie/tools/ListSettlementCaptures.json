@@ -1,0 +1,52 @@
+{
+  "name": "ListSettlementCaptures",
+  "description": "List all captures included in a specific settlement. Captures are used for capture-based payment methods like Klarna Pay Later and Klarna Slice It. This shows which authorized payments were actually captured and included in the settlement payout. You can optionally embed the full payment details for each capture.",
+  "inputSchema": {
+    "properties": {
+      "settlement_id": {
+        "description": "The ID of the settlement to retrieve captures for (e.g., 'stl_jDk30akdN').",
+        "type": "string"
+      },
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The capture ID to start retrieving the list from (for pagination)."
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The maximum number of captures to return per page. Valid range is 1-250, defaults to 50 if not specified."
+      },
+      "embed": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Embed additional information. Set to 'payment' to include the full payment object for each capture."
+      }
+    },
+    "required": [
+      "settlement_id"
+    ],
+    "type": "object"
+  }
+}

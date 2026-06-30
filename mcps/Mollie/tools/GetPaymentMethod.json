@@ -1,0 +1,81 @@
+{
+  "name": "GetPaymentMethod",
+  "description": "Retrieve detailed information about a specific payment method by its ID. Returns 404 if the method is not available on the profile, or 403 if it's available but not yet enabled.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "The profile ID for organization-level credentials.",
+        "type": "string"
+      },
+      "method_id": {
+        "description": "The payment method identifier (e.g., 'ideal', 'creditcard', 'applepay'). For wallet methods like Apple Pay, use 'applepay' as the ID.",
+        "type": "string"
+      },
+      "locale": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The locale for the method names (e.g., 'en_US', 'nl_NL'). This affects the language of the description field and preferred order."
+      },
+      "currency": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Currency code for converting minimumAmount and maximumAmount (e.g., 'EUR', 'USD')."
+      },
+      "include": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Include additional data. Use 'issuers' to include available issuers (e.g., for iDEAL banks)."
+      },
+      "sequence_type": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The sequence type for recurring payments. Use 'oneoff' for one-off payments, 'first' for the first payment in a recurring sequence, or 'recurring' for subsequent recurring payments."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to true to retrieve test mode method information, or omit for live mode."
+      }
+    },
+    "required": [
+      "profile_id",
+      "method_id"
+    ],
+    "type": "object"
+  }
+}

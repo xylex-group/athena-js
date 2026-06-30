@@ -1,0 +1,23 @@
+{
+  "name": "get_release",
+  "description": "Retrieve details of a release by ID or slug.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Release ID or slug"
+      },
+      "includeReleaseNotes": {
+        "default": false,
+        "description": "Include associated release notes",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  }
+}

@@ -16,6 +16,22 @@ export { isLocalHostname } from './hostname.ts'
 export { clearAuthCookies } from './auth-cookies.ts'
 export { proxyRequestHeaders } from './proxy-request-headers.ts'
 export {
+  applyAthenaApiKeyHeaders,
+  applyAthenaAuthContextHeaders,
+  applyAthenaPgUriHeaders,
+  buildAthenaRequestHeaders,
+  buildServiceRequestHeaders,
+  hasHeaderIgnoreCase,
+  resolveHeaderValue,
+  resolveRequestHeaderOverrides,
+} from './athena-request-headers.ts'
+export type {
+  AthenaRequestHeaderOverrideFields,
+  AthenaRequestHeaderProfile,
+  BuildAthenaRequestHeadersInput,
+  ResolvedRequestHeaderOverrides,
+} from './athena-request-headers.ts'
+export {
   sqlText,
   escapeLikePatternValue,
   quoteSqlStringLiteral,

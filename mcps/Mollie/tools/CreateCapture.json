@@ -1,0 +1,65 @@
+{
+  "name": "CreateCapture",
+  "description": "Capture funds from an authorized payment. This endpoint is used to manually capture a payment that was created with captureMode: manual. By default, Mollie captures payments automatically, but for payments requiring manual capture, use this endpoint after collecting customer authorization. You can capture the full authorized amount or a partial amount. This endpoint requires the 'payments.write' scope.",
+  "inputSchema": {
+    "properties": {
+      "payment_id": {
+        "description": "The ID of the payment to capture funds from. The payment must have been created with captureMode: manual.",
+        "type": "string"
+      },
+      "amount_value": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The amount to capture (e.g., '10.00'). If not provided, the full authorized amount will be captured. For partial captures, specify an amount less than or equal to the authorized amount."
+      },
+      "amount_currency": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The currency of the amount to capture (e.g., 'EUR', 'USD'). Required if amount_value is provided."
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "A description for this capture. This will be shown on statements and in the Mollie Dashboard."
+      },
+      "metadata": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Additional metadata to store with the capture. This can be any valid JSON object for your own reference."
+      }
+    },
+    "required": [
+      "payment_id"
+    ],
+    "type": "object"
+  }
+}

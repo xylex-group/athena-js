@@ -1,0 +1,17 @@
+{
+  "name": "workers_builds_set_active_worker",
+  "description": "Set the active Worker ID for subsequent calls.\nUse this tool to set the active worker for subsequent calls.\n\nWorker IDs are formatted similar to: db6a6421c2b046679a9daada1537088b\nIf you are given a Worker name or script name, you can use workers_get_worker to get the Worker ID.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "workerId": {
+        "type": "string",
+        "description": "The Worker ID to set as active."
+      }
+    },
+    "required": [
+      "workerId"
+    ]
+  }
+}

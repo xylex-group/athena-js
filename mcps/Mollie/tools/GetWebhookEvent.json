@@ -1,0 +1,21 @@
+{
+  "name": "GetWebhookEvent",
+  "description": "Retrieve a single webhook event by its ID. This returns the full event details including the embedded entity snapshot at the time the event occurred. Requires events.read scope for OAuth authentication.",
+  "inputSchema": {
+    "properties": {
+      "event_id": {
+        "description": "The unique event identifier (e.g., 'event_jd9v34P5YqN9pT8n3HJyH').",
+        "type": "string"
+      },
+      "testmode": {
+        "default": "false",
+        "description": "String flag to enable test mode. Set to true for test mode, false for live mode. Defaults to false (live mode). Test entities cannot be retrieved when the endpoint is set to live mode, and vice versa.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "event_id"
+    ],
+    "type": "object"
+  }
+}

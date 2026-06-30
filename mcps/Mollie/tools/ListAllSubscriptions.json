@@ -1,0 +1,52 @@
+{
+  "name": "ListAllSubscriptions",
+  "description": "List all subscriptions across all customers in your account. Provides an administrative overview of all recurring payment schedules, useful for reporting, analytics, and monitoring overall subscription health. Supports pagination and optional profile filtering.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "Profile ID to filter subscriptions",
+        "type": "string"
+      },
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional cursor for pagination."
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional number of subscriptions to return per page (default 50, maximum 250)."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve test mode subscriptions, or omit for live mode."
+      }
+    },
+    "required": [
+      "profile_id"
+    ],
+    "type": "object"
+  }
+}

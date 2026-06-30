@@ -1,0 +1,16 @@
+{
+  "name": "d1_database_get",
+  "description": "Get a D1 database in your Cloudflare account",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "database_id": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "database_id"
+    ]
+  }
+}

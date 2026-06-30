@@ -1,0 +1,16 @@
+{
+  "name": "GetInvoice",
+  "description": "Retrieve a single invoice by its ID. This tool allows you to fetch detailed information about a specific invoice.",
+  "inputSchema": {
+    "properties": {
+      "invoice_id": {
+        "description": "The unique invoice identifier (e.g., 'inv_xBEbP9rvAq').",
+        "type": "string"
+      }
+    },
+    "required": [
+      "invoice_id"
+    ],
+    "type": "object"
+  }
+}

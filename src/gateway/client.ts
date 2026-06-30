@@ -24,14 +24,12 @@ import {
   buildAthenaGatewayUrl,
   normalizeAthenaGatewayBaseUrl,
 } from "./url.ts";
-import { getSessionCookie } from "../cookies/index.ts";
+import { buildServiceRequestHeaders } from "../utils/athena-request-headers.ts";
 import { buildSdkHeaderValue } from "../sdk-version.ts";
 
 const DEFAULT_CLIENT = "railway_direct";
 const SDK_NAME = "xylex-group/athena";
 const SDK_HEADER_VALUE = buildSdkHeaderValue(SDK_NAME);
-const NO_CACHE_HEADER_VALUE = 'no-cache'
-
 function parseResponseBody(rawText: string, contentType: string | null) {
   if (!rawText) {
     return { parsed: null as unknown, parseFailed: false };
@@ -51,59 +49,6 @@ function parseResponseBody(rawText: string, contentType: string | null) {
   } catch {
     return { parsed: rawText as unknown, parseFailed: true };
   }
-}
-
-function normalizeHeaderValue(value?: string | null) {
-  return value ? value : undefined;
-}
-
-function isCacheControlHeaderName(name: string) {
-  return name.toLowerCase() === 'cache-control'
-}
-
-function resolveHeaderValue(
-  headers: Record<string, string>,
-  candidates: string[],
-): string | undefined {
-  for (const candidate of candidates) {
-    const direct = normalizeHeaderValue(headers[candidate]);
-    if (direct) return direct;
-  }
-
-  const loweredCandidates = new Set(candidates.map(candidate => candidate.toLowerCase()));
-  for (const [key, value] of Object.entries(headers)) {
-    if (!loweredCandidates.has(key.toLowerCase())) {
-      continue;
-    }
-    const normalized = normalizeHeaderValue(value);
-    if (normalized) return normalized;
-  }
-
-  return undefined;
-}
-
-function resolveBearerTokenFromAuthorizationHeader(
-  headers: Record<string, string>,
-): string | undefined {
-  const authorization = resolveHeaderValue(headers, ["Authorization"]);
-  if (!authorization) {
-    return undefined;
-  }
-
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1]?.trim();
-  return token ? token : undefined;
-}
-
-function resolveSessionTokenFromCookieHeader(
-  headers: Record<string, string>,
-): string | undefined {
-  const cookie = resolveHeaderValue(headers, ["Cookie"]);
-  if (!cookie) {
-    return undefined;
-  }
-
-  return getSessionCookie(new Headers({ cookie })) ?? undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -269,93 +214,10 @@ function buildHeaders(
   config: AthenaGatewayBaseOptions,
   options?: AthenaGatewayCallOptions,
 ): Record<string, string> {
-  const mergedStripNulls = options?.stripNulls ?? true;
-  const forceNoCache = Boolean(config.forceNoCache || options?.forceNoCache)
-  const extraHeaders = {
-    ...(config.headers ?? {}),
-    ...(options?.headers ?? {}),
-  };
-  const headerClient =
-    extraHeaders["x-athena-client"] ?? extraHeaders["X-Athena-Client"];
-  const finalClient =
-    options?.client ??
-    config.client ??
-    (typeof headerClient === "string" ? headerClient : undefined) ??
-    DEFAULT_CLIENT;
-  const finalApiKey = options?.apiKey ?? config.apiKey;
-  const finalPublishEvent = options?.publishEvent ?? config.publishEvent;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-Athena-Sdk": SDK_HEADER_VALUE,
-  };
-
-  if (options?.userId ?? config.userId) {
-    headers["X-User-Id"] = options?.userId ?? config.userId ?? "";
-  }
-
-  if (options?.organizationId ?? config.organizationId) {
-    headers["X-Organization-Id"] =
-      options?.organizationId ?? config.organizationId ?? "";
-  }
-
-  if (finalClient) {
-    headers["X-Athena-Client"] = finalClient;
-  }
-
-  const finalBackend = options?.backend ?? config.backend;
-  if (finalBackend) {
-    const type =
-      typeof finalBackend === "string" ? finalBackend : finalBackend.type;
-    if (type) headers["X-Backend-Type"] = type;
-  }
-
-  if (typeof mergedStripNulls === "boolean") {
-    headers["X-Strip-Nulls"] = mergedStripNulls ? "true" : "false";
-  }
-
-  if (finalPublishEvent) {
-    headers["X-Publish-Event"] = finalPublishEvent;
-  }
-
-  if (finalApiKey) {
-    headers["apikey"] = finalApiKey;
-    headers["x-api-key"] = headers["x-api-key"] ?? finalApiKey;
-  }
-
-  const explicitSessionToken = resolveHeaderValue(extraHeaders, [
-    "X-Athena-Auth-Session-Token",
-  ]);
-  const derivedSessionToken =
-    explicitSessionToken ?? resolveSessionTokenFromCookieHeader(extraHeaders);
-  if (derivedSessionToken) {
-    headers["X-Athena-Auth-Session-Token"] = derivedSessionToken;
-  }
-
-  const explicitBearerToken = resolveHeaderValue(extraHeaders, [
-    "X-Athena-Auth-Bearer-Token",
-  ]);
-  const derivedBearerToken =
-    explicitBearerToken ?? resolveBearerTokenFromAuthorizationHeader(extraHeaders);
-  if (derivedBearerToken) {
-    headers["X-Athena-Auth-Bearer-Token"] = derivedBearerToken;
-  }
-
-  const athenaClientKeys = ["x-athena-client", "X-Athena-Client"];
-  Object.entries(extraHeaders).forEach(([key, value]) => {
-    if (athenaClientKeys.includes(key)) return;
-    if (forceNoCache && isCacheControlHeaderName(key)) return;
-    const normalized = normalizeHeaderValue(value);
-    if (normalized) {
-      headers[key] = normalized;
-    }
+  return buildServiceRequestHeaders("gateway", SDK_HEADER_VALUE, config, options, {
+    client: options?.client ?? config.client ?? DEFAULT_CLIENT,
+    stripNulls: options?.stripNulls ?? true,
   });
-
-  if (forceNoCache) {
-    headers['Cache-Control'] = NO_CACHE_HEADER_VALUE
-  }
-
-  return headers;
 }
 
 function toInvalidUrlResponse<T>(

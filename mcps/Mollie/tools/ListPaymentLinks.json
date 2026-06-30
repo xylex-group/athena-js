@@ -1,0 +1,46 @@
+{
+  "name": "ListPaymentLinks",
+  "description": "Retrieve a list of payment links.",
+  "inputSchema": {
+    "properties": {
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Provide an ID to start the result set from the item with the given ID and onwards. This allows you to paginate the result set.",
+        "max_lenght": 50
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The maximum number of items to return. Defaults to 10 items."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "type": "object"
+  }
+}

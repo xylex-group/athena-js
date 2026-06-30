@@ -1,0 +1,21 @@
+{
+  "name": "execute",
+  "description": "Execute JavaScript code against the Cloudflare API. First use the 'search' tool to find the right endpoints, then write code using the cloudflare.request() function.\n\nAvailable in your code:\n\ninterface CloudflareRequestOptions {\n  method: \"GET\" | \"POST\" | \"PUT\" | \"PATCH\" | \"DELETE\";\n  path: string;\n  query?: Record<string, string | number | boolean | undefined>;\n  body?: unknown;\n  contentType?: string;  // Custom Content-Type header (defaults to application/json if body is present)\n  rawBody?: boolean;     // If true, sends body as-is without JSON.stringify\n}\n\ninterface CloudflareResponse<T = unknown> {\n  success: boolean;\n  status: number;\n  result: T;\n  errors: Array<{ code: number; message: string }>;\n  messages: Array<{ code: number; message: string }>;\n  result_info?: {\n    page: number;\n    per_page: number;\n    total_pages: number;\n    count: number;\n    total_count: number;\n  };\n}\n\ndeclare const cloudflare: {\n  request<T = unknown>(options: CloudflareRequestOptions): Promise<CloudflareResponse<T>>;\n};\n\ndeclare const accountId: string;\n\n// accountId is pre-set to \"a196ad9f98b8a2883f87e0d2d56ec3d5\" (xylex-group) — use it directly in API paths.\n\n\nYour code must be an async arrow function that returns the result.\n\nExample: Worker with bindings (requires multipart/form-data):\nasync () => {\n  const code = `addEventListener('fetch', e => e.respondWith(MY_KV.get('key').then(v => new Response(v || 'none'))));`;\n  const metadata = { body_part: \"script\", bindings: [{ type: \"kv_namespace\", name: \"MY_KV\", namespace_id: \"your-kv-id\" }] };\n  const b = `--F${Date.now()}`;\n  const body = [`--${b}`, 'Content-Disposition: form-data; name=\"metadata\"', 'Content-Type: application/json', '', JSON.stringify(metadata), `--${b}`, 'Content-Disposition: form-data; name=\"script\"', 'Content-Type: application/javascript', '', code, `--${b}--`].join(\"\\r\\n\");\n  return cloudflare.request({ method: \"PUT\", path: `/accounts/${accountId}/workers/scripts/my-worker`, body, contentType: `multipart/form-data; boundary=${b}`, rawBody: true });\n}",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "JavaScript async arrow function to execute"
+      },
+      "account_id": {
+        "description": "Cloudflare account ID to scope execution to a singular account. Optional for account-independent calls.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "code"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "AggregatePaymentLinks",
+  "description": "Get the sum, maximum, minimum or average of the payment links within a specific timeframe by providing the starting date and the ending date.",
+  "inputSchema": {
+    "properties": {
+      "aggregation_function": {
+        "description": "The aggregation function that should be used to calculate the result.",
+        "enum": [
+          "SUM",
+          "MAX",
+          "MIN"
+        ],
+        "type": "string"
+      },
+      "from_date": {
+        "title": "From Date"
+      },
+      "to_date": {
+        "title": "To Date"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "aggregation_function"
+    ],
+    "type": "object"
+  }
+}

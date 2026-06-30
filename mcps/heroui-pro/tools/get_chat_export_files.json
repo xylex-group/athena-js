@@ -1,0 +1,36 @@
+{
+  "name": "get_chat_export_files",
+  "description": "Fetch selected file contents from a HeroUI AI Chat export commit.\nCall get_chat_export_manifest first, then pass its commitSha and selected manifest paths here.\nUse this in chunks of at most 25 files and adapt the returned files into the user's local project instead of blindly overwriting unrelated files.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "chatId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "HeroUI AI Chat id to export."
+      },
+      "commitSha": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{7,64}$",
+        "description": "Commit SHA returned by get_chat_export_manifest."
+      },
+      "paths": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 1,
+        "maxItems": 25,
+        "description": "Manifest file paths to fetch. Fetch recommendedPaths first."
+      }
+    },
+    "required": [
+      "chatId",
+      "commitSha",
+      "paths"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

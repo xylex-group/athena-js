@@ -1,0 +1,33 @@
+{
+  "name": "SearchPaymentsByDescription",
+  "description": "Search for payments by description. This can be used to search for payments using a partial description.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "The identifier referring to the profile this entity belongs to. This allows you to filter search results by a specific profile.",
+        "type": "string"
+      },
+      "query": {
+        "description": "The description or part of the description to search for. This search uses trigram similarity, meaning it can find results even with typos or partial matches.",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "profile_id",
+      "query"
+    ],
+    "type": "object"
+  }
+}

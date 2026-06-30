@@ -1,0 +1,19 @@
+{
+  "name": "get_css",
+  "description": "Get component BEM CSS for `@heroui-pro/react` (Pro) and `@heroui/react` (OSS) components.\nReturns the CSS implementation with BEM classes, state selectors, and modifiers.\nFor theme variables, design tokens, and theme variants, use `get_theme_variables` instead.\n\nTwo modes:\n1. **No params** — Lists available Pro + OSS component names you can query\n2. **components** — Returns BEM CSS for specific components. Pro names get Pro CSS; OSS names get OSS styles.\n\nExamples:\n- get_css() → list of available Pro + OSS component names\n- get_css({ components: [\"sheet\", \"sidebar\"] }) → Pro BEM CSS\n- get_css({ components: [\"button\", \"card\"] }) → OSS BEM CSS",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "components": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": "Component names to get BEM CSS for. Accepts both Pro and OSS component names, including common import/display forms."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

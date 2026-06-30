@@ -1,0 +1,88 @@
+{
+  "name": "ListAllPaymentMethods",
+  "description": "List all payment methods available on Mollie, regardless of whether they are enabled on the profile. This endpoint shows all methods that Mollie supports, including those not yet activated. The results are not paginated.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "The profile ID for organization-level credentials.",
+        "type": "string"
+      },
+      "amount_value": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The amount value to check method availability for. This allows filtering methods based on their minimum and maximum amount limits."
+      },
+      "amount_currency": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The currency for the amount (e.g., 'EUR', 'USD'). Required if amount_value is provided."
+      },
+      "include": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Include additional data. Use 'issuers' to include available issuers (e.g., for iDEAL banks), or 'pricing' to include pricing information."
+      },
+      "locale": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The locale for the method names (e.g., 'en_US', 'nl_NL'). This affects the language of the description field."
+      },
+      "sequence_type": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The sequence type for recurring payments. Use 'oneoff' for one-off payments, 'first' for the first payment in a recurring sequence, or 'recurring' for subsequent recurring payments."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve test mode methods, or omit for live mode."
+      }
+    },
+    "required": [
+      "profile_id"
+    ],
+    "type": "object"
+  }
+}

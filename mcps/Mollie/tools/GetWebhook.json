@@ -1,0 +1,21 @@
+{
+  "name": "GetWebhook",
+  "description": "Retrieve a single webhook by its ID. This tool allows you to fetch detailed information about a specific webhook.",
+  "inputSchema": {
+    "properties": {
+      "webhook_id": {
+        "description": "The unique webhook identifier (e.g., 'hook_B2EyhTH5N4KWUnoYPcgiH').",
+        "type": "string"
+      },
+      "testmode": {
+        "default": "false",
+        "description": "Boolean flag to enable test mode. Set to true for test mode, false for live mode. Defaults to false (live mode). Test entities cannot be retrieved when the endpoint is set to live mode, and vice versa.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "webhook_id"
+    ],
+    "type": "object"
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "name": "CreateSubscription",
+  "description": "Create a new recurring payment subscription for a customer. The subscription automatically generates payments at the specified interval (e.g., '1 month', '2 weeks', '1 day'). The customer must have a valid mandate (payment authorization) for recurring charges. You can optionally specify the number of payments (otherwise it runs indefinitely), a start date, and a webhook URL for payment notifications. This endpoint requires the 'subscriptions.write' scope.",
+  "inputSchema": {
+    "properties": {
+      "customer_id": {
+        "description": "The ID of the customer to create a subscription for (e.g., 'cst_abc123'). The customer must have a valid mandate.",
+        "type": "string"
+      },
+      "amount_value": {
+        "description": "The amount for each recurring payment (e.g., '10.00'). This will be charged at every interval.",
+        "type": "string"
+      },
+      "amount_currency": {
+        "description": "The currency of the recurring payment amount (e.g., 'EUR', 'USD'). Must match the customer's mandate currency.",
+        "type": "string"
+      },
+      "interval": {
+        "description": "Payment interval in format '{count} {period}' where period is 'days', 'weeks', or 'months'. Examples: '1 month' (monthly), '2 weeks' (bi-weekly), '3 months' (quarterly), '1 day' (daily). This determines how frequently payments are created.",
+        "type": "string"
+      },
+      "description": {
+        "description": "Description that will appear on each recurring payment and on the customer's bank statement. Should clearly identify the subscription purpose.",
+        "type": "string"
+      },
+      "profile_id": {
+        "description": "The profile ID to associate the subscription with. This is required.",
+        "type": "string"
+      },
+      "times": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional number of times to charge the customer. If omitted, the subscription continues indefinitely until manually canceled. For example, set to 12 for a year of monthly payments."
+      },
+      "start_date": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional start date for the subscription in YYYY-MM-DD format (e.g., '2025-01-15'). If omitted, starts immediately. The first payment is created on this date."
+      },
+      "webhook_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional webhook URL to receive notifications when subscription payments are created, paid, or fail. Overrides the profile's default webhook."
+      },
+      "mandate_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional specific mandate ID to use for recurring charges. If omitted, uses the customer's default valid mandate."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to create a test mode subscription, or omit for live mode."
+      }
+    },
+    "required": [
+      "customer_id",
+      "amount_value",
+      "amount_currency",
+      "interval",
+      "description",
+      "profile_id"
+    ],
+    "type": "object"
+  }
+}

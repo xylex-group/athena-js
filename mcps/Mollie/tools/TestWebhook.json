@@ -1,0 +1,16 @@
+{
+  "name": "TestWebhook",
+  "description": "Test a webhook by triggering a test ping. This sends a test event to your webhook URL to verify it's working correctly. The webhook will receive a sample POST request.",
+  "inputSchema": {
+    "properties": {
+      "webhook_id": {
+        "description": "The unique webhook identifier (e.g., 'hook_B2EyhTH5N4KWUnoYPcgiH').",
+        "type": "string"
+      }
+    },
+    "required": [
+      "webhook_id"
+    ],
+    "type": "object"
+  }
+}

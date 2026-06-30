@@ -18,6 +18,7 @@ Main package exports include:
 - runtime client constructors (`createClient`, `AthenaClient`)
 - query builder contracts (`AthenaSdkClient`, `TableQueryBuilder`, `RpcQueryBuilder`)
 - low-level service hatch (`client.request(...)`)
+- request header cookbook ([`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md))
 - chat runtime surface (`client.chat`, chat types, realtime helpers)
 - typed registry builders (`defineModel` deprecated, `defineSchema`, `defineDatabase`, `defineRegistry`, `createTypedClient`)
 - generator config/pipeline helpers
@@ -87,6 +88,9 @@ function createClient(
     userId?: string | null | undefined
     organizationId?: string | null | undefined
     forceNoCache?: boolean
+    pgUri?: string | null | undefined
+    jdbcUrl?: string | null | undefined
+    athenaKey?: string | null | undefined
     db?: { url?: string | null | undefined }
     gateway?: { url?: string | null | undefined }
     auth?: AthenaAuthClientConfig & { url?: string | null | undefined; baseUrl?: string | null | undefined }
@@ -126,6 +130,9 @@ function createClient(
     userId?: string | null | undefined
     organizationId?: string | null | undefined
     forceNoCache?: boolean
+    pgUri?: string | null | undefined
+    jdbcUrl?: string | null | undefined
+    athenaKey?: string | null | undefined
     url?: string | null | undefined
     db?: { url?: string | null | undefined }
     gateway?: { url?: string | null | undefined }
@@ -312,6 +319,8 @@ interface AthenaRequestOptions {
   path?: string
   method?: AthenaRequestMethod
   headers?: Record<string, string>
+  apiKey?: string | null
+  athenaKey?: string | null
   query?: AthenaRequestQueryValueMap
   body?: RequestInit["body"] | Record<string, unknown> | unknown[] | null
   signal?: AbortSignal
@@ -336,7 +345,10 @@ Behavior:
 - use `service` plus `path` to target a configured SDK service
 - use `url` to bypass service routing and hit an absolute URL directly
 - configured API key, `X-Athena-Client`, auth session/bearer context, and scoped `userId` / `organizationId` headers are mirrored automatically on configured service calls
+- `apiKey` and `athenaKey` on the request options override the client defaults for that call only
 - `responseType: "json"` is the default; use `"text"` or `"response"` when you need raw transport control
+
+See [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md) for end-to-end examples across gateway, auth, chat, and storage.
 
 ### `AthenaQueryTraceOptions`
 
@@ -620,6 +632,9 @@ Realtime notes:
 interface AthenaClientBuilder<StorageEnabled extends boolean = false> {
   url(url: string): AthenaClientBuilder<StorageEnabled>
   key(apiKey: string): AthenaClientBuilder<StorageEnabled>
+  athenaKey(athenaKey: string | null | undefined): AthenaClientBuilder<StorageEnabled>
+  pgUri(pgUri: string | null | undefined): AthenaClientBuilder<StorageEnabled>
+  jdbcUrl(jdbcUrl: string | null | undefined): AthenaClientBuilder<StorageEnabled>
   backend(backend: BackendConfig | BackendType): AthenaClientBuilder<StorageEnabled>
   client(clientName: string): AthenaClientBuilder<StorageEnabled>
   headers(headers: Record<string, string>): AthenaClientBuilder<StorageEnabled>
@@ -1308,9 +1323,16 @@ type AthenaConditionCastType = string
 interface AthenaGatewayCallOptions {
   baseUrl?: string
   apiKey?: string
+  athenaKey?: string | null
   client?: string
   backend?: BackendConfig | BackendType
   publishEvent?: string
+  forceNoCache?: boolean
+  pgUri?: string | null
+  jdbcUrl?: string | null
+  bearerToken?: string | null
+  cookie?: string | null
+  sessionToken?: string | null
   headers?: Record<string, string>
   userId?: string | null
   organizationId?: string | null
@@ -1327,11 +1349,14 @@ interface AthenaGatewayCallOptions {
 
 Behavior notes:
 
-- If `headers.Cookie` includes an Athena auth session cookie such as `athena-auth.session_token`, the gateway request also sends `X-Athena-Auth-Session-Token` with the parsed token.
+- `key` / `apiKey` set `apikey`, `x-api-key`, and `X-Athena-Key` (unless `athenaKey` overrides the last header).
+- `athenaKey` sets `X-Athena-Key` only; per-call `apiKey` / `athenaKey` override client defaults.
+- If `headers.Cookie` includes an Athena auth session cookie such as `athena-auth.session_token` or `athena-auth.session-token`, the gateway request also sends `X-Athena-Auth-Session-Token` with the parsed token.
 - If `headers.Authorization` is `Bearer <token>`, the gateway request also sends `X-Athena-Auth-Bearer-Token` with the bare token.
 - The original `Cookie` and `Authorization` headers are still forwarded unchanged.
 - `createClient(..., { auth: { bearerToken } })` also mirrors that bearer token onto gateway requests as `X-Athena-Auth-Bearer-Token`.
-- For precedence rules, browser/server caveats, and rollout guidance, use [`auth-session-forwarding.md`](auth-session-forwarding.md).
+- `pgUri` and `jdbcUrl` forward OpenAPI PostgreSQL routing headers (`x-pg-uri`, `x-athena-jdbc-url`, `x-jdbc-url`).
+- For precedence rules, browser/server caveats, cookbook examples, and rollout guidance, use [`auth-session-forwarding.md`](auth-session-forwarding.md) and [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md).
 
 ### `AthenaRpcCallOptions`
 
@@ -1341,6 +1366,26 @@ interface AthenaRpcCallOptions extends AthenaGatewayCallOptions {
   get?: boolean
 }
 ```
+
+### `AthenaChatCallOptions`
+
+```ts
+type AthenaChatCallOptions = Pick<
+  AthenaGatewayBaseOptions,
+  | "headers"
+  | "client"
+  | "apiKey"
+  | "athenaKey"
+  | "bearerToken"
+  | "cookie"
+  | "sessionToken"
+  | "forceNoCache"
+> & {
+  signal?: AbortSignal
+}
+```
+
+Chat call options reuse the gateway base auth/key fields plus optional `AbortSignal`. See [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md).
 
 ### Fetch payload
 

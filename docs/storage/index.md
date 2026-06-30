@@ -7,6 +7,35 @@ The JavaScript SDK has two storage layers to be aware of:
 - `client.storage.*`: the experimental managed-storage SDK namespace in this package.
 - Athena server OpenAPI storage routes: lower-level bucket/object endpoints exposed by the Athena server. The JS SDK wraps the current storage parity surface under grouped `file`, `folder`, `permission`, `object`, `bucket`, `multipart`, and `audit` namespaces.
 
+## Auth, API keys, and session headers
+
+Storage HTTP calls use the `storage` header profile. They receive the same OpenAPI-aligned credentials and auth context as gateway and chat calls unless you override them per call:
+
+- `key` / `apiKey` → `apikey`, `x-api-key`, and `X-Athena-Key` (unless `athenaKey` overrides the last)
+- `athenaKey` → `X-Athena-Key` only
+- `Cookie` / `auth.cookie` → original cookie plus derived `X-Athena-Auth-Session-Token`
+- `Authorization` / `auth.bearerToken` → original bearer plus mirrored `X-Athena-Auth-Bearer-Token`
+- `client` → `X-Athena-Client` (required for catalog resolution)
+
+```ts
+const athena = createClient(ATHENA_URL, ATHENA_API_KEY, {
+  client: "storage_app",
+  athenaKey: process.env.ATHENA_GATEWAY_KEY,
+  auth: {
+    cookie: request.headers.get("cookie") ?? "",
+    bearerToken: accessToken,
+  },
+  experimental: { athenaStorageBackend: true },
+})
+
+await athena.storage.listStorageCatalogs({
+  athenaKey: "elevated-storage-gateway-key",
+  forceNoCache: true,
+})
+```
+
+Full cookbook: [`request-headers-and-auth-examples.md`](../request-headers-and-auth-examples.md).
+
 ## Enable the SDK storage namespace
 
 Storage bindings are behind an experimental opt-in. A default client does not include `.storage`.

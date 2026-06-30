@@ -1,0 +1,28 @@
+{
+  "name": "GetPayment",
+  "description": "Retrieve a payment by its ID. This tool allows you to fetch detailed information about a specific payment.",
+  "inputSchema": {
+    "properties": {
+      "payment_id": {
+        "description": "Provide the ID of the related payment.",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "payment_id"
+    ],
+    "type": "object"
+  }
+}

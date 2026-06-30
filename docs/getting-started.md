@@ -30,6 +30,8 @@ React runtime support is optional and shipped from `@xylex-group/athena/react`.
 
 ## 3) Create your first client
 
+For a full cookbook of API key, `athenaKey`, cookie, bearer, PostgreSQL URI, and per-call header examples, read [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md).
+
 ### `createClient` (fastest)
 
 ```ts
@@ -57,6 +59,7 @@ import { AthenaClient, Backend } from "@xylex-group/athena";
 const athena = AthenaClient.builder()
   .url(process.env.ATHENA_URL!)
   .key(process.env.ATHENA_API_KEY!)
+  .athenaKey(process.env.ATHENA_GATEWAY_KEY) // optional X-Athena-Key override
   .backend(Backend.Athena)
   .client("web-dashboard")
   .headers({ "X-App-Region": "eu" })

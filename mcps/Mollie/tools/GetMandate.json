@@ -1,0 +1,33 @@
+{
+  "name": "GetMandate",
+  "description": "Retrieve detailed information about a specific mandate by its ID. This shows the mandate's status, payment method, consumer details (name, account, BIC), signature date, and creation timestamp. Use this to inspect a specific authorization before charging a customer or to verify mandate validity.",
+  "inputSchema": {
+    "properties": {
+      "customer_id": {
+        "description": "The ID of the customer who owns the mandate (e.g., 'cst_abc123').",
+        "type": "string"
+      },
+      "mandate_id": {
+        "description": "The ID of the mandate to retrieve (e.g., 'mdt_abc123'). This is returned when you create a mandate or list mandates.",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve a test mode mandate, or omit for live mode."
+      }
+    },
+    "required": [
+      "customer_id",
+      "mandate_id"
+    ],
+    "type": "object"
+  }
+}

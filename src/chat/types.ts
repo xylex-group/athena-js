@@ -1,3 +1,5 @@
+import type { AthenaGatewayBaseOptions } from '../gateway/types.ts'
+
 export type AthenaChatRoomKind = 'dm' | 'group' | 'channel'
 export type AthenaChatMemberRole = 'owner' | 'admin' | 'member'
 
@@ -379,14 +381,18 @@ export type AthenaChatWsServerEvent =
   | AthenaChatWsPongEvent
   | AthenaChatWsErrorEvent
 
-export interface AthenaChatCallOptions {
-  headers?: Record<string, string>
+export type AthenaChatCallOptions = Pick<
+  AthenaGatewayBaseOptions,
+  | 'headers'
+  | 'client'
+  | 'apiKey'
+  | 'athenaKey'
+  | 'bearerToken'
+  | 'cookie'
+  | 'sessionToken'
+  | 'forceNoCache'
+> & {
   signal?: AbortSignal
-  client?: string
-  bearerToken?: string | null
-  cookie?: string | null
-  sessionToken?: string | null
-  forceNoCache?: boolean
 }
 
 export interface AthenaChatWebSocketLike {

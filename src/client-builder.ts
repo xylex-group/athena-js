@@ -92,6 +92,9 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
   private defaultOrganizationId?: string | null
   private forceNoCacheEnabled = false
   private defaultHeaders?: Record<string, string>
+  private pgUriValue?: string | null
+  private jdbcUrlValue?: string | null
+  private athenaKeyValue?: string | null
   private authConfig?: AthenaCreateClientAuthOptions
   private dbUrlOverride?: string
   private gatewayUrlOverride?: string
@@ -125,6 +128,21 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
 
   headers(headers: Record<string, string>): AthenaClientBuilder<false, false> {
     this.defaultHeaders = headers
+    return this
+  }
+
+  pgUri(pgUri: string | null | undefined): AthenaClientBuilder<false, false> {
+    this.pgUriValue = pgUri
+    return this
+  }
+
+  jdbcUrl(jdbcUrl: string | null | undefined): AthenaClientBuilder<false, false> {
+    this.jdbcUrlValue = jdbcUrl
+    return this
+  }
+
+  athenaKey(athenaKey: string | null | undefined): AthenaClientBuilder<false, false> {
+    this.athenaKeyValue = athenaKey
     return this
   }
 
@@ -180,6 +198,15 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
     if (options.headers !== undefined) {
       this.defaultHeaders = mergeHeaders(this.defaultHeaders, options.headers)
     }
+    if (options.pgUri !== undefined) {
+      this.pgUriValue = options.pgUri
+    }
+    if (options.jdbcUrl !== undefined) {
+      this.jdbcUrlValue = options.jdbcUrl
+    }
+    if (options.athenaKey !== undefined) {
+      this.athenaKeyValue = options.athenaKey
+    }
     if (options.auth !== undefined) {
       this.authConfig = mergeAuthClientConfig(this.authConfig, options.auth)
     }
@@ -233,6 +260,9 @@ class AthenaClientBuilderImpl implements AthenaClientBuilder<false, false> {
       userId: this.defaultUserId,
       organizationId: this.defaultOrganizationId,
       forceNoCache: this.forceNoCacheEnabled,
+      pgUri: this.pgUriValue,
+      jdbcUrl: this.jdbcUrlValue,
+      athenaKey: this.athenaKeyValue,
       backend: this.backendConfig,
       headers: this.defaultHeaders,
       db: this.dbUrlOverride ? { url: this.dbUrlOverride } : undefined,

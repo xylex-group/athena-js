@@ -1,0 +1,23 @@
+{
+  "name": "get_release_note",
+  "description": "Retrieve release notes by ID or slug, including markdown content.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Release notes ID or slug"
+      },
+      "includeReleases": {
+        "default": false,
+        "description": "Include associated releases",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "additionalProperties": false
+  }
+}

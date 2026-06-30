@@ -1,0 +1,70 @@
+{
+  "name": "ListPaymentsForGivenCustomer",
+  "description": "Retrieve a list of payments for a customer.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "The identifier referring to the profile this entity belongs to.",
+        "type": "string"
+      },
+      "customer_id": {
+        "description": "Provide the ID of the related customer.",
+        "type": "string"
+      },
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Provide an ID to start the result set from the item with the given ID and onwards. This allows you to paginate the result set.",
+        "max_lenght": 10
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The number of payments to return. Defaults to 50 items."
+      },
+      "sort": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Used for setting the direction of the result set. Defaults to descending order, meaning the results are ordered from newest to oldest."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "profile_id",
+      "customer_id"
+    ],
+    "type": "object"
+  }
+}

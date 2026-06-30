@@ -10,6 +10,7 @@ Use these pages in sequence if you are onboarding a new codebase, or jump direct
 
 1. [`getting-started.md`](getting-started.md) - install, unified-root client setup, query/writes/RPC, chat, low-level request hatch, schema-targeting entrypoints, and practical guardrails
 2. [`auth-session-forwarding.md`](auth-session-forwarding.md) - how gateway/query requests mirror Athena Auth session and bearer context into `X-Athena-Auth-*` headers
+2b. [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md) - lean cookbook: header map, surface reference table, keys/auth/routing, per-surface examples, scoped clients, and precedence
 3. [`findmany-ast-and-server-contract.md`](findmany-ast-and-server-contract.md) - canonical `findMany(...)` AST semantics, transport mapping, base-table schema targeting, cross-schema relation examples, and server follow-up work
 4. [`runtime-method-ast-models.md`](runtime-method-ast-models.md) - normalized AST/state/payload models for `select`, mutations, `rpc`, `query`, builder filters, and route selection
 5. [`select-column-aliases.md`](select-column-aliases.md) - response shaping with `customName:columnName`, array form, and alias behavior across reads/writes/RPC, including schema-qualified column references

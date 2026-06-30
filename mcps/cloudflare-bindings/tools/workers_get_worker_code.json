@@ -1,0 +1,17 @@
+{
+  "name": "workers_get_worker_code",
+  "description": "Get the source code of a Cloudflare Worker. Note: This may be a bundled version of the worker.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "scriptName": {
+        "type": "string",
+        "description": "The name of the worker script to retrieve"
+      }
+    },
+    "required": [
+      "scriptName"
+    ]
+  }
+}

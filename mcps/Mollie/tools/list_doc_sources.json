@@ -1,0 +1,9 @@
+{
+  "name": "list_doc_sources",
+  "description": "List all available documentation sources.\n\n        This is the first tool you should call in the documentation workflow.\n        It provides URLs to llms.txt files or local file paths that the user has made available.\n\n        Returns:\n            A string containing a formatted list of documentation sources with their URLs or file paths\n        ",
+  "inputSchema": {
+    "properties": {},
+    "title": "list_doc_sourcesArguments",
+    "type": "object"
+  }
+}

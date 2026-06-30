@@ -192,6 +192,8 @@ export type BackendOption = BackendConfig | BackendType
 export interface AthenaGatewayBaseOptions {
   baseUrl?: string
   apiKey?: string
+  /** Overrides `X-Athena-Key` while leaving `apikey` / `x-api-key` on `apiKey`. */
+  athenaKey?: string | null
   client?: string
   backend?: BackendOption
   publishEvent?: string
@@ -199,6 +201,13 @@ export interface AthenaGatewayBaseOptions {
   headers?: Record<string, string>
   userId?: string | null
   organizationId?: string | null
+  /** Direct PostgreSQL URI forwarded as `x-pg-uri` (OpenAPI preferred routing header). */
+  pgUri?: string | null
+  /** JDBC/PostgreSQL URI mirrored to `x-athena-jdbc-url` and `x-jdbc-url` compatibility headers. */
+  jdbcUrl?: string | null
+  bearerToken?: string | null
+  cookie?: string | null
+  sessionToken?: string | null
 }
 
 export type AthenaGatewayHookConfig = AthenaGatewayBaseOptions

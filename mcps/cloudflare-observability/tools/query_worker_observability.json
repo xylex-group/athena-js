@@ -1,0 +1,305 @@
+{
+  "name": "query_worker_observability",
+  "description": "Query the Workers Observability API to analyze logs and metrics from your Cloudflare Workers.\n\n\t* A query typical query looks like this:\n\t\t\t\t{\"view\":\"events\",\"queryId\":\"workers-logs-events\",\"limit\":5,\"dry\":true,\"parameters\":{\"datasets\":[\"cloudflare-workers\"],\"filters\":[{\"id\":\"520\",\"key\":\"message\",\"operation\":\"eq\",\"type\":\"string\",\"value\":\"Clickhouse Statistics\"},{\"id\":\"2088\",\"key\":\"statistics.elapsed\",\"operation\":\"gt\",\"type\":\"number\",\"value\":\"0.269481519\"}],\"calculations\":[],\"groupBys\":[],\"havings\":[]},\"timeframe\":{\"to\":\"2025-04-30T20:53:15Z\",\"from\":\" \"\"2025-04-30T19:53:15Z\"}}\n## Core Capabilities\nThis tool provides three primary views of your Worker data:\n1. **List Events** - Browse individual request logs and errors\n2. **Calculate Metrics** - Compute statistics across requests (avg, p99, etc.)\n3. **Find Specific Invocations** - Locate individual requests matching criteria\n\n## Filtering Best Practices\n- Before applying filters, use the observability_keys and observability_values tools to confirm available filter fields and the correct filter value to add unless you have the data in a response from a previous query.\n- Common filter fields:  $metadata.service, $metadata.trigger, $metadata.message, $metadata.level, $metadata.requestId,\n\n## Calculation Best Practices\n- Before applying calculations, use the observability_keys tools to confirm key that should be used for the calculation\n\n## Troubleshooting\n- If no results are returned, suggest broadening the time range or relaxing filters\n- For errors about invalid fields, recommend using observability_keys to see available options\n",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "object",
+        "properties": {
+          "queryId": {
+            "type": "string"
+          },
+          "view": {
+            "default": "calculations",
+            "description": "## Examples by View Type\n\t\t### Events View\n\t\t- \"Show me all errors for the worker api-proxy in the last 30 minutes\"\n\t\t- \"Show events from worker auth-service where the path contains /login\"\n\n\t\t### Calculation View\n\t\t- \"What is the p99 of wall time for worker api-proxy?\"\n\t\t- \"What's the count of requests by status code for worker cdn-router?\"\n\n\t\t### Invocation View\n\t\t- \"Find a request to worker api-proxy that resulted in a 500 error\"\n\t\t- \"List successful requests for the image-resizer worker with status code 200\"\n\t\t\t\t",
+            "type": "string",
+            "enum": [
+              "events",
+              "calculations",
+              "invocations"
+            ]
+          },
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "datasets": {
+                "description": "Leave this empty to use the default datasets",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "Filter field name. IMPORTANT:\n\n    • DO NOT guess keys - always use verified keys from either:\n      - Previous query results\n      - The observability_keys response\n\n    • PREFERRED KEYS (faster & always available):\n      - $metadata.service: Worker service name\n\t\t\t- $metadata.origin: Trigger type (e.g., fetch, scheduled, etc.)\n\t\t\t- $metadata.trigger: Trigger type (e.g., GET /users, POST /orders, etc.)\n      - $metadata.message: Log message text (present in nearly all logs)\n      - $metadata.error: Error message (when applicable)\n"
+                    },
+                    "operation": {
+                      "type": "string",
+                      "enum": [
+                        "includes",
+                        "not_includes",
+                        "starts_with",
+                        "regex",
+                        "exists",
+                        "is_null",
+                        "in",
+                        "not_in",
+                        "eq",
+                        "neq",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte"
+                      ]
+                    },
+                    "value": {
+                      "description": "Filter comparison value. IMPORTANT:\n\n    • MUST match actual values in your logs\n    • VERIFY using either:\n      - Actual values from previous query results\n      - The '/values' endpoint with your selected key\n\n    • TYPE MATCHING:\n      - Ensure value type (string/number/boolean) matches the field type\n      - String comparisons are case-sensitive unless using specific operations\n\n    • PATTERN USAGE:\n      - For 'contains', use simple wildcard patterns\n      - For 'regex', MUST use ClickHouse regex syntax:\n        - Uses RE2 syntax (not PCRE/JavaScript)\n        - No lookaheads/lookbehinds\n        - Examples: '^5\\d{2}$' for HTTP 5xx codes, '\\bERROR\\b' for word boundary\n        - Escape backslashes with double backslash",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "operation",
+                    "type"
+                  ],
+                  "description": "\n\t## Filtering Best Practices\n- Before applying filters, use the observability_keys and observability_values queries to confirm available filter fields and values.\n- If the query is asking to find something you should check that it exists. I.e. to requests with errors filter for $metadata.error exists.\n\t"
+                }
+              },
+              "filterCombination": {
+                "type": "string",
+                "enum": [
+                  "and",
+                  "or",
+                  "AND",
+                  "OR"
+                ]
+              },
+              "calculations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "description": "The key to use for the calculation. This key must exist in the logs.\nUse the Keys endpoint to confirm that this key exists\n\n• DO NOT guess keys - always use verified keys from either:\n- Previous query results\n- The observability_keys response",
+                      "type": "string"
+                    },
+                    "keyType": {
+                      "type": "string",
+                      "enum": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "uniq",
+                        "count",
+                        "max",
+                        "min",
+                        "sum",
+                        "avg",
+                        "median",
+                        "p001",
+                        "p01",
+                        "p05",
+                        "p10",
+                        "p25",
+                        "p75",
+                        "p90",
+                        "p95",
+                        "p99",
+                        "p999",
+                        "stddev",
+                        "variance"
+                      ]
+                    },
+                    "alias": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "operator"
+                  ]
+                }
+              },
+              "groupBys": {
+                "description": "Only valid when doing a Calculation",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ]
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value"
+                  ]
+                }
+              },
+              "orderBy": {
+                "description": "Order By only workers when a group by is present",
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "description": "This must be the alias of a calculation"
+                  },
+                  "order": {
+                    "type": "string",
+                    "enum": [
+                      "asc",
+                      "desc"
+                    ]
+                  }
+                },
+                "required": [
+                  "value"
+                ]
+              },
+              "limit": {
+                "description": "Use this limit when view is calculation and a group by is present. 10 is a sensible default",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000
+              },
+              "needle": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "isRegex": {
+                    "type": "boolean"
+                  },
+                  "matchCase": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "value"
+                ]
+              }
+            }
+          },
+          "timeframe": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "to",
+                  "from"
+                ],
+                "description": "An absolute timeframe for your query (ISO-8601 format).\n\n  • Current server time: 1970-01-01T00:00:00Z\n  • Default: Last hour from current time\n  • Maximum range: Last 7 days\n  • Format: \"YYYY-MM-DDTHH:MM:SSZ\" (e.g., \"2025-04-29T14:30:00Z\")\n\n  Examples:\n  - Between April 1st and 5th: from=\"2025-04-01T00:00:00Z\", to=\"2025-04-05T23:59:59Z\"\n\n  Note: Narrower timeframes provide faster responses and more specific results.\n  Omit this parameter entirely to use the default (last hour)."
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "reference": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reference",
+                  "offset"
+                ],
+                "description": "Relative timeframe for your query, composed of a reference time and an offset.\n\n  • Current server time: 1970-01-01T00:00:00Z\n  • Default: Last hour from current time\n  • Maximum range: Last 7 days\n  • Reference time format: \"YYYY-MM-DDTHH:MM:SSZ\" (ISO-8601) (e.g., \"2025-04-29T14:30:00Z\")\n  • Offset format: Must start with a '+' or '-' sign, which indicates whether the offset is in the past or future, followed by one or more time units (e.g., '+5d', '-2h', '+6h20m').\n\t\tUnits: s (seconds), m (minutes), h (hours), d (days), w (weeks).\n\t• You should not use a future looking offset in combination with the current server time as the reference time, as this will yield no results. (e.g. \"the next 20 minutes\")\n\n  Examples:\n  - Last 30 minutes: reference=\"1970-01-01T00:00:00Z\", offset=\"-30m\"\n  - Yesterday: reference=\"1970-01-01T00:00:00Z\", offset=\"-1d\"\n\n  Note: Narrower timeframes provide faster responses and more specific results.\n  Omit this parameter entirely to use the default (last hour)."
+              }
+            ],
+            "description": "Timeframe for your query, which can be either absolute or relative.\n\n  • Absolute timeframe: Specify exact start and end times in ISO-8601 format (e.g., \"2025-04-29T14:30:00Z\").\n  • Relative timeframe: Specify a reference time and an offset (e.g., reference=\"2025-04-29T14:30:00Z\", offset=\"-30m\").\n\n  Examples:\n  - Absolute: from=\"2025-04-01T00:00:00Z\", to=\"2025-04-05T23:59:59Z\"\n  - Relative: reference=\"2025-04-29T14:30:00Z\", offset=\"-30m\"\n\n  Note: Narrower timeframes provide faster responses and more specific results."
+          },
+          "granularity": {
+            "description": "This is only used when the view is calculations - by leaving it empty workers observability will detect the correct granularity",
+            "type": "number"
+          },
+          "limit": {
+            "default": 5,
+            "description": "Use this limit to limit the number of events returned when the view is events. 5 is a sensible default",
+            "type": "number",
+            "maximum": 2000
+          },
+          "dry": {
+            "default": true,
+            "type": "boolean"
+          },
+          "offset": {
+            "description": "The offset to use for pagination. Use the $metadata.id field to get the next offset.",
+            "type": "string"
+          },
+          "offsetBy": {
+            "type": "number"
+          },
+          "offsetDirection": {
+            "description": "The direction to use for pagination. Use \"next\" or \"prev\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queryId",
+          "parameters",
+          "timeframe"
+        ]
+      }
+    },
+    "required": [
+      "query"
+    ]
+  }
+}

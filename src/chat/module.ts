@@ -1,4 +1,5 @@
 import { buildSdkHeaderValue } from '../sdk-version.ts'
+import { buildServiceRequestHeaders } from '../utils/athena-request-headers.ts'
 import type {
   AthenaChatAddMembersRequest,
   AthenaChatAddReactionRequest,
@@ -37,8 +38,6 @@ import type {
 
 const SDK_NAME = 'xylex-group/athena-chat'
 const SDK_HEADER_VALUE = buildSdkHeaderValue(SDK_NAME)
-const NO_CACHE_HEADER_VALUE = 'no-cache'
-
 export class AthenaChatError extends Error {
   status: number
   endpoint: string
@@ -68,6 +67,7 @@ export interface AthenaChatClientConfig {
   baseUrl?: string
   realtimeInfoUrl?: string
   apiKey: string
+  athenaKey?: string | null
   client?: string
   headers?: Record<string, string>
   bearerToken?: string
@@ -112,10 +112,6 @@ function normalizeWsUrl(value: string, label: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function normalizeHeaderValue(value?: string | null): string | undefined {
-  return value ? value : undefined
 }
 
 function parseResponseBody(rawText: string, contentType: string | null) {
@@ -222,48 +218,7 @@ function buildHeaders(
   config: AthenaChatClientConfig,
   options?: AthenaChatCallOptions,
 ): Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    apikey: config.apiKey,
-    'x-api-key': config.apiKey,
-    'X-Athena-Sdk': SDK_HEADER_VALUE,
-  }
-
-  if (config.client || options?.client) {
-    headers['X-Athena-Client'] = options?.client ?? config.client ?? ''
-  }
-
-  const bearerToken = options?.bearerToken ?? config.bearerToken
-  if (typeof bearerToken === 'string' && bearerToken.trim()) {
-    headers.Authorization = bearerToken.startsWith('Bearer ')
-      ? bearerToken
-      : `Bearer ${bearerToken}`
-  }
-
-  const cookie = options?.cookie ?? config.cookie
-  if (typeof cookie === 'string' && cookie.trim()) {
-    headers.Cookie = cookie
-  }
-
-  const sessionToken = options?.sessionToken ?? config.sessionToken
-  if (typeof sessionToken === 'string' && sessionToken.trim()) {
-    headers['X-Athena-Auth-Session-Token'] = sessionToken
-  }
-
-  if (config.forceNoCache || options?.forceNoCache) {
-    headers['Cache-Control'] = NO_CACHE_HEADER_VALUE
-  }
-
-  for (const source of [config.headers, options?.headers]) {
-    for (const [key, value] of Object.entries(source ?? {})) {
-      const normalized = normalizeHeaderValue(value)
-      if (normalized) {
-        headers[key] = normalized
-      }
-    }
-  }
-
-  return headers
+  return buildServiceRequestHeaders('chat', SDK_HEADER_VALUE, config, options)
 }
 
 function withJsonBody(init: RequestInit, body: unknown): RequestInit {

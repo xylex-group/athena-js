@@ -1,0 +1,17 @@
+{
+  "name": "r2_bucket_delete",
+  "description": "Delete an R2 bucket",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "The name of the r2 bucket"
+      }
+    },
+    "required": [
+      "name"
+    ]
+  }
+}

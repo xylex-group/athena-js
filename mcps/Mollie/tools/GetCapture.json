@@ -1,0 +1,33 @@
+{
+  "name": "GetCapture",
+  "description": "Retrieve a specific capture by its ID and the associated payment ID. This endpoint returns detailed information about a single capture, including amount, settlement details, and timestamps.",
+  "inputSchema": {
+    "properties": {
+      "payment_id": {
+        "description": "The ID of the payment associated with the capture (e.g., 'tr_WDqYK6vllg').",
+        "type": "string"
+      },
+      "capture_id": {
+        "description": "The ID of the capture to retrieve (e.g., 'cpt_4qqhO89gsT').",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve test mode capture information, or omit for live mode."
+      }
+    },
+    "required": [
+      "payment_id",
+      "capture_id"
+    ],
+    "type": "object"
+  }
+}

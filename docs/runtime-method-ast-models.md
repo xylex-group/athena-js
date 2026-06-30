@@ -77,13 +77,23 @@ Both `createClient(...)` and `AthenaClient.builder().build()` end up materializi
 interface AthenaClientConfigAst {
   baseUrl: string
   apiKey: string
+  athenaKey?: string | null
+  pgUri?: string | null
+  jdbcUrl?: string | null
   client?: string
+  userId?: string | null
+  organizationId?: string | null
   backend?: BackendConfig
   headers?: Record<string, string>
   auth?: AthenaAuthClientConfig
+  forceNoCache?: boolean
   experimental?: AthenaClientExperimentalOptions
 }
 ```
+
+Builder methods `.athenaKey(...)`, `.pgUri(...)`, and `.jdbcUrl(...)` populate the same fields before `build()`.
+
+For header precedence and per-call override examples, see [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md).
 
 When `experimental.debugAst` is enabled, executed runtime methods also attach a normalized per-operation debug AST to the returned `AthenaResult`. If `experimental.traceQueries` is enabled too, that same AST is emitted on the trace event for the operation.
 

@@ -1,0 +1,34 @@
+{
+  "name": "ListPaymentsWithinSpecifiedTimeInterval",
+  "description": "Search for payments within a specific timeframe by providing the starting date and the ending date. The results includes payments ids and their descriptions.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "The identifier referring to the profile this entity belongs to. This allows you to filter search results by a specific profile.",
+        "type": "string"
+      },
+      "from_date": {
+        "title": "From Date"
+      },
+      "to_date": {
+        "title": "To Date"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "profile_id"
+    ],
+    "type": "object"
+  }
+}

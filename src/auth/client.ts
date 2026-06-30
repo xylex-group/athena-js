@@ -77,11 +77,11 @@ import type {
 import { assertAthenaAuthTemplateVariables } from './limits.ts'
 import { resolveReactEmailPayloadFields } from './react-email.ts'
 import { buildSdkHeaderValue } from '../sdk-version.ts'
+import { buildServiceRequestHeaders } from '../utils/athena-request-headers.ts'
 
 const DEFAULT_AUTH_BASE_URL = 'http://localhost:3001/api/auth'
 const SDK_NAME = 'xylex-group/athena-auth'
 const SDK_HEADER_VALUE = buildSdkHeaderValue(SDK_NAME)
-const NO_CACHE_HEADER_VALUE = 'no-cache'
 
 type AuthRequestContext = {
   endpoint: AthenaAuthEndpointPath
@@ -103,14 +103,6 @@ function normalizeBaseUrl(baseUrl?: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function normalizeHeaderValue(value?: string | null): string | undefined {
-  return value ? value : undefined
-}
-
-function isCacheControlHeaderName(name: string): boolean {
-  return name.toLowerCase() === 'cache-control'
 }
 
 function parseResponseBody(rawText: string, contentType: string | null) {
@@ -372,53 +364,7 @@ function buildHeaders(
   config: AthenaAuthClientConfig,
   options?: AthenaAuthCallOptions,
 ): Record<string, string> {
-  const forceNoCache = Boolean(config.forceNoCache || options?.forceNoCache)
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Athena-Sdk': SDK_HEADER_VALUE,
-  }
-
-  const apiKey = options?.apiKey ?? config.apiKey
-  if (apiKey) {
-    headers.apikey = apiKey
-    headers['x-api-key'] = apiKey
-  }
-
-  const bearerToken = options?.bearerToken ?? config.bearerToken
-  if (bearerToken) {
-    headers.Authorization = `Bearer ${bearerToken}`
-  }
-
-  const cookie = options?.cookie ?? config.cookie
-  if (cookie) {
-    headers.Cookie = cookie
-  }
-
-  const sessionToken = options?.sessionToken ?? config.sessionToken
-  if (sessionToken) {
-    headers['X-Athena-Auth-Session-Token'] = sessionToken
-  }
-
-  const mergedExtraHeaders = {
-    ...(config.headers ?? {}),
-    ...(options?.headers ?? {}),
-  }
-
-  Object.entries(mergedExtraHeaders).forEach(([key, value]) => {
-    if (forceNoCache && isCacheControlHeaderName(key)) {
-      return
-    }
-    const normalized = normalizeHeaderValue(value)
-    if (normalized) {
-      headers[key] = normalized
-    }
-  })
-
-  if (forceNoCache) {
-    headers['Cache-Control'] = NO_CACHE_HEADER_VALUE
-  }
-
-  return headers
+  return buildServiceRequestHeaders('auth', SDK_HEADER_VALUE, config, options)
 }
 
 function appendQueryParam(searchParams: URLSearchParams, key: string, value: AthenaAuthQueryValue) {

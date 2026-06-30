@@ -1,0 +1,128 @@
+{
+  "name": "hyperdrive_config_edit",
+  "description": "Edit (patch) a Hyperdrive configuration in your Cloudflare account",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "hyperdrive_id": {
+        "type": "string",
+        "description": "The ID of the Hyperdrive configuration"
+      },
+      "name": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "description": "The name of the Hyperdrive configuration (alphanumeric, underscore, hyphen)"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "database": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "The database name"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "host": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "The database host address"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "port": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "The database port"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "scheme": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "postgresql"
+            ],
+            "description": "The database protocol"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "user": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "The database user"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "caching_disabled": {
+        "anyOf": [
+          {
+            "description": "Whether caching is disabled",
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "caching_max_age": {
+        "anyOf": [
+          {
+            "description": "Maximum cache age in seconds",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "caching_stale_while_revalidate": {
+        "anyOf": [
+          {
+            "description": "Stale while revalidate duration in seconds",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "hyperdrive_id"
+    ]
+  }
+}

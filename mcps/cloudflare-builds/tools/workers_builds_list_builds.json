@@ -1,0 +1,24 @@
+{
+  "name": "workers_builds_list_builds",
+  "description": "Use the Workers Builds API to list builds for a Cloudflare Worker.\n\nMUST provide a workerId or call workers_builds_set_active_worker first.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "workerId": {
+        "description": "The Worker ID to list builds for.",
+        "type": "string"
+      },
+      "page": {
+        "default": 1,
+        "description": "The page number to return.",
+        "type": "number"
+      },
+      "perPage": {
+        "default": 10,
+        "description": "The number of builds per page.",
+        "type": "number"
+      }
+    }
+  }
+}

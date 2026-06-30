@@ -295,8 +295,45 @@ If you want Athena server-side auth to be opt-in:
 
 That lets you introduce DB auth based on session identity without forcing a breaking change across every SDK consumer at once.
 
+## API key and `X-Athena-Key` examples
+
+The SDK sends OpenAPI-aligned key headers on every authenticated request:
+
+- `apikey`
+- `x-api-key`
+- `X-Athena-Key`
+
+Use `key` / `apiKey` for all three when they should match. Use `athenaKey` when only `X-Athena-Key` should differ.
+
+```ts
+const athena = createClient({
+  url: ATHENA_URL,
+  key: "general-key",
+  athenaKey: "gateway-only-key",
+  auth: {
+    cookie: request.headers.get("cookie") ?? "",
+    bearerToken: accessToken,
+  },
+})
+```
+
+Per-call override:
+
+```ts
+await athena.from("orders").select("*", {
+  apiKey: "call-key",
+  athenaKey: "call-athena-key",
+  headers: {
+    Cookie: request.headers.get("cookie") ?? "",
+  },
+})
+```
+
+More examples: [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md).
+
 ## Related docs
 
+- [`request-headers-and-auth-examples.md`](request-headers-and-auth-examples.md)
 - [`getting-started.md`](getting-started.md)
 - [`api-reference.md`](api-reference.md)
 - [`auth-client-bindings.md`](auth-client-bindings.md)

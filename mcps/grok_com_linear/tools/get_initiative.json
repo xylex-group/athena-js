@@ -1,0 +1,28 @@
+{
+  "name": "get_initiative",
+  "description": "Retrieve detailed information about a specific initiative in Linear",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Initiative ID or name"
+      },
+      "includeProjects": {
+        "default": false,
+        "description": "Include projects",
+        "type": "boolean"
+      },
+      "includeSubInitiatives": {
+        "default": false,
+        "description": "Include sub-initiatives",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false
+  }
+}

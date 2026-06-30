@@ -1,0 +1,44 @@
+{
+  "name": "kv_namespaces_list",
+  "description": "\n\t\t\tList all of the kv namespaces in your Cloudflare account.\n\t\t\tUse this tool when you need to list all of the kv namespaces in your Cloudflare account.\n\t\t\tReturns a list of kv namespaces with the following properties:\n\t\t\t- id: The id of the kv namespace.\n\t\t\t- title: The title of the kv namespace.\n\t\t\t",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "description": "Direction to order namespaces (asc/desc)",
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "order": {
+            "description": "Field to order namespaces by (id/title)",
+            "type": "string",
+            "enum": [
+              "id",
+              "title"
+            ]
+          },
+          "page": {
+            "description": "Page number of results (starts at 1)",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "per_page": {
+            "description": "Number of namespaces per page (1-100)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "description": "Optional parameters for listing KV namespaces"
+      }
+    }
+  }
+}

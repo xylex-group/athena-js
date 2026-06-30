@@ -277,6 +277,7 @@ test('client.request acts as a low-level escape hatch across configured services
 
     const chatHeaders = calls[0].init?.headers as Record<string, string>
     assert.equal(chatHeaders['x-api-key'], 'secret')
+    assert.equal(chatHeaders['X-Athena-Key'], 'secret')
     assert.equal(chatHeaders['X-Athena-Auth-Bearer-Token'], 'bearer_1')
     assert.equal(chatHeaders['X-Athena-Auth-Session-Token'], 'session_1')
 
@@ -668,6 +669,7 @@ test('AthenaClient.builder() supports auth() for auth namespace routing', async 
     const headers = calls[1].init?.headers as Record<string, string>
     assert.equal(headers.apikey, 'auth-key')
     assert.equal(headers['x-api-key'], 'auth-key')
+    assert.equal(headers['X-Athena-Key'], 'auth-key')
     assert.equal(headers.Authorization, 'Bearer builder-bearer')
     assert.equal(headers.Cookie, 'athena-auth.session_token=builder-session; theme=dark')
     assert.equal(headers['X-Athena-Auth-Session-Token'], 'builder-session')
@@ -1082,6 +1084,93 @@ test('client.withOptions creates a derived client with merged headers and auth o
     const derivedAuthHeaders = calls[2].init?.headers as Record<string, string>
     assert.equal(derivedAuthHeaders.Authorization, 'Bearer derived-bearer')
     assert.equal(derivedAuthHeaders.Cookie, 'athena-auth.session_token=base-session; theme=dark')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('createClient athenaKey overrides X-Athena-Key without changing apikey aliases', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const client = createClient({
+      url: 'https://athena-db.com',
+      key: 'general-key',
+      athenaKey: 'gateway-athena-key',
+    })
+
+    await client.from('users').select('id').limit(1)
+
+    assert.equal(calls.length, 1)
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers.apikey, 'general-key')
+    assert.equal(headers['x-api-key'], 'general-key')
+    assert.equal(headers['X-Athena-Key'], 'gateway-athena-key')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('gateway call options can override apiKey and athenaKey per invocation', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse([{ id: 1 }], 200)
+  }
+
+  try {
+    const client = createClient('https://athena-db.com', 'base-key', {
+      athenaKey: 'base-athena-key',
+    })
+
+    await client.from('users').select('id', {
+      apiKey: 'call-key',
+      athenaKey: 'call-athena-key',
+    }).limit(1)
+
+    assert.equal(calls.length, 1)
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers.apikey, 'call-key')
+    assert.equal(headers['x-api-key'], 'call-key')
+    assert.equal(headers['X-Athena-Key'], 'call-athena-key')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('client.request can override apiKey and athenaKey per invocation', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    return createMockResponse({ ok: true }, 200)
+  }
+
+  try {
+    const client = createClient({
+      url: 'https://athena-db.com',
+      key: 'base-key',
+      athenaKey: 'base-athena-key',
+    })
+
+    await client.request({
+      service: 'chat',
+      path: '/rooms',
+      apiKey: 'request-key',
+      athenaKey: 'request-athena-key',
+    })
+
+    assert.equal(calls.length, 1)
+    const headers = calls[0].init?.headers as Record<string, string>
+    assert.equal(headers.apikey, 'request-key')
+    assert.equal(headers['x-api-key'], 'request-key')
+    assert.equal(headers['X-Athena-Key'], 'request-athena-key')
   } finally {
     globalThis.fetch = originalFetch
   }

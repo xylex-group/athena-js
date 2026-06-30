@@ -1,0 +1,57 @@
+{
+  "name": "ListBalances",
+  "description": "List all balances in your account. Shows balances for each currency you operate in, including available amounts (ready to use) and pending amounts (being processed). Useful for financial overviews and multi-currency account management.",
+  "inputSchema": {
+    "properties": {
+      "currency": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional currency filter to show only balances in a specific currency (e.g., 'EUR', 'USD', 'GBP')."
+      },
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional cursor for pagination."
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional number of balances to return per page (default 50, maximum 250)."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve test mode balances, or omit for live mode."
+      }
+    },
+    "type": "object"
+  }
+}

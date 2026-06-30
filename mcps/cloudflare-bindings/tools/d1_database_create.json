@@ -1,0 +1,34 @@
+{
+  "name": "d1_database_create",
+  "description": "Create a new D1 database in your Cloudflare account",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "primary_location_hint": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "wnam",
+              "enam",
+              "weur",
+              "eeur",
+              "apac",
+              "oc"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "name"
+    ]
+  }
+}

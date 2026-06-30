@@ -1,0 +1,33 @@
+{
+  "name": "CancelSubscription",
+  "description": "Cancel a subscription to stop future recurring payments. The cancellation takes effect immediately - no new payments will be created. Any payments already created remain unchanged. Use this when a customer requests to stop their subscription or when ending a service. The subscription status changes to 'canceled' and cannot be reactivated. This endpoint requires the 'subscriptions.write' scope.",
+  "inputSchema": {
+    "properties": {
+      "customer_id": {
+        "description": "The ID of the customer who owns the subscription (e.g., 'cst_abc123').",
+        "type": "string"
+      },
+      "subscription_id": {
+        "description": "The ID of the subscription to cancel (e.g., 'sub_abc123'). This action prevents all future payments.",
+        "type": "string"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to cancel a test mode subscription, or omit for live mode."
+      }
+    },
+    "required": [
+      "customer_id",
+      "subscription_id"
+    ],
+    "type": "object"
+  }
+}

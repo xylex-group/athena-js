@@ -1,0 +1,41 @@
+{
+  "name": "CreateWebhook",
+  "description": "Create a new webhook that subscribes to status changes of your resources. Mollie will send HTTP POST requests to your specified URL when events occur.",
+  "inputSchema": {
+    "properties": {
+      "url": {
+        "description": "The URL Mollie will send the events to. This URL must be publicly accessible and able to receive HTTP POST requests.",
+        "type": "string"
+      },
+      "name": {
+        "description": "A descriptive name that identifies the webhook.",
+        "type": "string"
+      },
+      "event_types": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "description": "Event types to enable. Can be a list of specific events (e.g., ['payment-link.paid', 'sales-invoice.paid']) or '*' for all standard events."
+      },
+      "testmode": {
+        "default": "false",
+        "description": "Creates the webhook in test or live mode. Set to true for test mode, false for live mode. Defaults to false (live mode).",
+        "type": "string"
+      }
+    },
+    "required": [
+      "url",
+      "name",
+      "event_types"
+    ],
+    "type": "object"
+  }
+}

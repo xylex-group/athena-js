@@ -1,0 +1,17 @@
+{
+  "name": "workers_builds_get_build",
+  "description": "Get details for a specific build by its UUID.\nIncludes build and deploy commands for the build (useful for debugging build failures).",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "buildUUID": {
+        "type": "string",
+        "description": "The build UUID to get details for."
+      }
+    },
+    "required": [
+      "buildUUID"
+    ]
+  }
+}

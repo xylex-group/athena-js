@@ -1,0 +1,17 @@
+{
+  "name": "search",
+  "description": "Search the Cloudflare OpenAPI spec. All $refs are pre-resolved inline.\n\nProducts: ai, cloudforce-one, access, magic, workers, dlp, realtime, devices, email-security, ai-gateway, gateway, intel, email, stream, ai-search, brand-protection, browser-rendering, dex, api_gateway, builds, addressing, rulesets, security-center, settings, logpush, vectorize, firewall, load_balancers, logs, artifacts... (146 total)\n\nTypes:\n\ninterface OperationInfo {\n  summary?: string;\n  description?: string;\n  tags?: string[];\n  parameters?: Array<{ name: string; in: string; required?: boolean; schema?: unknown; description?: string }>;\n  requestBody?: { required?: boolean; content?: Record<string, { schema?: unknown }> };\n  responses?: Record<string, { description?: string; content?: Record<string, { schema?: unknown }> }>;\n}\n\ninterface PathItem {\n  get?: OperationInfo;\n  post?: OperationInfo;\n  put?: OperationInfo;\n  patch?: OperationInfo;\n  delete?: OperationInfo;\n}\n\ndeclare const spec: {\n  paths: Record<string, PathItem>;\n};\n\n\nExamples:\n\n// Find endpoints by product\nasync () => {\n  const results = [];\n  for (const [path, methods] of Object.entries(spec.paths)) {\n    for (const [method, op] of Object.entries(methods)) {\n      if (op.tags?.some(t => t.toLowerCase() === 'workers')) {\n        results.push({ method: method.toUpperCase(), path, summary: op.summary });\n      }\n    }\n  }\n  return results;\n}\n\n// Get endpoint with requestBody schema (refs are resolved)\nasync () => {\n  const op = spec.paths['/accounts/{account_id}/d1/database']?.post;\n  return { summary: op?.summary, requestBody: op?.requestBody };\n}\n\n// Get endpoint parameters\nasync () => {\n  const op = spec.paths['/accounts/{account_id}/workers/scripts']?.get;\n  return op?.parameters;\n}",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "JavaScript async arrow function to search the OpenAPI spec"
+      }
+    },
+    "required": [
+      "code"
+    ]
+  }
+}

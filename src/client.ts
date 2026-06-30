@@ -37,6 +37,10 @@ import type { AthenaChatModule, AthenaChatWebSocketFactory } from './chat/types.
 import { createAthenaClientBuilder, toBackendConfig } from './client-builder.ts'
 import { buildSdkHeaderValue } from './sdk-version.ts'
 import {
+  buildAthenaRequestHeaders,
+  hasHeaderIgnoreCase,
+} from './utils/athena-request-headers.ts'
+import {
   compileOrderBy,
   compileSelectShape,
   compileWhere,
@@ -156,6 +160,10 @@ export interface AthenaRequestOptions {
   path?: string
   method?: AthenaRequestMethod
   headers?: Record<string, string>
+  /** Per-request override for `apikey` / `x-api-key`. */
+  apiKey?: string | null
+  /** Per-request override for `X-Athena-Key` only. */
+  athenaKey?: string | null
   query?: AthenaRequestQueryValueMap
   body?: RequestInit['body'] | Record<string, unknown> | unknown[] | null
   signal?: AbortSignal
@@ -2405,6 +2413,12 @@ export interface AthenaCreateClientOptions {
   organizationId?: string | null | undefined
   forceNoCache?: boolean
   headers?: Record<string, string>
+  /** Direct PostgreSQL URI forwarded as `x-pg-uri` on gateway requests. */
+  pgUri?: string | null | undefined
+  /** JDBC/PostgreSQL URI mirrored to `x-athena-jdbc-url` and `x-jdbc-url`. */
+  jdbcUrl?: string | null | undefined
+  /** Client-wide override for `X-Athena-Key` while `key` continues to set `apikey` / `x-api-key`. */
+  athenaKey?: string | null | undefined
   backend?: BackendConfig | BackendType
   db?: AthenaCreateClientServiceUrlConfig
   gateway?: AthenaCreateClientServiceUrlConfig
@@ -2512,6 +2526,9 @@ export interface AthenaClientConfig {
   userId?: string | null | undefined
   organizationId?: string | null | undefined
   forceNoCache?: boolean
+  pgUri?: string | null | undefined
+  jdbcUrl?: string | null | undefined
+  athenaKey?: string | null | undefined
   backend?: BackendConfig
   headers?: Record<string, string>
   auth?: AthenaCreateClientAuthOptions
@@ -2740,11 +2757,6 @@ function resolveRequiredClientApiKey(value: string | null | undefined): string {
   return normalizedValue
 }
 
-function hasHeaderIgnoreCase(headers: Record<string, string>, targetKey: string): boolean {
-  const normalizedTargetKey = targetKey.toLowerCase()
-  return Object.keys(headers).some(key => key.toLowerCase() === normalizedTargetKey)
-}
-
 function mergeClientHeaders(
   current: Record<string, string> | undefined,
   next: Record<string, string> | undefined,
@@ -2916,6 +2928,9 @@ function resolveCreateClientConfig(
     userId: config.userId,
     organizationId: config.organizationId,
     forceNoCache: config.forceNoCache,
+    pgUri: config.pgUri,
+    jdbcUrl: config.jdbcUrl,
+    athenaKey: config.athenaKey,
     backend: toBackendConfig(config.backend),
     headers: config.headers,
     auth: config.auth,
@@ -2939,27 +2954,6 @@ function createClientFromConfig<TStrict extends boolean = false>(
   sourceConfig: AthenaCreateClientConfig,
 ): AthenaSdkClientWithAuth<TStrict> {
   const normalizedAuthConfig = normalizeAuthClientConfig(config.auth, config.authUrl)
-  const gatewayHeaders: Record<string, string> = {
-    ...(config.headers ?? {}),
-  }
-  if (
-    normalizedAuthConfig?.bearerToken &&
-    !hasHeaderIgnoreCase(gatewayHeaders, 'X-Athena-Auth-Bearer-Token')
-  ) {
-    gatewayHeaders['X-Athena-Auth-Bearer-Token'] = normalizedAuthConfig.bearerToken
-  }
-  if (
-    normalizedAuthConfig?.cookie &&
-    !hasHeaderIgnoreCase(gatewayHeaders, 'Cookie')
-  ) {
-    gatewayHeaders.Cookie = normalizedAuthConfig.cookie
-  }
-  if (
-    normalizedAuthConfig?.sessionToken &&
-    !hasHeaderIgnoreCase(gatewayHeaders, 'X-Athena-Auth-Session-Token')
-  ) {
-    gatewayHeaders['X-Athena-Auth-Session-Token'] = normalizedAuthConfig.sessionToken
-  }
 
   const gateway = createAthenaGatewayClient({
     baseUrl: config.baseUrl,
@@ -2968,8 +2962,14 @@ function createClientFromConfig<TStrict extends boolean = false>(
     userId: config.userId,
     organizationId: config.organizationId,
     forceNoCache: config.forceNoCache,
+    pgUri: config.pgUri,
+    jdbcUrl: config.jdbcUrl,
+    athenaKey: config.athenaKey,
     backend: config.backend,
-    headers: gatewayHeaders,
+    bearerToken: normalizedAuthConfig?.bearerToken,
+    cookie: normalizedAuthConfig?.cookie,
+    sessionToken: normalizedAuthConfig?.sessionToken,
+    headers: config.headers,
   })
   const formatGatewayResult = createResultFormatter(config.experimental)
   const queryTracer = createQueryTracer(config.experimental)
@@ -3050,6 +3050,7 @@ function createClientFromConfig<TStrict extends boolean = false>(
   const chat = createChatModule({
     baseUrl: config.chatUrl,
     apiKey: config.apiKey,
+    athenaKey: config.athenaKey,
     client: config.client,
     headers: config.headers,
     bearerToken: normalizedAuthConfig?.bearerToken,
@@ -3095,49 +3096,42 @@ function createClientFromConfig<TStrict extends boolean = false>(
       ? `${normalizedBaseUrl}${toRequestQueryString(options.query)}`
       : `${normalizedBaseUrl}${normalizedPath}${toRequestQueryString(options.query)}`
 
-    const headers: Record<string, string> = {
-      'X-Athena-Sdk': buildSdkHeaderValue(SDK_NAME),
-      ...(config.headers ?? {}),
-      ...(options.headers ?? {}),
-    }
-
-    if (service !== 'auth') {
-      headers.apikey = headers.apikey ?? config.apiKey
-      headers['x-api-key'] = headers['x-api-key'] ?? config.apiKey
-      if (config.client && !hasHeaderIgnoreCase(headers, 'X-Athena-Client')) {
-        headers['X-Athena-Client'] = config.client
-      }
-      if (config.userId && !hasHeaderIgnoreCase(headers, 'X-User-Id')) {
-        headers['X-User-Id'] = config.userId
-      }
-      if (config.organizationId && !hasHeaderIgnoreCase(headers, 'X-Organization-Id')) {
-        headers['X-Organization-Id'] = config.organizationId
-      }
-      if (normalizedAuthConfig?.sessionToken && !hasHeaderIgnoreCase(headers, 'X-Athena-Auth-Session-Token')) {
-        headers['X-Athena-Auth-Session-Token'] = normalizedAuthConfig.sessionToken
-      }
-      if (normalizedAuthConfig?.bearerToken && !hasHeaderIgnoreCase(headers, 'X-Athena-Auth-Bearer-Token')) {
-        headers['X-Athena-Auth-Bearer-Token'] = normalizedAuthConfig.bearerToken
-      }
-      if (normalizedAuthConfig?.cookie && !hasHeaderIgnoreCase(headers, 'Cookie')) {
-        headers.Cookie = normalizedAuthConfig.cookie
-      }
-    } else {
-      const authApiKey = normalizedAuthConfig?.apiKey ?? config.apiKey
-      if (authApiKey && !hasHeaderIgnoreCase(headers, 'x-api-key')) {
-        headers.apikey = headers.apikey ?? authApiKey
-        headers['x-api-key'] = headers['x-api-key'] ?? authApiKey
-      }
-      if (normalizedAuthConfig?.bearerToken && !hasHeaderIgnoreCase(headers, 'Authorization')) {
-        headers.Authorization = `Bearer ${normalizedAuthConfig.bearerToken}`
-      }
-      if (normalizedAuthConfig?.cookie && !hasHeaderIgnoreCase(headers, 'Cookie')) {
-        headers.Cookie = normalizedAuthConfig.cookie
-      }
-      if (normalizedAuthConfig?.sessionToken && !hasHeaderIgnoreCase(headers, 'X-Athena-Auth-Session-Token')) {
-        headers['X-Athena-Auth-Session-Token'] = normalizedAuthConfig.sessionToken
-      }
-    }
+    const requestProfile =
+      service === 'auth'
+        ? 'auth'
+        : service === 'chat'
+          ? 'chat'
+          : service === 'storage'
+            ? 'storage'
+            : 'gateway'
+    const headers = buildAthenaRequestHeaders({
+      profile: requestProfile,
+      sdkHeaderValue: buildSdkHeaderValue(SDK_NAME),
+      apiKey:
+        options.apiKey ??
+        (service === 'auth'
+          ? (normalizedAuthConfig?.apiKey ?? config.apiKey)
+          : config.apiKey),
+      athenaKey: options.athenaKey ?? config.athenaKey,
+      client: config.client,
+      userId: config.userId,
+      organizationId: config.organizationId,
+      backend: config.backend,
+      pgUri: config.pgUri,
+      jdbcUrl: config.jdbcUrl,
+      bearerToken: normalizedAuthConfig?.bearerToken,
+      cookie: normalizedAuthConfig?.cookie,
+      sessionToken: normalizedAuthConfig?.sessionToken,
+      forceNoCache: config.forceNoCache,
+      configHeaders: config.headers,
+      callHeaders: options.headers,
+      accept: service === 'chat' ? 'application/json' : undefined,
+      contentType:
+        service === 'auth' || service === 'db' || service === 'storage'
+          ? 'application/json'
+          : undefined,
+      stripNulls: service === 'db' ? true : undefined,
+    })
 
     const shouldSendJsonBody =
       options.body !== undefined &&
@@ -3271,6 +3265,12 @@ export interface AthenaClientBuilder<
   client(clientName: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Attach static headers to every request. */
   headers(headers: Record<string, string>): AthenaClientBuilder<StorageEnabled, TStrict>
+  /** Forward a direct PostgreSQL URI as `x-pg-uri` on gateway requests. */
+  pgUri(pgUri: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
+  /** Forward a JDBC/PostgreSQL URI to compatibility JDBC headers. */
+  jdbcUrl(jdbcUrl: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
+  /** Override `X-Athena-Key` for this client while `key()` sets `apikey` / `x-api-key`. */
+  athenaKey(athenaKey: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Configure Athena Auth client behavior for `client.auth.*` methods. */
   auth(config: AthenaCreateClientAuthOptions): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Configure experimental client options and narrow the built client when storage or strict column checks are enabled. */

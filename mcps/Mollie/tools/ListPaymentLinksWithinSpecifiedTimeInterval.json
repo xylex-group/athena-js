@@ -1,0 +1,27 @@
+{
+  "name": "ListPaymentLinksWithinSpecifiedTimeInterval",
+  "description": "Search for paymentlinks within a specific timeframe by providing the starting date and the ending date. The results includes payments ids and their descriptions.",
+  "inputSchema": {
+    "properties": {
+      "from_date": {
+        "title": "From Date"
+      },
+      "to_date": {
+        "title": "To Date"
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "type": "object"
+  }
+}

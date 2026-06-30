@@ -1,0 +1,23 @@
+{
+  "name": "get_component_docs",
+  "description": "Get complete component documentation for `@heroui-pro/react` (Pro) or `@heroui/react` (OSS) components.\nAccepts an array of component names from either package and returns the full MDX documentation for each.\nIncludes: anatomy, compound API, props, usage examples, styling info, and API reference.\nUse list_components first to discover valid component names.\nThis is a unified MCP — you do NOT need a separate OSS MCP.\nWorkflow: list_components → get_component_docs → get_css (optional) → implement.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "components": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 1,
+        "description": "Array of component names from list_components. Accepts kebab-case names plus common import/display forms like TextArea, Textarea, TextField, and KPIGroup."
+      }
+    },
+    "required": [
+      "components"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "save_release_note",
+  "description": "Create or update release notes. If `id` is provided, updates the existing release notes; otherwise creates a new one. When creating, `pipeline` and either `releases` or a release range are required.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "id": {
+        "description": "Release notes ID or slug to update. Omit to create new release notes.",
+        "type": "string"
+      },
+      "pipeline": {
+        "description": "Release pipeline ID, slug, or exact name (required when creating)",
+        "type": "string"
+      },
+      "title": {
+        "description": "Release notes title",
+        "type": "string"
+      },
+      "content": {
+        "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+        "type": "string"
+      },
+      "releases": {
+        "description": "Release IDs or slugs to include in the note",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "rangeFromRelease": {
+        "description": "Oldest release ID or slug in the note range",
+        "type": "string"
+      },
+      "rangeToRelease": {
+        "description": "Newest release ID or slug in the note range",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
+}

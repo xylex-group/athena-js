@@ -35,6 +35,7 @@ test('buildHeaders sets api key', () => {
   const headers = client.buildHeaders()
   assert.equal(headers['apikey'], 'k1')
   assert.equal(headers['x-api-key'], 'k1')
+  assert.equal(headers['X-Athena-Key'], 'k1')
 })
 
 test('buildHeaders merges custom headers and preserves athena client', () => {
@@ -113,6 +114,21 @@ test('buildHeaders per-call apiKey overrides config', () => {
   const client = createAthenaGatewayClient({ apiKey: 'base' })
   const headers = client.buildHeaders({ apiKey: 'override' })
   assert.equal(headers['apikey'], 'override')
+  assert.equal(headers['X-Athena-Key'], 'override')
+})
+
+test('buildHeaders supports separate athenaKey override', () => {
+  const client = createAthenaGatewayClient({
+    apiKey: 'general-key',
+    athenaKey: 'client-athena-key',
+  })
+  const headers = client.buildHeaders({
+    athenaKey: 'call-athena-key',
+  })
+
+  assert.equal(headers.apikey, 'general-key')
+  assert.equal(headers['x-api-key'], 'general-key')
+  assert.equal(headers['X-Athena-Key'], 'call-athena-key')
 })
 
 test('buildHeaders per-call publishEvent overrides config', () => {

@@ -1,0 +1,62 @@
+{
+  "name": "ListSubscriptionPayments",
+  "description": "List all payments that were automatically created by a specific subscription. Shows the payment history for a subscription, including successful payments, failed payments, and pending payments. Each payment includes its ID, status, amount, and creation date. Useful for tracking subscription payment history, identifying failed charges, and customer support inquiries.",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "Profile ID for the subscription payments.",
+        "type": "string"
+      },
+      "customer_id": {
+        "description": "The ID of the customer who owns the subscription (e.g., 'cst_abc123').",
+        "type": "string"
+      },
+      "subscription_id": {
+        "description": "The ID of the subscription to list payments for (e.g., 'sub_abc123').",
+        "type": "string"
+      },
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional cursor for pagination."
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional number of payments to return per page (default 50, maximum 250)."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Enable test mode. Set to 'true' to retrieve test mode payments, or omit for live mode."
+      }
+    },
+    "required": [
+      "profile_id",
+      "customer_id",
+      "subscription_id"
+    ],
+    "type": "object"
+  }
+}

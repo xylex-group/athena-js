@@ -1,0 +1,79 @@
+{
+  "name": "CreatePaymentLink",
+  "description": "Create a payment link",
+  "inputSchema": {
+    "properties": {
+      "profile_id": {
+        "description": "The profile ID to use.",
+        "type": "string"
+      },
+      "description": {
+        "description": "A short description of the payment link. The description is visible in the Dashboard and will be shown on the customer's bank or card statement when possible.",
+        "type": "string"
+      },
+      "currency": {
+        "default": "EUR",
+        "description": "The currency used to specify the amount.",
+        "type": "string"
+      },
+      "amount": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The amount of the payment link."
+      },
+      "reusable": {
+        "default": false,
+        "description": "Indicates whether the payment link is reusable. If this field is set to true, customers can make multiple payments using the same link.",
+        "type": "boolean"
+      },
+      "redirect_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The URL your customer will be redirected to after completing the payment process. If no redirect URL is provided, the customer will be shown a generic message after completing the payment."
+      },
+      "webhook_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The webhook URL where we will send payment status updates to."
+      },
+      "testmode": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Most API credentials are specifically created for either live mode or test mode. In those cases the testmode query parameter can be omitted. For organization-level credentials such as OAuth access tokens, you can enable test mode by setting the testmode query parameter to true."
+      }
+    },
+    "required": [
+      "profile_id",
+      "description"
+    ],
+    "type": "object"
+  }
+}

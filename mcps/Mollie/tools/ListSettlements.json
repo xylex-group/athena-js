@@ -1,0 +1,81 @@
+{
+  "name": "ListSettlements",
+  "description": "List all settlements available to your account. This endpoint returns a paginated list of all settlements, which represent the periodic payouts to your bank account. Each settlement includes the total amount of successful payments minus refunds and fees for a specific period. You can filter by balance, year/month, or currencies.",
+  "inputSchema": {
+    "properties": {
+      "from_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The settlement ID to start retrieving the list from (for pagination). Use this to navigate through pages of results by providing the ID of the last settlement from the previous page."
+      },
+      "limit": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The maximum number of settlements to return per page. Valid range is 1-250, defaults to 50 if not specified."
+      },
+      "balance_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The token of the balance to filter the settlements by. Only settlements for this specific balance will be returned."
+      },
+      "year": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The year to query the settlements (e.g., '2024'). Must be used in combination with the 'month' parameter. Cannot be used alone."
+      },
+      "month": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The month to query the settlements (e.g., '01' for January, '12' for December). Must be used in combination with the 'year' parameter. Cannot be used alone."
+      },
+      "currencies": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Comma-separated list of currency codes to filter settlements by (e.g., 'EUR,USD,GBP'). Valid currencies: EUR, GBP, CHF, DKK, NOK, PLN, SEK, USD, CZK, HUF, AUD, CAD."
+      }
+    },
+    "type": "object"
+  }
+}

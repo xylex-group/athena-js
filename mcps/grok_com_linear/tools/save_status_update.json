@@ -1,0 +1,51 @@
+{
+  "name": "save_status_update",
+  "description": "Create or update a project/initiative status update. Omit `id` to create, provide `id` to update.",
+  "inputSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "project",
+          "initiative"
+        ],
+        "description": "Type of status update"
+      },
+      "id": {
+        "description": "Status update ID - if provided, updates this existing update",
+        "type": "string"
+      },
+      "project": {
+        "description": "Project name, ID, or slug",
+        "type": "string"
+      },
+      "initiative": {
+        "description": "Initiative name or ID",
+        "type": "string"
+      },
+      "body": {
+        "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+        "type": "string"
+      },
+      "health": {
+        "description": "onTrack | atRisk | offTrack",
+        "type": "string",
+        "enum": [
+          "onTrack",
+          "atRisk",
+          "offTrack"
+        ]
+      },
+      "isDiffHidden": {
+        "description": "Deprecated. Hide diff with previous update (create only)",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "additionalProperties": false
+  }
+}
