@@ -13,24 +13,23 @@ const CLIENT_HEADER_CANDIDATES = ['X-Athena-Client', 'x-athena-client'] as const
 const PG_URI_HEADER_CANDIDATES = ['x-pg-uri'] as const
 const JDBC_URI_HEADER_CANDIDATES = ['x-athena-jdbc-url', 'x-jdbc-url'] as const
 
-const PROFILE_RULES = {
+interface AthenaRequestHeaderProfileRules {
+  apiKeys: boolean
+  routing: boolean
+  authMirror: boolean
+  authBearer: boolean
+  contentType?: boolean
+  accept?: boolean
+  stripNullsDefault?: boolean
+}
+
+const PROFILE_RULES: Record<AthenaRequestHeaderProfile, AthenaRequestHeaderProfileRules> = {
   gateway: { apiKeys: true, routing: true, authMirror: true, authBearer: false, contentType: true, stripNullsDefault: true },
   chat: { apiKeys: true, routing: true, authMirror: true, authBearer: true, accept: true },
   storage: { apiKeys: true, routing: true, authMirror: true, authBearer: false, contentType: true },
   auth: { apiKeys: true, routing: false, authMirror: false, authBearer: true, contentType: true },
   minimal: { apiKeys: false, routing: false, authMirror: false, authBearer: false },
-} as const satisfies Record<
-  AthenaRequestHeaderProfile,
-  {
-    apiKeys: boolean
-    routing: boolean
-    authMirror: boolean
-    authBearer: boolean
-    contentType?: boolean
-    accept?: boolean
-    stripNullsDefault?: boolean
-  }
->
+}
 
 export interface BuildAthenaRequestHeadersInput {
   profile: AthenaRequestHeaderProfile
