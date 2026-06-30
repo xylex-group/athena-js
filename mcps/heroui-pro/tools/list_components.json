@@ -1,8 +1,0 @@
-{
-  "name": "list_components",
-  "description": "List all available components — both `@heroui-pro/react` (Pro) and `@heroui/react` (OSS).\nReturns Pro components organized by category, followed by the full OSS component list.\nThis is a unified MCP — you do NOT need a separate OSS MCP installed.\nAlways call this first to discover what components are available before implementing.\nWorkflow: list_components → get_component_docs → get_css → implement.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {}
-  }
-}

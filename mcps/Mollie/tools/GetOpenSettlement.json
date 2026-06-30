@@ -1,8 +1,0 @@
-{
-  "name": "GetOpenSettlement",
-  "description": "Retrieve the currently open settlement. The open settlement represents all transactions that have been processed but not yet paid out. This is the settlement that is currently accumulating payments and will be included in the next scheduled payout to your bank account.",
-  "inputSchema": {
-    "properties": {},
-    "type": "object"
-  }
-}

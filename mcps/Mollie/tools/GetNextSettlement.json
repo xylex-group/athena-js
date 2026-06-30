@@ -1,8 +1,0 @@
-{
-  "name": "GetNextSettlement",
-  "description": "Retrieve the next scheduled settlement. The next settlement shows all transactions that are scheduled to be paid out in the upcoming payout cycle. This allows you to preview what amount will be transferred to your bank account and which transactions are included before the settlement is actually processed.",
-  "inputSchema": {
-    "properties": {},
-    "type": "object"
-  }
-}

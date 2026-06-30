@@ -1,8 +1,0 @@
-{
-  "name": "GetOrganizationDetails",
-  "description": "Get organization ID and organization name",
-  "inputSchema": {
-    "properties": {},
-    "type": "object"
-  }
-}

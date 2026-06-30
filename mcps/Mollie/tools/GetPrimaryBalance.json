@@ -1,8 +1,0 @@
-{
-  "name": "GetPrimaryBalance",
-  "description": "Retrieve your primary balance. The primary balance is your main account balance and is typically in your account's base currency. Shows available funds, pending amounts, and transfer settings. This is the most commonly used balance for most accounts.",
-  "inputSchema": {
-    "properties": {},
-    "type": "object"
-  }
-}
