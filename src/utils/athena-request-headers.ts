@@ -5,7 +5,7 @@ export type AthenaRequestHeaderProfile = 'gateway' | 'auth' | 'chat' | 'storage'
 
 const NO_CACHE_HEADER_VALUE = 'no-cache'
 
-const API_KEY_HEADER_CANDIDATES = ['x-api-key', 'apikey'] as const
+const API_KEY_HEADER_CANDIDATES = ['X-Api-Key', 'x-api-key', 'apikey'] as const
 const ATHENA_KEY_HEADER_CANDIDATES = ['X-Athena-Key', 'x-athena-key'] as const
 const SESSION_TOKEN_HEADER_CANDIDATES = ['X-Athena-Auth-Session-Token'] as const
 const BEARER_MIRROR_HEADER_CANDIDATES = ['X-Athena-Auth-Bearer-Token'] as const
@@ -35,7 +35,7 @@ export interface BuildAthenaRequestHeadersInput {
   profile: AthenaRequestHeaderProfile
   sdkHeaderValue: string
   apiKey?: string | null
-  /** Overrides `X-Athena-Key` while leaving `apikey` / `x-api-key` on `apiKey`. */
+  /** Overrides `X-Athena-Key` while leaving `apikey` / `x-api-key` / `X-Api-Key` on `apiKey`. */
   athenaKey?: string | null
   client?: string | null
   userId?: string | null
@@ -216,8 +216,11 @@ export function applyAthenaApiKeyHeaders(
     if (!hasHeaderIgnoreCase(headers, 'apikey')) {
       headers.apikey = apiKey
     }
-    if (!hasHeaderIgnoreCase(headers, 'x-api-key')) {
+    if (!Object.hasOwn(headers, 'x-api-key')) {
       headers['x-api-key'] = apiKey
+    }
+    if (!Object.hasOwn(headers, 'X-Api-Key')) {
+      headers['X-Api-Key'] = apiKey
     }
   }
 

@@ -1349,7 +1349,7 @@ interface AthenaGatewayCallOptions {
 
 Behavior notes:
 
-- `key` / `apiKey` set `apikey`, `x-api-key`, and `X-Athena-Key` (unless `athenaKey` overrides the last header).
+- `key` / `apiKey` set `apikey`, `x-api-key`, `X-Api-Key`, and `X-Athena-Key` (unless `athenaKey` overrides the last header).
 - `athenaKey` sets `X-Athena-Key` only; per-call `apiKey` / `athenaKey` override client defaults.
 - If `headers.Cookie` includes an Athena auth session cookie such as `athena-auth.session_token` or `athena-auth.session-token`, the gateway request also sends `X-Athena-Auth-Session-Token` with the parsed token.
 - If `headers.Authorization` is `Bearer <token>`, the gateway request also sends `X-Athena-Auth-Bearer-Token` with the bare token.

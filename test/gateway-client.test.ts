@@ -35,6 +35,7 @@ test('buildHeaders sets api key', () => {
   const headers = client.buildHeaders()
   assert.equal(headers['apikey'], 'k1')
   assert.equal(headers['x-api-key'], 'k1')
+  assert.equal(headers['X-Api-Key'], 'k1')
   assert.equal(headers['X-Athena-Key'], 'k1')
 })
 

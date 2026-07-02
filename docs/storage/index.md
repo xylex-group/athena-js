@@ -11,7 +11,7 @@ The JavaScript SDK has two storage layers to be aware of:
 
 Storage HTTP calls use the `storage` header profile. They receive the same OpenAPI-aligned credentials and auth context as gateway and chat calls unless you override them per call:
 
-- `key` / `apiKey` → `apikey`, `x-api-key`, and `X-Athena-Key` (unless `athenaKey` overrides the last)
+- `key` / `apiKey` → `apikey`, `x-api-key`, `X-Api-Key`, and `X-Athena-Key` (unless `athenaKey` overrides the last)
 - `athenaKey` → `X-Athena-Key` only
 - `Cookie` / `auth.cookie` → original cookie plus derived `X-Athena-Auth-Session-Token`
 - `Authorization` / `auth.bearerToken` → original bearer plus mirrored `X-Athena-Auth-Bearer-Token`

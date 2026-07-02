@@ -18,6 +18,7 @@ test('buildAthenaRequestHeaders sets OpenAPI-aligned API key aliases', () => {
 
   assert.equal(headers.apikey, 'ath_test_key')
   assert.equal(headers['x-api-key'], 'ath_test_key')
+  assert.equal(headers['X-Api-Key'], 'ath_test_key')
   assert.equal(headers['X-Athena-Key'], 'ath_test_key')
   assert.equal(headers['X-Athena-Client'], 'railway_direct')
   assert.equal(headers['X-Athena-Sdk'], SDK_HEADER_VALUE)
@@ -98,6 +99,7 @@ test('applyAthenaApiKeyHeaders does not clobber explicit key headers', () => {
   assert.equal(headers['X-Athena-Key'], 'explicit-key')
   assert.equal(headers.apikey, 'fallback-key')
   assert.equal(headers['x-api-key'], 'fallback-key')
+  assert.equal(headers['X-Api-Key'], 'fallback-key')
 })
 
 test('buildAthenaRequestHeaders supports separate apiKey and athenaKey overrides', () => {
@@ -110,7 +112,22 @@ test('buildAthenaRequestHeaders supports separate apiKey and athenaKey overrides
 
   assert.equal(headers.apikey, 'general-key')
   assert.equal(headers['x-api-key'], 'general-key')
+  assert.equal(headers['X-Api-Key'], 'general-key')
   assert.equal(headers['X-Athena-Key'], 'gateway-only-key')
+})
+
+test('buildAthenaRequestHeaders resolves X-Api-Key from headers and mirrors X-Athena-Key', () => {
+  const headers = buildAthenaRequestHeaders({
+    profile: 'gateway',
+    sdkHeaderValue: SDK_HEADER_VALUE,
+    configHeaders: {
+      'X-Api-Key': 'header-only-key',
+    },
+  })
+
+  assert.equal(headers['X-Api-Key'], 'header-only-key')
+  assert.equal(headers['x-api-key'], 'header-only-key')
+  assert.equal(headers['X-Athena-Key'], 'header-only-key')
 })
 
 test('buildAthenaRequestHeaders call-level athenaKey overrides client config', () => {

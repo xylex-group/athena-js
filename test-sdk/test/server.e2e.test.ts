@@ -190,6 +190,9 @@ test("test-sdk e2e: GET /table/:name forwards pagination and headers to Athena g
 
     const outboundHeaders = outbound.init?.headers as Record<string, string>;
     assert.equal(outboundHeaders["apikey"], "test-key");
+    assert.equal(outboundHeaders["x-api-key"], "test-key");
+    assert.equal(outboundHeaders["X-Api-Key"], "test-key");
+    assert.equal(outboundHeaders["X-Athena-Key"], "test-key");
     assert.equal(outboundHeaders["X-Athena-Client"], "test-client");
 
     const outboundPayload = JSON.parse(outbound.init?.body as string) as Record<string, unknown>;

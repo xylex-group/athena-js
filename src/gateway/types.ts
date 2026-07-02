@@ -192,7 +192,7 @@ export type BackendOption = BackendConfig | BackendType
 export interface AthenaGatewayBaseOptions {
   baseUrl?: string
   apiKey?: string
-  /** Overrides `X-Athena-Key` while leaving `apikey` / `x-api-key` on `apiKey`. */
+  /** Overrides `X-Athena-Key` while leaving `apikey` / `x-api-key` / `X-Api-Key` on `apiKey`. */
   athenaKey?: string | null
   client?: string
   backend?: BackendOption

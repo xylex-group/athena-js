@@ -1180,7 +1180,7 @@ Shared behavior includes:
 - `X-Athena-Sdk`
 - `X-Athena-Client`
 - backend headers
-- `apikey` and `x-api-key`
+- `apikey`, `x-api-key`, `X-Api-Key`, and `X-Athena-Key`
 - optional `X-User-Id`
 - optional `X-Organization-Id`
 - optional `X-Publish-Event`

@@ -301,6 +301,7 @@ The SDK sends OpenAPI-aligned key headers on every authenticated request:
 
 - `apikey`
 - `x-api-key`
+- `X-Api-Key`
 - `X-Athena-Key`
 
 Use `key` / `apiKey` for all three when they should match. Use `athenaKey` when only `X-Athena-Key` should differ.

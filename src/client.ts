@@ -160,7 +160,7 @@ export interface AthenaRequestOptions {
   path?: string
   method?: AthenaRequestMethod
   headers?: Record<string, string>
-  /** Per-request override for `apikey` / `x-api-key`. */
+  /** Per-request override for `apikey` / `x-api-key` / `X-Api-Key`. */
   apiKey?: string | null
   /** Per-request override for `X-Athena-Key` only. */
   athenaKey?: string | null
@@ -2417,7 +2417,7 @@ export interface AthenaCreateClientOptions {
   pgUri?: string | null | undefined
   /** JDBC/PostgreSQL URI mirrored to `x-athena-jdbc-url` and `x-jdbc-url`. */
   jdbcUrl?: string | null | undefined
-  /** Client-wide override for `X-Athena-Key` while `key` continues to set `apikey` / `x-api-key`. */
+  /** Client-wide override for `X-Athena-Key` while `key` continues to set `apikey` / `x-api-key` / `X-Api-Key`. */
   athenaKey?: string | null | undefined
   backend?: BackendConfig | BackendType
   db?: AthenaCreateClientServiceUrlConfig
@@ -3269,7 +3269,7 @@ export interface AthenaClientBuilder<
   pgUri(pgUri: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Forward a JDBC/PostgreSQL URI to compatibility JDBC headers. */
   jdbcUrl(jdbcUrl: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
-  /** Override `X-Athena-Key` for this client while `key()` sets `apikey` / `x-api-key`. */
+  /** Override `X-Athena-Key` for this client while `key()` sets `apikey` / `x-api-key` / `X-Api-Key`. */
   athenaKey(athenaKey: string | null | undefined): AthenaClientBuilder<StorageEnabled, TStrict>
   /** Configure Athena Auth client behavior for `client.auth.*` methods. */
   auth(config: AthenaCreateClientAuthOptions): AthenaClientBuilder<StorageEnabled, TStrict>

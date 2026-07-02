@@ -8,7 +8,7 @@ Rollout rules and mirroring behavior: [`auth-session-forwarding.md`](auth-sessio
 
 | SDK input | HTTP headers |
 |---|---|
-| `key` / `apiKey` | `apikey`, `x-api-key`, `X-Athena-Key` (unless `athenaKey` overrides the last) |
+| `key` / `apiKey` | `apikey`, `x-api-key`, `X-Api-Key`, and `X-Athena-Key` (unless `athenaKey` overrides the last) |
 | `athenaKey` | `X-Athena-Key` only |
 | `client` | `X-Athena-Client` |
 | `userId` / `organizationId` | `X-User-Id` / `X-Organization-Id` |
