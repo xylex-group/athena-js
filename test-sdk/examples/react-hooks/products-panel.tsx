@@ -10,6 +10,7 @@ import { useState } from "react";
 import {
   assertAthenaSuccess,
   createExampleQueryClient,
+  type DemoProduct,
   type DemoProductInput,
   type DemoProductRow,
   toDemoProduct,
@@ -28,7 +29,7 @@ function ProductsPanelInner({ athena }: ProductsPanelProps) {
     price: 100,
   });
 
-  const products = useQuery({
+  const products = useQuery<DemoProduct[]>({
     queryFn: async () => {
       const result = await athena
         .from<DemoProductRow>("products")

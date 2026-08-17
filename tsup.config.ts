@@ -1,4 +1,6 @@
-const ignoreDeprecations = process.env.ATHENA_TSUP_IGNORE_DEPRECATIONS;
+const ignoreDeprecations = (
+  globalThis as { process?: { env?: Record<string, string | undefined> } }
+).process?.env?.ATHENA_TSUP_IGNORE_DEPRECATIONS;
 
 export default {
   clean: true,
