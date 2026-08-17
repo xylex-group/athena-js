@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "json-value-infer-check.ts",
+    "../src/runtime/schemas.ts",
+    "../src/runtime/parse.ts",
+    "../src/contracts/v1/common.ts",
+    "../src/contracts/v1/errors.ts",
+    "../src/contracts/v1/pagination.ts"
+  ]
+}

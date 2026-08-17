@@ -1,0 +1,46 @@
+# Athena Auth Docs
+
+This folder documents the full `createClient(...).auth.*` surface with one section per API domain.
+
+## Pages
+
+- [Session](./session.mdx)
+- [JWT / JWKS tokens](./jwt.md) — `getToken()` and `tokenProvider()`, not `getAccessToken()`
+- [Session Cookie Bridge (Next.js)](../auth-session-bridge.md)
+- [Auth cookies](../auth-cookies.md) — `hasAuthSessionCookie` / `SESSION_COOKIE_PATTERNS`, `clearAuthCookies`
+- [Auth URL helpers](../athena-auth-url.md)
+- [Auth routing: proxy vs direct upstream](../auth-routing-proxy-and-direct-upstream.md) — `appendAuthPath`, routing-debug, next-heroui-example
+- [Utils and shared helpers](../utils-and-helpers.md) — coercions, cookies, admin role, headers
+- [Model-derived column and table typing](../typecheck-columns.md)
+- [Organization membership patterns](../organization-membership.md)
+- [User Lifecycle](./user.mdx)
+- [Social, Provider Accounts, and Health](./social-account.mdx)
+- [Two Factor](./two-factor.mdx)
+- [Passkey](./passkey.mdx)
+- [Admin](./admin.mdx) — includes `hasAdminRole` from `@xylex-group/athena/admin`
+- [Email templates — resolve and send](./email-templates-send.mdx) — gateway lookup + `admin.email.template.send`
+- [React Email Templates](./react-email.mdx)
+- [React Email API](./react-email-api.mdx)
+- [API Key](./api-key.mdx)
+- [Organization](./organization.mdx)
+- [Organization Members](./organization-members.mdx)
+- [Organization Invitations](./organization-invitations.mdx)
+- [Sign In and Sign Up](./sign-in-up.mdx)
+- [Callback](./callback.mdx)
+- [React `useSession`](./use-session.mdx) — accepts `createClient(config)` or its `.auth` namespace
+- [Native Server Bootstrap](./server-bootstrap.mdx)
+
+## Base setup
+
+```ts
+import { createClient } from "@xylex-group/athena"
+
+// Proxy mode (same-origin /api/auth):
+export const client = createClient({
+  key: "gateway_api_key",
+  auth: { url: "http://localhost:3001/api/auth" },
+})
+
+// Direct upstream: use @xylex-group/athena-auth-ui createAthenaAuthClient
+// with appendAuthPath: false — see auth-routing-proxy-and-direct-upstream.md
+```

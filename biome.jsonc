@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "extends": ["ultracite/biome/core"],
+  "linter": {
+    "rules": {
+      "complexity": {
+        // Large generated/hand-written runners (D1, CRUD workers, clients) exceed
+        // Ultracite defaults; full decompositions tracked separately from lint clean.
+        "noExcessiveCognitiveComplexity": "off",
+        "noForEach": "off",
+        // Fire-and-forget CLI entrypoints and intentional discard of promises.
+        "noVoid": "off"
+      },
+      "performance": {
+        // Package public surface is intentional barrels (export * / re-exports).
+        "noBarrelFile": "off",
+        "noAwaitInLoops": "off",
+        "noJsxPropsBind": "off",
+        "noNamespaceImport": "off",
+        // Regex literals in one-shot parsers/scripts; hoist cost >> benefit here.
+        "useTopLevelRegex": "off"
+      },
+      "style": {
+        "noIncrementDecrement": "off",
+        "noNestedTernary": "off",
+        "noNonNullAssertion": "off",
+        "noParameterProperties": "off",
+        // Public API re-exports: import then export for local use + surface.
+        "noExportedImports": "off",
+        "useConsistentMethodSignatures": "off",
+        "useDestructuring": "off"
+      },
+      "suspicious": {
+        "noEmptyBlockStatements": "off",
+        // Bitmask flags in scripts and Discord permissions.
+        "noBitwiseOperators": "off",
+        "noShadow": "off",
+        // Strict narrowing after unsafe autofixes produces many false positives.
+        "noUnnecessaryConditions": "off",
+        // Cloudflare Worker handlers and test fetch mocks are async by contract
+        // even when the body is sync.
+        "useAwait": "off"
+      }
+    }
+  }
+}

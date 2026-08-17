@@ -1,0 +1,19 @@
+{
+  "name": "update-eq",
+  "operation": "update",
+  "payload": {
+    "table_name": "users",
+    "update_body": {
+      "name": "Grace"
+    },
+    "conditions": [
+      {
+        "column": "id",
+        "operator": "eq",
+        "value": "u1"
+      }
+    ]
+  },
+  "sql": "UPDATE \"users\" SET \"name\" = ? WHERE \"id\" = ?",
+  "params": ["Grace", "u1"]
+}

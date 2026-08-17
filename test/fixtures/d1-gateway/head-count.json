@@ -1,0 +1,17 @@
+{
+  "name": "head-count",
+  "operation": "fetch",
+  "payload": {
+    "table_name": "users",
+    "head": true,
+    "conditions": [
+      {
+        "column": "active",
+        "operator": "eq",
+        "value": true
+      }
+    ]
+  },
+  "sql": "SELECT COUNT(*) AS __athena_count FROM \"users\" WHERE \"active\" = ?",
+  "params": [true]
+}

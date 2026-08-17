@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@xylex-group/athena": ["../../src/index.ts"],
+      "@xylex-group/athena/*": ["../../src/*"],
+      "@xylex-group/athena/cloudflare": ["../../src/cloudflare/index.ts"]
+    }
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}

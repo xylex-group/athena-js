@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "not_found",
+    "message": "File not found",
+    "requestId": "req_abc123",
+    "retryable": false
+  }
+}

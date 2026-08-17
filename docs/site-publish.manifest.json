@@ -1,0 +1,428 @@
+{
+  "version": 1,
+  "targetRoot": "content/docs/sdks/athena-js",
+  "banner": "Generated from packages/athena-js/docs via apps/docs/scripts/sync-athena-js-docs.mts. Do not edit by hand. See packages/athena-js/docs/site-publish.md.",
+  "siteBasePath": "/docs/sdks/athena-js",
+  "pages": [
+    {
+      "id": "index",
+      "source": "index.md",
+      "out": "index.mdx",
+      "title": "Athena JS",
+      "description": "Runtime-neutral Athena JS 3 SDK docs index: client construction, Next façades, auth, types, and generator tracks."
+    },
+    {
+      "id": "getting-started",
+      "source": "getting-started.md",
+      "out": "getting-started.mdx",
+      "title": "Getting Started",
+      "description": "Install Athena JS 3, create a client, query data, and wire Next.js façades."
+    },
+    {
+      "id": "next-js",
+      "source": "next-js.md",
+      "out": "next-js.mdx",
+      "title": "Next.js",
+      "description": "createAthenaBrowserClient and createAthenaServerClient façades, request context, and session bridge entrypoints."
+    },
+    {
+      "id": "api-reference",
+      "source": "api-reference.md",
+      "out": "api-reference.mdx",
+      "title": "API Reference",
+      "description": "Athena JS 3 construction, configuration, request context, errors, and package subpaths."
+    },
+    {
+      "id": "complete-method-reference",
+      "source": "complete-method-reference.md",
+      "out": "complete-method-reference.mdx",
+      "title": "Complete SDK Method Reference",
+      "description": "Exhaustive generated method catalog for @xylex-group/athena entrypoints."
+    },
+    {
+      "id": "migration-v2-to-v3",
+      "source": "migration-v2-to-v3.md",
+      "out": "migration-v2-to-v3.mdx",
+      "title": "Migrate 2.16 to 3.0",
+      "description": "Hard-cut migration from Athena JS 2.16.0 to 3.0.0 including Next façades."
+    },
+    {
+      "id": "architecture",
+      "source": "client-internal-architecture.md",
+      "out": "architecture.mdx",
+      "title": "Internal Architecture",
+      "description": "Maintainer ownership boundaries for the Athena JS single-client core and Next façades."
+    },
+    {
+      "id": "request-headers-and-auth-examples",
+      "source": "request-headers-and-auth-examples.md",
+      "out": "request-headers-and-auth-examples.mdx",
+      "title": "Request Headers and Auth",
+      "description": "Header map, surface reference, and auth/session forwarding cookbook."
+    },
+    {
+      "id": "findmany-ast-and-server-contract",
+      "source": "findmany-ast-and-server-contract.md",
+      "out": "findmany-ast-and-server-contract.mdx",
+      "title": "findMany AST and Server Contract",
+      "description": "How findMany object selections compile and which gateway routes they use."
+    },
+    {
+      "id": "runtime-method-ast-models",
+      "source": "runtime-method-ast-models.md",
+      "out": "runtime-method-ast-models.mdx",
+      "title": "Runtime Method AST Models",
+      "description": "Normalized AST/state/payload models for select, mutations, rpc, and query."
+    },
+    {
+      "id": "select-column-aliases",
+      "source": "select-column-aliases.md",
+      "out": "select-column-aliases.mdx",
+      "title": "Select Column Aliases",
+      "description": "Response shaping with customName:columnName across reads, writes, and RPC."
+    },
+    {
+      "id": "storage",
+      "source": "storage/index.md",
+      "out": "storage.mdx",
+      "title": "Storage",
+      "description": "Stable client.storage namespace for catalogs, files, R2, and backups."
+    },
+    {
+      "id": "cloudflare-edge-local",
+      "source": "cloudflare-edge-local.md",
+      "out": "cloudflare-edge-local.mdx",
+      "title": "Cloudflare Edge-Local (D1 / R2)",
+      "description": "createCloudflareClient for Worker-owned D1 and R2 without athena_rs."
+    },
+    {
+      "id": "typed-schema-registry",
+      "source": "typed-schema-registry.md",
+      "out": "typed-schema-registry.mdx",
+      "title": "Typed Schema Registry",
+      "description": "Model contracts, registries, and createClient({ models }) typing."
+    },
+    {
+      "id": "type-surface-manifest",
+      "source": "type-surface-manifest.md",
+      "out": "type-surface-manifest.mdx",
+      "title": "Type Surface Manifest",
+      "description": "Inventory of the Athena JS typed surface and helper exports."
+    },
+    {
+      "id": "typecheck-columns",
+      "source": "typecheck-columns.md",
+      "out": "typecheck-columns.mdx",
+      "title": "Typecheck Columns",
+      "description": "Model-derived column IntelliSense and table name typing."
+    },
+    {
+      "id": "type-safety-playbook",
+      "source": "type-safety-playbook.md",
+      "out": "type-safety-playbook.mdx",
+      "title": "Type Safety Playbook",
+      "description": "Migration strategies and anti-patterns for Athena JS typing."
+    },
+    {
+      "id": "utils-and-helpers",
+      "source": "utils-and-helpers.md",
+      "out": "utils-and-helpers.mdx",
+      "title": "Utils and Helpers",
+      "description": "Prefer package helpers for coercions, auth URLs, cookies, admin role, and headers."
+    },
+    {
+      "id": "organization-membership",
+      "source": "organization-membership.md",
+      "out": "organization-membership.mdx",
+      "title": "Organization Membership",
+      "description": "Session organization.list() versus gateway member table patterns."
+    },
+    {
+      "id": "generator-quickstart",
+      "source": "generator-quickstart.md",
+      "out": "generator-quickstart.mdx",
+      "title": "Generator Quickstart",
+      "description": "Zero-config generate, athena-js init, and intelligent schema auto-fill for athena.config.ts."
+    },
+    {
+      "id": "generator-config",
+      "source": "generator-config.md",
+      "out": "generator-config.mdx",
+      "title": "Generator Config",
+      "description": "Provider modes, output templates, schema discovery, ensureGeneratorConfigFile, and programmatic APIs."
+    },
+    {
+      "id": "generator-cicd",
+      "source": "generator-cicd.md",
+      "out": "generator-cicd.mdx",
+      "title": "Generator CI/CD",
+      "description": "CI gates for generate/init, --no-write-config, schema auto-fill, and gateway vs direct."
+    },
+    {
+      "id": "cli-command-reference",
+      "source": "cli-command-reference.md",
+      "out": "cli-command-reference.mdx",
+      "title": "CLI Command Reference",
+      "description": "athena-js generate and init commands, flags, dry-run output, and troubleshooting."
+    },
+    {
+      "id": "auth-session-forwarding",
+      "source": "auth-session-forwarding.md",
+      "out": "auth/session-forwarding.mdx",
+      "title": "Session Forwarding",
+      "description": "Forward Athena Auth session and bearer context into gateway requests."
+    },
+    {
+      "id": "auth-session-bridge",
+      "source": "auth-session-bridge.md",
+      "out": "auth/session-bridge.mdx",
+      "title": "Session Cookie Bridge",
+      "description": "App-host httpOnly session bridge for Next.js cross-origin auth."
+    },
+    {
+      "id": "auth-cookies",
+      "source": "auth-cookies.md",
+      "out": "auth/clear-auth-cookies.mdx",
+      "title": "Auth Cookies",
+      "description": "hasAuthSessionCookie, SESSION_COOKIE_PATTERNS, and clearAuthCookies helpers."
+    },
+    {
+      "id": "auth-url-helpers",
+      "source": "athena-auth-url.md",
+      "out": "auth/auth-url-helpers.mdx",
+      "title": "Auth URL Helpers",
+      "description": "Env key order and base/upstream URL resolution for Athena Auth."
+    },
+    {
+      "id": "auth-routing-proxy",
+      "source": "auth-routing-proxy-and-direct-upstream.md",
+      "out": "auth/routing-proxy-and-direct-upstream.mdx",
+      "title": "Proxy vs Direct Upstream",
+      "description": "Same-origin /api/auth proxy versus direct Athena Auth upstream routing."
+    },
+    {
+      "id": "auth-index",
+      "source": "auth/index.mdx",
+      "out": "auth/index.mdx",
+      "title": "Auth Client",
+      "description": "Full createClient(...).auth surface grouped by domain."
+    },
+    {
+      "id": "auth-admin",
+      "source": "auth/admin.mdx",
+      "out": "auth/admin.mdx",
+      "title": "Admin",
+      "description": "Athena Auth admin bindings including roles and email templates."
+    },
+    {
+      "id": "auth-api-key",
+      "source": "auth/api-key.mdx",
+      "out": "auth/api-key.mdx",
+      "title": "API Key",
+      "description": "Auth API key bindings on createClient(...).auth."
+    },
+    {
+      "id": "auth-callback",
+      "source": "auth/callback.mdx",
+      "out": "auth/callback.mdx",
+      "title": "Callback",
+      "description": "OAuth and provider callback routes for Athena Auth."
+    },
+    {
+      "id": "auth-email-templates-send",
+      "source": "auth/email-templates-send.mdx",
+      "out": "auth/email-templates-send.mdx",
+      "title": "Email Templates Send",
+      "description": "Gateway template_key lookup and admin.email.template.send."
+    },
+    {
+      "id": "auth-organization",
+      "source": "auth/organization.mdx",
+      "out": "auth/organization.mdx",
+      "title": "Organization",
+      "description": "Organization bindings on the Athena Auth client."
+    },
+    {
+      "id": "auth-organization-members",
+      "source": "auth/organization-members.mdx",
+      "out": "auth/organization-members.mdx",
+      "title": "Organization Members",
+      "description": "Organization member management bindings."
+    },
+    {
+      "id": "auth-organization-invitations",
+      "source": "auth/organization-invitations.mdx",
+      "out": "auth/organization-invitations.mdx",
+      "title": "Organization Invitations",
+      "description": "Organization invitation bindings."
+    },
+    {
+      "id": "auth-passkey",
+      "source": "auth/passkey.mdx",
+      "out": "auth/passkey.mdx",
+      "title": "Passkey",
+      "description": "Passkey bindings on createClient(...).auth."
+    },
+    {
+      "id": "auth-session",
+      "source": "auth/session.mdx",
+      "out": "auth/session.mdx",
+      "title": "Session",
+      "description": "Session lifecycle bindings for Athena Auth."
+    },
+    {
+      "id": "auth-sign-in-up",
+      "source": "auth/sign-in-up.mdx",
+      "out": "auth/sign-in-up.mdx",
+      "title": "Sign In / Sign Up",
+      "description": "Email, social, and username sign-in/up bindings."
+    },
+    {
+      "id": "auth-social-account",
+      "source": "auth/social-account.mdx",
+      "out": "auth/social-account.mdx",
+      "title": "Social Account",
+      "description": "Social provider accounts and health bindings."
+    },
+    {
+      "id": "auth-two-factor",
+      "source": "auth/two-factor.mdx",
+      "out": "auth/two-factor.mdx",
+      "title": "Two Factor",
+      "description": "Two-factor authentication bindings."
+    },
+    {
+      "id": "auth-use-session",
+      "source": "auth/use-session.mdx",
+      "out": "auth/use-session.mdx",
+      "title": "useSession",
+      "description": "React useSession with createClient and auth-ui clients."
+    },
+    {
+      "id": "auth-user",
+      "source": "auth/user.mdx",
+      "out": "auth/user.mdx",
+      "title": "User",
+      "description": "User lifecycle bindings on createClient(...).auth."
+    },
+    {
+      "id": "auth-react-email",
+      "source": "auth/react-email.mdx",
+      "out": "auth/react-email.mdx",
+      "title": "React Email",
+      "description": "Render @react-email components into Athena Auth admin templates."
+    },
+    {
+      "id": "auth-react-email-api",
+      "source": "auth/react-email-api.mdx",
+      "out": "auth/react-email-api.mdx",
+      "title": "React Email API",
+      "description": "Helper exports for Athena Auth React Email integration."
+    },
+    {
+      "id": "auth-server-bootstrap",
+      "source": "auth/server-bootstrap.mdx",
+      "out": "auth/server-bootstrap.mdx",
+      "title": "Server Bootstrap",
+      "description": "Server-side Athena Auth bootstrap notes."
+    },
+    {
+      "id": "auth-client-bindings",
+      "source": "athena-client-bindings.md",
+      "out": "auth/client-bindings.mdx",
+      "title": "Client Bindings Map",
+      "description": "Compact single-page map of createClient(...).auth routes."
+    },
+    {
+      "id": "auth-routes",
+      "source": "auth-routes.md",
+      "out": "auth/auth-routes.mdx",
+      "title": "Auth Routes",
+      "description": "AuthView segments and route maps for auth UI."
+    }
+  ],
+  "nav": [
+    "index",
+    "getting-started",
+    "next-js",
+    "migration-v2-to-v3",
+    "api-reference",
+    "complete-method-reference",
+    "architecture",
+    "request-headers-and-auth-examples",
+    "---Data & gateway---",
+    "findmany-ast-and-server-contract",
+    "runtime-method-ast-models",
+    "select-column-aliases",
+    "storage",
+    "---Types---",
+    "typed-schema-registry",
+    "type-surface-manifest",
+    "typecheck-columns",
+    "type-safety-playbook",
+    "---Generator & CLI---",
+    "generator-quickstart",
+    "generator-config",
+    "generator-cicd",
+    "cli-command-reference",
+    "---Auth---",
+    "...auth",
+    "organization-membership",
+    "---Helpers---",
+    "utils-and-helpers",
+    "---Site recipes---",
+    "overview",
+    "chat-bindings",
+    "queries-and-results",
+    "filtering",
+    "pagination-and-limits",
+    "sorting",
+    "mutations",
+    "rpc",
+    "experimental-options",
+    "snippet-catalog",
+    "react-hook",
+    "errors-and-retries"
+  ],
+  "authNav": [
+    "index",
+    "client-bindings",
+    "sign-in-up",
+    "session",
+    "session-forwarding",
+    "session-bridge",
+    "clear-auth-cookies",
+    "auth-url-helpers",
+    "auth-routes",
+    "routing-proxy-and-direct-upstream",
+    "use-session",
+    "user",
+    "social-account",
+    "two-factor",
+    "passkey",
+    "admin",
+    "email-templates-send",
+    "react-email",
+    "react-email-api",
+    "server-bootstrap",
+    "api-key",
+    "organization",
+    "organization-members",
+    "organization-invitations",
+    "callback"
+  ],
+  "siteOwned": [
+    "overview.mdx",
+    "filtering.mdx",
+    "mutations.mdx",
+    "rpc.mdx",
+    "sorting.mdx",
+    "pagination-and-limits.mdx",
+    "queries-and-results.mdx",
+    "snippet-catalog.mdx",
+    "react-hook.mdx",
+    "errors-and-retries.mdx",
+    "experimental-options.mdx",
+    "chat-bindings.mdx"
+  ]
+}

@@ -1,0 +1,519 @@
+{
+  "consumers": [
+    "openapi.yaml",
+    "openapi.json",
+    "packages/athena-js storageSdkManifest",
+    "packages/athena-js/test/storage-route-parity.test.ts"
+  ],
+  "description": "Live Athena storage HTTP surface claimed by the JS SDK (storageSdkManifest). METHOD+path inventory for exact-set parity. Until a Rust LIVE_HTTP_ROUTES export exists, keep this file in lockstep with packages/athena-js/src/storage/module.ts storageSdkManifest.",
+  "domain": "storage",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/admin/backups",
+      "surface": "adminBackup"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/backups",
+      "surface": "adminBackup"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/backups/{key}",
+      "surface": "adminBackup"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/backups/{key}/restore",
+      "surface": "adminBackup"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/backups/jobs",
+      "surface": "adminBackup"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/backups/schedules",
+      "surface": "adminBackup"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/audit/list",
+      "surface": "storageAudit"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/cors",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/cors/delete",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/cors/set",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/create",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/delete",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/lifecycle",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/lifecycle/delete",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/lifecycle/set",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/list",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/policy",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/policy/delete",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/policy/set",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/public-access",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/public-access/delete",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/buckets/public-access/set",
+      "surface": "storageBuckets"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/catalogs",
+      "surface": "storageCatalog"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/catalogs",
+      "surface": "storageCatalog"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/catalogs/{id}",
+      "surface": "storageCatalog"
+    },
+    {
+      "method": "PATCH",
+      "path": "/storage/catalogs/{id}",
+      "surface": "storageCatalog"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/credentials",
+      "surface": "storageCatalog"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/files/{file_id}",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "PATCH",
+      "path": "/storage/files/{file_id}",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/{file_id}/confirm-upload",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/{file_id}/copy",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}/proxy",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}/proxy-url",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}/public-url",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/files/{file_id}/purge",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/{file_id}/restore",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}/retention",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/{file_id}/retention",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "PUT",
+      "path": "/storage/files/{file_id}/upload",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}/url",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/files/{file_id}/versions",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/files/{file_id}/versions/{version_id}",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/{file_id}/versions/{version_id}/restore",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "PATCH",
+      "path": "/storage/files/{file_id}/visibility",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/{file_id}/visibility",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/delete-many",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/list",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/search",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/update-many",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/upload-url",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/upload-urls",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/files/visibility-many",
+      "surface": "storageFiles"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/folders/delete",
+      "surface": "storageFolders"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/folders/list",
+      "surface": "storageFolders"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/folders/move",
+      "surface": "storageFolders"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/folders/tree",
+      "surface": "storageFolders"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/multipart/abort",
+      "surface": "storageMultipart"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/multipart/complete",
+      "surface": "storageMultipart"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/multipart/create",
+      "surface": "storageMultipart"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/multipart/list-parts",
+      "surface": "storageMultipart"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/multipart/sign-part",
+      "surface": "storageMultipart"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/copy",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/delete",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/exists",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/folder",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/folder/delete",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/folder/rename",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/head",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/post-policy",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/public-url",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/update",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/upload-url",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/url",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/validate",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/versions",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/versions/delete",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/objects/versions/restore",
+      "surface": "storageObjects"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/permissions/check",
+      "surface": "storagePermissions"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/permissions/grant",
+      "surface": "storagePermissions"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/permissions/list",
+      "surface": "storagePermissions"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/permissions/revoke",
+      "surface": "storagePermissions"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/connections",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/connections",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/connections/{id}",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/connections/{id}",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/connections/test",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/providers",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/service/files/{file_id}",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/service/files/{file_id}",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files/{file_id}/move",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "GET",
+      "path": "/storage/service/files/{file_id}/permissions",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files/{file_id}/permissions/grant",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files/{file_id}/permissions/revoke",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "DELETE",
+      "path": "/storage/service/files/{file_id}/purge",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files/{file_id}/restore",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files/{file_id}/visibility",
+      "surface": "storageCanonical"
+    },
+    {
+      "method": "POST",
+      "path": "/storage/service/files/list",
+      "surface": "storageCanonical"
+    }
+  ],
+  "schemaVersion": 1,
+  "sourceOfTruth": "packages/athena-js/src/storage/module.ts storageSdkManifest",
+  "sources": [
+    "packages/athena-js/src/storage/module.ts",
+    "packages/athena-js/src/storage/backup.ts",
+    "openapi storage + admin backup paths"
+  ]
+}

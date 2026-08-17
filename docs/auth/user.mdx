@@ -1,0 +1,80 @@
+# Auth User Lifecycle
+
+## Endpoints and methods
+
+- `auth.forgetPassword()` -> `POST /forget-password`
+- `auth.resetPassword()` -> `POST /reset-password`
+- `auth.resetPassword.token()` -> `GET /reset-password/{token}`
+- `auth.setPassword()` -> `POST /set-password`
+- `auth.verifyEmail()` -> `GET /verify-email`
+- `auth.sendVerificationEmail()` -> `POST /send-verification-email`
+- `auth.changeEmail()` -> `POST /change-email`
+- `auth.changeEmailVerify()` -> `GET /change-email/verify`
+- `auth.deleteUserVerify()` -> `GET /delete-user/verify`
+- `auth.changePassword()` -> `POST /change-password`
+- `auth.user.update()` -> `POST /update-user`
+- `auth.user.delete()` -> `POST /delete-user`
+- `auth.user.email.list()` -> `GET /email/list` (fallback to `GET /email-list` on `404`)
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.forgetPassword({
+  email: "user@example.com",
+  redirectTo: "https://app.example.com/reset-password",
+})
+
+await client.auth.resetPassword({
+  newPassword: "new-strong-password",
+  token: "reset_token",
+})
+
+await client.auth.resetPassword.token({
+  token: "reset_token",
+  callbackURL: "https://app.example.com/reset-password",
+})
+
+await client.auth.setPassword({ newPassword: "new-strong-password" })
+
+await client.auth.verifyEmail({
+  token: "verify_token",
+  callbackURL: "https://app.example.com/verified",
+})
+
+await client.auth.sendVerificationEmail({
+  email: "user@example.com",
+  callbackURL: "https://app.example.com/verify",
+})
+
+await client.auth.changeEmail({
+  newEmail: "new-user@example.com",
+  callbackURL: "https://app.example.com/change-email",
+})
+
+await client.auth.changeEmailVerify({
+  query: { token: "change_email_token" },
+})
+
+await client.auth.deleteUserVerify({
+  query: { token: "delete_user_token" },
+})
+
+await client.auth.changePassword({
+  currentPassword: "old-password",
+  newPassword: "new-password",
+  revokeOtherSessions: true,
+})
+
+await client.auth.user.update({
+  name: "Updated Name",
+  image: "https://cdn.example.com/avatar.png",
+})
+
+await client.auth.user.delete({
+  password: "current-password",
+})
+
+await client.auth.user.email.list()
+```

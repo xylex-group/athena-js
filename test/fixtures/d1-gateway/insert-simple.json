@@ -1,0 +1,13 @@
+{
+  "name": "insert-simple",
+  "operation": "insert",
+  "payload": {
+    "table_name": "users",
+    "insert_body": {
+      "email": "a@example.com",
+      "name": "Ada"
+    }
+  },
+  "sql": "INSERT INTO \"users\" (\"email\", \"name\") VALUES (?, ?)",
+  "params": ["a@example.com", "Ada"]
+}

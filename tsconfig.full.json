@@ -1,0 +1,19 @@
+﻿{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false
+  },
+  "include": ["src/**/*", "test/**/*.ts", "test-sdk/src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "examples",
+    "test/fixtures",
+    "test-sdk/node_modules"
+  ]
+}

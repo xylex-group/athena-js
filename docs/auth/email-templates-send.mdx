@@ -1,0 +1,178 @@
+# Admin email templates — resolve id and send
+
+How to look up an Athena Auth email template and send it via the admin binding.
+App code typically keeps a small cache + DTO; the SDK already owns the HTTP
+surface.
+
+Related:
+
+- Admin route list: [`admin.mdx`](./admin.mdx)
+- React Email render helpers: [`react-email.mdx`](./react-email.mdx), [`react-email-api.mdx`](./react-email-api.mdx)
+- Coercions: [`../utils-and-helpers.md`](../utils-and-helpers.md) (`asNonEmptyString`)
+
+---
+
+## Endpoints
+
+| SDK | Route |
+|-----|--------|
+| `auth.admin.email.template.list` | `GET /admin/email-template/list` |
+| `auth.admin.email.template.get` | `GET /admin/email-template/get` |
+| `auth.admin.email.template.create` | `POST /admin/email-template/create` |
+| `auth.admin.email.template.update` | `POST /admin/email-template/update` |
+| `auth.admin.email.template.delete` | `POST /admin/email-template/delete` |
+| **`auth.admin.email.template.send`** | **`POST /admin/email-template/send`** |
+
+---
+
+## Resolve template id by `template_key` (gateway table)
+
+When templates live in schema `athena.email_templates` (or equivalent), resolve
+id with the data client — already supported fluent API:
+
+```ts
+import { asNonEmptyString } from "@xylex-group/athena/utils"
+import type { AthenaEmailTemplatesRow } from "./models" // app / generated
+
+async function resolveTemplateId(templateKey: string): Promise<string> {
+  const cached = getTemplateIdForKey(templateKey) // app cache
+  if (cached) return cached
+
+  const athena = requireAthenaClient() // createClient / server client
+  const { data, error } = await athena
+    .from<AthenaEmailTemplatesRow>("email_templates", { schema: "athena" })
+    .eq("template_key", templateKey)
+    .eq("is_active", true)
+    .limit(1)
+    .select("id, template_key", { stripNulls: false })
+
+  if (error) {
+    throw new Error(
+      `[athena-auth-email] Failed to look up template "${templateKey}": ${error.message ?? String(error)}`,
+    )
+  }
+
+  const resolved = asNonEmptyString(data?.[0]?.id)
+  if (!resolved) {
+    throw new Error(`[athena-auth-email] Template not found for key: ${templateKey}`)
+  }
+
+  setTemplateIdForKey(templateKey, resolved) // app cache
+  return resolved
+}
+```
+
+**Notes**
+
+- Prefer `{ schema: "athena" }` on **`from`**, not only on `select`.
+- Known models and explicit row types drive column-name type checking automatically.
+- Cache (`getTemplateIdForKey` / `setTemplateIdForKey`) stays **app-local**.
+- Optionally list via admin (`email.template.list`) if you prefer auth admin over gateway.
+
+---
+
+## Send a stored template
+
+### Request type
+
+```ts
+// AthenaAdminEmailTemplateSendRequest
+{
+  template_id: string
+  recipient_email: string
+  render_variables?: Record<string, unknown>
+  user_id?: string
+  organization_id?: string
+  session_token?: string
+  attachments?: string | Attachment | Attachment[]
+  attachment_failure_mode?: "fail" | "skip"
+  metadata?: Record<string, unknown>
+}
+```
+
+### Example orchestrator (app)
+
+```ts
+import type { AthenaAdminEmailTemplateSendRequest } from "@xylex-group/athena"
+// types may also be imported from auth bindings surface
+
+export async function sendAthenaAuthTemplate(params: {
+  templateKey: string
+  recipientEmail: string
+  variables?: Record<string, unknown>
+  flow?: string
+  attachments?: AthenaAdminEmailTemplateSendRequest["attachments"]
+  attachmentFailureMode?: "fail" | "skip"
+  authBearerToken: string
+}): Promise<void> {
+  const athena = createClient({
+    db: { url: gatewayUrl },
+    key: gatewayKey,
+    auth: {
+      url: authBaseUrl, // proxy /api/auth or direct-upstream
+    },
+    context: { bearerToken: params.authBearerToken },
+  })
+
+  const templateId = await resolveTemplateId(params.templateKey)
+
+  const payload: AthenaAdminEmailTemplateSendRequest = {
+    template_id: templateId,
+    recipient_email: params.recipientEmail,
+    render_variables: params.variables,
+    ...(params.flow ? { metadata: { flow: params.flow } } : {}),
+    ...(params.attachments?.length ? { attachments: params.attachments } : {}),
+    ...(params.attachmentFailureMode
+      ? { attachment_failure_mode: params.attachmentFailureMode }
+      : {}),
+  }
+
+  const { error } = await athena.auth.admin.email.template.send(payload)
+  if (error) {
+    throw new Error(
+      `[athena-auth-email] Send failed: ${error.message ?? String(error)}`,
+    )
+  }
+}
+```
+
+**No `as` cast** is needed when the payload is typed as
+`AthenaAdminEmailTemplateSendRequest`.
+
+### Client auth
+
+Admin email routes need a principal that can call admin APIs (session, bearer,
+or API key — depending on your Athena Auth deployment). Prefer:
+
+```ts
+createClient({
+  key,
+  auth: { url: authUrl },
+  context: { bearerToken }, // or cookie / sessionToken
+})
+```
+
+Avoid `apiKey: ""` — empty strings can produce bad headers.
+
+---
+
+## React Email vs send-by-id
+
+| Goal | API |
+|------|-----|
+| Author/preview template HTML from React Email | `renderAthenaReactEmail` / admin template create-update with `react` input — see react-email docs |
+| Send an **already stored** template by id | `auth.admin.email.template.send` (this page) |
+
+---
+
+## What stays in the app
+
+| Piece | Why |
+|--------|-----|
+| Process cache of `template_key` → `id` | Runtime policy |
+| App DTO (`templateKey`, camelCase) | Map to snake_case request |
+| Error prefixes / logging | Product |
+| Authorization of who may send | Product / admin role |
+
+The SDK does **not** need a dedicated `sendAthenaAuthTemplate` export unless
+you want a shared multi-app helper later; the bindings above are sufficient.

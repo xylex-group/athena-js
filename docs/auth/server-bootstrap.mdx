@@ -1,0 +1,237 @@
+# Native Server Bootstrap
+
+`athena-js` now includes a native server bootstrap layer for Athena Auth-adjacent
+apps that only need:
+
+- typed auth bootstrap config
+- a Better Auth-compatible top-level contract from the SDK itself
+
+This is the first step toward removing `better-auth` as an app dependency when
+your runtime is already using Athena Auth semantics elsewhere.
+
+## Compatibility setup
+
+```ts
+import { athenaAuth } from "@xylex-group/athena";
+
+export function getAuth(env: {
+  DB: unknown;
+  ATHENA_AUTH_URL: string;
+  ATHENA_AUTH_SECRET: string;
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
+}) {
+  return athenaAuth({
+    baseURL: env.ATHENA_AUTH_URL,
+    secret: env.ATHENA_AUTH_SECRET,
+    database: env.DB,
+    socialProviders: {
+      github: {
+        clientId: env.GITHUB_CLIENT_ID,
+        clientSecret: env.GITHUB_CLIENT_SECRET,
+        scope: ["repo", "read:org", "user:email"],
+      },
+    },
+  });
+}
+```
+
+If your app currently has:
+
+```ts
+import { betterAuth } from "better-auth";
+```
+
+the migration seam is intentionally:
+
+```ts
+import { athenaAuth } from "@xylex-group/athena";
+```
+
+The export stays Athena-native, while the constructor/result shape matches the
+core Better Auth-style contract.
+
+Supported fields:
+
+- `baseURL`
+- `basePath`
+- `secret`
+- `database`
+- `socialProviders`
+- `trustedOrigins`
+- `trustedProviders`
+- `plugins`
+- `api`
+- `handler`
+- `errorCodes`
+
+## What the native helpers do
+
+`athenaAuth(...)` returns an auth instance with:
+
+- `handler(request)`
+- `api`
+- `options`
+- `$context`
+- `$ERROR_CODES`
+- resolved database value
+- resolved cookie config
+- `createCookieContext(...)`
+- `setSession(...)`
+- `clearSession(...)`
+- `applyResponseCookies(...)`
+- `runAfterHooks(...)`
+
+The public SDK export is `athenaAuth(...)`.
+
+`database` is intentionally unopinionated. Pass your raw database/dialect/adapter
+value directly, or a factory if you need runtime-aware construction.
+
+## Native handler seam
+
+If you want the top-level Better Auth pattern:
+
+```ts
+const auth = athenaAuth({
+  baseURL: {
+    protocol: "https",
+    allowedHosts: ["app.example.com"],
+  },
+  secret: env.ATHENA_AUTH_SECRET,
+  database: env.DB,
+  trustedOrigins: ["https://frontend.example.com"],
+  handler: async (ctx) => {
+    if (ctx.path === "/api/auth/session") {
+      return {
+        returned: {
+          ok: true,
+          baseURL: ctx.baseURL,
+        },
+      };
+    }
+
+    return {
+      response: new Response("Not found", { status: 404 }),
+    };
+  },
+});
+
+export function onRequest(request: Request) {
+  return auth.handler(request);
+}
+```
+
+The native `handler(request)` flow resolves:
+
+- request-aware `baseURL`
+- request-aware cookies for dynamic host setups
+- `trustedOrigins`
+- `trustedProviders`
+- plugin after-hooks before the response is returned
+
+If your handler returns `{ setSession }` or `{ clearSession: true }`, cookie
+headers are written automatically through the native plugin pipeline.
+
+## Dynamic `baseURL` and trusted origins
+
+For dynamic host deployments, pass:
+
+```ts
+baseURL: {
+  protocol: "https",
+  allowedHosts: ["app.example.com", "preview.example.com"],
+}
+```
+
+The SDK resolves the request origin from the incoming request and rejects hosts
+outside `allowedHosts`.
+
+`trustedOrigins` can be static or dynamic:
+
+```ts
+trustedOrigins: async (request) => {
+  if (!request) {
+    return ["https://frontend.example.com"];
+  }
+
+  return [request.headers.get("origin") ?? "https://frontend.example.com"];
+}
+```
+
+As with Better Auth, requestless calls such as `$context` initialization should
+handle the `request === undefined` case.
+
+## Cookie hook flow
+
+If your runtime wants a plugin-style after hook for session writes:
+
+```ts
+const auth = athenaAuth({
+  baseURL: env.ATHENA_AUTH_URL,
+  secret: env.ATHENA_AUTH_SECRET,
+  database: env.DB,
+  plugins: [
+    {
+      id: "cookie-after-hook",
+      version: "1",
+      hooks: {
+        after: [
+          {
+            matcher: () => true,
+            handler: async (ctx) => {
+              await ctx.auth.applyResponseCookies(ctx);
+            },
+          },
+        ],
+      },
+    },
+  ],
+});
+```
+
+If your server action or route has a new session pair:
+
+```ts
+await auth.runAfterHooks({
+  headers: request.headers,
+  context: {
+    responseHeaders,
+    setSession: {
+      session: {
+        id: "session_123",
+        token: "session_token_here",
+      },
+      user: {
+        id: "user_123",
+        email: "demo@example.com",
+      },
+    },
+  },
+});
+```
+
+To clear the auth session:
+
+```ts
+await auth.runAfterHooks({
+  headers: request.headers,
+  context: {
+    responseHeaders,
+    clearSession: true,
+  },
+});
+```
+
+## Current scope
+
+This native bootstrap layer does not claim to be a full Better Auth runtime
+replacement yet.
+
+Today it covers:
+
+- bootstrap config typing
+- native cookie/session wiring
+- generic plugin-style after hooks
+
+If you already use Athena Auth on the server side, this removes the dependency
+for the app-local bootstrap and cookie-hook seam first.

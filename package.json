@@ -1,0 +1,351 @@
+{
+  "author": "floris@xylex.group",
+  "bin": {
+    "athena-js": "bin/athena-js.js"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@noble/hashes": "^1.8.0",
+    "blessed": "^0.1.81",
+    "chalk": "^4.1.2",
+    "cron-parser": "^4.9.0",
+    "jose": "^6.2.3",
+    "pg": "^8.20.0",
+    "server-only": "^0.0.1",
+    "use-sync-external-store": "^1.6.0",
+    "zod": "^4.4.3"
+  },
+  "description": "Athena JS SDK",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
+    "@types/blessed": "^0.1.27",
+    "@types/express": "^4.17.25",
+    "@types/node": "^20.19.43",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^18.3.28",
+    "@types/react-test-renderer": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "dotenv": "^16.6.1",
+    "esbuild": "^0.27.3",
+    "eslint": "^8.57.1",
+    "express": "^4.22.2",
+    "publint": "^0.3.23",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-test-renderer": "^18.3.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "ultracite": "^7.9.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "exports": {
+    ".": {
+      "browser": {
+        "types": "./dist/browser.d.ts",
+        "import": "./dist/browser.js",
+        "require": "./dist/browser.cjs",
+        "default": "./dist/browser.js"
+      },
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./auth/server": {
+      "types": "./dist/auth/server.d.ts",
+      "import": "./dist/auth/server.js",
+      "require": "./dist/auth/server.cjs",
+      "default": "./dist/auth/server.js"
+    },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "import": "./dist/admin.js",
+      "require": "./dist/admin.cjs",
+      "default": "./dist/admin.js"
+    },
+    "./billing": {
+      "types": "./dist/billing.d.ts",
+      "import": "./dist/billing.js",
+      "require": "./dist/billing.cjs",
+      "default": "./dist/billing.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js",
+      "require": "./dist/browser.cjs",
+      "default": "./dist/browser.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/cloudflare.d.ts",
+      "import": "./dist/cloudflare.js",
+      "require": "./dist/cloudflare.cjs",
+      "default": "./dist/cloudflare.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js",
+      "require": "./dist/contracts.cjs",
+      "default": "./dist/contracts.js"
+    },
+    "./contracts/v1": {
+      "types": "./dist/contracts/v1.d.ts",
+      "import": "./dist/contracts/v1.js",
+      "require": "./dist/contracts/v1.cjs",
+      "default": "./dist/contracts/v1.js"
+    },
+    "./cookies": {
+      "types": "./dist/cookies.d.ts",
+      "import": "./dist/cookies.js",
+      "require": "./dist/cookies.cjs",
+      "default": "./dist/cookies.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "import": "./dist/env.js",
+      "require": "./dist/env.cjs",
+      "default": "./dist/env.js"
+    },
+    "./next/client": {
+      "types": "./dist/next/client.d.ts",
+      "import": "./dist/next/client.js",
+      "require": "./dist/next/client.cjs",
+      "default": "./dist/next/client.js"
+    },
+    "./next/server": {
+      "types": "./dist/next/server.d.ts",
+      "import": "./dist/next/server.js",
+      "require": "./dist/next/server.cjs",
+      "default": "./dist/next/server.js"
+    },
+    "./organization": {
+      "types": "./dist/organization.d.ts",
+      "import": "./dist/organization.js",
+      "require": "./dist/organization.cjs",
+      "default": "./dist/organization.js"
+    },
+    "./policy": {
+      "types": "./dist/policy.d.ts",
+      "import": "./dist/policy.js",
+      "require": "./dist/policy.cjs",
+      "default": "./dist/policy.js"
+    },
+    "./package.json": "./package.json",
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./dist/runtime.js",
+      "require": "./dist/runtime.cjs",
+      "default": "./dist/runtime.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs",
+      "default": "./dist/react.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native.d.ts",
+      "import": "./dist/react-native.js",
+      "require": "./dist/react-native.cjs",
+      "default": "./dist/react-native.js"
+    },
+    "./social-providers": {
+      "types": "./dist/social-providers.d.ts",
+      "import": "./dist/social-providers.js",
+      "require": "./dist/social-providers.cjs",
+      "default": "./dist/social-providers.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "import": "./dist/utils.js",
+      "require": "./dist/utils.cjs",
+      "default": "./dist/utils.js"
+    },
+    "./migrations": {
+      "types": "./dist/migrations.d.ts",
+      "import": "./dist/migrations.js",
+      "require": "./dist/migrations.cjs",
+      "default": "./dist/migrations.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "database",
+    "driver",
+    "api-gateway",
+    "sdk",
+    "react",
+    "hooks",
+    "http",
+    "postgres",
+    "query-builder"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "name": "@xylex-group/athena",
+  "peerDependencies": {
+    "@react-email/components": ">=1.0.0",
+    "@react-email/render": ">=2.0.0",
+    "pg": ">=8.0.0",
+    "react": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-email/components": {
+      "optional": true
+    },
+    "@react-email/render": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "publisher": "XYLEX Group",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xylex-group/athena.git",
+    "directory": "packages/athena-js"
+  },
+  "bugs": {
+    "url": "https://github.com/xylex-group/athena/issues"
+  },
+  "homepage": "https://github.com/xylex-group/athena/tree/main/packages/athena-js#readme",
+  "scripts": {
+    "build": "tsup",
+    "check": "ultracite check",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm test:browser-bundle && pnpm audit:rn",
+    "check:exports": "node scripts/inspect-package.mjs",
+    "check:publint": "publint",
+    "check:tarball": "node scripts/check-release-tarball.mjs",
+    "docs:check": "node scripts/check-docs-consistency.mjs",
+    "check:release": "pnpm lint && pnpm typecheck:all && pnpm test && pnpm build && pnpm test:browser-bundle && pnpm audit:rn && pnpm check:exports && pnpm check:publint && pnpm check:tarball && pnpm docs:check",
+    "dev": "tsup --watch",
+    "docs:methods": "node scripts/generate-sdk-method-reference.mjs",
+    "docs:site:check": "pnpm --dir ../../apps/docs docs:sync-athena-js:check",
+    "docs:site:sync": "pnpm --dir ../../apps/docs docs:sync-athena-js",
+    "example:admin": "tsx examples/node/admin-permission.ts",
+    "example:auth-session": "tsx examples/node/auth-session.ts",
+    "example:billing": "tsx examples/node/billing.ts",
+    "example:cloudflare": "pnpm typecheck:examples",
+    "example:env": "tsx examples/node/env.ts",
+    "example:node": "tsx examples/node/create-client.ts",
+    "example:session": "tsc -p examples/session/tsconfig.json",
+    "example:storage": "tsx examples/node/storage.ts",
+    "fix": "ultracite fix",
+    "format": "ultracite fix",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "lint:fix": "pnpm lint -- --fix",
+    "prepublishOnly": "pnpm check:release",
+    "test": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/*.test.ts test/sdd/**/*.test.ts test/conformance/**/*.test.ts",
+    "test:react-native": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/react-native-adapter.test.ts",
+    "audit:consumer": "node scripts/audit-consumer-athena-usage.mjs",
+    "audit:rn": "node scripts/audit-rn-bundle-safety.mjs",
+    "test:browser-bundle": "node scripts/audit-browser-bundle-safety.mjs",
+    "test:integration:postgres": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/postgres-introspection.integration.test.ts test/postgres-direct-live.test.ts test/postgres-direct-live-ast.test.ts test/sdd/athena-local-runtime.live.test.ts test/sdd/athena-local-runtime.r6.test.ts test/sdd/athena-local-runtime.r7.test.ts test/sdd/athena-local-runtime.r7.live.test.ts test/sdd/speedrun-pg-finality.live.test.ts",
+    "test:policy-conformance": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/sdd/athena-local-runtime.r7.test.ts test/sdd/athena-local-runtime.r3.test.ts",
+    "auth:route-parity": "node scripts/auth-route-parity.mjs --print",
+    "test:parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/finality-parity-suite.test.ts test/finality-password-portability.test.ts test/finality-portability.test.ts test/admin-auth-parity.test.ts test/admin-auth-portability.test.ts test/auth-route-inventory.test.ts test/auth-embedded-tier-a.test.ts",
+    "test:parity:live": "node scripts/run-parity-live.mjs",
+    "test:embedded-next": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/finality-handlers-from-root.test.ts test/sdd/athena-local-runtime.r5.security.test.ts test/conformance/act-5-1-embedded.test.ts",
+    "test:query-ast": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/query-engine-*.test.ts test/postgres-compile-ast*.test.ts test/d1-compile-ast*.test.ts test/gateway-serialize-ast.test.ts test/query-ast.test.ts test/query-ast-act.test.ts test/query-ast-parity.test.ts",
+    "test:query-parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/query-ast-parity.test.ts test/query-ast-act.test.ts",
+    "test:conformance": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/conformance/**/*.test.ts",
+    "test:sdd": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/sdd/**/*.test.ts",
+    "test:watch": "node --import ./test/register-server-only.mjs --import tsx --test --watch test/*.test.ts test/sdd/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "typecheck:examples": "tsc -p examples/cloudflare/tsconfig.json && tsc -p examples/node/tsconfig.json && tsc -p examples/session/tsconfig.json",
+    "typecheck:tests": "tsc -p tsconfig.full.json --noEmit",
+    "typecheck:all": "pnpm typecheck && pnpm typecheck:examples && pnpm typecheck:tests",
+    "test:migrations": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/migrations*.test.ts test/cli-migrate.test.ts"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "dist/index.d.ts"
+      ],
+      "admin": [
+        "dist/admin.d.ts"
+      ],
+      "auth/server": [
+        "dist/auth/server.d.ts"
+      ],
+      "billing": [
+        "dist/billing.d.ts"
+      ],
+      "browser": [
+        "dist/browser.d.ts"
+      ],
+      "cloudflare": [
+        "dist/cloudflare.d.ts"
+      ],
+      "contracts": [
+        "dist/contracts.d.ts"
+      ],
+      "contracts/v1": [
+        "dist/contracts/v1.d.ts"
+      ],
+      "cookies": [
+        "dist/cookies.d.ts"
+      ],
+      "env": [
+        "dist/env.d.ts"
+      ],
+      "next/client": [
+        "dist/next/client.d.ts"
+      ],
+      "next/server": [
+        "dist/next/server.d.ts"
+      ],
+      "organization": [
+        "dist/organization.d.ts"
+      ],
+      "policy": [
+        "dist/policy.d.ts"
+      ],
+      "runtime": [
+        "dist/runtime.d.ts"
+      ],
+      "react": [
+        "dist/react.d.ts"
+      ],
+      "react-native": [
+        "dist/react-native.d.ts"
+      ],
+      "social-providers": [
+        "dist/social-providers.d.ts"
+      ],
+      "utils": [
+        "dist/utils.d.ts"
+      ],
+      "migrations": [
+        "dist/migrations.d.ts"
+      ]
+    }
+  },
+  "version": "5.1.0",
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "flatted": ">=3.4.4",
+      "minimatch@3": "3.1.3",
+      "rollup": ">=4.59.0"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "fetch-eq-limit",
+  "operation": "fetch",
+  "payload": {
+    "table_name": "users",
+    "columns": ["id", "email"],
+    "conditions": [
+      {
+        "column": "email",
+        "operator": "eq",
+        "value": "a@example.com"
+      }
+    ],
+    "limit": 10
+  },
+  "sql": "SELECT \"id\", \"email\" FROM \"users\" WHERE \"email\" = ? LIMIT 10",
+  "params": ["a@example.com"]
+}

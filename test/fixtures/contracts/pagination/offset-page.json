@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "id": "1"
+    },
+    {
+      "id": "2"
+    }
+  ],
+  "offset": 0,
+  "limit": 2,
+  "total": 10,
+  "hasMore": true
+}

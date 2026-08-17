@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "preserve",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@xylex-group/athena/next/client": ["../../../src/next/client.ts"],
+      "@xylex-group/athena/next/server": ["../../../src/next/server.ts"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "./types/**/*.d.ts"]
+}

@@ -1,0 +1,187 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/xylex-group/xbp-mirrors/refs/heads/main/xbp.project.schema.json
+project_name: athena-js
+version: 5.1.0
+port: 3000
+build_dir: ./
+app_type: nodejs
+build_command: docker build -t xbp-athena-js:latest .
+start_command: docker run -d --rm --name xbp-athena-js -p 80:80 -e PORT xbp-athena-js:latest
+install_command: null
+environment:
+  ATHENA_CLIENT_E2E: "${ATHENA_CLIENT_E2E}"
+  ATHENA_API_KEY: "${ATHENA_API_KEY}"
+  ATHENA_URL: "${ATHENA_URL}"
+  ATHENA_CLIENT: "${ATHENA_CLIENT}"
+  NPM_CONFIG_TOKEN: "${NPM_CONFIG_TOKEN}"
+  ATHENA_URL_E2E: "${ATHENA_URL_E2E}"
+services:
+- name: athena-js
+  target: docker
+  branch: main
+  port: 80
+  root_directory: ./
+  environment:
+    NPM_CONFIG_TOKEN: "${NPM_CONFIG_TOKEN}"
+    NPM_TOKEN: "${NPM_TOKEN}"
+  url: null
+  healthcheck_path: null
+  restart_policy: on_failure
+  restart_policy_max_failure_count: 10
+  start_wrapper: pm2
+  commands:
+    pre: null
+    install: null
+    build: docker build -t xbp-athena-js:latest .
+    start: docker run -d --rm --name xbp-athena-js -p 80:80 -e PORT xbp-athena-js:latest
+    dev: null
+    check:all: pnpm run check:all
+    docs:methods: pnpm run docs:methods
+    docs:site:check: pnpm run docs:site:check
+    docs:site:sync: pnpm run docs:site:sync
+    example:api-call: pnpm run example:api-call
+    example:email-resend: pnpm run example:email-resend
+    example:express-api: pnpm run example:express-api
+    example:order-saga: pnpm run example:order-saga
+    example:postgres-connection: pnpm run example:postgres-connection
+    example:recurring-invoice: pnpm run example:recurring-invoice
+    example:retry-patterns: pnpm run example:retry-patterns
+    lint: pnpm run lint
+    lint:fix: pnpm run lint:fix
+    prepublishOnly: pnpm run prepublishOnly
+    publish:token: pnpm run publish:token
+    test: pnpm run test
+    test:integration:postgres: pnpm run test:integration:postgres
+    test:watch: pnpm run test:watch
+    typecheck: pnpm run typecheck
+  force_run_from_root: false
+  version_targets:
+  - package.json
+  watch_paths: null
+  systemd_service_name: null
+  systemd: null
+  openapi: null
+- name: test-sdk
+  target: expressjs
+  branch: main
+  port: 4000
+  root_directory: test-sdk
+  environment: null
+  url: null
+  healthcheck_path: null
+  restart_policy: on_failure
+  restart_policy_max_failure_count: 10
+  start_wrapper: pm2
+  commands:
+    pre: null
+    install: pnpm install
+    build: null
+    start: pnpm run start
+    dev: pnpm run dev
+    test:e2e: pnpm run test:e2e
+    test:e2e:generator: pnpm run test:e2e:generator
+  force_run_from_root: false
+  version_targets: null
+  watch_paths:
+  - test-sdk
+  versioning: false
+  release: false
+  systemd_service_name: null
+  systemd: null
+  openapi: null
+- name: postgres
+  target: docker-compose
+  branch: main
+  port: 55432
+  root_directory: test/integration/postgres
+  environment: null
+  url: null
+  healthcheck_path: null
+  restart_policy: on_failure
+  restart_policy_max_failure_count: 10
+  start_wrapper: pm2
+  commands:
+    pre: null
+    install: null
+    build: docker compose build
+    start: docker compose up -d
+    dev: null
+  force_run_from_root: false
+  version_targets: null
+  watch_paths:
+  - test/integration/postgres
+  versioning: false
+  release: false
+  systemd_service_name: null
+  systemd: null
+  openapi: null
+openapi: null
+workers: null
+systemd_service_name: null
+systemd: null
+kafka_brokers: null
+kafka_topic: null
+kafka_public_url: null
+log_files: null
+monitor_url: null
+monitor_method: null
+monitor_expected_code: null
+monitor_interval: null
+database: null
+target: nodejs
+branch: main
+crate_name: null
+npm_script: null
+port_storybook: null
+url: null
+url_storybook: null
+linear:
+  release:
+    enabled: null
+    initiative_ids:
+    - fd28f67f-8dc8-44b2-bf14-3821ce389145
+    organization_name: null
+    health: null
+  default_team_id: null
+  default_team_key: SUI
+  organization_name: null
+  default_estimate: null
+  delivery_cache_ttl_secs: null
+github: xylex-group/athena
+publish:
+  npm:
+    enabled: true
+    package_name: '@xylex-group/athena'
+    working_directory: ./
+    manifest_path: package.json
+    packages: []
+    token: ${NPM_TOKEN}
+    preflight_commands:
+    - pnpm check:all
+    publish_command: pnpm publish --access public --provenance --no-git-checks
+    use_wsl: false
+    wsl_distribution: null
+    generate_npmrc: true
+    access: public
+    retry_no_verify: null
+    no_verify_retry_packages: []
+    visibility_timeout_seconds: null
+    visibility_poll_seconds: null
+  crates: null
+  dist: null
+version_targets:
+- package.json
+version_domains: []
+ignore_paths: []
+watch_ignore_paths: []
+versioning_disabled: []
+release_disabled: []
+versioning:
+  release:
+    oci:
+      enabled: false
+      asked: true
+      strategy: skip
+      tag_templates:
+      - '{version}'
+      - latest
+      also_tag_latest: false

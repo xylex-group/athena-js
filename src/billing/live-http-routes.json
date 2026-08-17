@@ -1,0 +1,259 @@
+{
+  "consumers": [
+    "openapi.yaml",
+    "openapi.json",
+    "packages/athena-js billingSdkManifest",
+    "tests/billing_contract_spine.rs"
+  ],
+  "description": "Live Athena billing HTTP surface. Owned by athena_billing::live_http_routes (Rust). Export with: cargo run -p athena-billing --bin billing-contract-spine -- --write",
+  "domain": "billing",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/admin/billing/clients/{client_name}/connections",
+      "surface": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/billing/clients/{client_name}/connections",
+      "surface": "admin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/billing/clients/{client_name}/connections/{connection_id}",
+      "surface": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/billing/clients/{client_name}/connections/{connection_id}",
+      "surface": "admin"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/billing/clients/{client_name}/connections/{connection_id}",
+      "surface": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/billing/clients/{client_name}/connections/{connection_id}/reconcile",
+      "surface": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/billing/clients/{client_name}/webhook-events",
+      "surface": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/billing/clients/{client_name}/webhook-sinks/provision",
+      "surface": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/billing/grants",
+      "surface": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/billing/providers",
+      "surface": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/webhook-sinks/helpers/billing",
+      "surface": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/providers/{provider}/clients/{client_name}/connections/{connection_id}/webhook",
+      "surface": "providerWebhook"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/capabilities",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/checkouts",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/products",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/prices",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/customers",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/customers",
+      "surface": "billingV1"
+    },
+    {
+      "method": "DELETE",
+      "path": "/billing/v1/customers/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/customers/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "PATCH",
+      "path": "/billing/v1/customers/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/invoices",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/invoices/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/payment-links",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/payment-links",
+      "surface": "billingV1"
+    },
+    {
+      "method": "DELETE",
+      "path": "/billing/v1/payment-links/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/payment-links/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "PATCH",
+      "path": "/billing/v1/payment-links/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/payments",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/payments",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/payments/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/payments/{id}/cancel",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/refunds",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/refunds",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/refunds/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/refunds/{id}/cancel",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/subscriptions",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/subscriptions",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/subscriptions/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "PATCH",
+      "path": "/billing/v1/subscriptions/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/subscriptions/{id}/cancel",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/webhooks",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/webhooks",
+      "surface": "billingV1"
+    },
+    {
+      "method": "DELETE",
+      "path": "/billing/v1/webhooks/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/billing/v1/webhooks/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "PATCH",
+      "path": "/billing/v1/webhooks/{id}",
+      "surface": "billingV1"
+    },
+    {
+      "method": "POST",
+      "path": "/billing/v1/webhooks/{id}/test",
+      "surface": "billingV1"
+    },
+    {
+      "method": "GET",
+      "path": "/debug/billing",
+      "surface": "debug"
+    }
+  ],
+  "schemaVersion": 1,
+  "sourceOfTruth": "crates/athena-billing/src/live_http_routes.rs",
+  "sources": [
+    "src/api/billing.rs",
+    "src/api/billing_v1/**",
+    "src/api/debug/billing.rs"
+  ]
+}

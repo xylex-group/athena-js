@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "athena-edge-example",
+  // Prefer the unified demo app; swap to 01-…17-*.ts for a single concern.
+  "main": "app.ts",
+  "compatibility_date": "2026-06-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    // auto | edge | gateway
+    "ATHENA_EXECUTION_MODE": "auto",
+    // When both DB and ATHENA_URL exist: edge (default) | gateway
+    "ATHENA_EXECUTION_PREFER": "edge"
+    // "ATHENA_URL": "https://athena.example.com"
+    // "ATHENA_AUTH_URL": "https://auth.example.com"
+  },
+  // "ATHENA_API_KEY": use `wrangler secret put ATHENA_API_KEY`
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "athena-edge-example",
+      // npx wrangler d1 create athena-edge-example
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "preview_database_id": "local-athena-edge-example"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "athena-edge-example-files",
+      "preview_bucket_name": "athena-edge-example-files-preview"
+    }
+  ]
+}

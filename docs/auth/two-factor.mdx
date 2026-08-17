@@ -1,0 +1,32 @@
+# Auth Two Factor
+
+## Endpoints and methods
+
+- `auth.twoFactor.getTotpUri()` -> `POST /two-factor/get-totp-uri`
+- `auth.twoFactor.verifyTotp()` -> `POST /two-factor/verify-totp`
+- `auth.twoFactor.sendOtp()` -> `POST /two-factor/send-otp`
+- `auth.twoFactor.verifyOtp()` -> `POST /two-factor/verify-otp`
+- `auth.twoFactor.verifyBackupCode()` -> `POST /two-factor/verify-backup-code`
+- `auth.twoFactor.generateBackupCodes()` -> `POST /two-factor/generate-backup-codes`
+- `auth.twoFactor.enable()` -> `POST /two-factor/enable`
+- `auth.twoFactor.disable()` -> `POST /two-factor/disable`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.twoFactor.getTotpUri({ password: "current-password" })
+await client.auth.twoFactor.verifyTotp({ code: "123456" })
+
+await client.auth.twoFactor.sendOtp()
+await client.auth.twoFactor.verifyOtp({ code: "123456" })
+
+await client.auth.twoFactor.verifyBackupCode({ code: "backup-code-value" })
+await client.auth.twoFactor.generateBackupCodes({
+  password: "current-password",
+})
+
+await client.auth.twoFactor.enable({ password: "current-password" })
+await client.auth.twoFactor.disable({ password: "current-password" })
+```

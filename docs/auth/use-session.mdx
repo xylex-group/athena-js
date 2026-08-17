@@ -1,0 +1,89 @@
+# React `useSession`
+
+`@xylex-group/athena/react` exports a session hook for the single Athena client contract.
+
+## Accepted inputs
+
+`useSession` accepts either the root client or its stable auth namespace:
+
+```ts
+import { createClient } from "@xylex-group/athena"
+import { useSession } from "@xylex-group/athena/react"
+
+const athena = createClient({
+  key: "gateway_api_key",
+  auth: { url: "https://auth.example.com/api/auth" },
+})
+
+useSession(athena)
+useSession(athena.auth)
+```
+
+The auth service must be routable through `auth.url`, a unified `url`, or an explicit `env` object. Browser requests also need the cookie, bearer token, or session token appropriate to the deployment. Put those credentials in `context` or a context provider, not in `auth` configuration.
+
+## Hook API
+
+```ts
+const {
+  data,
+  error,
+  isPending,
+  isRefetching,
+  refetch,
+} = useSession(athena, {
+  enabled: true,
+  refetchOnMount: true,
+})
+```
+
+`fetchInput` and `callOptions` may also be supplied when an auth operation needs request-specific options.
+
+## Client component example
+
+```tsx
+"use client"
+
+import { createClient } from "@xylex-group/athena"
+import { useSession } from "@xylex-group/athena/react"
+
+const athena = createClient({
+  key: process.env.NEXT_PUBLIC_ATHENA_API_KEY!,
+  auth: {
+    url: process.env.NEXT_PUBLIC_ATHENA_AUTH_URL ?? "/api/auth",
+  },
+})
+
+export function SessionBadge() {
+  const { data, error, isPending, isRefetching, refetch } = useSession(athena)
+
+  if (isPending) return <span>Loading...</span>
+  if (error || !data?.user) return <span>Signed out</span>
+
+  return (
+    <span>
+      {data.user.email}
+      <button type="button" disabled={isRefetching} onClick={() => void refetch()}>
+        Refresh
+      </button>
+    </span>
+  )
+}
+```
+
+## Session-scoped data access
+
+`useAthenaSessionClient` derives a lightweight `withContext(...)` view from the same client core:
+
+```ts
+import { useAthenaSessionClient } from "@xylex-group/athena/react"
+
+const { session, client, isPending } = useAthenaSessionClient(athena)
+```
+
+For Server Components and route handlers, resolve request context with the helpers from `@xylex-group/athena/next/server`, then call `athena.withContext(context)`. Do not call React hooks in Server Components.
+
+## Related
+
+- [`session.mdx`](./session.mdx)
+- [`../auth-routing-proxy-and-direct-upstream.md`](../auth-routing-proxy-and-direct-upstream.md)
+- [`../auth-session-bridge.md`](../auth-session-bridge.md)

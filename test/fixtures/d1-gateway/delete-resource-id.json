@@ -1,0 +1,10 @@
+{
+  "name": "delete-resource-id",
+  "operation": "delete",
+  "payload": {
+    "table_name": "users",
+    "resource_id": "u1"
+  },
+  "sql": "DELETE FROM \"users\" WHERE \"id\" = ?",
+  "params": ["u1"]
+}

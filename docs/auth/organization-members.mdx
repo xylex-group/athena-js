@@ -1,0 +1,40 @@
+# Auth Organization Members
+
+## Endpoints and methods
+
+- `auth.organization.member.remove()` -> `POST /organization/remove-member`
+- `auth.organization.member.updateRole()` -> `POST /organization/update-member-role`
+- `auth.organization.member.invite()` -> `POST /organization/invite-member`
+- `auth.organization.member.getActive()` -> `GET /organization/get-active-member`
+- `auth.organization.member.list()` -> `GET /organization/list-members`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.organization.member.remove({
+  memberIdOrEmail: "member@example.com",
+})
+
+await client.auth.organization.member.updateRole({
+  memberId: "member_1",
+  role: "admin",
+})
+
+await client.auth.organization.member.invite({
+  email: "new-member@example.com",
+  role: "member",
+})
+
+await client.auth.organization.member.getActive()
+
+await client.auth.organization.member.list({
+  query: {
+    organizationId: "org_1",
+    limit: 50,
+    sortBy: "createdAt",
+    sortDirection: "desc",
+  },
+})
+```

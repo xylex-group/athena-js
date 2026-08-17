@@ -1,0 +1,342 @@
+# Auth Admin
+
+## Local role helpers (`@xylex-group/athena/admin`)
+
+Do **not** copy a local `hasAdminRole` — use the package:
+
+```ts
+import {
+  hasAdminRole,
+  hasAdminPermission,
+  resolveAdminPermission,
+  resolveAdminPermissionClient,
+} from "@xylex-group/athena/admin"
+
+hasAdminRole(session)
+// true when session.user.role is a comma-separated list containing "admin"
+// (case-insensitive): "admin", "ADMIN", "member, admin", …
+
+await hasAdminPermission(client, {
+  session,
+  permissions: ["admin:read"],
+})
+
+const guard = await resolveAdminPermission(client, {
+  session,
+  permissions: ["admin:read"],
+})
+// { ok: true, session } | { ok: false, status: 401 | 403, error }
+
+// createClient(...) or auth bindings both work:
+resolveAdminPermissionClient(createClient(...))
+resolveAdminPermissionClient(createClient(...).auth)
+```
+
+### React hook (`@xylex-group/athena/react`)
+
+```ts
+import { useAdminPermission } from "@xylex-group/athena/react"
+
+const { allowed, isPending, session } = useAdminPermission(athena, {
+  permissions: ["admin:read"],
+})
+```
+
+For TanStack Query gates in Auth UI (sidebar, table showcase, workspace), use
+`useHasAdminAccess` / `checkAdminPermissions` from
+`@xylex-group/athena-auth-ui` — they call the same admin helpers under the hood.
+
+`hasAdminRole` only inspects the session payload. It is not organization
+membership — see [Organization membership](../organization-membership.md).
+
+## Email templates (resolve + send)
+
+Look up `email_templates` by `template_key` on the gateway, then:
+
+```ts
+await athena.auth.admin.email.template.send({
+  template_id,
+  recipient_email,
+  render_variables,
+  // attachments, attachment_failure_mode, metadata, …
+})
+```
+
+Full guide with caching and DTO mapping:
+[Email templates — resolve and send](./email-templates-send.mdx).
+
+## Endpoints and methods
+
+- `auth.admin.role.set()` -> `POST /admin/set-role`
+- `auth.admin.user.list()` -> `GET /admin/list-users`
+- `auth.admin.user.session.list()` -> `POST /admin/list-user-sessions`
+- `auth.admin.user.create()` -> `POST /admin/create-user`
+- `auth.admin.user.unban()` -> `POST /admin/unban-user`
+- `auth.admin.user.ban()` -> `POST /admin/ban-user`
+- `auth.admin.user.impersonate()` -> `POST /admin/impersonate-user`
+- `auth.admin.user.stopImpersonating()` -> `POST /admin/stop-impersonating`
+- `auth.admin.user.session.revoke()` -> `POST /admin/revoke-user-session` or `POST /admin/revoke-user-sessions` (payload-shape dependent; requires `userId`)
+- `auth.admin.user.remove()` -> `POST /admin/remove-user`
+- `auth.admin.user.setPassword()` -> `POST /admin/set-user-password`
+- `auth.admin.hasPermission()` -> `POST /admin/has-permission`
+- `auth.admin.requirePermission()` -> `GET /get-session` + `POST /admin/has-permission`
+- `auth.admin.apiKey.create()` -> `POST /admin/api-key/create`
+- `auth.admin.athenaClient.create()` -> `POST /admin/athena-client/create`
+- `auth.admin.athenaClient.list()` -> `GET /admin/athena-client/list`
+- `auth.admin.auditLog.list()` -> `GET /admin/audit-log/list`
+- `auth.admin.email.list()` -> `GET /admin/email/list`
+- `auth.admin.email.get()` -> `GET /admin/email/get`
+- `auth.admin.email.create()` -> `POST /admin/email/create`
+- `auth.admin.email.update()` -> `POST /admin/email/update`
+- `auth.admin.email.delete()` -> `POST /admin/email/delete`
+- `auth.admin.email.failure.list()` -> `GET /admin/email-failure/list`
+- `auth.admin.email.failure.get()` -> `GET /admin/email-failure/get`
+- `auth.admin.email.failure.create()` -> `POST /admin/email-failure/create`
+- `auth.admin.email.failure.update()` -> `POST /admin/email-failure/update`
+- `auth.admin.email.failure.delete()` -> `POST /admin/email-failure/delete`
+- `auth.admin.email.template.list()` -> `GET /admin/email-template/list`
+- `auth.admin.email.template.get()` -> `GET /admin/email-template/get`
+- `auth.admin.email.template.create()` -> `POST /admin/email-template/create`
+- `auth.admin.email.template.update()` -> `POST /admin/email-template/update`
+- `auth.admin.email.template.delete()` -> `POST /admin/email-template/delete`
+- `auth.admin.email.template.send()` -> `POST /admin/email-template/send`
+- `auth.admin.email.eventType.list()` -> `GET /admin/email-event-type/list`
+- `auth.admin.emailTemplate.list()` -> `GET /admin/email-template/list` (legacy alias)
+- `auth.admin.emailTemplate.get()` -> `GET /admin/email-template/get` (legacy alias)
+- `auth.admin.emailTemplate.create()` -> `POST /admin/email-template/create` (legacy alias)
+- `auth.admin.emailTemplate.update()` -> `POST /admin/email-template/update` (legacy alias)
+- `auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
+- `auth.admin.emailTemplate.send()` -> `POST /admin/email-template/send` (legacy alias)
+- `auth.admin.emailEventType.list()` -> `GET /admin/email-event-type/list` (legacy alias)
+
+## React Email payload support
+
+For routes that accept HTML (`/admin/email/create`, `/admin/email/update`, `/admin/email-template/create`, `/admin/email-template/update`), you can pass:
+
+```ts
+react: {
+  element?: <YourEmailComponent />,
+  component?: YourEmailComponent,
+  props?: { ...templateProps },
+  pretty?: boolean,
+  text?: string,
+  includePlainText?: boolean,
+}
+```
+
+When `react` is present, the SDK renders `element` to `htmlBody` or `htmlTemplate` before sending.
+For template routes, `variables` is auto-derived from `react.props` when omitted.
+Canonical template payload fields are snake_case: `template_key`, `event_type`, `subject_template`, `text_template`, `html_template`, `variable_bindings`, `attachments`, `attachment_failure_mode`, and `is_active`.
+Legacy camelCase request keys such as `templateKey`, `eventType`, `subjectTemplate`, `variableBindings`, `attachmentFailureMode`, and `isActive` are still accepted for compatibility, but responses for this surface are snake_case.
+For template routes, the SDK rejects payloads with more than `64` variables or variable names longer than `128` characters.
+For reusable flows, prefer `defineAuthEmailTemplate(...)` from the root SDK export.
+
+The backend limit constants are also exported from the SDK:
+
+- `ATHENA_AUTH_ADMIN_LIMITS`
+- `ATHENA_AUTH_MAX_ADMIN_JSON_BYTES`
+- `ATHENA_AUTH_MAX_ADMIN_JSON_DEPTH`
+- `ATHENA_AUTH_MAX_TEMPLATE_VARIABLES`
+- `ATHENA_AUTH_MAX_TEMPLATE_VARIABLE_LENGTH`
+
+## Examples
+
+```ts
+import { client } from "./auth-client"
+
+await client.auth.admin.role.set({
+  userId: "usr_1",
+  role: "admin",
+})
+
+await client.auth.admin.user.list()
+await client.auth.admin.user.session.list({ userId: "usr_1" })
+
+await client.auth.admin.user.create({
+  email: "new-user@example.com",
+  password: "temporary-password",
+})
+
+await client.auth.admin.user.unban({ userId: "usr_1" })
+await client.auth.admin.user.ban({ userId: "usr_2", banReason: "policy violation" })
+
+await client.auth.admin.user.impersonate({ userId: "usr_3" })
+await client.auth.admin.user.stopImpersonating({ userId: "usr_3" })
+
+// single payload -> /admin/revoke-user-session
+await client.auth.admin.user.session.revoke({
+  userId: "usr_3",
+  sessionToken: "sess_token_1",
+})
+
+// multiple payloads -> /admin/revoke-user-sessions
+await client.auth.admin.user.session.revoke([
+  { userId: "usr_3", sessionToken: "sess_token_2" },
+  { userId: "usr_3", sessionToken: "sess_token_3" },
+])
+
+// direct plural payload -> /admin/revoke-user-sessions
+await client.auth.admin.user.session.revoke({
+  userId: "usr_3",
+})
+
+await client.auth.admin.user.remove({ userId: "usr_4" })
+await client.auth.admin.user.setPassword({
+  userId: "usr_4",
+  newPassword: "new-password",
+})
+
+await client.auth.admin.hasPermission({
+  permissions: { users: ["manage"] },
+})
+
+const adminGuard = await client.auth.admin.requirePermission({
+  permissions: { users: ["manage"] },
+})
+
+if (!adminGuard.ok) {
+  return new Response(JSON.stringify({ error: adminGuard.error }), {
+    status: adminGuard.status,
+  })
+}
+
+const currentSession = adminGuard.session
+
+`athena-js` also ships framework-agnostic admin helpers under `@xylex-group/athena/admin`
+for local role checks and simple server-side guard composition:
+
+```ts
+import {
+  hasAdminPermission,
+  hasAdminRole,
+  resolveAdminPermission,
+} from "@xylex-group/athena/admin"
+
+if (hasAdminRole(currentSession)) {
+  console.log("local admin role present")
+}
+
+const allowed = await hasAdminPermission(client, {
+  session: currentSession,
+  permissions: { users: ["manage"] },
+})
+
+const permission = await resolveAdminPermission(client, {
+  session: currentSession,
+  permissions: { users: ["manage"] },
+})
+
+if (!permission.ok) {
+  return new Response(JSON.stringify({ error: permission.error }), {
+    status: permission.status,
+  })
+}
+```
+
+```ts
+await client.auth.admin.apiKey.create({
+  name: "admin-key",
+  expiresIn: 3600,
+})
+
+await client.auth.admin.athenaClient.create({
+  clientName: "dashboard-client",
+})
+await client.auth.admin.athenaClient.list()
+
+await client.auth.admin.auditLog.list()
+
+await client.auth.admin.email.get({
+  query: { id: "email_1" },
+})
+
+await client.auth.admin.email.create({
+  recipientEmail: "to@example.com",
+  subject: "Welcome",
+  fromAddress: "no-reply@example.com",
+  provider: "resend",
+  react: {
+    // assume WelcomeEmail is your React Email component
+    component: WelcomeEmail,
+    props: { name: "Ava" },
+  },
+})
+
+await client.auth.admin.email.update({
+  id: "email_1",
+  subject: "Welcome Updated",
+})
+
+await client.auth.admin.email.delete({
+  id: "email_1",
+})
+
+await client.auth.admin.email.failure.list()
+await client.auth.admin.email.failure.get({
+  query: { id: "failure_1" },
+})
+await client.auth.admin.email.failure.create({
+  recipientEmail: "to@example.com",
+  flow: "transactional",
+  errorMessage: "bounce",
+})
+await client.auth.admin.email.failure.update({
+  id: "failure_1",
+  resolved: true,
+})
+await client.auth.admin.email.failure.delete({
+  id: "failure_1",
+})
+
+await client.auth.admin.email.list()
+
+await client.auth.admin.email.template.create({
+  template_key: "welcome",
+  subject_template: "Welcome",
+  event_type: "email.verification",
+  variable_bindings: [
+    {
+      name: "organization_slug",
+      source: "athena.organizations.slug",
+      required: true,
+    },
+  ],
+})
+await client.auth.admin.email.template.get({
+  query: { id: "tmpl_1" },
+})
+await client.auth.admin.email.template.list()
+await client.auth.admin.email.template.update({
+  id: "tmpl_1",
+  subject_template: "Welcome Updated",
+})
+await client.auth.admin.email.template.send({
+  template_id: "tmpl_1",
+  recipient_email: "to@example.com",
+  render_variables: {
+    verification_url: "https://app.example.com/verify",
+  },
+})
+await client.auth.admin.email.template.delete({ id: "tmpl_1" })
+await client.auth.admin.email.eventType.list()
+
+// legacy alias
+await client.auth.admin.emailTemplate.create({
+  templateKey: "legacy",
+  subjectTemplate: "Legacy",
+})
+await client.auth.admin.emailTemplate.get({
+  query: { id: "legacy_tmpl_1" },
+})
+await client.auth.admin.emailTemplate.list()
+await client.auth.admin.emailTemplate.update({
+  id: "legacy_tmpl_1",
+  subjectTemplate: "Legacy Updated",
+})
+await client.auth.admin.emailTemplate.send({
+  templateId: "legacy_tmpl_1",
+  recipientEmail: "to@example.com",
+})
+await client.auth.admin.emailTemplate.delete({ id: "legacy_tmpl_1" })
+await client.auth.admin.emailEventType.list()
+```

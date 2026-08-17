@@ -1,0 +1,6 @@
+{
+  "url": "https://context7.com/xylex-group/athena-js",
+  "public_key": "pk_QLDD9GDnMpjELMSXE7hfZ",
+  "title": "Athena JS — Type-Safe Infrastructure SDK for Data, Auth & Application Backends",
+  "description": "Athena JS is a type-safe infrastructure SDK for building application backends across Node.js, browsers, React, React Native, Next.js, and Cloudflare. It provides a fluent SQL query API, direct and gateway-backed database access, embedded and remote authentication, authorization policies, migrations, organizations, billing, and runtime tooling behind one consistent TypeScript API."
+}

@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "id": "a"
+    },
+    {
+      "id": "b"
+    }
+  ],
+  "nextCursor": "cursor_b",
+  "hasMore": true
+}

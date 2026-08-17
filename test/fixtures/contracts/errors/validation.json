@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "validation_error",
+    "message": "limit must be a positive integer",
+    "details": {
+      "field": "limit",
+      "received": -1
+    },
+    "retryable": false
+  }
+}
