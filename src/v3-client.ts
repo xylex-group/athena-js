@@ -19,8 +19,13 @@ import {
 } from "./auth/config.ts";
 import {
   attachAthenaClientInternals,
+  createRootClientInternals,
   getAthenaClientInternals,
 } from "./runtime/client-internals.ts";
+import {
+  createAthenaClientLifecycle,
+  recordAuthRuntimeCreated,
+} from "./runtime/ownership.ts";
 import { inferEmbeddedAuthMode, resolveAthenaRuntime } from "./runtime/resolve.ts";
 import { ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT } from "./auth/capabilities.ts";
 import { createAuthDatabaseFromRuntime } from "./auth/local/database.ts";
@@ -44,6 +49,7 @@ import {
   disposePostgresDirectTransport,
 } from "./postgres/transport.ts";
 import { catalogFromModels } from "./query/engine/index.ts";
+import type { AthenaRootClient } from "./client-brands.ts";
 import type { AthenaClientModelsInput } from "./schema/types.ts";
 import {
   AthenaConfigurationError,
@@ -63,6 +69,12 @@ import {
 } from "./v3-client-core.ts";
 
 export * from "./v3-client-core.ts";
+export type {
+  AthenaRequestClient,
+  AthenaRequestClientBrand,
+  AthenaRootClient,
+  AthenaRootClientBrand,
+} from "./client-brands.ts";
 
 /**
  * Wire `db.pgUri` into a direct PostgreSQL AthenaGatewayClient transport.
@@ -246,6 +258,16 @@ function rejectUnsupportedEmbeddedAuthFeatures(auth: unknown): void {
   }
 }
 
+const AUTH_RUNTIME_CACHE = Symbol.for("@xylex-group/athena.authRuntimes");
+
+function authRuntimeCache(): WeakMap<object, ReturnType<typeof createAthenaAuthRuntime>> {
+  const holder = globalThis as typeof globalThis & {
+    [AUTH_RUNTIME_CACHE]?: WeakMap<object, ReturnType<typeof createAthenaAuthRuntime>>;
+  };
+  holder[AUTH_RUNTIME_CACHE] ??= new WeakMap();
+  return holder[AUTH_RUNTIME_CACHE];
+}
+
 function attachLocalAuthRuntime<TClient extends { auth: unknown }>(
   client: TClient,
   config: AthenaClientConfig<AthenaClientModelsInput | undefined>
@@ -274,12 +296,19 @@ function attachLocalAuthRuntime<TClient extends { auth: unknown }>(
     bindPostgresRuntime(config.gatewayTransport, postgresRuntime);
   }
   const normalized = normalizeAthenaAuthConfig(config.auth);
-  const runtime = createAthenaAuthRuntime({
-    autoMigrate: normalized.autoMigrate,
-    config: normalized,
-    database: createAuthDatabaseFromRuntime(postgresRuntime),
-    secret: normalized.secret,
-  });
+  const cachedAuth = authRuntimeCache().get(postgresRuntime);
+  const runtime =
+    cachedAuth ??
+    createAthenaAuthRuntime({
+      autoMigrate: normalized.autoMigrate,
+      config: normalized,
+      database: createAuthDatabaseFromRuntime(postgresRuntime),
+      secret: normalized.secret,
+    });
+  if (!cachedAuth) {
+    authRuntimeCache().set(postgresRuntime, runtime);
+    recordAuthRuntimeCreated();
+  }
   const server: AthenaAuthServerBindings = {
     handle: (request) => runtime.handle(request),
     handlers: runtime.handlers,
@@ -297,18 +326,20 @@ function attachLocalAuthRuntime<TClient extends { auth: unknown }>(
     }
   ).capabilities;
   capabilities?.set(ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT);
-  attachAthenaClientInternals(client, {
-    authRuntime: runtime,
-    config: config as AthenaClientConfig,
-    gatewayTransport: config.gatewayTransport,
-    getAuthStores: () => runtime.getStores(),
-    plan: resolveAthenaRuntime(config, {
-      environment: "node",
-      trustedNode: true,
-    }),
-    postgresRuntime,
-    source: "root",
-  });
+  attachAthenaClientInternals(
+    client,
+    createRootClientInternals({
+      authRuntime: runtime,
+      config: config as AthenaClientConfig,
+      gatewayTransport: config.gatewayTransport,
+      getAuthStores: () => runtime.getStores(),
+      plan: resolveAthenaRuntime(config, {
+        environment: "node",
+        trustedNode: true,
+      }),
+      postgresRuntime,
+    })
+  );
   return client;
 }
 
@@ -324,15 +355,17 @@ export function createClient<
   config:
     | (AthenaClientConfig<TModels> & { r2: R2BucketLike })
     | AthenaClientConfigWithR2<TModels>
-): AthenaClientWithR2Storage<TModels>;
+): AthenaRootClient<AthenaClientWithR2Storage<TModels>>;
 export function createClient<
   const TModels extends AthenaClientModelsInput | undefined = undefined,
->(config: AthenaClientConfig<TModels>): AthenaClient<TModels>;
+>(config: AthenaClientConfig<TModels>): AthenaRootClient<AthenaClient<TModels>>;
 export function createClient<
   const TModels extends AthenaClientModelsInput | undefined = undefined,
 >(
   config: AthenaClientConfig<TModels>
-): AthenaClient<TModels> | AthenaClientWithR2Storage<TModels> {
+):
+  | AthenaRootClient<AthenaClient<TModels>>
+  | AthenaRootClient<AthenaClientWithR2Storage<TModels>> {
   // Nuclear casts: see v3-client-core createClient (TS2589).
   const factory = createClientWithNormalizer as unknown as (
     input: unknown,
@@ -348,30 +381,36 @@ export function createClient<
   const postgresRuntime =
     existing?.postgresRuntime ??
     getBoundPostgresRuntime(resolved.gatewayTransport);
-  let closed = false;
+  const lifecycle = existing?.lifecycle ?? createAthenaClientLifecycle();
   const close = async (): Promise<void> => {
-    if (closed) {
+    if (lifecycle.closed) {
       return;
     }
-    closed = true;
+    lifecycle.closed = true;
     await existing?.authRuntime?.close();
     if (resolved.gatewayTransport) {
       await disposePostgresDirectTransport(resolved.gatewayTransport);
     }
     await postgresRuntime?.close();
   };
-  attachAthenaClientInternals(withAuth, {
-    authRuntime: existing?.authRuntime,
-    close,
-    config: resolved as AthenaClientConfig,
-    gatewayTransport: resolved.gatewayTransport,
-    getAuthStores: existing?.getAuthStores,
-    plan: resolveAthenaRuntime(resolved, {
-      environment: "node",
-      trustedNode: true,
-    }),
-    postgresRuntime,
-    source: "root",
-  });
-  return withAuth as AthenaClient<TModels> | AthenaClientWithR2Storage<TModels>;
+  attachAthenaClientInternals(
+    withAuth,
+    createRootClientInternals({
+      authRuntime: existing?.authRuntime,
+      close,
+      config: resolved as AthenaClientConfig,
+      gatewayTransport: resolved.gatewayTransport,
+      getAuthStores: existing?.getAuthStores,
+      lifecycle,
+      plan: resolveAthenaRuntime(resolved, {
+        environment: "node",
+        trustedNode: true,
+      }),
+      postgresRuntime,
+      runtimeOwnership: postgresRuntime ? "owned" : "none",
+    })
+  );
+  return withAuth as
+    | AthenaRootClient<AthenaClient<TModels>>
+    | AthenaRootClient<AthenaClientWithR2Storage<TModels>>;
 }

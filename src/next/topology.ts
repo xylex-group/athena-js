@@ -3,15 +3,30 @@ import {
   createAthenaGatewayClient,
   type AthenaGatewayClient,
 } from "../gateway/client.ts";
+import type { AthenaRuntimeDiscoveryDocument } from "../gateway/discovery-types.ts";
 import type {
   AthenaDiscoveryErrorCode,
   AthenaGatewayResponse,
 } from "../gateway/types.ts";
+import { ATHENA_AUTH_PATH } from "../utils/athena-auth-url.ts";
 import {
   DEFAULT_ATHENA_LOCAL_PATH,
   probeAthenaLocalRuntime,
   type AthenaDiscoveryRequire,
 } from "./discovery.ts";
+
+/**
+ * Internal browser materialization of a Next discovery probe.
+ * Never stores PostgreSQL or embedded Auth runtime state.
+ */
+export type ResolvedNextAthenaTopology = {
+  auth?: { path: string; transport: "same-origin" | "remote" };
+  data?: { path: string };
+  protocol: { major: number; minor: number };
+};
+
+/** Data-ok / Auth-off. Distinct from ATHENA_DISCOVERY_UNAVAILABLE. */
+export const ATHENA_AUTH_NOT_AVAILABLE = "ATHENA_AUTH_NOT_AVAILABLE" as const;
 
 export type AthenaNextTopologyConfig = {
   discover?: "next" | false;
@@ -52,7 +67,12 @@ const DISCOVERY_CODES: readonly AthenaDiscoveryErrorCode[] = [
   "ATHENA_RUNTIME_UNAVAILABLE",
 ];
 
-const sessionProbeInflight = new Map<string, Promise<AthenaGatewayClient>>();
+type DiscoveredNextSelection = {
+  gateway: AthenaGatewayClient;
+  topology: ResolvedNextAthenaTopology;
+};
+
+const sessionProbeInflight = new Map<string, Promise<DiscoveredNextSelection>>();
 
 type SessionSelection = {
   endpoint?: string;
@@ -167,6 +187,40 @@ function failedGatewayResponse<T>(error: Error): AthenaGatewayResponse<T> {
     raw: { error: { code, message } },
     status: 503,
     statusText: "Error",
+  };
+}
+
+export function topologyFromDiscoveryDocument(
+  document: AthenaRuntimeDiscoveryDocument,
+  dataPath: string
+): ResolvedNextAthenaTopology {
+  const authCap = document.capabilities.auth;
+  const authObject =
+    authCap && typeof authCap === "object" ? authCap : undefined;
+  const advertised =
+    document.runtime === "next-local" &&
+    authObject?.available === true &&
+    (authObject.transport === "same-origin" ||
+      authObject.transport === "remote" ||
+      authObject.transport === undefined);
+  if (!advertised) {
+    return {
+      data: { path: dataPath },
+      protocol: document.protocol,
+    };
+  }
+  const endpoint = document.endpoints?.auth;
+  const path =
+    typeof endpoint === "string" && endpoint.trim()
+      ? endpoint.trim()
+      : ATHENA_AUTH_PATH;
+  return {
+    auth: {
+      path,
+      transport: authObject.transport ?? "same-origin",
+    },
+    data: { path: document.endpoints?.data ?? dataPath },
+    protocol: document.protocol,
   };
 }
 
@@ -285,16 +339,30 @@ function failingDiscoveryClient(
   return failingGatewayClient(discovery, error);
 }
 
-async function selectDiscoveredGateway(
+function hostedTopology(discovery: NormalizedNextDiscovery): ResolvedNextAthenaTopology {
+  return {
+    data: { path: discovery.hosted?.url ?? discovery.path },
+    protocol: { major: 1, minor: 0 },
+  };
+}
+
+function dataOnlyTopology(path: string): ResolvedNextAthenaTopology {
+  return {
+    data: { path },
+    protocol: { major: 1, minor: 0 },
+  };
+}
+
+async function selectDiscoveredRuntime(
   discovery: NormalizedNextDiscovery
-): Promise<AthenaGatewayClient> {
+): Promise<DiscoveredNextSelection> {
   if (discovery.prefer === "hosted") {
     const hosted = createHostedGatewayClient(discovery);
     if (hosted) {
       if (discovery.cache === "session") {
         writeSessionStorageSelection(discovery, { selected: "hosted" });
       }
-      return hosted;
+      return { gateway: hosted, topology: hostedTopology(discovery) };
     }
   }
 
@@ -303,11 +371,19 @@ async function selectDiscoveredGateway(
     if (persisted?.selected === "hosted") {
       const hosted = createHostedGatewayClient(discovery);
       if (hosted) {
-        return hosted;
+        return { gateway: hosted, topology: hostedTopology(discovery) };
       }
     }
     if (persisted?.selected === "local") {
-      return createLocalGatewayClient(persisted.endpoint ?? discovery.path);
+      const endpoint = persisted.endpoint ?? discovery.path;
+      return {
+        gateway: createLocalGatewayClient(endpoint),
+        topology: {
+          auth: { path: ATHENA_AUTH_PATH, transport: "same-origin" },
+          data: { path: endpoint },
+          protocol: { major: 1, minor: 1 },
+        },
+      };
     }
   }
 
@@ -323,7 +399,10 @@ async function selectDiscoveredGateway(
         selected: "local",
       });
     }
-    return createLocalGatewayClient(result.endpoint);
+    return {
+      gateway: createLocalGatewayClient(result.endpoint),
+      topology: topologyFromDiscoveryDocument(result.document, result.endpoint),
+    };
   }
   if (discovery.fallback === "hosted") {
     const hosted = createHostedGatewayClient(discovery);
@@ -331,24 +410,30 @@ async function selectDiscoveredGateway(
       if (discovery.cache === "session") {
         writeSessionStorageSelection(discovery, { selected: "hosted" });
       }
-      return hosted;
+      return { gateway: hosted, topology: hostedTopology(discovery) };
     }
   }
-  return failingDiscoveryClient(discovery, result);
+  return {
+    gateway: failingDiscoveryClient(discovery, result),
+    topology: dataOnlyTopology(discovery.path),
+  };
 }
 
-export function createDiscoveredGatewayTransport(
+export function createDiscoveredNextRuntime(
   discovery: NormalizedNextDiscovery
-): AthenaGatewayClient {
-  let resolution: Promise<AthenaGatewayClient> | undefined;
-  let selected: AthenaGatewayClient | undefined;
+): {
+  resolveTopology(): Promise<ResolvedNextAthenaTopology>;
+  transport: AthenaGatewayClient;
+} {
+  let resolution: Promise<DiscoveredNextSelection> | undefined;
+  let selected: DiscoveredNextSelection | undefined;
 
-  const resolve = (): Promise<AthenaGatewayClient> => {
+  const resolve = (): Promise<DiscoveredNextSelection> => {
     if (selected) {
       return Promise.resolve(selected);
     }
     const materialize = async () => {
-      const next = await selectDiscoveredGateway(discovery);
+      const next = await selectDiscoveredRuntime(discovery);
       selected = next;
       return next;
     };
@@ -356,9 +441,9 @@ export function createDiscoveredGatewayTransport(
       const key = sessionCacheKey(discovery);
       const existing = sessionProbeInflight.get(key);
       if (existing) {
-        return existing.then((client) => {
-          selected = client;
-          return client;
+        return existing.then((next) => {
+          selected = next;
+          return next;
         });
       }
       const inflight = materialize();
@@ -374,7 +459,7 @@ export function createDiscoveredGatewayTransport(
     invoke: (client: AthenaGatewayClient) => Promise<AthenaGatewayResponse<T>>
   ): Promise<AthenaGatewayResponse<T>> => {
     try {
-      return await invoke(await resolve());
+      return await invoke((await resolve()).gateway);
     } catch (error) {
       return failedGatewayResponse(
         error instanceof Error
@@ -388,36 +473,44 @@ export function createDiscoveredGatewayTransport(
   };
 
   return {
-    baseUrl: discovery.path,
-    buildHeaders(options) {
-      return selected?.buildHeaders(options) ?? {};
-    },
-    deleteGateway(payload, options) {
-      return run((client) => client.deleteGateway(payload, options));
-    },
-    fetchGateway(payload, options) {
-      return run((client) => client.fetchGateway(payload, options));
-    },
-    insertGateway(payload, options) {
-      return run((client) => client.insertGateway(payload, options));
-    },
-    queryGateway(payload, options) {
-      return run((client) => client.queryGateway(payload, options));
-    },
-    async resolveCallOptions(options) {
-      return (await resolve()).resolveCallOptions(options);
-    },
-    rpcGateway(payload, options) {
-      return run((client) => client.rpcGateway(payload, options));
-    },
-    updateGateway(payload, options) {
-      return run((client) => client.updateGateway(payload, options));
-    },
-    async verifyConnection(options) {
-      const client = await resolve();
-      return client.verifyConnection(options);
+    resolveTopology: async () => (await resolve()).topology,
+    transport: {
+      baseUrl: discovery.path,
+      buildHeaders(options) {
+        return selected?.gateway.buildHeaders(options) ?? {};
+      },
+      deleteGateway(payload, options) {
+        return run((client) => client.deleteGateway(payload, options));
+      },
+      fetchGateway(payload, options) {
+        return run((client) => client.fetchGateway(payload, options));
+      },
+      insertGateway(payload, options) {
+        return run((client) => client.insertGateway(payload, options));
+      },
+      queryGateway(payload, options) {
+        return run((client) => client.queryGateway(payload, options));
+      },
+      async resolveCallOptions(options) {
+        return (await resolve()).gateway.resolveCallOptions(options);
+      },
+      rpcGateway(payload, options) {
+        return run((client) => client.rpcGateway(payload, options));
+      },
+      updateGateway(payload, options) {
+        return run((client) => client.updateGateway(payload, options));
+      },
+      async verifyConnection(options) {
+        return (await resolve()).gateway.verifyConnection(options);
+      },
     },
   };
+}
+
+export function createDiscoveredGatewayTransport(
+  discovery: NormalizedNextDiscovery
+): AthenaGatewayClient {
+  return createDiscoveredNextRuntime(discovery).transport;
 }
 
 

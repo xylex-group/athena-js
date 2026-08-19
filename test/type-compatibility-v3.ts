@@ -49,6 +49,19 @@ const disabledAuthOnly: AthenaClientConfig = {
 // @ts-expect-error auth:false cannot carry url / mode fields
 void disabledAuthOnly.auth.url;
 
+// Local Auth root (next-minimal): autoMigrate is a public createClient field.
+const localAuthRoot: AthenaClientConfig = {
+	auth: {
+		autoMigrate: true,
+		mode: "local",
+	},
+	databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena",
+};
+void createClient(localAuthRoot);
+type AthenaAuthConfigKeys =
+	keyof import("../src/v3-client-core.ts").AthenaAuthConfig;
+void ("autoMigrate" satisfies AthenaAuthConfigKeys);
+
 const config: AthenaClientConfig<typeof models> = {
 	auth: { credentials: "include" },
 	chat: { wsUrl: "wss://athena.example.com/wss/gateway" },
@@ -161,6 +174,23 @@ createAthenaBrowserClient({
 	url: "https://athena.example.com",
 });
 
+// Layered { client } boundary must stay shallow: a strongly typed root's
+// withContext return (narrow table unions) must assign without comparing the
+// full AthenaClient database surface (otherwise TS2589 / assignability errors).
+declare const typedLayeredRoot: {
+	withContext: (context: AthenaRequestContext) => {
+		from: (table: "users") => { select: (cols: string) => Promise<unknown> };
+	};
+};
+void (async () => {
+	const layered = await createAthenaServerClient({
+		client: typedLayeredRoot,
+		requestCookies: "",
+		requestHeaders: {},
+	});
+	void layered;
+})();
+
 const serverClient = await createAthenaServerClient({
 	env: process.env,
 	models,
@@ -217,3 +247,24 @@ createClient({ gatewayUrl: "https://athena.example.com/db", key: "test-key" });
 
 // billing namespace is always present on the public client type surface
 void client.billing.getCapabilities;
+
+// Execution mode is a closed alias union (`AthenaExecutionMode | string` collapsed to string).
+void createClient({
+	key: "test-key",
+	mode: "auto",
+	url: "https://athena.example.com",
+});
+void createClient({
+	d1: { prepare() {} } as never,
+	mode: "d1",
+});
+// @ts-expect-error empty execution mode is not a valid AthenaExecutionModeInput
+createClient({ mode: "" });
+// @ts-expect-error unknown execution mode is not a valid AthenaExecutionModeInput
+createClient({ mode: "postgres" });
+createClient({
+	key: "test-key",
+	// @ts-expect-error empty prefer is not a valid AthenaExecutionPreferInput
+	prefer: "",
+	url: "https://athena.example.com",
+});

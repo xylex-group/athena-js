@@ -31,22 +31,39 @@ athena/
 
 ## Validation checks
 
-Run these before opening a PR:
+The release SSOT is local verification, not GitHub CI:
+
+```bash
+pnpm test:finality
+pnpm release:verify
+```
+
+`test:finality` is fail-closed and ordered (typecheck → unit → ownership →
+build → exports → browser boundary → create-athena-app fixture → packed
+tarball consumer → ephemeral Postgres → Next embedded E2E → cleanup).
+PostgreSQL uses `ATHENA_TEST_DATABASE_URL` or `DATABASE_URL`, otherwise
+Docker/Podman auto-launch. Red cannot release; green is releasable.
+
+Quick iteration still uses:
 
 ```bash
 pnpm typecheck
 pnpm check:all
 ```
 
-`check:all` runs lint, typecheck, tests, and build.
+`check:all` runs lint, typecheck, tests, and build. CI mirrors
+`test:finality` / `release:verify`.
 
 ## Pull requests
 
 1. fork the repo
 2. create a feature branch
 3. make your changes
-4. run `pnpm check:all`
-5. push and open a PR
+4. run `pnpm check:all` for iteration
+5. run `pnpm test:finality` before claiming the change is releasable
+6. push and open a PR
+
+CI mirrors `test:finality`; it does not replace it.
 
 ## License
 

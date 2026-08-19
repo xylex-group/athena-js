@@ -72,8 +72,19 @@ test("createAthenaDataHandlers rejects withContext views", () => {
 	});
 	const view = client.withContext({});
 	assert.throws(
-		() => createAthenaDataHandlers({ client: view }),
-		/root createClient instance/,
+		() =>
+			createAthenaDataHandlers({
+				client: view as unknown as typeof client,
+			}),
+		(error: unknown) => {
+			assert.ok(error instanceof Error);
+			assert.match(error.message, /process-wide Athena root/);
+			assert.equal(
+				(error as { code?: string }).code,
+				"ATHENA_HANDLER_ROOT_CLIENT_REQUIRED",
+			);
+			return true;
+		},
 	);
 });
 
@@ -84,7 +95,15 @@ test("createAthenaDataHandlers rejects hosted-only roots", () => {
 	});
 	assert.throws(
 		() => createAthenaDataHandlers({ client }),
-		/local database transport/,
+		(error: unknown) => {
+			assert.ok(error instanceof Error);
+			assert.match(error.message, /local database transport/);
+			assert.equal(
+				(error as { code?: string }).code,
+				"ATHENA_LOCAL_RUNTIME_REQUIRED",
+			);
+			return true;
+		},
 	);
 });
 

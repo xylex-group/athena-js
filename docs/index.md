@@ -46,10 +46,11 @@ MDX that carries the sync banner.
 
 ## Track B — Next.js
 
-1. [next-js.md](next-js.md) — browser/server façades, context, package splits  
-2. [adr/0014-next-client-construction-facades.md](adr/0014-next-client-construction-facades.md) — contract  
-3. [auth-session-bridge.md](auth-session-bridge.md) — app-host httpOnly session bridge  
-4. [auth-session-forwarding.md](auth-session-forwarding.md) — session/bearer → gateway context  
+1. [next-js.md](next-js.md) — browser/server façades, context, package splits, discovery 1.1  
+2. [adr/0014-next-client-construction-facades.md](adr/0014-next-client-construction-facades.md) — façades  
+3. [docs/adr/technical/0020](../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md) — runtime-capability discovery (Auth + Data)  
+4. [auth-session-bridge.md](auth-session-bridge.md) — app-host httpOnly session bridge  
+5. [auth-session-forwarding.md](auth-session-forwarding.md) — session/bearer → gateway context  
 
 ## Track C — Athena Auth
 
@@ -86,11 +87,12 @@ MDX that carries the sync banner.
 
 ## Track G — Maintainers (architecture and history)
 
-1. [site-publish.md](site-publish.md) — **how package docs auto-publish to apps/docs**  
-2. [client-internal-architecture.md](client-internal-architecture.md) — module ownership  
-3. [adr/README.md](adr/README.md) — accepted ADR catalog (incl. 0014)  
-4. [client-v3-consolidation-report.md](client-v3-consolidation-report.md) — design history + ADR 0014 addendum  
-5. [client-v3-release-readiness-report.md](client-v3-release-readiness-report.md) — release gates  
+1. [release-verification.md](release-verification.md) — **local `test:finality` is the release SSOT** (ADR 0019)  
+2. [site-publish.md](site-publish.md) — **how package docs auto-publish to apps/docs**  
+3. [client-internal-architecture.md](client-internal-architecture.md) — module ownership  
+4. [adr/README.md](adr/README.md) — accepted ADR catalog (incl. 0014)  
+5. [client-v3-consolidation-report.md](client-v3-consolidation-report.md) — design history + ADR 0014 addendum  
+6. [client-v3-release-readiness-report.md](client-v3-release-readiness-report.md) — historical v3 gates (superseded for publish by ADR 0019)  
 
 Historical reports retain pre-0014 narrative; read the **Post-release addendum**
 before treating “constructors removed” language as current API.

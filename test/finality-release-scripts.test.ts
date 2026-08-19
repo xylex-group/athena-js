@@ -20,7 +20,12 @@ test("P14: check:release exists and prepublishOnly is not weaker", async () => {
 	assert.match(release, /check:publint/);
 	assert.match(release, /check:tarball/);
 	assert.match(release, /docs:check/);
-	assert.equal(pkg.scripts.prepublishOnly, "pnpm check:release");
+	assert.match(pkg.scripts.prepublishOnly, /release:verify/);
+	assert.notEqual(pkg.scripts.prepublishOnly, "pnpm check:release");
+	assert.match(
+		pkg.scripts["release:verify"] ?? "",
+		/test:finality\s*&&\s*(?:pnpm\s+)?test:tarball\s*&&\s*(?:pnpm\s+)?test:examples/,
+	);
 	assert.equal(typeof pkg.scripts["check:publint"], "string");
 	assert.equal(typeof pkg.scripts["check:tarball"], "string");
 	assert.equal(typeof pkg.scripts["docs:check"], "string");

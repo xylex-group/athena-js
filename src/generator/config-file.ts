@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { findGeneratorConfigPath, loadGeneratorConfig } from "./config.ts";
 import {
-  findGeneratorConfigPath,
-  loadGeneratorConfig,
-  normalizeGeneratorConfig,
-} from "./config.ts";
+  detectAuthorityMode,
+  formatSchemaFallbackMessages,
+  resolveGeneratorDatabaseAuthority,
+  type GeneratorSchemaProvenance,
+} from "./database-authority.ts";
 import {
   discoverPostgresSchemas,
   mergeSchemaSelections,
@@ -16,7 +18,6 @@ import {
   normalizeSchemaSelection,
 } from "./schema-selection.ts";
 import type {
-  AthenaGeneratorConfig,
   GeneratorProviderConfig,
   GeneratorProviderInputConfig,
   LoadedGeneratorConfig,
@@ -40,6 +41,13 @@ export interface EnsureGeneratorConfigFileOptions {
    * Defaults to true.
    */
   discoverSchemas?: boolean;
+  /**
+   * Test/programmatic seam for live schema discovery (defaults to
+   * `discoverPostgresSchemas`).
+   */
+  discoverSchemasImpl?: (
+    provider: GeneratorProviderConfig
+  ) => Promise<string[]>;
   /**
    * When false, never write to disk (report would-be action only).
    * Defaults to false.
@@ -71,66 +79,27 @@ export interface EnsureGeneratorConfigFileResult {
   action: GeneratorConfigFileAction;
   changes: string[];
   content?: string;
+  discoveryError?: string;
   mode: "direct" | "gateway";
   path: string;
   reason?: string;
+  /** How `schemas` were chosen for this ensure pass. */
+  schemaProvenance: GeneratorSchemaProvenance;
   schemas: string[];
 }
 
 type DetectedMode = "direct" | "gateway";
 
-function hasEnv(keys: readonly string[]): boolean {
-  for (const key of keys) {
-    const value = process.env[key];
-    if (typeof value === "string" && value.trim().length > 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-const DIRECT_CONNECTION_KEYS = [
-  "ATHENA_GENERATOR_PG_URL",
-  "DATABASE_URL",
-  "PG_URL",
-  "POSTGRES_URL",
-  "POSTGRESQL_URL",
-] as const;
-
-const GATEWAY_URL_KEYS = [
-  "ATHENA_URL",
-  "ATHENA_GATEWAY_URL",
-  "ATHENA_GENERATOR_URL",
-] as const;
-const GATEWAY_KEY_KEYS = [
-  "ATHENA_API_KEY",
-  "ATHENA_GATEWAY_API_KEY",
-  "ATHENA_GENERATOR_API_KEY",
-] as const;
-
 /**
  * Picks a provider mode from env when the caller did not force one.
  * Prefers direct when a connection string is present; otherwise gateway.
+ * Callers that need `.env*` awareness should apply project env first
+ * (`applyGeneratorProjectEnv` / `resolveGeneratorDatabaseAuthority`).
  */
 export function detectGeneratorProviderMode(
   preferred: GeneratorConfigProviderMode = "auto"
 ): DetectedMode {
-  if (preferred === "direct" || preferred === "gateway") {
-    return preferred;
-  }
-
-  const hasDirect = hasEnv(DIRECT_CONNECTION_KEYS);
-  const hasGateway = hasEnv(GATEWAY_URL_KEYS) && hasEnv(GATEWAY_KEY_KEYS);
-
-  if (hasDirect) {
-    return "direct";
-  }
-  if (hasGateway) {
-    return "gateway";
-  }
-
-  // Default template favors direct; env backfill still applies at load time.
-  return "direct";
+  return detectAuthorityMode(preferred);
 }
 
 function formatStringArray(values: readonly string[], indent: string): string {
@@ -320,47 +289,53 @@ export function patchSchemasInConfigSource(
   if (modeLine.test(source)) {
     return source.replace(modeLine, `$1\n    schemas: ${formattedInline},`);
   }
+  return undefined;
+}
+
+function extractLiteralSchemas(source: string): string[] | undefined {
+  const listDefaultMatch = source.match(
+    /schemas\s*:\s*generatorEnv\.list\s*\(\s*['"][^'"]+['"]\s*,\s*\{[\s\S]*?default\s*:\s*(\[[^\]]*\])/m
+  );
+  const literalMatch =
+    listDefaultMatch ?? source.match(/schemas\s*:\s*(\[[^\]]*\])/m);
+  if (!literalMatch) {
     return undefined;
   }
 
-  function extractLiteralSchemas(source: string): string[] | undefined {
-    const listDefaultMatch = source.match(
-      /schemas\s*:\s*generatorEnv\.list\s*\(\s*['"][^'"]+['"]\s*,\s*\{[\s\S]*?default\s*:\s*(\[[^\]]*\])/m
-    );
-    const literalMatch =
-      listDefaultMatch ?? source.match(/schemas\s*:\s*(\[[^\]]*\])/m);
-    if (!literalMatch) {
+  try {
+    const parsed = JSON.parse(literalMatch[1].replace(/'/g, '"')) as unknown;
+    if (!Array.isArray(parsed)) {
       return undefined;
     }
-
-    try {
-      const parsed = JSON.parse(literalMatch[1].replace(/'/g, '"')) as unknown;
-      if (!Array.isArray(parsed)) {
-        return undefined;
-      }
-      return parsed
-        .map((value) => (typeof value === "string" ? value.trim() : ""))
-        .filter((value) => value.length > 0);
-    } catch {
-      // Malformed JSON array literal — treat as no schemas.
-    }
-    return undefined;
+    return parsed
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => value.length > 0);
+  } catch {
+    // Malformed JSON array literal — treat as no schemas.
   }
+  return undefined;
+}
+
+interface SchemaResolution {
+  discoveryError?: string;
+  provenance: GeneratorSchemaProvenance;
+  schemas: string[];
+}
 
 async function resolveDiscoveredSchemas(options: {
+  cwd: string;
   discoverSchemas: boolean;
+  discoverSchemasImpl?: (
+    provider: GeneratorProviderConfig
+  ) => Promise<string[]>;
   provider?: GeneratorProviderConfig;
   loaded?: LoadedGeneratorConfig;
   explicit?: readonly string[];
-  mode: DetectedMode;
-}): Promise<{
-  schemas: string[];
-  discovered: boolean;
-  discoveryError?: string;
-}> {
+  mode: GeneratorConfigProviderMode;
+}): Promise<SchemaResolution> {
   if (options.explicit && options.explicit.length > 0) {
     return {
-      discovered: false,
+      provenance: "explicit",
       schemas: normalizeSchemaSelection(options.explicit),
     };
   }
@@ -368,44 +343,49 @@ async function resolveDiscoveredSchemas(options: {
   if (!options.discoverSchemas) {
     if (options.loaded) {
       return {
-        discovered: false,
+        provenance: "configured",
         schemas: schemasFromNormalized(options.loaded.config),
       };
     }
     return {
-      discovered: false,
+      provenance: "fallback",
       schemas: [...DEFAULT_POSTGRES_SCHEMAS],
     };
   }
 
+  let restoreEnv = () => {};
   try {
-    let provider = options.provider;
-    if (!provider && options.loaded) {
-      provider = options.loaded.config.provider;
-    }
-    if (!provider) {
-      // Build a minimal env-backed provider for discovery only.
-      const probeConfig: AthenaGeneratorConfig = {
-        provider:
-          options.mode === "gateway"
-            ? { kind: "postgres", mode: "gateway" }
-            : { kind: "postgres", mode: "direct" },
-      };
-      const normalized = normalizeGeneratorConfig(probeConfig);
-      provider = normalized.provider;
-    }
+    const authority = resolveGeneratorDatabaseAuthority({
+      // When a loaded/explicit provider is already normalized, env was applied
+      // during load — still apply here for environment-probe so `.env*` works.
+      applyProjectEnv: true,
+      cwd: options.cwd,
+      loaded: options.loaded,
+      mode: options.mode,
+      provider: options.provider,
+    });
+    restoreEnv = authority.restoreEnv;
 
-    const discovered = await discoverPostgresSchemas(provider);
+    const discover = options.discoverSchemasImpl ?? discoverPostgresSchemas;
+    const discovered = await discover(authority.provider);
     if (discovered.length === 0) {
-      const fallback = options.loaded
-        ? schemasFromNormalized(options.loaded.config)
-        : [...DEFAULT_POSTGRES_SCHEMAS];
-      return { discovered: true, schemas: fallback };
+      if (options.loaded) {
+        return {
+          provenance: "configured",
+          schemas: schemasFromNormalized(options.loaded.config),
+        };
+      }
+      return {
+        discoveryError:
+          "live catalog returned no non-system schemas with base tables",
+        provenance: "fallback",
+        schemas: [...DEFAULT_POSTGRES_SCHEMAS],
+      };
     }
 
     if (options.loaded) {
       return {
-        discovered: true,
+        provenance: "discovered",
         schemas: mergeSchemaSelections(
           schemasFromNormalized(options.loaded.config),
           discovered
@@ -413,17 +393,23 @@ async function resolveDiscoveredSchemas(options: {
       };
     }
 
-    return { discovered: true, schemas: discovered };
+    return { provenance: "discovered", schemas: discovered };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const fallback = options.loaded
-      ? schemasFromNormalized(options.loaded.config)
-      : [...DEFAULT_POSTGRES_SCHEMAS];
+    if (options.loaded) {
+      return {
+        discoveryError: message,
+        provenance: "configured",
+        schemas: schemasFromNormalized(options.loaded.config),
+      };
+    }
     return {
-      discovered: false,
       discoveryError: message,
-      schemas: fallback,
+      provenance: "fallback",
+      schemas: [...DEFAULT_POSTGRES_SCHEMAS],
     };
+  } finally {
+    restoreEnv();
   }
 }
 
@@ -463,22 +449,52 @@ export async function ensureGeneratorConfigFile(
     }
   }
 
-  const mode = providerModeFromConfig(
+  // Resolve mode with the same project-env authority migrate uses, so
+  // `.env` / `.env.local` DATABASE_URL is visible before discovery.
+  let mode: DetectedMode = providerModeFromConfig(
     loaded?.config.provider ?? options.provider,
     preferredMode
   );
+  try {
+    const authority = resolveGeneratorDatabaseAuthority({
+      applyProjectEnv: true,
+      cwd,
+      loaded,
+      mode: preferredMode,
+      provider: options.provider ?? loaded?.config.provider,
+    });
+    mode = authority.mode;
+    authority.restoreEnv();
+  } catch {
+    // Mode probe may fail when connection info is missing; keep preferred/default.
+    mode = providerModeFromConfig(
+      loaded?.config.provider ?? options.provider,
+      preferredMode
+    );
+  }
+
   const schemaResolution = await resolveDiscoveredSchemas({
+    cwd,
     discoverSchemas,
+    discoverSchemasImpl: options.discoverSchemasImpl,
     explicit: options.schemas,
     loaded,
-    mode,
+    mode: preferredMode,
     provider: options.provider ?? loaded?.config.provider,
   });
 
-  if (schemaResolution.discoveryError) {
-    changes.push(`schema-discovery-failed: ${schemaResolution.discoveryError}`);
-  } else if (schemaResolution.discovered) {
+  if (schemaResolution.provenance === "discovered") {
     changes.push(`schemas-discovered: ${schemaResolution.schemas.join(",")}`);
+  } else if (schemaResolution.provenance === "fallback") {
+    changes.push(
+      ...formatSchemaFallbackMessages({
+        discoveryError: schemaResolution.discoveryError,
+        expectedLiveSchemas: ["public", "athena"],
+        schemas: schemaResolution.schemas,
+      })
+    );
+  } else if (schemaResolution.discoveryError) {
+    changes.push(`schema-discovery-failed: ${schemaResolution.discoveryError}`);
   }
 
   // --- Create path ---
@@ -504,9 +520,11 @@ export async function ensureGeneratorConfigFile(
       action: pathInfo.exists ? "updated" : "created",
       changes,
       content,
+      discoveryError: schemaResolution.discoveryError,
       mode,
       path: pathInfo.relativePath,
       reason: pathInfo.exists ? "force rewrite" : "config file missing",
+      schemaProvenance: schemaResolution.provenance,
       schemas: schemaResolution.schemas,
     };
   }
@@ -526,9 +544,11 @@ export async function ensureGeneratorConfigFile(
       action: "unchanged",
       changes: changes.length > 0 ? changes : ["schemas-already-current"],
       content: existingSource,
+      discoveryError: schemaResolution.discoveryError,
       mode,
       path: pathInfo.relativePath,
       reason: "schemas already match discovered/configured set",
+      schemaProvenance: schemaResolution.provenance,
       schemas: existingSchemas,
     };
   }
@@ -547,10 +567,12 @@ export async function ensureGeneratorConfigFile(
         "re-run with force=true to rewrite full template",
       ],
       content: existingSource,
+      discoveryError: schemaResolution.discoveryError,
       mode,
       path: pathInfo.relativePath,
       reason:
         "existing config schemas could not be updated surgically without risking a destructive rewrite",
+      schemaProvenance: schemaResolution.provenance,
       schemas: existingSchemas,
     };
   }
@@ -561,9 +583,11 @@ export async function ensureGeneratorConfigFile(
       action: "unchanged",
       changes: [...changes, "patch-noop"],
       content: existingSource,
+      discoveryError: schemaResolution.discoveryError,
       mode,
       path: pathInfo.relativePath,
       reason: "patch produced identical content",
+      schemaProvenance: schemaResolution.provenance,
       schemas: existingSchemas,
     };
   }
@@ -581,9 +605,11 @@ export async function ensureGeneratorConfigFile(
     action: "updated",
     changes,
     content: patched,
+    discoveryError: schemaResolution.discoveryError,
     mode,
     path: pathInfo.relativePath,
     reason: "auto-filled provider.schemas",
+    schemaProvenance: schemaResolution.provenance,
     schemas: schemaResolution.schemas,
   };
 }

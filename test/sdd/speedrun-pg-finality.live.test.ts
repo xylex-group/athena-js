@@ -27,7 +27,7 @@ test(
       name text
     )
   `);
-		assert.equal(setup.error, undefined, String(setup.error ?? ""));
+		assert.equal(setup.error, null, String(setup.error ?? ""));
 
 		const id = randomUUID();
 		const inserted = await client

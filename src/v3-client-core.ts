@@ -10,19 +10,25 @@ import {
   athenaAuthConfig,
   isDisabledAthenaAuthConfig,
   isLocalAthenaAuthConfig,
+  type AthenaAuthEmailAndPasswordOptions,
+  type AthenaAuthSecurityOptions,
+  type AthenaAuthSessionOptions,
 } from "./auth/config.ts";
 import {
   detectAthenaRuntimeEnvironment,
   resolveAthenaRuntime,
   toAthenaRuntimeDiagnostics,
 } from "./runtime/resolve.ts";
+import type { AthenaRequestClient } from "./client-brands.ts";
 import {
   attachAthenaClientInternals,
+  createViewClientInternals,
   getAthenaClientInternals,
 } from "./runtime/client-internals.ts";
 import {
   type AthenaAuthDiagnostics,
   attachAthenaAuthRouting,
+  getAttachedAthenaAuthRouting,
   type ResolvedAthenaAuthRouting,
   resolveAthenaAuthRouting,
   toAthenaAuthDiagnostics,
@@ -67,7 +73,8 @@ import { createCloudflareD1GatewayTransport } from "./cloudflare/d1/transport.ts
 import { catalogFromModels } from "./query/engine/index.ts";
 import {
   type AthenaExecutionMode,
-  type AthenaExecutionPrefer,
+  type AthenaExecutionModeInput,
+  type AthenaExecutionPreferInput,
   resolveAthenaExecutionMode,
 } from "./cloudflare/execution-mode.ts";
 import {
@@ -222,6 +229,11 @@ export interface AthenaAuthConfig
    */
   mode?: "local" | "remote";
   /**
+   * Explicit opt-in only. `createClient()` never applies Auth DDL unless
+   * this is `true`. Runtime default remains `false` when omitted.
+   */
+  autoMigrate?: boolean;
+  /**
    * Optional signing secret for local mode. When omitted, the runtime
    * bootstraps a database-backed keyring.
    */
@@ -230,6 +242,22 @@ export interface AthenaAuthConfig
    * Local handler base path. Defaults to `/api/auth`.
    */
   basePath?: string;
+  /**
+   * Local email/password policy. Normalized at the auth config boundary.
+   */
+  emailAndPassword?: AthenaAuthEmailAndPasswordOptions;
+  /**
+   * Local organization plugin. `enabled` defaults to true when omitted.
+   */
+  organizations?: { enabled?: boolean };
+  /**
+   * Local cookie / body / origin policy.
+   */
+  security?: AthenaAuthSecurityOptions;
+  /**
+   * Local session cookie lifetime and name.
+   */
+  session?: AthenaAuthSessionOptions;
   /**
    * Auth routing intent. When omitted, legacy URL/env resolution is preserved.
    */
@@ -330,8 +358,10 @@ export interface AthenaClientConfig<
   /**
    * Edge vs gateway selection when both bindings and HTTP URLs may be present.
    * Default `auto` (env `ATHENA_EXECUTION_MODE`). Prefer nested service fields for backends.
+   * Canonical: `gateway` | `edge` | `auto`. Aliases: `server`, `remote`, `http`,
+   * `d1`, `cloudflare`, `local`. Empty / unknown strings are not assignable.
    */
-  mode?: AthenaExecutionMode | string | null;
+  mode?: AthenaExecutionModeInput | null;
   models?: TModels;
   /**
    * Optional policy definitions owned by this root client.
@@ -355,7 +385,7 @@ export interface AthenaClientConfig<
    * When `mode` is `auto` and both D1 and a gateway URL exist, which wins.
    * Default `edge` (env `ATHENA_EXECUTION_PREFER`).
    */
-  prefer?: AthenaExecutionPrefer | string | null;
+  prefer?: AthenaExecutionPreferInput | null;
   /**
    * Top-level R2 alias for `storage.r2`. Prefer nested `storage: { r2 }` in shared code.
    */
@@ -384,7 +414,7 @@ export type AthenaClientWithR2Storage<
   readonly storage: CloudflareR2StorageModule;
   withContext: (
     context: AthenaRequestContext
-  ) => AthenaClientWithR2Storage<TModels>;
+  ) => AthenaRequestClient<AthenaClientWithR2Storage<TModels>>;
 };
 
 type V3TableBuilder<
@@ -456,7 +486,9 @@ export interface AthenaClient<
   verifyConnection: (
     options?: AthenaGatewayConnectionOptions
   ) => Promise<AthenaGatewayConnectionResult>;
-  withContext: (context: AthenaRequestContext) => AthenaClient<TModels>;
+  withContext: (
+    context: AthenaRequestContext
+  ) => AthenaRequestClient<AthenaClient<TModels>>;
   /**
    * Dispose Athena-owned resources (PostgreSQL pool, embedded Auth).
    * Safe to call twice. Does not destroy borrowed pools, D1, or R2.
@@ -1514,9 +1546,11 @@ function createClientView<TModels extends AthenaClientModelsInput | undefined>(
         requestOrigin?: string | null;
       }): AthenaAuthDiagnostics {
         const ctx = viewContext;
+        const attached = getAttachedAthenaAuthRouting(client);
+        const baseRouting = attached ?? core.authRouting;
         // Recompute server base when caller provides request origin.
         const routing =
-          options?.requestOrigin && core.authRouting
+          options?.requestOrigin && baseRouting
             ? resolveAthenaAuthRouting({
                 credentials: athenaAuthConfig(core.config.auth)?.credentials,
                 emitWarnings: false,
@@ -1524,9 +1558,11 @@ function createClientView<TModels extends AthenaClientModelsInput | undefined>(
                 requestOrigin: options.requestOrigin,
                 routing: athenaAuthConfig(core.config.auth)?.routing,
                 upstreamUrl: athenaAuthConfig(core.config.auth)?.upstreamUrl,
-                url: athenaAuthConfig(core.config.auth)?.url,
+                url:
+                  athenaAuthConfig(core.config.auth)?.url ??
+                  baseRouting.browserRequestBaseUrl,
               })
-            : core.authRouting;
+            : baseRouting;
         return toAthenaAuthDiagnostics(routing, {
           bearerToken: ctx?.bearerToken,
           cookie: ctx?.cookie,
@@ -1545,14 +1581,16 @@ function createClientView<TModels extends AthenaClientModelsInput | undefined>(
     },
     async close() {
       const internals = getAthenaClientInternals(client);
-      if (internals?.source === "view") {
+      if (internals?.ownership === "view" || internals?.source === "view") {
         return;
       }
       if (internals?.close) {
         await internals.close();
       }
     },
-    withContext(context: AthenaRequestContext): AthenaClient<TModels> {
+    withContext(
+      context: AthenaRequestContext
+    ): AthenaRequestClient<AthenaClient<TModels>> {
       warnIfEmptyRequestContext(context);
       // Recursive view construction hits TS2589 under dts emit.
       const next = (
@@ -1563,12 +1601,12 @@ function createClientView<TModels extends AthenaClientModelsInput | undefined>(
       }
       const internals = getAthenaClientInternals(client);
       if (internals) {
-        attachAthenaClientInternals(next as object, {
-          ...internals,
-          source: "view",
-        });
+        attachAthenaClientInternals(
+          next as object,
+          createViewClientInternals(client, internals)
+        );
       }
-      return next as AthenaClient<TModels>;
+      return next as AthenaRequestClient<AthenaClient<TModels>>;
     },
   } as AthenaClient<TModels>;
 

@@ -42,8 +42,9 @@ Prefer the dedicated façades so browser and server stay separated:
 
 | Environment | Import | Factory |
 | --- | --- | --- |
-| Client Components | `@xylex-group/athena/next/client` | `createAthenaBrowserClient` |
-| Server Components / Actions / Route Handlers | `@xylex-group/athena/next/server` | `createAthenaServerClient` (async) |
+| Process root (Node) | `@xylex-group/athena/server` | `createClient({ databaseUrl })` — infers embedded Auth |
+| Client Components | `@xylex-group/athena/next/client` | `createClient({ topology: { discover: "next" } })` |
+| Server Components / Actions / Route Handlers | `@xylex-group/athena/next/server` | `createAthenaServerClient({ client })` (async request view) |
 
 Full patterns (config typing, session, `next/headers`, bridge): **[Next.js integration](./next-js.md)**.
 

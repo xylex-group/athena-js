@@ -282,7 +282,12 @@ function readProjectEnvEntries(cwd: string): Map<string, string> {
   return entries;
 }
 
-function applyProjectEnv(cwd: string): () => void {
+/**
+ * Loads project `.env*` into `process.env` without overriding existing shell
+ * values. Same authority migrate / `loadGeneratorConfig` use before resolving
+ * connection strings. Returns a restore function that removes staged keys.
+ */
+export function applyGeneratorProjectEnv(cwd: string): () => void {
   const envEntries = readProjectEnvEntries(cwd);
   if (envEntries.size === 0) {
     return () => {};
@@ -310,6 +315,9 @@ function applyProjectEnv(cwd: string): () => void {
     }
   };
 }
+
+/** @deprecated Use {@link applyGeneratorProjectEnv}. */
+const applyProjectEnv = applyGeneratorProjectEnv;
 
 function readEnvStringValue(key: string): string | undefined {
   const value = process.env[key];

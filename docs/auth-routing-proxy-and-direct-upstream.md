@@ -28,6 +28,12 @@ Reference app:
 Neither mode is “wrong.” Choose based on cookie domain, CORS, and whether you
 want a same-origin proxy.
 
+**Local Runtime / embedded Auth:** do not set `auth.routing` or `ATHENA_AUTH_URL`
+on the browser client. `createClient({ topology: { discover: "next" } })`
+attaches same-origin `/api/auth` from the 1.1 discovery document
+([ADR 0020](../../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md)).
+Use `auth.url` / `auth.mode: "remote"` only when Auth is remote-direct.
+
 ---
 
 ## Mode A — Proxy (default)

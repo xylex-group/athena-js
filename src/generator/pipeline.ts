@@ -246,8 +246,10 @@ export async function runSchemaGenerator(
     configEnsure = {
       action: ensureResult.action,
       changes: ensureResult.changes,
+      discoveryError: ensureResult.discoveryError,
       path: ensureResult.path,
       reason: ensureResult.reason,
+      schemaProvenance: ensureResult.schemaProvenance,
       schemas: ensureResult.schemas,
     };
 

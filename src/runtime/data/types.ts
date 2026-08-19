@@ -1,4 +1,5 @@
 import type { AthenaGatewayClient } from "../../gateway/client.ts";
+import type { AthenaRuntimeDiscoveryDocument } from "../../gateway/discovery-types.ts";
 import type { AthenaGatewayResponse } from "../../gateway/types.ts";
 import type { AthenaPolicyDecision, AthenaPolicyMode } from "../../policy/decision.ts";
 import type { AthenaPolicyRegistry } from "../../policy/registry.ts";
@@ -137,6 +138,8 @@ export interface AthenaServerRuntime {
   readonly policyRegistry?: AthenaPolicyRegistry;
   readonly httpProfile: AthenaRuntimeHttpProfile;
   readonly capabilities: AthenaRuntimeCapabilities;
+  /** Optional 1.1 Next runtime-capability overlay. Standalone Data stays 1.0. */
+  readonly discoveryDocument?: AthenaRuntimeDiscoveryDocument;
   execute(
     request: AthenaRuntimeRequest,
     context?: AthenaRuntimeRequestContext
@@ -181,4 +184,6 @@ export interface CreateAthenaServerRuntimeConfig {
   unsafeAllowUnauthenticated?: boolean;
   /** Enable browser HTTP profile (CSRF, CORS, limits). Data handlers set this. */
   http?: boolean;
+  /** Next handlers pass protocol 1.1 ads; omitted for Data-only 1.0. */
+  discoveryDocument?: AthenaRuntimeDiscoveryDocument;
 }

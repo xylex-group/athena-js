@@ -42,6 +42,8 @@ Policy: [ADR 0021](../adr/0021-layered-contract-policy.md).
 | RpcPayload / RpcFilter | gateway/types.ts | transport DTO | rpc | medium | Rpc AthenaRequest | — | partial | |
 | Billing webhook / live routes | billing/* | transport DTO | billing | medium | Webhook payload contracts | — | yes later | |
 | Chat message shapes | chat/* | transport DTO | chat | medium | Message View/Response | — | later | |
+| AthenaRuntimeDiscoveryDocument | gateway/discovery-types.ts | transport DTO | next discovery, data handlers | medium | keep | parseAthenaRuntimeDiscoveryDocument | tests | Protocol 1.0 (`runtime: local\|gateway`, scalar `capabilities.auth`) + 1.1 (`next-local`, `{available,transport}`, `endpoints`). 1.0 never implies Auth. ADR 0020. |
+| ResolvedNextAthenaTopology | next/topology.ts | adapter-internal | next/client | low | keep internal | topologyFromDiscoveryDocument | tests | Browser HTTP topology only; never PG / embedded Auth. |
 | Cookie / session store blobs | cookies/* | adapter-internal | next, cookies | medium | keep internal | — | partial | Not public API DTO |
 | D1 transport payloads | cloudflare/d1/* | adapter-internal | edge | medium | keep adapter-internal | edge mappers | tests | Not public consumer DTO |
 | React hook state | react/* | UI convenience | react package | medium | keep UI-local | map View → hook state in UI | n/a | Must not import *Row |
@@ -66,6 +68,14 @@ Policy: [ADR 0021](../adr/0021-layered-contract-policy.md).
 - **database row** — persistence shape (may match SQL columns)  
 - **adapter-internal** — gateway edge, SQL rewrite, cookie crypto, not public product API  
 - **UI convenience** — react/hook/form state  
+
+## Release report (not a runtime DTO)
+
+Publish consumes a generated machine report, not a public SDK type. Schema is normative in [release-verification.md](../release-verification.md) and ADR 0019.
+
+| name | module | classification | notes |
+| --- | --- | --- | --- |
+| `athena-finality.json` | `.tmp/athena-finality.json` (generated) | release gate | Keys: `package`, `version`, `commit`, `passed`, `checks.{unit,ownership,exports,browserIsolation,tarballConsumer,postgres,embeddedAuth,nextE2E}`. `publish.js` requires SHA + version match. |
 
 ## Refresh process
 

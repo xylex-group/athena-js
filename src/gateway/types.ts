@@ -273,6 +273,9 @@ export type AthenaDiscoveryErrorCode =
   | "ATHENA_DISCOVERY_CAPABILITY_MISSING"
   | "ATHENA_RUNTIME_UNAVAILABLE";
 
+/** Data probe succeeded; Auth is disabled or not advertised. Not a discovery failure. */
+export type AthenaAuthAvailabilityErrorCode = "ATHENA_AUTH_NOT_AVAILABLE";
+
 export type AthenaGatewayTransportErrorCode =
   | "NETWORK_ERROR"
   | "INVALID_URL"

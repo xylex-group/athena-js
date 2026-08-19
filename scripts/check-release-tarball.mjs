@@ -28,7 +28,7 @@ function run(bin, args, options) {
 }
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -148,7 +148,19 @@ try {
     }
   }
 
-  for (const required of ["package/package.json", "package/README.md", "package/LICENSE", "package/dist/index.js", "package/dist/index.cjs", "package/bin/athena-js.js"]) {
+  for (const required of [
+    "package/package.json",
+    "package/README.md",
+    "package/LICENSE",
+    "package/dist/index.js",
+    "package/dist/index.cjs",
+    "package/dist/server.js",
+    "package/dist/server.cjs",
+    "package/dist/server.d.ts",
+    "package/dist/next/client.js",
+    "package/dist/next/server.js",
+    "package/bin/athena-js.js",
+  ]) {
     if (!relativeFiles.includes(required)) {
       fail(`missing required file: ${required}`);
     }
@@ -162,6 +174,13 @@ try {
   }
   if (!packedPkg.exports || typeof packedPkg.exports !== "object") {
     fail("packed package.json missing exports");
+  }
+  const serverExport = packedPkg.exports["./server"];
+  if (!serverExport || serverExport.import !== "./dist/server.js") {
+    fail('packed package.json missing "./server" export to ./dist/server.js');
+  }
+  if (serverExport.browser) {
+    fail('"./server" must not declare a browser condition');
   }
 
   const secretHits = [];
@@ -295,8 +314,32 @@ console.log("packed-rn:ok");
   );
   execFileSync(process.execPath, [rnProbe], { cwd: consumer, stdio: "inherit" });
 
+  const serverProbe = join(consumer, "server-probe.mjs");
+  writeFileSync(
+    serverProbe,
+    `import { createClient } from "${pkg.name}/server";
+const client = createClient({ url: "https://athena.example.com", key: "publishable", auth: false });
+if (typeof client.from !== "function") throw new Error("server createClient missing from()");
+if (typeof client.close !== "function") throw new Error("server createClient missing close()");
+console.log("packed-server:ok");
+`
+  );
+  // ./server imports "server-only"; probe through the same shim unit tests use.
+  const serverOnlyRegister = pathToFileURL(
+    join(root, "test", "register-server-only.mjs")
+  ).href;
+  execFileSync(
+    process.execPath,
+    ["--import", serverOnlyRegister, serverProbe],
+    {
+      cwd: consumer,
+      stdio: "inherit",
+    }
+  );
+
   metadata.checks.packedEsm = "pass";
   metadata.checks.packedCjs = "pass";
+  metadata.checks.packedServer = "pass";
   metadata.checks.packedReactNative = "pass";
   writeFileSync(
     join(evidenceDir, "tarball-report.json"),

@@ -1,4 +1,41 @@
+import { AthenaConfigurationError } from "../config/errors.ts";
 import type { Pool, PoolClient, PoolConfig, QueryResult, QueryResultRow } from "pg";
+
+export const ATHENA_POSTGRES_DRIVER_MISSING_MESSAGE = [
+  "Athena local PostgreSQL runtime requires `pg`.",
+  "",
+  "Install:",
+  "  pnpm add pg",
+  "  npm install pg",
+  "  yarn add pg",
+  "  bun add pg",
+].join("\n");
+
+export function postgresDriverMissingError(
+  cause?: unknown
+): AthenaConfigurationError {
+  return new AthenaConfigurationError(
+    "ATHENA_POSTGRES_DRIVER_MISSING",
+    ATHENA_POSTGRES_DRIVER_MISSING_MESSAGE,
+    "db",
+    { cause }
+  );
+}
+
+function isModuleNotFound(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
+    return true;
+  }
+  const message = (error as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    /cannot find module ['"]pg['"]|can't resolve ['"]pg['"]/i.test(message)
+  );
+}
 
 /**
  * Narrow pool surface used by Athena tooling (introspection + migrations).
@@ -34,19 +71,27 @@ let pgPoolConstructorPromise: Promise<PgPoolConstructor> | undefined;
  */
 export async function loadPgPoolConstructor(): Promise<PgPoolConstructor> {
   if (!pgPoolConstructorPromise) {
-    pgPoolConstructorPromise = import("pg").then((module) => {
-      const poolConstructor =
-        (module as { Pool?: PgPoolConstructor }).Pool ??
-        (module as { default?: { Pool?: PgPoolConstructor } }).default?.Pool;
+    pgPoolConstructorPromise = import("pg")
+      .then((module) => {
+        const poolConstructor =
+          (module as { Pool?: PgPoolConstructor }).Pool ??
+          (module as { default?: { Pool?: PgPoolConstructor } }).default?.Pool;
 
-      if (!poolConstructor) {
-        throw new Error(
-          '@xylex-group/athena: Unable to load the PostgreSQL driver. Ensure "pg" is installed and this API runs in a Node.js server runtime.'
-        );
-      }
+        if (!poolConstructor) {
+          throw postgresDriverMissingError();
+        }
 
-      return poolConstructor;
-    });
+        return poolConstructor;
+      })
+      .catch((error: unknown) => {
+        pgPoolConstructorPromise = undefined;
+        if (isModuleNotFound(error) || error instanceof AthenaConfigurationError) {
+          throw error instanceof AthenaConfigurationError
+            ? error
+            : postgresDriverMissingError(error);
+        }
+        throw error;
+      });
   }
 
   return pgPoolConstructorPromise;

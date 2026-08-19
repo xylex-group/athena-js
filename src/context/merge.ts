@@ -5,22 +5,22 @@ import type { AthenaRequestContext } from "../v3-client-core.ts";
  * Nested headers are shallow-merged; later headers win on key collision.
  */
 export function mergeAthenaRequestContexts(
-	base: AthenaRequestContext | undefined,
-	override: AthenaRequestContext | undefined,
+  base: AthenaRequestContext | undefined,
+  override: AthenaRequestContext | undefined,
 ): AthenaRequestContext | undefined {
-	if (!(base || override)) {
-		return;
-	}
+  if (!(base || override)) {
+    return;
+  }
 
-	return {
-		...base,
-		...override,
-		headers:
-			base?.headers || override?.headers
-				? {
-						...(base?.headers ?? {}),
-						...(override?.headers ?? {}),
-					}
-				: undefined,
-	};
+  return {
+    ...base,
+    ...override,
+    headers:
+      base?.headers || override?.headers
+        ? {
+            ...(base?.headers ?? {}),
+            ...(override?.headers ?? {}),
+          }
+        : undefined,
+  };
 }

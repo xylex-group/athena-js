@@ -92,7 +92,9 @@ export async function handleAthenaGatewayRequest(
   }
 
   if (route.kind === "health" || route.kind === "capabilities") {
-    const document = serializeAthenaRuntimeDiscoveryDocument(runtime);
+    const document =
+      runtime.discoveryDocument ??
+      serializeAthenaRuntimeDiscoveryDocument(runtime);
     return withCors(
       new Response(
         JSON.stringify({
@@ -104,7 +106,7 @@ export async function handleAthenaGatewayRequest(
           headers: {
             "content-type": "application/json; charset=utf-8",
             "x-athena-request-id": requestId,
-            "x-athena-runtime": "local",
+            "x-athena-runtime": document.runtime,
           },
           status: 200,
         }

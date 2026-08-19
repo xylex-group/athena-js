@@ -1,5 +1,25 @@
+export type AthenaRuntimeDiscoveryAuthPrincipal =
+  | false
+  | "athena-session"
+  | "jwt"
+  | "custom"
+  | "service";
+
+export type AthenaRuntimeDiscoveryAuthTransport = "same-origin" | "remote";
+
+/** Protocol 1.1 Auth HTTP advertisement (not Data principal mode). */
+export interface AthenaRuntimeDiscoveryAuthAvailability {
+  available: boolean;
+  transport?: AthenaRuntimeDiscoveryAuthTransport;
+}
+
+export type AthenaRuntimeDiscoveryAuthCapability =
+  | AthenaRuntimeDiscoveryAuthPrincipal
+  | AthenaRuntimeDiscoveryAuthAvailability;
+
 export interface AthenaRuntimeDiscoveryCapabilities {
-  auth: false | "athena-session" | "jwt" | "custom" | "service";
+  auth: AthenaRuntimeDiscoveryAuthCapability;
+  data?: boolean;
   delete: boolean;
   fetch: boolean;
   insert: boolean;
@@ -11,15 +31,21 @@ export interface AthenaRuntimeDiscoveryCapabilities {
   update: boolean;
 }
 
+export interface AthenaRuntimeDiscoveryEndpoints {
+  auth?: string | false | null;
+  data: string;
+}
+
 export interface AthenaRuntimeDiscoveryDocument {
   athena: true;
   capabilities: AthenaRuntimeDiscoveryCapabilities;
+  endpoints?: AthenaRuntimeDiscoveryEndpoints;
   protocol: {
     major: number;
     minor: number;
   };
   release?: string;
-  runtime: "local" | "gateway";
+  runtime: "local" | "gateway" | "next-local";
   runtimeImplementation: "athena-js" | "athena-rust";
 }
 
@@ -63,7 +89,11 @@ export function parseAthenaRuntimeDiscoveryDocument(
   if (!isRecord(value) || value.athena !== true) {
     return null;
   }
-  if (value.runtime !== "local" && value.runtime !== "gateway") {
+  if (
+    value.runtime !== "local" &&
+    value.runtime !== "gateway" &&
+    value.runtime !== "next-local"
+  ) {
     return null;
   }
   if (
@@ -88,14 +118,8 @@ export function parseAthenaRuntimeDiscoveryDocument(
   if (models !== "off" && models !== "known-only" && models !== "strict") {
     return null;
   }
-  const auth = caps.auth;
-  if (
-    auth !== false &&
-    auth !== "athena-session" &&
-    auth !== "jwt" &&
-    auth !== "custom" &&
-    auth !== "service"
-  ) {
+  const auth = parseDiscoveryAuthCapability(caps.auth);
+  if (auth === undefined) {
     return null;
   }
   const flags = ["fetch", "insert", "update", "delete", "rawSql", "rpc", "nestedRelations", "policy"] as const;
@@ -104,10 +128,15 @@ export function parseAthenaRuntimeDiscoveryDocument(
       return null;
     }
   }
+  const endpoints = parseDiscoveryEndpoints(value.endpoints);
+  if (endpoints === undefined && value.endpoints !== undefined) {
+    return null;
+  }
   return {
     athena: true,
     capabilities: {
       auth,
+      ...(typeof caps.data === "boolean" ? { data: caps.data } : {}),
       delete: caps.delete as boolean,
       fetch: caps.fetch as boolean,
       insert: caps.insert as boolean,
@@ -118,9 +147,63 @@ export function parseAthenaRuntimeDiscoveryDocument(
       rpc: caps.rpc as boolean,
       update: caps.update as boolean,
     },
+    ...(endpoints ? { endpoints } : {}),
     protocol: { major, minor },
     ...(typeof value.release === "string" ? { release: value.release } : {}),
     runtime: value.runtime,
     runtimeImplementation: value.runtimeImplementation,
+  };
+}
+
+function parseDiscoveryAuthCapability(
+  value: unknown
+): AthenaRuntimeDiscoveryAuthCapability | undefined {
+  if (
+    value === false ||
+    value === "athena-session" ||
+    value === "jwt" ||
+    value === "custom" ||
+    value === "service"
+  ) {
+    return value;
+  }
+  if (!isRecord(value) || typeof value.available !== "boolean") {
+    return undefined;
+  }
+  const transport = value.transport;
+  if (
+    transport !== undefined &&
+    transport !== "same-origin" &&
+    transport !== "remote"
+  ) {
+    return undefined;
+  }
+  return {
+    available: value.available,
+    ...(transport ? { transport } : {}),
+  };
+}
+
+function parseDiscoveryEndpoints(
+  value: unknown
+): AthenaRuntimeDiscoveryEndpoints | null | undefined {
+  if (value === undefined) {
+    return null;
+  }
+  if (!isRecord(value) || typeof value.data !== "string" || !value.data.trim()) {
+    return undefined;
+  }
+  const auth = value.auth;
+  if (
+    auth !== undefined &&
+    auth !== false &&
+    auth !== null &&
+    typeof auth !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    data: value.data,
+    ...(auth === undefined ? {} : { auth }),
   };
 }

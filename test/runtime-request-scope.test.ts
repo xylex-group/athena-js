@@ -36,8 +36,9 @@ test("T-runtime-scope: view.close() does not dispose the root PG runtime", async
   const view = root.withContext({ userId: "u1", organizationId: "org-a" });
   const runtime = getAthenaClientInternals(root)?.postgresRuntime;
   assert.ok(runtime);
-  await view.close();
-  await view.close();
+  const closeView = view as unknown as typeof root;
+  await closeView.close();
+  await closeView.close();
   const pool = await runtime.getPool();
   assert.ok(pool);
   await root.close();
@@ -71,7 +72,7 @@ test("T-runtime-scope: 1000 request views share one postgres runtime", async () 
     assert.equal(getAthenaClientInternals(view)?.postgresRuntime, rootRuntime);
     assert.equal(getAthenaClientInternals(view)?.source, "view");
   }
-  await views[0]?.close();
+  await (views[0] as unknown as typeof root | undefined)?.close();
   assert.equal(getAthenaClientInternals(root)?.postgresRuntime, rootRuntime);
   await rootRuntime.getPool();
   await root.close();

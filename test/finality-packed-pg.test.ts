@@ -22,7 +22,7 @@ test("T-PACK-PG-01 createClient({ databaseUrl, auth: false }) can query", async 
 		databaseUrl: uri,
 	});
 	const result = await athena.query("select 1 as ok");
-	assert.equal(result.error, undefined, String(result.error ?? ""));
+	assert.equal(result.error, null, String(result.error ?? ""));
 	const rows = result.data as { ok?: number }[] | undefined;
 	assert.ok(Array.isArray(rows));
 	assert.equal(Number(rows[0]?.ok), 1);

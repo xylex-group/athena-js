@@ -565,11 +565,16 @@ function createMutationQuery<Result, Row = MutationResultRow<Result>>(
       columns?: AthenaSelectInput,
       options?: AthenaGatewayCallOptions
     ) {
-      selectedColumns = columns;
+      // Omit args keep the mutation default projection ("*") so PG/D1 emit RETURNING.
+      if (columns !== undefined) {
+        selectedColumns = columns;
+      }
       selectedOptions = options ?? selectedOptions;
-      return run(columns, options, captureTraceCallsite(tracer)).then(
-        (result) => applyCardinality(result, "maybeSingle")
-      );
+      return run(
+        columns ?? selectedColumns,
+        options ?? selectedOptions,
+        captureTraceCallsite(tracer)
+      ).then((result) => applyCardinality(result, "maybeSingle"));
     },
     returning(columns?: AthenaSelectInput, options?: AthenaGatewayCallOptions) {
       return mutationQuery.select(columns, options);
@@ -580,11 +585,16 @@ function createMutationQuery<Result, Row = MutationResultRow<Result>>(
       return run(columns, options, captureTraceCallsite(tracer));
     },
     single(columns?: AthenaSelectInput, options?: AthenaGatewayCallOptions) {
-      selectedColumns = columns;
+      // Omit args keep the mutation default projection ("*") so PG/D1 emit RETURNING.
+      if (columns !== undefined) {
+        selectedColumns = columns;
+      }
       selectedOptions = options ?? selectedOptions;
-      return run(columns, options, captureTraceCallsite(tracer)).then(
-        (result) => applyCardinality(result, "single")
-      );
+      return run(
+        columns ?? selectedColumns,
+        options ?? selectedOptions,
+        captureTraceCallsite(tracer)
+      ).then((result) => applyCardinality(result, "single"));
     },
     // Thenable so `await query` resolves the deferred run without an extra API.
     // biome-ignore lint/suspicious/noThenProperty: intentional thenable query builder

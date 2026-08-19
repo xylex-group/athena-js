@@ -1,51 +1,22 @@
-# Dependencies
 node_modules/
-
-# Build outputs
 dist/
-*.tsbuildinfo
-
-# Test / coverage
-coverage/
-.nyc_output/
-
-# Environment & secrets (keep .env.example trackable if added)
-.env
-.env.*
-!.env.example
-
-# Logs & OS noise
+.athena-js/
 *.log
 .DS_Store
-Thumbs.db
-Desktop.ini
-
-# Package-manager noise (pnpm is canonical via packageManager)
-bun.lock
-.pnpm-store/
-.npm/
-
-# Local generator / release caches
-.athena-js/
+.env
+.env.local
+coverage/
 .release-evidence/
-
-# Editor / agent local state (share .vscode intentionally)
-.cursor/
-.idea/
-*.swp
-*.swo
-*~
-
-# MCP / agent tool dumps (not source)
-mcps/
-agent-tools/
+.tmp/
+.nyc_output/
+*.tsbuildinfo
 /test-sdk/mcps
 
-# Local architecture diagram scratch (PlantUML exports)
-/architecture
+mcps/
+agent-tools/
 
-# xbp runtime artifacts — keep .xbp/xbp.yaml trackable
-.xbp/logs/
-.xbp/releases/
-.xbp/versioning/
-.xbp/last-version-scope
+/.cursor
+/.xbp/releases
+/.xbp
+/.xbp
+/architecture

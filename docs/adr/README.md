@@ -43,6 +43,8 @@ This directory contains the architecture contracts for the Athena JS single-clie
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [docs/adr/technical/0018](../../../../docs/adr/technical/0018-athena-js-canonical-mutation-row-count.md) | Count-preferred mutation row-count (`count` else `affectedRows`) + fluent CAS + PG `.or(string)` | Accepted |
+| [docs/adr/technical/0019](../../../../docs/adr/technical/0019-athena-js-local-verification-ssot.md) | Local `test:finality` is the Athena JS release SSOT; CI mirrors it | Accepted |
+| [docs/adr/technical/0020](../../../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md) | Next discovery 1.1 advertises Auth+Data from `ResolvedAthenaRuntime`; browser auto-attaches same-origin `/api/auth` | Accepted |
 
 ## Cloudflare edge / hybrid decision cluster
 

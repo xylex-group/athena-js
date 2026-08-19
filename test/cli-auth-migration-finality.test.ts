@@ -47,6 +47,12 @@ test("P1: assertQueryResult rejects malformed adapter results", () => {
     "reading migration ledger"
   );
   assert.equal(ok.rows.length, 1);
+  const fromArray = assertQueryResult(
+    [{ version: 2 }, { version: 3 }],
+    "transaction.query"
+  );
+  assert.equal(fromArray.rowCount, 2);
+  assert.equal(fromArray.rows[1]?.version, 3);
 });
 
 test("P1: planAthenaAuthSchema reports drift when table missing but ledger applied", async () => {

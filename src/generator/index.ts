@@ -4,6 +4,7 @@ export {
 } from "./artifact-merge.ts";
 export {
   ATHENA_GENERATED_ROOT,
+  applyGeneratorProjectEnv,
   DEFAULT_MIGRATIONS_DIRECTORY,
   defineAthenaConfig,
   defineGeneratorConfig,
@@ -12,8 +13,29 @@ export {
   loadGeneratorConfig,
   normalizeGeneratorConfig,
 } from "./config.ts";
+export type {
+  GeneratorDatabaseAuthorityMode,
+  GeneratorDatabaseAuthoritySource,
+  GeneratorSchemaProvenance,
+  ResolveGeneratorDatabaseAuthorityOptions,
+  ResolvedGeneratorDatabaseAuthority,
+} from "./database-authority.ts";
+export {
+  detectAuthorityMode,
+  formatSchemaFallbackMessages,
+  resolveGeneratorDatabaseAuthority,
+} from "./database-authority.ts";
+export type {
+  RenderGeneratedFileHeaderOptions,
+  RenderObjectPropertyOptions,
+} from "./render-shared.ts";
 export {
   GENERATED_FILE_BANNER,
+  renderGeneratedFileHeader,
+  renderObjectKey,
+  renderObjectLiteral,
+  renderObjectProperty,
+  stripGeneratedFileHeader,
   withGeneratedFileBanner,
 } from "./render-shared.ts";
 export type {

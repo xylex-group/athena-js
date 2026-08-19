@@ -17,7 +17,7 @@ if (!pkg.exports || typeof pkg.exports !== "object") {
   process.exit(1);
 }
 
-const required = [".", "./next/server", "./next/client", "./browser"];
+const required = [".", "./server", "./next/server", "./next/client", "./browser"];
 for (const key of required) {
   if (!(key in pkg.exports)) {
     console.error(`inspect-package: missing export "${key}"`);
@@ -27,9 +27,11 @@ for (const key of required) {
 
 const dir = mkdtempSync(join(tmpdir(), "athena-js-pack-"));
 try {
-  const packed = execFileSync("pnpm", ["pack", "--pack-destination", dir], {
+  const pnpmBin = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const packed = execFileSync(pnpmBin, ["pack", "--pack-destination", dir], {
     cwd: root,
     encoding: "utf8",
+    shell: process.platform === "win32",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
   if (!packed.includes(".tgz")) {

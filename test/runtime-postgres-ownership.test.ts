@@ -88,7 +88,7 @@ test("createClient owns one postgres runtime shared by withContext views", async
   assert.equal(getAthenaClientInternals(orgB)?.authRuntime, authRuntime);
   assert.equal((rootRuntime as AthenaPostgresRuntime).ownership, "owned");
   await root.close();
-  await orgA.close();
+  await (orgA as unknown as typeof root).close();
   await assert.rejects(
     () => rootRuntime.getPool(),
     (error: unknown) =>

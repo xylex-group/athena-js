@@ -74,7 +74,10 @@ Security support is tracked **per service / package release family**. Each table
 
 | Version | Channel | Supported |
 | ------- | ------- | --------- |
-| 4.2.0 | stable | :white_check_mark: |
+| 5.2.0 | stable | :white_check_mark: |
+| 5.1.1 | stable | :white_check_mark: |
+| 5.0.0 | stable | :white_check_mark: |
+| 4.3.3 | stable | :white_check_mark: |
 | 3.5.1 | stable | :white_check_mark: |
 | 3.3.0 | stable | :white_check_mark: |
 | 3.2.0 | stable | :white_check_mark: |
@@ -85,12 +88,31 @@ Security support is tracked **per service / package release family**. Each table
 | 2.16.0 | stable | :white_check_mark: |
 | 2.14.0 | stable | :white_check_mark: |
 
+### athena-mcp
+
+| Version | Channel | Supported |
+| ------- | ------- | --------- |
+| 0.5.2 | stable | :white_check_mark: |
+| 0.5.1 | stable | :white_check_mark: |
+| 0.5.0 | stable | :white_check_mark: |
+| 0.4.2 | stable | :white_check_mark: |
+| 0.4.1 | stable | :white_check_mark: |
+| 0.4.0 | stable | :white_check_mark: |
+| 0.3.0 | stable | :white_check_mark: |
+| 0.1.7+exp | experimental | :white_check_mark: |
+
 ### athena-operator
 
 | Version | Channel | Supported |
 | ------- | ------- | --------- |
 | 0.3.0 | stable | :white_check_mark: |
 | 0.2.0 | stable | :white_check_mark: |
+
+### athena-py
+
+| Version | Channel | Supported |
+| ------- | ------- | --------- |
+| 0.1.0 | stable | :white_check_mark: |
 
 ### athena-r
 

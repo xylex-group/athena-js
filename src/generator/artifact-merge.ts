@@ -344,8 +344,14 @@ function formatObjectEntry(
 ): string {
   const needsQuote = !/^[A-Za-z_$][\w$]*$/.test(key);
   const renderedKey = needsQuote ? quoteString(key, style.quote) : key;
+  const trimmedValue = value.trim();
+  const canShorthand =
+    !needsQuote && renderedKey === key && trimmedValue === key;
   const comma = !isLast || style.trailingComma ? "," : "";
-  return `${style.indent}${renderedKey}: ${value}${comma}`;
+  const property = canShorthand
+    ? renderedKey
+    : `${renderedKey}: ${trimmedValue}`;
+  return `${style.indent}${property}${comma}`;
 }
 
 function replaceRange(

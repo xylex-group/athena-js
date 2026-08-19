@@ -1,0 +1,12 @@
+{
+  "name": "athena-next-embedded-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Canonical Next.js embedded-runtime fixture. Depends on packed @xylex-group/athena from .tmp/packages/*.tgz — never src/.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@xylex-group/athena": "file:../../../.tmp/packages/xylex-group-athena.tgz"
+  }
+}

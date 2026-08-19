@@ -12,24 +12,32 @@ Application code should not care which runtime is serving `/api/auth/*`.
 ## Minimal app
 
 ```ts
-import { createClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena/server"
 
 export const athena = createClient({
-  db: {
-    pgUri: process.env.DATABASE_URL!,
-  },
-  auth: {
-    mode: "local",
-  },
+  databaseUrl: process.env.DATABASE_URL!,
 })
 ```
 
+`databaseUrl` / `db.pgUri` / `env.DATABASE_URL` infers `auth.mode: "local"`.
+Explicit `auth.mode: "local"` is equivalent. `auth: false` and `auth.url` win.
+
+```ts
+// app/api/athena + /api/auth
+import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
+
+export const { auth, data } = createAthenaNextHandlers({ client: athena })
+```
+
+Browser: `createClient({ topology: { discover: "next" } })` from
+`@xylex-group/athena/next/client` — no `auth.routing`.
+
 ```ts
 // app/api/auth/[...all]/route.ts
+import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
 import { athena } from "@/lib/athena"
 
-export const { DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT } =
-  athena.auth.server.handlers
+export const { GET, POST } = createAthenaNextHandlers({ client: athena }).auth
 ```
 
 `DATABASE_URL` is the only required infrastructure connection. Do not set

@@ -9,13 +9,22 @@ import {
   createClient as createBrowserSafeClient,
 } from "../v3-client-core.ts";
 import { createAthenaAuthProxyHandlers } from "../auth/http/proxy.ts";
-import { AthenaConfigurationError } from "../config/errors.ts";
 import {
-  createDiscoveredGatewayTransport,
+  attachAthenaAuthRouting,
+  resolveAthenaAuthRouting,
+  resolveExplicitAuthRouting,
+  type ResolvedAthenaAuthRouting,
+} from "../auth/resolve-routing.ts";
+import { AthenaConfigurationError } from "../config/errors.ts";
+import { ATHENA_AUTH_PATH } from "../utils/athena-auth-url.ts";
+import {
+  ATHENA_AUTH_NOT_AVAILABLE,
+  createDiscoveredNextRuntime,
   normalizeNextDiscovery,
   resolveSameOriginBaseUrl,
   type AthenaNextAdapterConfig,
   type AthenaNextTopologyConfig,
+  type ResolvedNextAthenaTopology,
 } from "./topology.ts";
 
 export {
@@ -107,6 +116,7 @@ export {
 export type {
   AthenaNextAdapterConfig,
   AthenaNextTopologyConfig,
+  ResolvedNextAthenaTopology,
 } from "./topology.ts";
 export { resetAthenaDiscoverySessionCache } from "./topology.ts";
 
@@ -144,23 +154,93 @@ export type AthenaBrowserClientConfig<
  * Application code owns singleton lifetime (module-level export).
  * This factory does not cache clients and does not read process.env.
  */
+function routingFromTopologyAuth(
+  auth: NonNullable<ResolvedNextAthenaTopology["auth"]>
+): ResolvedAthenaAuthRouting {
+  if (auth.transport === "remote") {
+    return resolveAthenaAuthRouting({
+      emitWarnings: false,
+      routing: "direct",
+      url: auth.path,
+    });
+  }
+  return resolveAthenaAuthRouting({
+    emitWarnings: false,
+    routing: "same-origin",
+  });
+}
+
+function authNotAvailableResult(): {
+  data: null;
+  error: typeof ATHENA_AUTH_NOT_AVAILABLE;
+  errorDetails: {
+    code: typeof ATHENA_AUTH_NOT_AVAILABLE;
+    message: string;
+    status: number;
+  };
+  ok: false;
+  raw: { error: { code: typeof ATHENA_AUTH_NOT_AVAILABLE } };
+  status: 404;
+} {
+  return {
+    data: null,
+    error: ATHENA_AUTH_NOT_AVAILABLE,
+    errorDetails: {
+      code: ATHENA_AUTH_NOT_AVAILABLE,
+      message:
+        "Athena Auth is not available on this runtime (Data probe succeeded).",
+      status: 404,
+    },
+    ok: false,
+    raw: { error: { code: ATHENA_AUTH_NOT_AVAILABLE } },
+    status: 404,
+  };
+}
+
+function bindAuthToDiscoveredTopology<TClient extends { auth: object }>(
+  client: TClient,
+  resolveTopology: () => Promise<ResolvedNextAthenaTopology>
+): TClient {
+  const auth = client.auth as {
+    getSession?: (...args: unknown[]) => Promise<unknown>;
+  };
+  if (typeof auth.getSession !== "function") {
+    return client;
+  }
+  const original = auth.getSession.bind(auth);
+  let pending: Promise<ResolvedNextAthenaTopology> | undefined;
+  const load = () => {
+    pending ??= resolveTopology();
+    return pending;
+  };
+  auth.getSession = async (...args: unknown[]) => {
+    const topology = await load();
+    if (!topology.auth) {
+      return authNotAvailableResult();
+    }
+    return original(...args);
+  };
+  return client;
+}
+
 function attachBrowserAuthHandlers<TClient extends { auth: object }>(
   client: TClient,
-  config: { auth?: false | { routing?: string; url?: string | null } }
+  config: { auth?: false | { routing?: string; url?: string | null } },
+  resolvedRouting?: ResolvedAthenaAuthRouting
 ): TClient {
-  const auth = config.auth === false ? undefined : config.auth;
-  if (!auth) {
-    return client;
+  const shouldAttachProxy =
+    resolvedRouting?.mode === "same-origin" ||
+    (config.auth !== false &&
+      Boolean(
+        config.auth &&
+          (config.auth.routing === "same-origin" ||
+            (config.auth.url && config.auth.url.trim()))
+      ));
+  if (shouldAttachProxy && !Object.hasOwn(client.auth, "handlers")) {
+    Object.assign(client.auth, {
+      handlers: createAthenaAuthProxyHandlers(() => ({ client })),
+    });
   }
-  if (!(auth.routing === "same-origin" || (auth.url && auth.url.trim()))) {
-    return client;
-  }
-  if (Object.hasOwn(client.auth, "handlers")) {
-    return client;
-  }
-  Object.assign(client.auth, {
-    handlers: createAthenaAuthProxyHandlers(() => ({ client })),
-  });
   return client;
 }
 
@@ -174,14 +254,50 @@ export function createClient<
   assertDirectPostgresRequiresNodeRuntime(config);
   assertLocalAuthRequiresNodeRuntime(config);
   const discovery = normalizeNextDiscovery(config);
-  const materialize = discovery
+  const explicitRouting = resolveExplicitAuthRouting(
+    config.auth === false ? false : config.auth
+  );
+  const discovered = discovery
+    ? createDiscoveredNextRuntime(discovery)
+    : undefined;
+  const resolvedTopology: ResolvedNextAthenaTopology | undefined = discovery
     ? {
-        ...config,
-        gatewayTransport:
-          config.gatewayTransport ?? createDiscoveredGatewayTransport(discovery),
-        url: config.url ?? resolveSameOriginBaseUrl(discovery.path),
+        auth:
+          config.auth === false || explicitRouting
+            ? undefined
+            : { path: ATHENA_AUTH_PATH, transport: "same-origin" },
+        data: { path: discovery.path },
+        protocol: { major: 1, minor: 1 },
       }
-    : config;
+    : undefined;
+  const attachedRouting =
+    explicitRouting ??
+    (resolvedTopology?.auth
+      ? routingFromTopologyAuth(resolvedTopology.auth)
+      : undefined);
+  const materializeAuth =
+    config.auth === false
+      ? false
+      : explicitRouting
+        ? config.auth
+        : discovery
+          ? {
+              ...(typeof config.auth === "object" && config.auth
+                ? config.auth
+                : {}),
+              routing: "same-origin" as const,
+            }
+          : config.auth;
+  const materialize =
+    discovered && discovery
+      ? {
+          ...config,
+          auth: materializeAuth,
+          gatewayTransport: config.gatewayTransport ?? discovered.transport,
+          key: config.key ?? "athena-next-discovery",
+          url: config.url ?? resolveSameOriginBaseUrl(discovery.path),
+        }
+      : config;
   if (!discovery && !config.url) {
     throw new AthenaConfigurationError(
       "ATHENA_RUNTIME_CONFIG_INVALID",
@@ -192,7 +308,18 @@ export function createClient<
   const factory = createBrowserSafeClient as unknown as (
     c: typeof materialize
   ) => AthenaClient<TModels>;
-  return attachBrowserAuthHandlers(factory(materialize), config);
+  const client = attachBrowserAuthHandlers(
+    factory(materialize),
+    config,
+    attachedRouting
+  );
+  if (attachedRouting) {
+    attachAthenaAuthRouting(client, attachedRouting);
+  }
+  if (discovered && !explicitRouting && config.auth !== false) {
+    bindAuthToDiscoveredTopology(client, () => discovered.resolveTopology());
+  }
+  return client;
 }
 
 /**

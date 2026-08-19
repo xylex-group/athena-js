@@ -2133,14 +2133,20 @@ export async function runCLI(
         mode: parsed.mode,
       });
       const prefix = parsed.dryRun ? "[dry-run] " : "";
+      const provenance = result.schemaProvenance ?? "configured";
       log(
-        `${prefix}Config ${result.action}: ${result.path} (mode=${result.mode} schemas=${result.schemas.join(",") || "-"})`
+        `${prefix}Config ${result.action}: ${result.path} (mode=${result.mode} schemas=${result.schemas.join(",") || "-"} provenance=${provenance})`
       );
       if (result.reason) {
         log(`${prefix}reason: ${result.reason}`);
       }
       for (const change of result.changes) {
-        log(`${prefix}- ${change}`);
+        // Fallback messages are multi-line prose; print without a leading dash.
+        if (provenance === "fallback" && !change.startsWith("created-") && !change.startsWith("force-")) {
+          log(`${prefix}${change}`);
+        } else {
+          log(`${prefix}- ${change}`);
+        }
       }
       if (parsed.dryRun && result.content && result.action !== "unchanged") {
         log(`${prefix}--- planned content ---`);

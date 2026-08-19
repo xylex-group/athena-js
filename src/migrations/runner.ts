@@ -14,6 +14,7 @@ import { AthenaAuthRuntimeError } from "../auth/local/errors.ts";
 import { repairabilityForAuthMigration } from "../auth/local/schema-manifest.ts";
 import { createCliUi, type AthenaCliUI } from "../cli/ui/index.ts";
 import { loadGeneratorConfig } from "../generator/config.ts";
+import { resolveGeneratorDatabaseAuthority } from "../generator/database-authority.ts";
 import type { NormalizedAthenaGeneratorConfig } from "../generator/types.ts";
 import type { MigrationBackend } from "./backend.ts";
 import {
@@ -287,17 +288,28 @@ export async function runMigrations(
 ): Promise<MigrationRunSummary> {
   const cwd = options.cwd ?? process.cwd();
   const ui = resolveUi(options);
-  const log = options.log ?? ((message: string) => ui.info(message));
   const mode: MigrationCommandMode =
     options.mode ?? (options.dryRun ? "dry-run" : "apply");
   const dryRun =
     mode === "dry-run" || mode === "plan" || Boolean(options.dryRun);
 
+  // Same database-authority path as `athena-js init` schema discovery /
+  // generate: load config (applies project `.env*`) then normalize provider.
   const loaded = await loadGeneratorConfig({
     configPath: options.configPath,
     cwd,
   });
-  const config = loaded.config;
+  const authority = resolveGeneratorDatabaseAuthority({
+    applyProjectEnv: false,
+    cwd,
+    loaded,
+    mode: "direct",
+  });
+  const config = {
+    ...loaded.config,
+    provider: authority.provider,
+  };
+  authority.restoreEnv();
   const absoluteDirectory = resolveMigrationsDirectory(config, cwd);
   const directoryDisplay = relativeDirectoryDisplay(cwd, absoluteDirectory);
 

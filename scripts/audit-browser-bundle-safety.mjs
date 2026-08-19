@@ -62,9 +62,35 @@ const BROWSER_FORBIDDEN = [
     id: "postgres transport/driver sources",
     re: /postgres\/(?:transport|driver)\.ts/,
   },
+  {
+    id: "server-only",
+    re: /from\s+["']server-only["']|require\(["']server-only["']\)/,
+  },
+  {
+    id: "node:crypto",
+    re: /from\s+["']node:crypto["']|require\(["']node:crypto["']\)/,
+  },
+  {
+    id: "node:path",
+    re: /from\s+["']node:path["']|require\(["']node:path["']\)/,
+  },
+  {
+    id: "embedded auth local runtime",
+    re: /auth\/local\/(?:runtime|database)\.ts/,
+  },
 ];
 
-const BROWSER_ARTIFACTS = ["browser.js", "browser.cjs"];
+const BROWSER_ARTIFACTS = [
+  "browser.js",
+  "browser.cjs",
+  "next/client.js",
+  "next/client.cjs",
+];
+
+const SERVER_ARTIFACTS = ["server.js", "server.cjs"];
+const SERVER_REQUIRED = [
+  { id: "server-only", re: /server-only/ },
+];
 
 function maybeBuild(args) {
   if (!args.includes("--build")) {
@@ -126,6 +152,28 @@ function scanArtifact(name) {
   );
 }
 
+function scanServerArtifact(name) {
+  const path = join(distDir, name);
+  if (!existsSync(path)) {
+    console.error(
+      `[browser bundle audit] missing dist/${name} — run the package build first`
+    );
+    process.exit(1);
+  }
+  const content = readFileSync(path, "utf8");
+  const missing = SERVER_REQUIRED.filter((rule) => !rule.re.test(content)).map(
+    (rule) => rule.id
+  );
+  if (missing.length > 0) {
+    console.error(`FAIL: dist/${name} is missing required server markers:`);
+    for (const id of missing) {
+      console.error(`  - ${id}`);
+    }
+    process.exit(1);
+  }
+  console.log(`OK: dist/${name} — Node server entry (server-only present)`);
+}
+
 function main() {
   const args = process.argv.slice(2);
   maybeBuild(args);
@@ -133,6 +181,9 @@ function main() {
   console.log(`package root: ${packageRoot}`);
   for (const artifact of BROWSER_ARTIFACTS) {
     scanArtifact(artifact);
+  }
+  for (const artifact of SERVER_ARTIFACTS) {
+    scanServerArtifact(artifact);
   }
   console.log(
     "\nPASS: browser bundle has zero runtime dependency on pg / Node built-ins"

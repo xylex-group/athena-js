@@ -51,5 +51,6 @@ A client refactor can appear complete in source while stale declarations or gene
 - Run focused client, query, auth, chat, storage, Next, React, generator, and browser tests.
 - Run `pnpm docs:methods` and require a clean second run.
 - Run `pnpm typecheck`, `pnpm build`, and `pnpm check:all`.
+- Publish requires `pnpm test:finality` / `release:verify` (monorepo ADR 0019), not `check:all` alone.
 - Inspect `dist/index.d.ts`, `dist/browser.d.ts`, `dist/next/client.d.ts`, and `dist/next/server.d.ts` for forbidden symbols.
 - Run `git diff --check` and verify only intentional generated artifacts changed.

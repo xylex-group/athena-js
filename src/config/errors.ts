@@ -3,6 +3,7 @@ export type AthenaService = "db" | "auth" | "chat" | "storage" | "billing";
 export type AthenaConfigurationErrorCode =
   | "ATHENA_NO_SERVICE_CONFIGURED"
   | "ATHENA_SERVICE_NOT_CONFIGURED"
+  | "ATHENA_AUTH_NOT_AVAILABLE"
   | "ATHENA_API_KEY_REQUIRED"
   | "ATHENA_INVALID_URL"
   | "ATHENA_NEXT_SERVER_RUNTIME_REQUIRED"
@@ -20,7 +21,13 @@ export type AthenaConfigurationErrorCode =
   | "ATHENA_AUTH_FEATURE_UNSUPPORTED"
   | "ATHENA_DATABASE_URL_CONFLICT"
   | "ATHENA_RUNTIME_CONFIG_INVALID"
-  | "ATHENA_RUNTIME_DISPOSED";
+  | "ATHENA_RUNTIME_DISPOSED"
+  | "ATHENA_HANDLER_ROOT_CLIENT_REQUIRED"
+  | "ATHENA_LOCAL_RUNTIME_REQUIRED"
+  | "ATHENA_POSTGRES_DRIVER_MISSING"
+  | "ATHENA_BROWSER_SERVER_IMPORT"
+  | "ATHENA_RUNTIME_CLOSED"
+  | "ATHENA_CLIENT_RUNTIME_VERSION_MISMATCH";
 
 /**
  * Structured configuration failure raised during client construction or

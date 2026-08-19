@@ -1,7 +1,6 @@
 # @xylex-group/athena
 
-current version: `5.1.0`
-
+current version: `5.2.0`
 Athena JS 5 is the TypeScript SDK for Athena database, authentication, storage, chat, and billing. Application code uses one constructor. Complexity stays inside Athena.
 
 ## Install
@@ -10,14 +9,16 @@ Athena JS 5 is the TypeScript SDK for Athena database, authentication, storage, 
 pnpm add @xylex-group/athena
 ```
 
-Trusted Node apps that talk to PostgreSQL should also install `pg` (optional peer).
+Release verification is local: `pnpm test:finality` (and `pnpm release:verify`). GitHub CI mirrors that command; it is not the source of truth. Contract: [docs/release-verification.md](./docs/release-verification.md) · [ADR 0019](../../docs/adr/technical/0019-athena-js-local-verification-ssot.md).
+
+Local PostgreSQL is first-class: Athena depends on `pg`. If a bundler still cannot resolve it, install `pg` in the app (`pnpm add pg`) — Athena throws `ATHENA_POSTGRES_DRIVER_MISSING` instead of a raw "Can't resolve 'pg'".
 
 ## Quick start
 
 Small Node applications can run database access and supported Auth directly against PostgreSQL. No Athena Gateway and no dedicated Rust Auth process are required.
 
 ```ts
-import { createClient } from "@xylex-group/athena"
+import { createClient } from "@xylex-group/athena/server"
 
 export const athena = createClient({
   databaseUrl: process.env.DATABASE_URL!,
@@ -27,7 +28,7 @@ export const athena = createClient({
 That single call:
 
 - opens a direct PostgreSQL transport
-- enables supported embedded Athena Auth against the same database
+- infers embedded Athena Auth against the same database (`auth.mode: "local"` is optional; `auth: false` / `auth.url` still win)
 - exposes `athena.db`, `athena.auth`, and the other namespaces
 
 If you do not want Auth at all, disable it explicitly. `auth: false` wins over environment inference.
@@ -63,7 +64,7 @@ export const athena = createClient({
 
 Application code still uses `athena.auth` in every topology.
 
-The same root import works in browser and server bundles. The package export map selects the browser-safe implementation automatically. Direct PostgreSQL and embedded Auth stay on trusted Node runtimes.
+Use `@xylex-group/athena/server` for Node runtime ownership. The root `@xylex-group/athena` export is browser-conditional and must not own `DATABASE_URL` in a Next Client Component. Direct PostgreSQL and embedded Auth stay on trusted Node runtimes.
 
 ## Database
 
@@ -152,29 +153,47 @@ await athena.from(users).select("id,email")
 Prefer one process-root `createClient` and request views:
 
 ```ts
-import { createClient } from "@xylex-group/athena"
-import { createAthenaServerClient } from "@xylex-group/athena/next/server"
+// lib/athena/root.ts
+import "server-only"
+import { createClient } from "@xylex-group/athena/server"
 
 export const athena = createClient({
-  databaseUrl: process.env.DATABASE_URL,
-  url: process.env.ATHENA_URL,
-  key: process.env.ATHENA_API_KEY,
+  databaseUrl: process.env.DATABASE_URL!,
+  auth: { autoMigrate: true },
 })
+```
 
-export function createServerAthena() {
-  return createAthenaServerClient({ client: athena })
+```ts
+// lib/athena/server.ts — request view only
+import { createAthenaServerClient } from "@xylex-group/athena/next/server"
+import { athena } from "./root"
+
+export function createAthenaServer(options?: { session?: unknown; scope?: { userId?: string | null; organizationId?: string | null } }) {
+  return createAthenaServerClient({ client: athena, ...options })
 }
 ```
 
-Mount Local Runtime + Auth from that root (do not pass a `withContext` view):
+Mount `/api/athena` and `/api/auth` from that same root (do not pass a `withContext` view):
 
 ```ts
 import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
+import { athena } from "@/lib/athena/root"
 
 export const { auth, data } = createAthenaNextHandlers({ client: athena })
 ```
 
-Browser discovery (`topology.discover: "next"`) honors `prefer` and `probe.cache`. Browser façades on `@xylex-group/athena/next/client` still materialize through `createClient`. Full guide: [docs/next-js.md](./docs/next-js.md).
+Browser client (discovers `/api/athena` + `/api/auth`; no `auth.routing`):
+
+```ts
+"use client"
+import { createClient } from "@xylex-group/athena/next/client"
+
+export const athena = createClient({
+  topology: { discover: "next" },
+})
+```
+
+Full guide: [docs/next-js.md](./docs/next-js.md).
 
 ## Cloudflare
 

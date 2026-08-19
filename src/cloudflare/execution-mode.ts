@@ -24,7 +24,11 @@ export type AthenaExecutionPrefer = "edge" | "gateway";
 
 export const ATHENA_EXECUTION_PREFER_ENV_KEY = "ATHENA_EXECUTION_PREFER";
 
-const MODE_ALIASES: Record<string, AthenaExecutionMode> = {
+/**
+ * Canonical modes plus documented aliases. Do not widen with `| string` —
+ * that collapses the union and lets `createClient({ mode: "" })` type-check.
+ */
+export const ATHENA_EXECUTION_MODE_ALIASES = {
   auto: "auto",
   cloudflare: "edge",
   "cloudflare-edge": "edge",
@@ -35,7 +39,23 @@ const MODE_ALIASES: Record<string, AthenaExecutionMode> = {
   local: "edge",
   remote: "gateway",
   server: "gateway",
-};
+} as const satisfies Record<string, AthenaExecutionMode>;
+
+export type AthenaExecutionModeInput = keyof typeof ATHENA_EXECUTION_MODE_ALIASES;
+
+export const ATHENA_EXECUTION_PREFER_ALIASES = {
+  cloudflare: "edge",
+  d1: "edge",
+  edge: "edge",
+  gateway: "gateway",
+  http: "gateway",
+  local: "edge",
+  remote: "gateway",
+  server: "gateway",
+} as const satisfies Record<string, AthenaExecutionPrefer>;
+
+export type AthenaExecutionPreferInput =
+  keyof typeof ATHENA_EXECUTION_PREFER_ALIASES;
 
 export interface ResolveAthenaExecutionModeInput {
   /** D1 binding when present enables edge in auto mode. */
@@ -43,12 +63,12 @@ export interface ResolveAthenaExecutionModeInput {
   /** Optional env map; also used when reading `ATHENA_EXECUTION_MODE`. */
   env?: Record<string, string | undefined>;
   /** Explicit mode. Default: `'auto'` (or env `ATHENA_EXECUTION_MODE`). */
-  mode?: AthenaExecutionMode | string | null;
+  mode?: AthenaExecutionModeInput | null;
   /**
    * When `mode` is `auto` and **both** D1 and a gateway URL exist, pick a winner.
    * Default `edge`. Override with `prefer: 'gateway'` or env `ATHENA_EXECUTION_PREFER`.
    */
-  prefer?: AthenaExecutionPrefer | string | null;
+  prefer?: AthenaExecutionPreferInput | null;
   /** Gateway base URL (or unified root) for server mode. */
   url?: string | null;
 }
@@ -70,7 +90,10 @@ function normalizeModeString(
   if (!key) {
     return undefined;
   }
-  const mapped = MODE_ALIASES[key];
+  const mapped =
+    ATHENA_EXECUTION_MODE_ALIASES[
+      key as AthenaExecutionModeInput
+    ];
   if (!mapped) {
     throw new AthenaConfigurationError(
       "ATHENA_NO_SERVICE_CONFIGURED",
@@ -107,7 +130,7 @@ function resolveGatewayUrl(
 }
 
 function resolvePrefer(
-  prefer: AthenaExecutionPrefer | string | null | undefined,
+  prefer: AthenaExecutionPreferInput | string | null | undefined,
   env: Record<string, string | undefined>
 ): AthenaResolvedExecutionMode {
   const raw =
@@ -116,28 +139,18 @@ function resolvePrefer(
     ) ??
     normalizeOptional(env[ATHENA_EXECUTION_PREFER_ENV_KEY]) ??
     "edge";
-  const key = raw.toLowerCase();
-  if (
-    key === "gateway" ||
-    key === "server" ||
-    key === "remote" ||
-    key === "http"
-  ) {
-    return "gateway";
+  const mapped =
+    ATHENA_EXECUTION_PREFER_ALIASES[
+      raw.toLowerCase() as AthenaExecutionPreferInput
+    ];
+  if (!mapped) {
+    throw new AthenaConfigurationError(
+      "ATHENA_NO_SERVICE_CONFIGURED",
+      `Unknown Athena execution prefer "${raw}". Use edge | gateway.`,
+      "db"
+    );
   }
-  if (
-    key === "edge" ||
-    key === "d1" ||
-    key === "cloudflare" ||
-    key === "local"
-  ) {
-    return "edge";
-  }
-  throw new AthenaConfigurationError(
-    "ATHENA_NO_SERVICE_CONFIGURED",
-    `Unknown Athena execution prefer "${raw}". Use edge | gateway.`,
-    "db"
-  );
+  return mapped;
 }
 
 /**

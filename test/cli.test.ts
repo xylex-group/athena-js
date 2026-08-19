@@ -182,6 +182,7 @@ test("runCLI init prints ensure result without writing when dry-run", async () =
         mode: "direct",
         path: "athena.config.ts",
         reason: "config file missing",
+        schemaProvenance: "fallback" as const,
         schemas: ["public"],
       }),
       log: (message) => {

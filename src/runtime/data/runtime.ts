@@ -166,6 +166,9 @@ export function createAthenaServerRuntime(
     allowsUnauthenticatedHttp,
     authMaterial,
     capabilities,
+    ...(config.discoveryDocument
+      ? { discoveryDocument: config.discoveryDocument }
+      : {}),
     httpProfile,
     ...(policyRegistry ? { policyRegistry } : {}),
     execute(request: AthenaRuntimeRequest, context?: AthenaRuntimeRequestContext) {

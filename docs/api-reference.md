@@ -189,6 +189,7 @@ client headers → configured context → `withContext` → per-operation header
 | --- | --- |
 | `ATHENA_NO_SERVICE_CONFIGURED` | Construction with no routable service URL |
 | `ATHENA_SERVICE_NOT_CONFIGURED` | Using an unconfigured `db` / `auth` / `chat` / `storage` / `billing` namespace |
+| `ATHENA_AUTH_NOT_AVAILABLE` | Data runtime is compatible; Auth is disabled or not advertised (discover-next) |
 | `ATHENA_API_KEY_REQUIRED` | Missing API key at construction |
 | `ATHENA_INVALID_URL` | Invalid URL during configuration (reserved/used where applicable) |
 | `ATHENA_NEXT_SERVER_RUNTIME_REQUIRED` | Next server helpers need Next runtime or explicit request inputs |

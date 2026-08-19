@@ -5,14 +5,17 @@ separated without a second client implementation.
 
 | Import | Role |
 | --- | --- |
+| `@xylex-group/athena/server` | Node runtime ownership — `createClient({ databaseUrl })` (`server-only`) |
 | `@xylex-group/athena/next/client` | Browser-safe construction + session-bridge helpers for Client Components |
-| `@xylex-group/athena/next/server` | Request-scoped construction + context resolvers + bridge handlers + table schema handlers (`server-only`) |
-| `@xylex-group/athena` | Root SDK (includes `createAthenaTableSchemaHandlers` for `/api/tables/schema`) |
+| `@xylex-group/athena/next/server` | Request-scoped construction + context resolvers + handlers (`server-only`) |
+| `@xylex-group/athena` | Universal SDK (browser-conditional root export) |
 
 **Invariant (ADR 0014):** only `createClient` materializes the client core.
 Next helpers are thin façades. They do not cache request-bound clients.
 
-See also: [getting started](./getting-started.md), [auth session forwarding](./auth-session-forwarding.md), [auth session bridge](./auth-session-bridge.md), [ADR 0014](./adr/0014-next-client-construction-facades.md).
+See also: [getting started](./getting-started.md), [auth session forwarding](./auth-session-forwarding.md), [auth session bridge](./auth-session-bridge.md), [ADR 0014](./adr/0014-next-client-construction-facades.md), [ADR 0020](../../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md) (runtime-capability discovery).
+
+Packed Next + PostgreSQL (root → Auth → `/api/athena` + `/api/auth` → session → org) is proven locally by `pnpm test:finality` against `test/fixtures/next-embedded`, not by GitHub-only jobs. [Release verification](./release-verification.md).
 
 ---
 
@@ -22,12 +25,22 @@ Use one path per surface. All data paths still call `createClient` under the hoo
 
 | Surface | Import | Constructor | Notes |
 | --- | --- | --- | --- |
-| Browser data client | `@xylex-group/athena/next/client` | `createAthenaBrowserClient({ url, key, client? })` | Explicit credentials only; app owns singleton. `key`/`client` set gateway headers — no `buildAthenaGatewayHeaders` |
-| Server data client (preferred) | `@xylex-group/athena/next/server` | `createAthenaServerClient({ client: athena, session?, scope? })` | **Per request** view via `withContext`; reuses one static core |
-| Server data client (standalone) | `@xylex-group/athena/next/server` | `createAthenaServerClient({ url, key, session?, scope? })` | **Per request**; materializes through `createClient` |
-| Server data client (local Postgres) | `@xylex-group/athena/next/server` | `createAthenaServerClient({ databaseUrl, session?, scope? })` | Same `databaseUrl` as Node `createClient` |
-| Root / non-Next | `@xylex-group/athena` | `createClient({ url, key })` or `createClient({ databaseUrl })` | Runtime-neutral |
+| Process root (default) | `@xylex-group/athena/server` | `createClient({ databaseUrl, auth: { autoMigrate } })` | Owns the PostgreSQL pool + inferred embedded Auth. `lib/athena/root.ts` |
+| Browser data client | `@xylex-group/athena/next/client` | `createClient({ topology: { discover: "next" } })` | Discovers `/api/athena` + `/api/auth`. No `DATABASE_URL` |
+| Server request view | `@xylex-group/athena/next/server` | `createAthenaServerClient({ client: athena, session?, scope? })` | **Per request** view via `withContext`; never a runtime owner |
+| Handlers | `@xylex-group/athena/next/server` | `createAthenaNextHandlers({ client: root })` | Mount at `/api/athena` and `/api/auth` from the **root** |
+| Hosted browser | `@xylex-group/athena/next/client` | `createAthenaBrowserClient({ url, key })` | Remote Gateway; keep when you are not embedding |
 | Auth UI | `@xylex-group/athena-auth-ui` | `<AuthProvider client={athena}>` | Consumes `athena.auth`; `createAthenaAuthClient` is legacy |
+
+Minimal vs explicit Auth:
+
+- **Minimal:** `createClient({ databaseUrl, auth: { autoMigrate } })` — constructor inference sets embedded Auth when a Postgres URI is present.
+- **Explicit wins:** `auth: false` disables; `auth.mode: "local"` stays embedded; `auth.mode: "remote"` or `auth.url` stays remote.
+
+| Diagnostic | Meaning |
+| --- | --- |
+| `ATHENA_DISCOVERY_UNAVAILABLE` | Data probe at `/api/athena` failed |
+| `ATHENA_AUTH_NOT_AVAILABLE` | Data runtime is compatible; Auth is off or not advertised |
 
 ### Do not
 
@@ -56,12 +69,34 @@ Empty `withContext({})` logs a development warning (no production throw).
 
 ---
 
-## Browser client (Architecture 4.0)
+## Browser client
 
-Canonical path: `src/lib/athena/client.ts` (optional `public-config.ts` when justified).
+Canonical path: `lib/athena/browser.ts` (or `src/lib/athena/browser.ts`).
+Discovery (`topology.discover: "next"`) is the Local Runtime golden path — no
+`url`/`key`, no `auth.routing`, no `DATABASE_URL`.
 
 ```ts
-// src/lib/athena/public-config.ts (optional)
+// src/lib/athena/browser.ts
+'use client'
+
+import { createClient } from '@xylex-group/athena/next/client'
+
+export const athena = createClient({
+  topology: { discover: 'next' },
+})
+```
+
+Handlers emit discovery protocol **1.1** (`runtime: "next-local"`) with
+`capabilities.auth` availability and `endpoints.{data,auth}`. The browser
+resolves an internal `ResolvedNextAthenaTopology` and attaches same-origin
+`/api/auth` unless `auth: false` or an explicit `auth.url` / `auth.mode: "remote"`
+wins. 1.0 Data-only documents stay Data-compatible and never imply Auth.
+
+Hosted Gateway (no local Next runtime) still uses explicit `url` + `key`.
+`createAthenaBrowserClient` is a deprecated alias of the same factory.
+
+```ts
+// src/lib/athena/public-config.ts (hosted only)
 import type { AthenaBrowserClientConfig } from '@xylex-group/athena/next/client'
 
 export const athenaPublicConfig = {
@@ -71,30 +106,14 @@ export const athenaPublicConfig = {
 } satisfies AthenaBrowserClientConfig
 ```
 
-```ts
-// src/lib/athena/client.ts
-'use client'
-
-import { createAthenaBrowserClient } from '@xylex-group/athena/next/client'
-import { registry } from './generated/registry'
-import { athenaPublicConfig } from './public-config'
-
-export const athena = createAthenaBrowserClient({
-  ...athenaPublicConfig,
-  models: registry,
-})
-```
-
 ### Rules
 
 | Do | Do not |
 | --- | --- |
-| Pass explicit `url` and `key` | Pass `env: process.env` |
+| Use `createClient({ topology: { discover: "next" } })` for Local Runtime | Pass `env: process.env` or `DATABASE_URL` |
 | Own singleton lifetime in a module export | Expect the SDK to cache clients |
 | Import from `next/client` in Client Components | Import `next/server` into client graphs |
-
-`AthenaBrowserClientConfig` is `AthenaClientConfig` without `env` or `context`,
-with required `url` and `key`.
+| Set `auth.url` / `auth.mode: "remote"` only for remote-direct Auth | Require `auth.routing: "same-origin"` after discover-next |
 
 ---
 
@@ -294,7 +313,8 @@ Browser discovery (`topology.discover: "next"`) honors `prefer` and
 `probe.cache`. `prefer: "hosted"` never probes `/api/athena` when `url` +
 `key` exist. `probe.cache: "session"` shares one probe in the realm (and
 `sessionStorage` when present). After local is selected, later 500s do not
-fail over to hosted.
+fail over to hosted. Discovery 1.1 also advertises Auth; see
+[Discovery vs Auth diagnostics](#discovery-vs-auth-diagnostics).
 
 ---
 
@@ -450,13 +470,22 @@ Both Next entries re-export the newer shared helpers apps commonly need (`create
 
 ---
 
-## Errors
+## Discovery vs Auth diagnostics
 
-| Code | When |
+| Code | Meaning |
 | --- | --- |
-| `ATHENA_API_KEY_REQUIRED` | Missing/blank key at construction |
-| `ATHENA_NO_SERVICE_CONFIGURED` | No routable service URL |
-| `ATHENA_NEXT_SERVER_RUNTIME_REQUIRED` | Server helpers need Next runtime or explicit request inputs |
+| `ATHENA_DISCOVERY_UNAVAILABLE` | Data probe at `/api/athena` failed (no compatible Local Runtime) |
+| `ATHENA_DISCOVERY_INCOMPATIBLE` / `ATHENA_PROTOCOL_INCOMPATIBLE` / `ATHENA_DISCOVERY_CAPABILITY_MISSING` | Data runtime found but unusable |
+| `ATHENA_AUTH_NOT_AVAILABLE` | Data runtime is compatible; Auth is disabled or not advertised |
+| `ATHENA_SERVICE_NOT_CONFIGURED` | Namespace invoked with no routing at all (not the Data-ok / Auth-off case) |
+
+Do not treat missing Auth as a discovery failure. `getSession` after discover-next
+on an `auth: false` root returns `ATHENA_AUTH_NOT_AVAILABLE`, not
+`ATHENA_DISCOVERY_UNAVAILABLE` and not `/api/athena/auth`.
+
+Inference: Node `createClient({ databaseUrl })` folds `auth.mode: "local"` via
+`inferEmbeddedAuthMode()`. Explicit `auth: false`, `auth.mode: "remote"`, or
+`auth.url` wins. Browser discovery never re-infers and never stores PostgreSQL.
 
 ---
 

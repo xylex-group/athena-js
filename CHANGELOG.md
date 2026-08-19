@@ -1,186 +1,103 @@
 # Changelog
 
-## [Unreleased]
-
-## [5.1.0] (2026-08-17)
-
-Athena JS minor: Local Runtime / embedded Auth `createClient({ databaseUrl })` as a first-class server topology, plus query/mutation parity on direct PostgreSQL and D1.
-
-### Added
-
-- Next `createAthenaServerClient({ databaseUrl })` is a first-class union member (same URI as Node `createClient`).
-- `createAthenaDataHandlers({ client })` / `createAthenaNextHandlers({ client })` derive Local Runtime + Auth HTTP from the root client (no rematerialized pool).
-- Browser discovery honors `topology.prefer` and `probe.cache` (`session` shares one probe; `resetAthenaDiscoverySessionCache()` for tests).
-- Discovery failures keep typed codes: `ATHENA_DISCOVERY_UNAVAILABLE`, `ATHENA_DISCOVERY_INCOMPATIBLE`, `ATHENA_PROTOCOL_INCOMPATIBLE`, `ATHENA_DISCOVERY_CAPABILITY_MISSING`, `ATHENA_RUNTIME_UNAVAILABLE`.
-- Executable `ATHENA_TOPOLOGY_MATRIX` fixture drives `resolveAthenaRuntime` tests.
-- Public `AthenaResult.affectedRows` for backend-neutral mutation row counts (Gateway aliases, PostgreSQL `rowCount`, D1 `meta.changes`).
-- Legacy fluent `.or("col.op.value,...")` compilation on direct PostgreSQL and D1.
-- Nested PostgREST `.or("and(...),...")` groups and fluent `.not()` compilation on PG and D1.
-- Direct PostgreSQL `athena.rpc()` (`SELECT … FROM schema.fn(name => $n)`); still unavailable on D1.
-- Table-builder `.single()` / `.maybeSingle()` keep `toSingleResult` projection (first row or `null`).
-
-### Changed
-
-- Hosted `url` + `key` are retained whenever present so `prefer: "hosted"` can skip `/api/athena`.
-- After local discovery selects, later HTTP 500s still do not fail over to hosted.
-- `requireAffected` uses numeric `count`, else numeric `affectedRows` (no `{ count: "exact" }` requirement on PG/D1).
-- ADR 0018 Accepted: count-preferred mutation row-count, fluent CAS, PG `.or(string)`, `.single()` / `.maybeSingle()` = `toSingleResult`.
-
-## [5.0.0] (2026-08-13)
-
-Major Athena JS release: session single-source-of-truth, auth capabilities, and production schema diff.
-
-### Added
-
-- Framework-independent session SSOT store with concurrency rules, attached to the `auth.session` surface.
-- Status-aware capabilities store (`INV-P`) and exports for capability-driven UI/auth flows.
-- Production-grade schema diff engine (`schema/diff`) with model/introspection inputs, normalization, validation, and summaries.
-- Expanded `useSession` integration with the session SSOT store and mutation wiring.
-- CI quality/publish gate hardening for the package release path.
-
-### Changed
-
-- Collapsed auth integration toward `AthenaProviders` + a single client authority.
-- Auth client/routing and Next auth-proxy paths updated for the SSOT session model.
-
-### Compatibility
-
-- Treat as a **major** bump if you consume session hooks, auth provider wiring, or custom session stores.
-- Pin `@xylex-group/athena@4.3.x` if you need the previous session/auth surface while migrating.
-
-## [4.3.3] (2026-08-12)
-
-SDK surface consolidation and release readiness.
-
-### Added
-
-- Added the organization entrypoint and shared auth/session utility exports.
-- Added typed table and column IntelliSense support for model-derived clients.
-
-### Changed
-
-- Expanded `useSession` support for clients created with the SDK constructor.
-- Consolidated package exports and synchronized the Athena JS documentation surface.
-
-## [4.3.2] (2026-08-11)
-
-Browser bundle isolation for direct PostgreSQL (ATHENA_BROWSER_BUNDLE_PG_LEAK).
-
-### Fixed
-
-- Fixed the browser bundle incorrectly including the Node PostgreSQL `pg` driver graph through `createClient` (`Module not found: Can't resolve 'dns'` in Next.js/Turbopack).
-- Direct PostgreSQL materialization (`db.pgUri`) is now isolated to the Node/server entry (`src/v3-client.ts`); the shared client core (`src/v3-client-core.ts`) has zero Node-only imports.
-- `dist/browser.js` / `dist/browser.cjs` (and the React Native entry) no longer resolve `pg`, `dns`, `net`, `tls`, `fs`, or `child_process`.
-- Browser and React Native use of `db.pgUri` now fails fast with `ATHENA_POSTGRES_DIRECT_NODE_REQUIRED` (the URI is never included in the error message).
-- `AthenaAdminPermissionClient.hasPermission` is now a truly wide callable (`any[]` rest, nullable `data`) so real `createClient` bindings assign as documented.
-
-### Tests
-
-- `test/browser-bundle-pg-leak.test.ts`: source import-graph walk from the browser entries (no `pg` / `node:*` / `src/postgres/*`), browser `db.pgUri` guard behavior, and a real esbuild browser fixture (including a `"use client"` component) whose metafile must exclude `pg` and `src/postgres/*`.
-- `scripts/audit-browser-bundle-safety.mjs` (`pnpm test:browser-bundle`): CI gate scanning built browser artifacts for forbidden Node dependencies; wired into `check:all`.
-- Repaired the full `typecheck:tests` / `typecheck:examples` baselines (test-sdk deps, JSX config, session mock shapes, TS2589 call-site casts).
-
-### Compatibility
-
-- Existing browser `createClient()` imports require no changes.
-- Existing Node `db.pgUri` direct PostgreSQL integrations remain supported unchanged.
-- `ServerSessionClientLike.auth` gained an optional `getSession` (additive).
-
-## [4.3.1] (2026-08-11)
-
-Post-4.3.0 auth routing polish (fail-closed upstream, API cleanup).
-
-### Changed
-
-- `defaultCredentials`: simplified to `explicit ?? "include"` (removed dead mode branches)
-- `auth.routing: "direct"`: requires absolute `http(s)` `auth.url` (relative paths rejected with `ATHENA_AUTH_INVALID_URL`)
-- Same-origin without `upstreamUrl` / env: **no** silent `DEFAULT_ATHENA_AUTH_ORIGIN` on the client; `proxyUpstreamBaseUrl` stays unset and a warning is recorded
-- `createAthenaAuthProxyHandlers({ client })` without attached upstream throws `ATHENA_AUTH_UPSTREAM_REQUIRED` (no hosted default fallback)
-- `athena.system.inspectAuth` is **required** on `AthenaClient` (always installed by `createClient`)
-
-### Tests
-
-- WeakMap routing retention: base → `withContext` → `withContext` → `createAthenaServerClient({ client })`
-- Direct relative URL rejection; missing-upstream fail-closed proxy path
-
-## [4.3.0] (2026-08-11)
-
-Auth DX + guardrails for Next.js same-origin integrations.
-
-### Added
-
-- `auth.routing`: `"same-origin" | "direct" | "custom"` on `createClient` auth config (flat additive; no breaking union)
-- `auth.upstreamUrl` for same-origin proxy upstream (env aliases still work)
-- `resolveAthenaAuthRouting` policy SSOT (`browserRequestBaseUrl` / `serverRequestBaseUrl` / `proxyUpstreamBaseUrl`)
-- Relative same-origin auth bases (e.g. `/api/auth`) accepted by the auth module (no longer forced through absolute-only gateway URL normalize)
-- `athena.system.inspectAuth()` — safe auth routing diagnostics (no secrets)
-- `createAthenaAuthProxyHandlers` / `proxyAthenaAuthRequest` on `@xylex-group/athena/next/server`
-  - Preferred: `{ client: athena }` (single authority)
-  - Advanced: `{ upstreamUrl }` (mutually exclusive with `client`)
-- Config error codes: `ATHENA_AUTH_*` (duplicate path, invalid URL, proxy dual-authority, …)
-
-### Changed
-
-- Same-origin + absolute `auth.url` treats `url` as upstream and emits a deprecation warning (compat window; hard error reserved for a future major)
-
-### Docs
-
-- `docs/migrations/formations-auth-dx.md` — quantified formations transport reduction recipe
-
-## [4.2.0] (2026-08-09)
-
-- Added the production SQL migration CLI and tooling.
-- Migration inspection modes are non-mutating.
-- Migration SQL rejects transaction-control statements.
-- PostgreSQL migrations use the configured database connection.
-- Expanded the Athena JS documentation site and migration guidance.
-
 ## Unreleased
 
-### 4.0.0-rc.0 — Session contract consolidation
+- `AthenaLayeredServerClient.withContext` now returns `unknown` so strongly typed model roots assign into `createAthenaServerClient({ client })` without comparing the full `AthenaClient` database surface (TS2589 / assignability).
 
-#### Breaking
+## [5.2.0](https://github.com/xylex-group/athena/compare/athena-js-5.1.1...athena-js-5.2.0) (2026-08-18)
 
-- `getServerSession` returns discriminated `{ ok, authenticated, data, error, meta }` (no flat userId/session fields)
-- Canonical app session type: `AthenaSessionData` (`organization.activeId` / `rawActiveId`)
-- `getServerSessionOrNull` returns null only when unauthenticated; throws typed errors on `!ok`
-- Added `requireServerSession` and `createServerSessionResolver`
-- `useSession` returns `AthenaSessionData` plus derived `isAuthenticated` / org fields
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.2.0`
 
-#### Added
+### Notes
 
-- `src/auth/session-data.ts`, `session-errors.ts`, `session-view.ts`
-- Docs: `docs/auth-session-runtime-contract.md`, `docs/migration-session-api-v4.md`
-- Fixture: `test/fixtures/speedrun-session-consumer`
+- Next discovery is runtime-capability protocol **1.1** (`runtime: "next-local"`).
+  `createAthenaNextHandlers({ client })` advertises Auth from
+  `AthenaClientInternals.plan` only — it does not re-run `inferEmbeddedAuthMode()`.
+  Browser `createClient({ topology: { discover: "next" } })` resolves
+  `ResolvedNextAthenaTopology` and attaches same-origin `/api/auth` without
+  `auth.routing`. Explicit `auth: false` / `auth.mode: "remote"` + `auth.url` still win.
+- **Migration:** drop `createAthenaBrowserClient`, `auth.routing: "same-origin"`,
+  and Auth UI `basePath` / `ATHENA_AUTH_URL` from the Local Runtime golden path.
+  Protocol 1.0 Data-only documents remain Data-compatible and never imply Auth.
+- **Diagnostics:** `ATHENA_DISCOVERY_UNAVAILABLE` is a Data probe failure;
+  `ATHENA_AUTH_NOT_AVAILABLE` is Data-ok / Auth-off. Do not collapse these.
+- Constructor inference is unchanged: Node `createClient({ databaseUrl })` still
+  folds embedded Auth via `inferEmbeddedAuthMode()`.
+- ADR: [0020](../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md).
 
-#### Migration
+## [5.1.1](https://github.com/xylex-group/athena/compare/athena-js-5.0.0...athena-js-5.1.1) (2026-08-18)
 
-- See `docs/migration-session-api-v4.md`
-- Rollback: pin `@xylex-group/athena@3.7.x`
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.1.1`
 
----
-## [3.7.0] — Dragunov-compatible (2026-08-05)
+## [5.0.0](https://github.com/xylex-group/athena/compare/athena-js-4.3.3...athena-js-5.0.0) (2026-08-13)
 
-Athena-JS **3.7.0** supports Athena server **4.1.x** and **5.0.x — Dragunov** without a SDK major bump.
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.0.0`
 
-### Added
+## [4.3.3](https://github.com/xylex-group/athena/compare/athena-mcp-0.1.7+exp...athena-js-4.3.3) (2026-08-12)
 
-- `athena.admin.query({ sql, params?, operation, expectedShape })` preferred raw SQL surface with execution metadata
-- `athena.health()`, `athena.system.release()`, `athena.system.compatibility()` with release identity normalization
-- Types: `AthenaReleaseIdentity`, `AthenaCompatibilityReport`, admin query contracts
-- Gateway route manifest mirror (`ATHENA_ROUTE_MANIFEST` / `ATHENA_GATEWAY_ROUTES`)
-- SDD: `docs/sdd/athena-js-3.7-dragunov-compatibility.md`
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-4.3.3`
 
-### Changed
+## [0.1.7+exp](https://github.com/xylex-group/athena/compare/athena-mcp-0.3.0...athena-mcp-0.1.7+exp) (2026-07-28)
 
-- Root `athena.query()` remains callable; routed through the admin raw-SQL implementation and marked **deprecated**
-- Deprecation warnings use `ATHENA_RAW_SQL_COMPAT_DEPRECATED` (once per client; controlled via behavior)
+- Service: `athena-mcp`
+- Release channel: experimental
+- Tag: `athena-mcp-0.1.7+exp`
 
-### Compatibility
+## [0.3.0](https://github.com/xylex-group/athena/compare/athena-mcp-0.4.0...athena-mcp-0.3.0) (2026-07-28)
 
-- Athena 4 health without `release` does not fail; codename is never fabricated
-- `affectedRows` / `lastInsertId` stay `null` when backends omit mutation meta
-- Multi-statement SQL rejected by default on `admin.query()`
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.3.0`
+
+## [0.4.0](https://github.com/xylex-group/athena/compare/athena-mcp-0.4.1...athena-mcp-0.4.0) (2026-07-28)
+
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.4.0`
+
+## [0.4.1](https://github.com/xylex-group/athena/compare/athena-mcp-0.4.2...athena-mcp-0.4.1) (2026-07-28)
+
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.4.1`
+
+## [0.4.2](https://github.com/xylex-group/athena/compare/athena-mcp-0.5.0...athena-mcp-0.4.2) (2026-07-28)
+
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.4.2`
+
+## [0.5.0](https://github.com/xylex-group/athena/compare/athena-mcp-0.5.1...athena-mcp-0.5.0) (2026-07-28)
+
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.5.0`
+
+## [0.5.1](https://github.com/xylex-group/athena/compare/athena-mcp-0.5.2...athena-mcp-0.5.1) (2026-07-28)
+
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.5.1`
+
+## [0.5.2](https://github.com/xylex-group/athena/compare/athena-py-0.1.0...athena-mcp-0.5.2) (2026-07-28)
+
+- Service: `athena-mcp`
+- Release channel: stable
+- Tag: `athena-mcp-0.5.2`
+
+## [0.1.0](https://github.com/xylex-group/athena/compare/athena-js-3.5.1...athena-py-0.1.0) (2026-07-28)
+
+- Service: `athena-py`
+- Release channel: stable
+- Tag: `athena-py-0.1.0`
 
 ## [3.5.1](https://github.com/xylex-group/athena/compare/athena-audit-cli-4.0.4...athena-js-3.5.1) (2026-07-27)
 
@@ -1501,3 +1418,4 @@ Athena-JS **3.7.0** supports Athena server **4.1.x** and **5.0.x — Dragunov** 
 - Service: `repository`
 - Release channel: stable
 - Tag: `v0.71.0`
+

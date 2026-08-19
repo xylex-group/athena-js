@@ -5,6 +5,7 @@ import type { AthenaAuthSessionResponse } from "../auth/types.ts";
 import { mergeAthenaRequestContexts } from "../context/merge.ts";
 import { isNodeProductionEnv } from "../node-env.ts";
 import type { AthenaClientModelsInput } from "../schema/types.ts";
+import type { AthenaRequestClient } from "../client-brands.ts";
 import {
   type AthenaClient,
   type AthenaClientConfig,
@@ -163,13 +164,22 @@ export type AthenaEnvironmentServerConfig<
   };
 
 /**
- * Layer a request view over an existing root client (P12).
- * Does not rematerialize url/key/client name.
+ * Structural layered-client surface — avoid `AthenaClient` generics (TS2589).
+ *
+ * `withContext` must return an opaque value. Comparing the full request-client
+ * database surface (db.delete table unions, findMany, model registries) against
+ * an unparameterized `AthenaClient` rejects strongly typed roots and can
+ * explode into TS2589. The implementation casts the opaque result internally.
  */
-export type AthenaLayeredServerConfig<
-  TModels extends AthenaClientModelsInput | undefined = undefined,
-> = AthenaBaseServerOptions & {
-  client: AthenaClient<TModels>;
+export type AthenaLayeredServerClient = {
+  withContext: (context: AthenaRequestContext) => unknown;
+};
+
+/**
+ * Layer a request view over an existing root client (P12).
+ */
+export type AthenaLayeredServerConfig = AthenaBaseServerOptions & {
+  client: AthenaLayeredServerClient;
 };
 
 /**
@@ -192,7 +202,7 @@ export type AthenaServerClientConfig<
   | AthenaExplicitServerConfig<TModels>
   | AthenaEnvironmentServerConfig<TModels>
   | AthenaLocalDatabaseServerConfig<TModels>
-  | AthenaLayeredServerConfig<TModels>;
+  | AthenaLayeredServerConfig;
 
 function isAthenaClientInstance(
   value: unknown
@@ -219,7 +229,9 @@ function isAthenaClientInstance(
  */
 export async function createAthenaServerClient<
   const TModels extends AthenaClientModelsInput | undefined = undefined,
->(options: AthenaServerClientConfig<TModels>): Promise<AthenaClient<TModels>> {
+>(
+  options: AthenaServerClientConfig<TModels>
+): Promise<AthenaRequestClient<AthenaClient<TModels>>> {
   const {
     requestHeaders,
     requestCookies,
@@ -230,6 +242,17 @@ export async function createAthenaServerClient<
     ...clientConfig
   } = options;
 
+  if (
+    !isAthenaClientInstance((options as { client?: unknown }).client) &&
+    "databaseUrl" in options &&
+    !isNodeProductionEnv()
+  ) {
+    console.warn(
+      "[athena] createAthenaServerClient({ databaseUrl }) constructs a request façade, not the process root. " +
+        "Create the root with createClient({ databaseUrl }) from @xylex-group/athena/server and pass { client: root }."
+    );
+  }
+
   if (isAthenaClientInstance((options as { client?: unknown }).client)) {
     const resolved = await resolveAthenaServerContext({
       forceNoCache,
@@ -239,9 +262,11 @@ export async function createAthenaServerClient<
       scope,
       session,
     });
-    return (options as AthenaLayeredServerConfig<TModels>).client.withContext(
+    // Default layered client is unparameterized; TModels overlap fails
+    // (withTransaction contravariance) and can recurse (TS2589).
+    return (options as AthenaLayeredServerConfig).client.withContext(
       resolved.request
-    );
+    ) as unknown as AthenaRequestClient<AthenaClient<TModels>>;
   }
 
   const resolved = await resolveAthenaServerContext({
@@ -270,9 +295,24 @@ export async function createAthenaServerClient<
   const factory = createClient as unknown as (
     c: AthenaClientConfig<TModels>
   ) => AthenaClient<TModels>;
-  return factory(config as AthenaClientConfig<TModels>);
+  // Unique-symbol brand is compile-time only; the constructed client has no
+  // runtime field that overlaps AthenaRequestClientBrand.
+  return factory(config as AthenaClientConfig<TModels>) as unknown as AthenaRequestClient<
+    AthenaClient<TModels>
+  >;
 }
 
+export type {
+  AthenaRequestClient,
+  AthenaRequestClientBrand,
+  AthenaRootClient,
+  AthenaRootClientBrand,
+} from "../client-brands.ts";
+export {
+  AthenaRuntimeOwnershipError,
+  getAthenaRuntimeDiagnostics,
+} from "../runtime/client-internals.ts";
+export type { AthenaRuntimeDiagnostics } from "../runtime/client-internals.ts";
 export {
   type AthenaDataHandlers,
   type AthenaNextHandlers,

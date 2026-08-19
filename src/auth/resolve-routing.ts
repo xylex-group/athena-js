@@ -590,6 +590,50 @@ export function toAthenaAuthDiagnostics(
   };
 }
 
+/**
+ * Thin extract of explicit `auth.routing` / `auth.url` / `auth: false`.
+ * Does not infer embedded Auth or invent Next discovery endpoints.
+ */
+export function resolveExplicitAuthRouting(
+  auth?:
+    | false
+    | {
+        credentials?: AthenaAuthCredentials;
+        routing?: AthenaAuthRoutingIntent;
+        upstreamUrl?: string | null;
+        url?: string | null;
+      }
+    | null
+): ResolvedAthenaAuthRouting | undefined {
+  if (auth === false || auth == null || typeof auth !== "object") {
+    return undefined;
+  }
+  if (
+    auth.routing === "same-origin" ||
+    auth.routing === "direct" ||
+    auth.routing === "custom"
+  ) {
+    return resolveAthenaAuthRouting({
+      credentials: auth.credentials,
+      emitWarnings: false,
+      routing: auth.routing,
+      upstreamUrl: auth.upstreamUrl,
+      url: auth.url,
+    });
+  }
+  const explicitUrl = normalizeOptional(auth.url);
+  if (!explicitUrl) {
+    return undefined;
+  }
+  return resolveAthenaAuthRouting({
+    credentials: auth.credentials,
+    emitWarnings: false,
+    routing: "custom",
+    upstreamUrl: auth.upstreamUrl,
+    url: explicitUrl,
+  });
+}
+
 /** @internal re-export helper for path joins without policy */
 export function joinAuthPath(base: string, segment: string): string {
   const path = segment.replace(LEADING_SLASHES, "");

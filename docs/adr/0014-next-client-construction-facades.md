@@ -37,7 +37,7 @@ The earlier risk was **duplicate materializers**, not **multiple public entrypoi
 
 | Entrypoint | Contract |
 | --- | --- |
-| `createAthenaBrowserClient(config)` from `@xylex-group/athena/next/client` | Synchronous. Requires explicit `url` and `key`. Omits `env` and `context` from its public config type. No caching. Calls `createClient(config)`. |
+| `createClient(config)` / `createAthenaBrowserClient(config)` from `@xylex-group/athena/next/client` | Synchronous. Hosted path requires explicit `url` and `key`. Local Runtime uses `topology.discover: "next"` (ADR 0020) and may omit them. Omits `env` and `context` from its public config type. No caching. Delegates to the browser-safe `createClient`. |
 | `createAthenaServerClient(options)` from `@xylex-group/athena/next/server` | Asynchronous. Accepts flat client config plus Next request options and optional session. Requires either explicit `{ url, key }` or `{ env }`. Resolves request context (and session identity) on every invocation, merges with any configured context, then calls `createClient`. |
 
 ### Still forbidden

@@ -1,5 +1,20 @@
+import type { AthenaRootClientBrand } from "../client-brands.ts";
+import { athenaAuthConfig } from "../auth/config.ts";
+import { AthenaConfigurationError } from "../config/errors.ts";
+import type {
+  AthenaRuntimeDiscoveryAuthAvailability,
+  AthenaRuntimeDiscoveryDocument,
+} from "../gateway/discovery-types.ts";
+import { ATHENA_NEXT_RUNTIME_PROTOCOL } from "../gateway/protocol.ts";
 import { handleAthenaGatewayRequest } from "../gateway/server/adapter.ts";
-import { requireAthenaRootClientInternals } from "../runtime/client-internals.ts";
+import {
+  type AthenaClientInternals,
+  requireAthenaRootClientInternals,
+} from "../runtime/client-internals.ts";
+import {
+  DEFAULT_ATHENA_NEXT_AUTH_ENDPOINT,
+  DEFAULT_ATHENA_NEXT_DATA_ENDPOINT,
+} from "../runtime/data/discovery-document.ts";
 import { runtimeConfigError } from "../runtime/data/errors.ts";
 import { createAthenaServerRuntime } from "../runtime/data/runtime.ts";
 import type {
@@ -8,8 +23,11 @@ import type {
   CreateAthenaServerRuntimeConfig,
 } from "../runtime/data/types.ts";
 import { resolveDatabaseUri } from "../runtime/resolve.ts";
-/** Structural root-client surface — avoid `AthenaClient` generics (TS2589). */
-export interface AthenaRootClientForHandlers {
+/**
+ * Structural root-client surface — avoid `AthenaClient` generics (TS2589).
+ * The brand rejects `withContext` / `createAthenaServerClient` views at compile time.
+ */
+export interface AthenaRootClientForHandlers extends AthenaRootClientBrand {
   auth?: {
     handlers?: AthenaNextHandlers["auth"];
   };
@@ -19,6 +37,7 @@ export interface AthenaRootClientForHandlers {
 export interface CreateAthenaDataHandlersFromClient {
   auth?: CreateAthenaServerRuntimeConfig["auth"];
   client: AthenaRootClientForHandlers;
+  discoveryDocument?: CreateAthenaServerRuntimeConfig["discoveryDocument"];
   http?: boolean | AthenaRuntimeHttpSecurity;
   limits?: CreateAthenaServerRuntimeConfig["limits"];
   modelEnforcement?: CreateAthenaServerRuntimeConfig["modelEnforcement"];
@@ -101,8 +120,10 @@ function deriveRuntimeConfigFromRoot(
       ? internals.gatewayTransport
       : undefined;
   if (!(transport || databaseUrl)) {
-    throw runtimeConfigError(
-      "createAthenaDataHandlers({ client }) requires a root client with a local database transport (databaseUrl / db.pgUri)."
+    throw new AthenaConfigurationError(
+      "ATHENA_LOCAL_RUNTIME_REQUIRED",
+      "createAthenaDataHandlers({ client }) requires a root client with a local database transport (databaseUrl / db.pgUri).",
+      "db"
     );
   }
 
@@ -160,6 +181,70 @@ function deriveRuntimeConfigFromRoot(
     ...(options.unsafeAllowUnauthenticated === true
       ? { unsafeAllowUnauthenticated: true }
       : {}),
+    ...(options.discoveryDocument
+      ? { discoveryDocument: options.discoveryDocument }
+      : {}),
+  };
+}
+
+function isAbsoluteHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** Advertise Auth from the resolved plan + explicit routing on the root. */
+function advertiseAuthFromRootPlan(
+  internals: AthenaClientInternals,
+  client: AthenaRootClientForHandlers
+): AthenaRuntimeDiscoveryAuthAvailability & { endpoint?: string } {
+  const runtime = internals.plan.auth.runtime;
+  if (runtime === "disabled") {
+    return { available: false };
+  }
+  if (runtime === "embedded") {
+    return {
+      available: true,
+      endpoint: DEFAULT_ATHENA_NEXT_AUTH_ENDPOINT,
+      transport: "same-origin",
+    };
+  }
+  const auth = athenaAuthConfig(internals.config.auth);
+  const routing = auth?.routing;
+  const explicitUrl = auth?.url?.trim();
+  if (routing === "same-origin") {
+    return {
+      available: true,
+      endpoint: DEFAULT_ATHENA_NEXT_AUTH_ENDPOINT,
+      transport: "same-origin",
+    };
+  }
+  if (explicitUrl && isAbsoluteHttpUrl(explicitUrl)) {
+    return { available: true, transport: "remote" };
+  }
+  if ((client.auth as { handlers?: unknown } | undefined)?.handlers) {
+    return {
+      available: true,
+      endpoint: DEFAULT_ATHENA_NEXT_AUTH_ENDPOINT,
+      transport: "same-origin",
+    };
+  }
+  return { available: false };
+}
+
+function createUnavailableAuthHandlers(): AthenaNextHandlers["auth"] {
+  const handle = async (): Promise<Response> =>
+    new Response(JSON.stringify({ error: "ATHENA_AUTH_NOT_AVAILABLE" }), {
+      headers: { "content-type": "application/json" },
+      status: 404,
+    });
+  return {
+    DELETE: handle,
+    GET: handle,
+    POST: handle,
   };
 }
 
@@ -203,15 +288,55 @@ export function createAthenaDataHandlers(
 export function createAthenaNextHandlers(
   config: CreateAthenaNextHandlersConfig
 ): AthenaNextHandlers {
-  const auth = (config.client.auth as { handlers?: AthenaNextHandlers["auth"] })
-    .handlers;
-  if (!auth) {
-    throw runtimeConfigError(
-      "createAthenaNextHandlers({ client }) requires root-client auth.handlers. Pass a Node createClient root with embedded or remote Auth."
-    );
-  }
+  const internals = requireAthenaRootClientInternals(
+    config.client,
+    "createAthenaNextHandlers({ client })"
+  );
+  const advertised = advertiseAuthFromRootPlan(internals, config.client);
+  const existing = (
+    config.client.auth as { handlers?: AthenaNextHandlers["auth"] } | undefined
+  )?.handlers;
+  const auth = existing ?? createUnavailableAuthHandlers();
+  const discoveryDocument: AthenaRuntimeDiscoveryDocument = {
+    athena: true,
+    capabilities: {
+      auth: advertised.available
+        ? {
+            available: true,
+            ...(advertised.transport
+              ? { transport: advertised.transport }
+              : {}),
+          }
+        : { available: false },
+      data: true,
+      delete: true,
+      fetch: true,
+      insert: true,
+      models: "off",
+      nestedRelations: false,
+      policy: false,
+      rawSql: false,
+      rpc: false,
+      update: true,
+    },
+    endpoints: {
+      data: DEFAULT_ATHENA_NEXT_DATA_ENDPOINT,
+      ...(advertised.available && advertised.endpoint
+        ? { auth: advertised.endpoint }
+        : {}),
+    },
+    protocol: {
+      major: ATHENA_NEXT_RUNTIME_PROTOCOL.major,
+      minor: ATHENA_NEXT_RUNTIME_PROTOCOL.minor,
+    },
+    runtime: "next-local",
+    runtimeImplementation: "athena-js",
+  };
   return {
     auth,
-    data: createAthenaDataHandlers(config),
+    data: createAthenaDataHandlers({
+      ...config,
+      discoveryDocument,
+    }),
   };
 }

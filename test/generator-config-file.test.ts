@@ -6,12 +6,15 @@ import { test } from "node:test";
 import {
   detectGeneratorProviderMode,
   ensureGeneratorConfigFile,
+  formatSchemaFallbackMessages,
   mergeSchemaSelections,
   normalizeDiscoveredSchemas,
   patchSchemasInConfigSource,
   renderGeneratorConfigFile,
+  resolveGeneratorDatabaseAuthority,
   schemasEqual,
 } from "../src/generator/index.ts";
+import type { GeneratorProviderConfig } from "../src/generator/types.ts";
 
 test("renderGeneratorConfigFile emits modern direct template with generatorEnv secrets", () => {
   const content = renderGeneratorConfigFile({
@@ -305,6 +308,182 @@ test("ensureGeneratorConfigFile dry-run does not write files", async () => {
     }
     assert.equal(exists, false);
   } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("formatSchemaFallbackMessages states public is not a live discovery result", () => {
+  const lines = formatSchemaFallbackMessages({
+    discoveryError: "no PostgreSQL connection could be resolved.",
+    expectedLiveSchemas: ["public", "athena"],
+    schemas: ["public"],
+  });
+  const text = lines.join("\n");
+  assert.match(text, /Schema discovery unavailable/);
+  assert.match(text, /fallback schemas: public/);
+  assert.match(text, /NOT discovered from the database/);
+  assert.match(text, /athena-js init/);
+  assert.match(text, /Expected live schemas may include/);
+  assert.match(text, /^\s+athena$/m);
+});
+
+test("ensureGeneratorConfigFile marks missing connection as fallback provenance, not discovery", async () => {
+  const root = mkdtempSync(
+    join(tmpdir(), "athena-generator-config-ensure-fallback-")
+  );
+  const previous = {
+    ATHENA_API_KEY: process.env.ATHENA_API_KEY,
+    ATHENA_GENERATOR_PG_URL: process.env.ATHENA_GENERATOR_PG_URL,
+    ATHENA_URL: process.env.ATHENA_URL,
+    DATABASE_URL: process.env.DATABASE_URL,
+    PG_URL: process.env.PG_URL,
+    POSTGRESQL_URL: process.env.POSTGRESQL_URL,
+    POSTGRES_URL: process.env.POSTGRES_URL,
+  };
+
+  try {
+    for (const key of Object.keys(previous)) {
+      delete process.env[key];
+    }
+
+    const result = await ensureGeneratorConfigFile({
+      cwd: root,
+      discoverSchemas: true,
+      dryRun: true,
+      mode: "direct",
+    });
+
+    assert.equal(result.action, "created");
+    assert.equal(result.schemaProvenance, "fallback");
+    assert.deepEqual(result.schemas, ["public"]);
+    assert.ok(result.discoveryError);
+    const changesText = result.changes.join("\n");
+    assert.match(changesText, /NOT discovered from the database/);
+    assert.match(changesText, /fallback schemas: public/);
+    assert.match(
+      result.content ?? "",
+      /schemas:\s*\[\s*\n\s*"public",\s*\n\s*\]/
+    );
+    assert.doesNotMatch(
+      result.content ?? "",
+      /schemas:\s*\[[^\]]*"athena"[^\]]*\]/
+    );
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("ensureGeneratorConfigFile discovers public+athena via shared authority after migrate-like .env", async () => {
+  const root = mkdtempSync(
+    join(tmpdir(), "athena-generator-config-ensure-discover-")
+  );
+  const previous = {
+    ATHENA_GENERATOR_PG_URL: process.env.ATHENA_GENERATOR_PG_URL,
+    DATABASE_URL: process.env.DATABASE_URL,
+    PG_URL: process.env.PG_URL,
+    POSTGRESQL_URL: process.env.POSTGRESQL_URL,
+    POSTGRES_URL: process.env.POSTGRES_URL,
+  };
+
+  try {
+    for (const key of Object.keys(previous)) {
+      delete process.env[key];
+    }
+
+    // Mimic a successful migrate: connection only in project env files, not shell.
+    writeFileSync(
+      join(root, ".env.local"),
+      "DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db\n",
+      "utf8"
+    );
+
+    const result = await ensureGeneratorConfigFile({
+      cwd: root,
+      discoverSchemas: true,
+      discoverSchemasImpl: async (provider: GeneratorProviderConfig) => {
+        assert.equal(provider.kind, "postgres");
+        assert.equal(provider.mode, "direct");
+        if (provider.mode === "direct") {
+          assert.match(provider.connectionString, /127\.0\.0\.1:5432\/app_db/);
+        }
+        return ["public", "athena"];
+      },
+      dryRun: true,
+      mode: "direct",
+    });
+
+    assert.equal(result.schemaProvenance, "discovered");
+    // Keep discovery order from the catalog seam.
+    assert.deepEqual(result.schemas, ["public", "athena"]);
+    assert.equal(result.content?.includes('"public"'), true);
+    assert.equal(result.content?.includes('"athena"'), true);
+    assert.equal(
+      result.changes.some((line) => line.startsWith("schemas-discovered:")),
+      true
+    );
+    assert.equal(
+      result.changes.some((line) => line.includes("NOT discovered")),
+      false
+    );
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("resolveGeneratorDatabaseAuthority reuses .env connection the same way migrate does", () => {
+  const root = mkdtempSync(
+    join(tmpdir(), "athena-generator-authority-env-")
+  );
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  delete process.env.DATABASE_URL;
+
+  try {
+    writeFileSync(
+      join(root, ".env"),
+      "DATABASE_URL=postgres://postgres:secret@127.0.0.1:5432/migrated_db\n",
+      "utf8"
+    );
+
+    const authority = resolveGeneratorDatabaseAuthority({
+      cwd: root,
+      mode: "direct",
+    });
+
+    try {
+      assert.equal(authority.source, "environment-probe");
+      assert.equal(authority.mode, "direct");
+      assert.equal(authority.provider.kind, "postgres");
+      if (authority.provider.kind === "postgres" && authority.provider.mode === "direct") {
+        assert.match(
+          authority.provider.connectionString,
+          /127\.0\.0\.1:5432\/migrated_db/
+        );
+      }
+    } finally {
+      authority.restoreEnv();
+    }
+
+    assert.equal(process.env.DATABASE_URL, undefined);
+  } finally {
+    if (previousDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = previousDatabaseUrl;
+    }
     rmSync(root, { force: true, recursive: true });
   }
 });

@@ -131,11 +131,15 @@ export function toSafeIdentifier(
   );
 }
 
+/**
+ * Render an object/type property key.
+ *
+ * Quotes only when the name is not a valid ECMAScript IdentifierName.
+ * Reserved words such as `public` stay unquoted — they are legal as property
+ * names in object literals and type members (unlike bare binding identifiers).
+ */
 export function escapeTypePropertyName(propertyName: string): string {
-  if (
-    IDENTIFIER_PATTERN.test(propertyName) &&
-    !RESERVED_IDENTIFIERS.has(propertyName)
-  ) {
+  if (IDENTIFIER_PATTERN.test(propertyName)) {
     return propertyName;
   }
   return `'${propertyName.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;

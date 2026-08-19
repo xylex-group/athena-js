@@ -34,7 +34,7 @@ test("live PG: insert / select / update / delete smoke", live, async () => {
       name text
     )
   `);
-  assert.equal(setup.error, undefined, String(setup.error ?? ""));
+  assert.equal(setup.error, null, String(setup.error ?? ""));
 
   const id = randomUUID();
   const email = `smoke-${id.slice(0, 8)}@example.com`;
@@ -43,14 +43,14 @@ test("live PG: insert / select / update / delete smoke", live, async () => {
     .from("athena_pg_direct_smoke")
     .insert({ id, email, name: "Ada" })
     .select("id,email,name");
-  assert.equal(inserted.error, undefined, String(inserted.error ?? ""));
+  assert.equal(inserted.error, null, String(inserted.error ?? ""));
   assert.ok(inserted.data);
 
   const found = await client
     .from("athena_pg_direct_smoke")
     .eq("email", email)
     .select("id,email,name");
-  assert.equal(found.error, undefined, String(found.error ?? ""));
+  assert.equal(found.error, null, String(found.error ?? ""));
   assert.ok(Array.isArray(found.data));
   assert.equal((found.data as { email: string }[])[0]?.email, email);
 
@@ -59,11 +59,11 @@ test("live PG: insert / select / update / delete smoke", live, async () => {
     .eq("id", id)
     .update({ name: "Grace" })
     .select("name");
-  assert.equal(updated.error, undefined, String(updated.error ?? ""));
+  assert.equal(updated.error, null, String(updated.error ?? ""));
 
   const deleted = await client
     .from("athena_pg_direct_smoke")
     .eq("id", id)
     .delete();
-  assert.equal(deleted.error, undefined, String(deleted.error ?? ""));
+  assert.equal(deleted.error, null, String(deleted.error ?? ""));
 });

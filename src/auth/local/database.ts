@@ -27,6 +27,13 @@ export function assertQueryResult<T = Record<string, unknown>>(
   value: unknown,
   context: string
 ): AthenaAuthQueryResult<T> {
+  if (Array.isArray(value)) {
+    return {
+      rowCount: value.length,
+      rows: value as T[],
+    };
+  }
+
   if (value === null || value === undefined || typeof value !== "object") {
     throw new AthenaAuthRuntimeError(
       500,

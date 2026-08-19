@@ -476,15 +476,8 @@ export default {
             401
           );
         }
-        // withContext sets hybrid identity headers; D1 isolation is your WHERE.
-        const scoped = (
-          athena as {
-            withContext: (ctx: {
-              userId?: string;
-              organizationId?: string | null;
-            }) => typeof athena;
-          }
-        ).withContext({ organizationId, userId });
+        // withContext returns a request view (not the root client).
+        const scoped = athena.withContext({ organizationId, userId });
         const notes = await scoped.query(
           "SELECT id, body, created_at FROM notes WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
           { params: [userId] }

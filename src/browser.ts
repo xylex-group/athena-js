@@ -112,6 +112,12 @@ export { normalizeAthenaGatewayBaseUrl } from "./gateway/url.ts";
 export { generatorEnv } from "./generator/env.ts";
 export { resolvePostgresColumnType } from "./generator/postgres-type-mapping.ts";
 export {
+  GENERATED_FILE_BANNER,
+  renderGeneratedFileHeader,
+  stripGeneratedFileHeader,
+  withGeneratedFileBanner,
+} from "./generator/render-shared.ts";
+export {
   DEFAULT_POSTGRES_SCHEMAS,
   normalizeSchemaSelection,
   resolveProviderSchemas,
@@ -500,6 +506,43 @@ export function resolveGeneratorProvider(
   void providerConfig;
   void experimentalFlags;
   return throwBrowserUnsupported("resolveGeneratorProvider");
+}
+
+export function applyGeneratorProjectEnv(cwd: string): () => void {
+  void cwd;
+  return throwBrowserUnsupported("applyGeneratorProjectEnv");
+}
+
+export function detectAuthorityMode(
+  preferred: "direct" | "gateway" | "auto" = "auto"
+): "direct" | "gateway" {
+  void preferred;
+  return throwBrowserUnsupported("detectAuthorityMode");
+}
+
+export function formatSchemaFallbackMessages(options: {
+  discoveryError?: string;
+  schemas: readonly string[];
+  expectedLiveSchemas?: readonly string[];
+}): string[] {
+  void options;
+  return throwBrowserUnsupported("formatSchemaFallbackMessages");
+}
+
+export function resolveGeneratorDatabaseAuthority(options: {
+  applyProjectEnv?: boolean;
+  cwd?: string;
+  loaded?: LoadedGeneratorConfig;
+  mode?: "direct" | "gateway" | "auto";
+  provider?: GeneratorProviderConfig;
+}): {
+  mode: "direct" | "gateway";
+  provider: GeneratorProviderConfig;
+  restoreEnv: () => void;
+  source: "explicit-provider" | "loaded-config" | "environment-probe";
+} {
+  void options;
+  return throwBrowserUnsupported("resolveGeneratorDatabaseAuthority");
 }
 
 export async function runSchemaGenerator(

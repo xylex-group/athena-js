@@ -327,8 +327,18 @@ export interface RunGeneratorOptions {
 export interface GeneratorConfigEnsureSummary {
   action: "created" | "updated" | "unchanged" | "skipped";
   changes: string[];
+  discoveryError?: string;
   path: string;
   reason?: string;
+  /**
+   * How schemas were chosen: live discovery, existing config, explicit input,
+   * or fallback defaults (not a successful catalog read).
+   */
+  schemaProvenance?:
+    | "discovered"
+    | "configured"
+    | "explicit"
+    | "fallback";
   schemas: string[];
 }
 

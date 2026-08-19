@@ -1,0 +1,9 @@
+{
+  "name": "athena-package-consumer-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Node consumer of packed @xylex-group/athena from .tmp/packages/*.tgz",
+  "dependencies": {
+    "@xylex-group/athena": "file:../../../.tmp/packages/xylex-group-athena.tgz"
+  }
+}

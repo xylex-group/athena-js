@@ -1,6 +1,4 @@
-const ignoreDeprecations = (
-  globalThis as { process?: { env?: Record<string, string | undefined> } }
-).process?.env?.ATHENA_TSUP_IGNORE_DEPRECATIONS;
+const ignoreDeprecations = process.env.ATHENA_TSUP_IGNORE_DEPRECATIONS;
 
 export default {
   clean: true,
@@ -29,6 +27,7 @@ export default {
     index: "src/index.ts",
     "next/client": "src/next/client.ts",
     "next/server": "src/next/server.ts",
+    server: "src/server.ts",
     runtime: "src/runtime/data/index.ts",
     organization: "src/organization/index.ts",
     policy: "src/policy/index.ts",

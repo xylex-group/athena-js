@@ -57,18 +57,18 @@ export const linear = (options: LinearOptions) => {
         {
           body: JSON.stringify({
             query: `
-							query {
-								viewer {
-									id
-									name
-									email
-									avatarUrl
-									active
-									createdAt
-									updatedAt
-								}
-							}
-						`,
+              query {
+                viewer {
+                  id
+                  name
+                  email
+                  avatarUrl
+                  active
+                  createdAt
+                  updatedAt
+                }
+              }
+            `,
           }),
           headers: {
             Authorization: `Bearer ${token.accessToken}`,

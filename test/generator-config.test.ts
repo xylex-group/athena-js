@@ -418,6 +418,11 @@ test("loadGeneratorConfig builds a gateway postgres config from environment when
     ["ATHENA_GENERATOR_DB", process.env.ATHENA_GENERATOR_DB],
     ["ATHENA_GENERATOR_SCHEMAS", process.env.ATHENA_GENERATOR_SCHEMAS],
     ["ATHENA_GENERATOR_BACKEND", process.env.ATHENA_GENERATOR_BACKEND],
+    // Ambient direct-mode URLs must not steal gateway env-only resolution.
+    ["ATHENA_GENERATOR_PG_URL", process.env.ATHENA_GENERATOR_PG_URL],
+    ["DATABASE_URL", process.env.DATABASE_URL],
+    ["PG_URL", process.env.PG_URL],
+    ["POSTGRES_URL", process.env.POSTGRES_URL],
   ]);
 
   delete process.env.ATHENA_URL;
@@ -425,6 +430,10 @@ test("loadGeneratorConfig builds a gateway postgres config from environment when
   delete process.env.ATHENA_GENERATOR_DB;
   delete process.env.ATHENA_GENERATOR_SCHEMAS;
   delete process.env.ATHENA_GENERATOR_BACKEND;
+  delete process.env.ATHENA_GENERATOR_PG_URL;
+  delete process.env.DATABASE_URL;
+  delete process.env.PG_URL;
+  delete process.env.POSTGRES_URL;
 
   try {
     writeFileSync(

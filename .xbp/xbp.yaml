@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/xylex-group/xbp-mirrors/refs/heads/main/xbp.project.schema.json
 project_name: athena-js
-version: 5.1.0
+version: 5.1.2
 port: 3000
 build_dir: ./
 app_type: nodejs
@@ -9,10 +9,10 @@ start_command: docker run -d --rm --name xbp-athena-js -p 80:80 -e PORT xbp-athe
 install_command: null
 environment:
   ATHENA_CLIENT_E2E: "${ATHENA_CLIENT_E2E}"
-  ATHENA_API_KEY: "${ATHENA_API_KEY}"
-  ATHENA_URL: "${ATHENA_URL}"
-  ATHENA_CLIENT: "${ATHENA_CLIENT}"
   NPM_CONFIG_TOKEN: "${NPM_CONFIG_TOKEN}"
+  ATHENA_API_KEY: "${ATHENA_API_KEY}"
+  ATHENA_CLIENT: "${ATHENA_CLIENT}"
+  ATHENA_URL: "${ATHENA_URL}"
   ATHENA_URL_E2E: "${ATHENA_URL_E2E}"
 services:
 - name: athena-js
@@ -21,8 +21,8 @@ services:
   port: 80
   root_directory: ./
   environment:
-    NPM_CONFIG_TOKEN: "${NPM_CONFIG_TOKEN}"
     NPM_TOKEN: "${NPM_TOKEN}"
+    NPM_CONFIG_TOKEN: "${NPM_CONFIG_TOKEN}"
   url: null
   healthcheck_path: null
   restart_policy: on_failure
