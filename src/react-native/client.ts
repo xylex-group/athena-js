@@ -9,6 +9,9 @@ import {
   type AthenaRequestContextProvider,
   assertDirectPostgresRequiresNodeRuntime,
   assertLocalAuthRequiresNodeRuntime,
+  assertLocalChatRequiresNodeRuntime,
+  assertLocalStorageRequiresNodeRuntime,
+  assertS3StorageRequiresNodeRuntime,
   createClient as createUniversalClient,
 } from "../v3-client-core.ts";
 import { resolveReactNativeRequestContext } from "./runtime.ts";
@@ -87,8 +90,9 @@ export function createReactNativeClient<
     });
   };
 
+  const chatObject = typeof chat === "object" && chat ? chat : undefined;
   const resolvedWs = resolveReactNativeWebSocketFactory(
-    webSocketFactory ?? chat?.webSocketFactory,
+    webSocketFactory ?? chatObject?.webSocketFactory,
   );
 
   const nextAuth: AthenaClientConfig<TModels>["auth"] =
@@ -100,10 +104,15 @@ export function createReactNativeClient<
           ...(fetchImpl ? { fetch: fetchImpl } : {}),
         };
 
-  const nextChat = {
-    ...chat,
-    ...(resolvedWs ? { webSocketFactory: resolvedWs } : {}),
-  };
+  const nextChat =
+    chat === false
+      ? false
+      : chat === true && !resolvedWs
+        ? true
+        : {
+            ...(chatObject ?? {}),
+            ...(resolvedWs ? { webSocketFactory: resolvedWs } : {}),
+          };
 
   // Nuclear cast: same pattern as createCloudflareClient / createClient body (TS2589).
   const nextConfig = {
@@ -114,6 +123,9 @@ export function createReactNativeClient<
   };
   assertDirectPostgresRequiresNodeRuntime(nextConfig);
   assertLocalAuthRequiresNodeRuntime(nextConfig);
+  assertLocalChatRequiresNodeRuntime(nextConfig);
+  assertLocalStorageRequiresNodeRuntime(nextConfig);
+  assertS3StorageRequiresNodeRuntime(nextConfig);
   const client = (createUniversalClient as (c: unknown) => unknown)(
     nextConfig,
   );
@@ -132,6 +144,9 @@ export function createClient<
 >(config: AthenaClientConfig<TModels>): AthenaClient<TModels> {
   assertDirectPostgresRequiresNodeRuntime(config);
   assertLocalAuthRequiresNodeRuntime(config);
+  assertLocalChatRequiresNodeRuntime(config);
+  assertLocalStorageRequiresNodeRuntime(config);
+  assertS3StorageRequiresNodeRuntime(config);
   const factory = createUniversalClient as unknown as (
     c: unknown,
   ) => unknown;

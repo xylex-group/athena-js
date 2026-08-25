@@ -18,7 +18,7 @@ import { assertBrowserPolicyProfile, resolveAthenaRuntimeHttpProfile } from "./h
 import {
   authModeFromMaterial,
   normalizeAthenaRuntimeAuth,
-} from "./resolve-principal.ts";
+} from "../authority/index.ts";
 import type {
   AthenaRuntimeCapabilities,
   AthenaRuntimeRequest,
@@ -76,6 +76,33 @@ function resolveTransportKind(
     return "postgres-direct";
   }
   return "injected";
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+function buildDevtoolsProduceInput(
+  config: CreateAthenaServerRuntimeConfig
+): Record<string, unknown> {
+  const extra = asRecord(config.devtoolsProduceInput);
+  const input: Record<string, unknown> = extra ? { ...extra } : {};
+  if (input.databaseUrl == null && config.databaseUrl) {
+    input.databaseUrl = config.databaseUrl;
+  }
+  if (input.db == null && config.db) {
+    input.db = config.db;
+  }
+  if (input.models == null && config.models != null) {
+    input.models = config.models;
+  }
+  if (input.auth == null && config.auth) {
+    input.auth = config.auth;
+  }
+  return input;
 }
 
 export function createAthenaServerRuntime(
@@ -175,11 +202,13 @@ export function createAthenaServerRuntime(
       return executeAthenaRequest(runtime, request, context);
     },
     modelIndex,
+    ...(config.lifecycle ? { lifecycle: config.lifecycle } : {}),
     ...(config.onExecutionEvent
       ? { onExecutionEvent: config.onExecutionEvent }
       : {}),
     rpcExpose,
     transport,
+    devtoolsProduceInput: buildDevtoolsProduceInput(config),
   };
 
   return runtime;

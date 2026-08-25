@@ -2,7 +2,7 @@
 
 This section documents the storage surface that is currently exposed by `@xylex-group/athena`.
 
-The JavaScript SDK has three storage layers to be aware of:
+The JavaScript SDK has five storage layers to be aware of:
 
 - `client.storage.*`: the stable managed-storage SDK namespace in this package
   (`catalog`, `file`, `folder`, `permission`, `object`, `bucket`, `multipart`,
@@ -14,6 +14,17 @@ The JavaScript SDK has three storage layers to be aware of:
 - **Edge-local R2 (Workers):** `createCloudflareClient({ r2 })` exposes L3a
   `putObject` / `getObject` / `deleteObject` / `listObjects` on the binding —
   no catalogs/backups. See [cloudflare-edge-local.md](../cloudflare-edge-local.md).
+- **Embedded local ObjectStore (trusted Node):**
+  `createClient({ storage: { provider: "local", root } })` from
+  `@xylex-group/athena` / `@xylex-group/athena/server`. Bytes live under `root`
+  via `athena.storage.file.*` with **no** Athena catalog, `connectionId`, or
+  `s3_id`. ADR [0027](../adr/0027-embedded-storage-runtime.md).
+- **Embedded Direct S3 (trusted Node):**
+  `createClient({ storage: { provider: "s3", bucket, prefix?, s3 } })`.
+  `s3` is an injected duck-typed object client (`getObject` / `putObject` /
+  `headObject` / `deleteObject` / `listObjectsV2`). Athena JS does not add
+  `@aws-sdk` or read `AWS_*`. No `createStorageClient`. ADR
+  [0057](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0057-athena-js-direct-s3-storage-provider.md).
 
 ## Auth, API keys, and session headers
 
@@ -44,7 +55,66 @@ Full cookbook: [`request-headers-and-auth-examples.md`](../request-headers-and-a
 
 ## Configure the SDK storage namespace
 
-Every client includes `.storage`. Configure `storage.url` or a unified `url` before invoking storage operations.
+Every client includes `.storage`. Configure **one** execution backend: HTTP (`storage.url` / unified `url`), R2 (`storage.r2`), local Node (`storage.provider: "local"` + `root`), or Direct S3 (`storage.provider: "s3"` + `bucket` + injected `s3`). Combining S3 or local with `storage.url` or `storage.r2` (or S3 with local) fails at construction (`ATHENA_RUNTIME_CONFIG_INVALID`; ADR [0029](../adr/0029-runtime-plan-and-materializers.md) / monorepo [0049](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0049-athena-js-runtime-plan.md) / [0057](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0057-athena-js-direct-s3-storage-provider.md)). Do not add a second public factory.
+
+### Local ObjectStore (trusted Node)
+
+Catalog-optional. Import from the Node/server entry so `node:fs` never enters the browser graph. Browser / React Native / Next client entries throw `ATHENA_STORAGE_LOCAL_NODE_REQUIRED`.
+
+```ts
+import { createClient } from "@xylex-group/athena"
+
+const athena = createClient({
+  storage: { provider: "local", root: "./.athena-storage" },
+})
+
+await athena.storage.file.upload({
+  files: new TextEncoder().encode("hello"),
+  storage_key: "docs/notes.txt",
+})
+const bytes = await athena.storage.file.get("docs/notes.txt")
+await athena.storage.file.head({ storage_key: "docs/notes.txt" })
+await athena.storage.file.list({ prefix: "docs" })
+await athena.storage.file.delete("docs/notes.txt")
+```
+
+- Keys reject `..`, NUL, absolute paths, and Windows drive letters. Resolve only under `root`.
+- Presign (`object.uploadUrl` / `object.url`), retention, ACL/permissions, catalog CRUD, connections, and managed `files.upload` throw `ATHENA_STORAGE_CAPABILITY_UNSUPPORTED` (`AthenaStorageCapabilityError`). Never a fake URL.
+- Remote HTTP `file.upload` still requires `s3_id`; `files.upload` still requires `connectionId` on the server. Those gates are unchanged.
+- Request views (`withContext`) borrow the same adapter. View `close()` does not dispose root files.
+
+### Direct S3 (trusted Node)
+
+Catalog-optional in-process object I/O through Storage Runtime. Inject your AWS SDK v3 (or S3-compatible) client. Athena does not construct `S3Client` or read `AWS_ACCESS_KEY_ID`. Browser / React Native / Next client entries throw `ATHENA_STORAGE_S3_NODE_REQUIRED`.
+
+```ts
+import { createClient } from "@xylex-group/athena"
+
+const athena = createClient({
+  storage: {
+    provider: "s3",
+    bucket: "athena-objects",
+    prefix: "tenant-a",
+    s3: injectedS3Client,
+  },
+})
+
+await athena.storage.file.upload({
+  files: new TextEncoder().encode("hello"),
+  storage_key: "docs/notes.txt",
+})
+const bytes = await athena.storage.file.get("docs/notes.txt")
+```
+
+- Duck-typed client methods: `getObject`, `putObject`, `headObject`, `deleteObject`, `listObjectsV2`.
+- Missing object (`NoSuchKey` / 404) → `storage_file_not_found` (3005). SDK `SlowDown` / other noise → `storage_internal` (3010). **3007** remains “no StorageRuntime”, not S3 throttling.
+- Keys reject `..` and NUL. Configured `prefix` is joined on the physical key; listed keys are logical (prefix stripped).
+- Combining with local, R2, or `storage.url` throws `ATHENA_RUNTIME_CONFIG_INVALID`. Missing `bucket` or client same.
+- Managed catalog `createStorageCatalog({ provider: "s3" })` is unrelated HTTP control-plane registration.
+
+### HTTP / managed catalogs
+
+Configure `storage.url` or a unified `url` before invoking managed HTTP operations.
 
 ```ts
 import { AthenaStorageError, createClient } from "@xylex-group/athena"

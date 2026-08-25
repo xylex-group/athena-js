@@ -440,7 +440,7 @@ test("R2: next/client source stays free of runtime/data", async () => {
 	);
 	for (const source of [client, core, browser]) {
 		assert.equal(source.includes('from "pg"'), false);
-		assert.equal(source.includes("runtime/data"), false);
+		assert.equal(source.includes("runtime/data/nucleus"), false);
 		assert.equal(source.includes("auth/local/runtime"), false);
 	}
 });

@@ -281,6 +281,11 @@ request context can forward it; `createAthenaServerClient` still delegates to
    in cleartext.
 5. **Logout** — always pair `auth.signOut()` with `clearAthenaAuthSessionOnAppHost()`
    so the app-host cookie does not outlive the auth session.
+6. **Query strings** — never put the session bearer in `?token=`. App-host
+   navigation may use a single-use `bridge_code` (30s) exchanged for an
+   HttpOnly cookie. In-memory Bearer from `getSession()` for cross-origin
+   client calls is a remaining, explicit threat-model decision — do not persist
+   that token in web storage.
 
 ## Source layout
 

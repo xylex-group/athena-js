@@ -1,3 +1,4 @@
+import { parseSchemaTypeString } from "./diff/normalize.ts";
 import type {
   IntrospectionColumn,
   IntrospectionRelation,
@@ -385,6 +386,14 @@ export class PostgresCatalogSnapshotAssembler {
   addColumnRows(columnRows: ColumnQueryRow[], enumMap: Map<number, string[]>) {
     for (const row of columnRows) {
       const table = this.ensureTable(row.schema_name, row.table_name);
+      const parsedType = parseSchemaTypeString(
+        row.data_type,
+        row.array_dimensions ?? 0
+      );
+      const isExactNumeric =
+        parsedType.name === "numeric" || row.udt_name.toLowerCase() === "numeric" ||
+        row.udt_name.toLowerCase() === "decimal" ||
+        row.udt_name.toLowerCase() === "money";
       table.columns[row.column_name] = {
         arrayDimensions: row.array_dimensions ?? 0,
         dataType: row.data_type,
@@ -395,6 +404,12 @@ export class PostgresCatalogSnapshotAssembler {
         isNullable: row.is_nullable,
         isPrimaryKey: false,
         name: row.column_name,
+        ...(isExactNumeric
+          ? {
+              numericPrecision: parsedType.precision,
+              numericScale: parsedType.scale,
+            }
+          : {}),
         typeKind: toTypeKind(row.type_kind_code),
         udtName: row.udt_name,
       };

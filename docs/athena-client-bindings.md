@@ -96,6 +96,8 @@ If you want normal gateway/query requests to carry Athena Auth session or bearer
 - `client.auth.passkey.deletePasskey()` -> `POST /passkey/delete-passkey`
 - `client.auth.passkey.updatePasskey()` -> `POST /passkey/update-passkey`
 - `client.auth.passkey.getRelatedOrigins()` -> `GET /.well-known/webauthn`
+- `client.auth.passkey.register()` — browser ceremony (`generateRegisterOptions` → `credentials.create` → `verifyRegistration`)
+- `client.auth.passkey.signIn()` — browser ceremony (`generateAuthenticateOptions` → `credentials.get` → `verifyAuthentication`)
 
 ### Admin bindings
 
@@ -199,6 +201,11 @@ Legacy camelCase request aliases such as `templateKey`, `eventType`, `subjectTem
 - `client.auth.organization.hasPermission()` -> `POST /organization/has-permission`
 
 ### Storage bindings
+
+This table is the **HTTP** catalog/service surface only. Node
+`createClient({ storage: { provider: "local", root } })` executes
+`file.upload|get|head|delete|list` in-process and does **not** add or
+remove routes (ADR 0027).
 
 Route SSOT: `storageSdkManifest` METHOD+path entries match
 `contracts/storage/live-http-routes.json` (and the JS mirror

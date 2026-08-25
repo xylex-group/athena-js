@@ -154,7 +154,7 @@ export function corsHeadersForRequest(
   return {
     "access-control-allow-credentials": "true",
     "access-control-allow-headers":
-      "authorization, content-type, x-athena-request-id, x-request-id",
+      "authorization, content-type, x-athena-devtools, x-athena-request-id, x-athena-trace-id, x-request-id",
     "access-control-allow-methods": "DELETE, GET, OPTIONS, PATCH, POST",
     "access-control-allow-origin": incoming,
     vary: "Origin",

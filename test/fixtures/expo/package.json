@@ -1,0 +1,19 @@
+{
+  "name": "@xylex-group/athena-expo-fixture",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "node ./scripts/check-resolve.mjs && pnpm typecheck",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "bundle:check": "node ./scripts/check-resolve.mjs"
+  },
+  "dependencies": {
+    "@xylex-group/athena": "file:../../.."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
+    "typescript": "^5.3.3",
+    "ultracite": "^7.9.4"
+  }
+}

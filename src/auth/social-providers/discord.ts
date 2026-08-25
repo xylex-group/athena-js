@@ -1,6 +1,7 @@
 import { athenaFetch as betterFetch } from "../fetch.ts";
 import type { OAuthProvider, ProviderOptions } from "../oauth2/index.ts";
 import {
+  generateCodeChallenge,
   refreshAccessToken,
   validateAuthorizationCode,
 } from "../oauth2/index.ts";
@@ -84,7 +85,7 @@ export interface DiscordOptions extends ProviderOptions<DiscordProfile> {
 export const discord = (options: DiscordOptions) => {
   const tokenEndpoint = "https://discord.com/api/oauth2/token";
   return {
-    createAuthorizationURL({ state, scopes, redirectURI }) {
+    async createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }) {
       const _scopes = options.disableDefaultScope ? [] : ["identify", "email"];
       if (scopes) {
         _scopes.push(...scopes);
@@ -97,7 +98,7 @@ export const discord = (options: DiscordOptions) => {
         hasBotScope && options.permissions !== undefined
           ? `&permissions=${options.permissions}`
           : "";
-      return new URL(
+      const url = new URL(
         `https://discord.com/api/oauth2/authorize?scope=${_scopes.join(
           "+"
         )}&response_type=code&client_id=${
@@ -106,6 +107,14 @@ export const discord = (options: DiscordOptions) => {
           options.redirectURI || redirectURI
         )}&state=${state}&prompt=${options.prompt || "none"}${permissionsParam}`
       );
+      if (codeVerifier) {
+        url.searchParams.set("code_challenge_method", "S256");
+        url.searchParams.set(
+          "code_challenge",
+          await generateCodeChallenge(codeVerifier),
+        );
+      }
+      return url;
     },
     async getUserInfo(token) {
       if (options.getUserInfo) {

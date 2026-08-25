@@ -41,6 +41,8 @@ Policy: [ADR 0021](../adr/0021-layered-contract-policy.md).
 | AthenaAuthOrganization* | auth/types* | transport DTO | auth, organization | medium | Org/Member View/Response | — | partial | |
 | RpcPayload / RpcFilter | gateway/types.ts | transport DTO | rpc | medium | Rpc AthenaRequest | — | partial | |
 | Billing webhook / live routes | billing/* | transport DTO | billing | medium | Webhook payload contracts | — | yes later | |
+| BillingOperationSafetyProfile / BILLING_OPERATION_SAFETY | billing/safety/registry.ts | domain model | local + remote billing | low | keep | prepareBillingCommand | tests | ADR 0048; not a public package subpath |
+| BillingExecutionFailure | billing/safety/failure.ts | domain model | billing | low | keep | createBillingExecutionFailure | tests | transport vs certainty vs retry vs hint |
 | Chat message shapes | chat/* | transport DTO | chat | medium | Message View/Response | — | later | |
 | AthenaRuntimeDiscoveryDocument | gateway/discovery-types.ts | transport DTO | next discovery, data handlers | medium | keep | parseAthenaRuntimeDiscoveryDocument | tests | Protocol 1.0 (`runtime: local\|gateway`, scalar `capabilities.auth`) + 1.1 (`next-local`, `{available,transport}`, `endpoints`). 1.0 never implies Auth. ADR 0020. |
 | ResolvedNextAthenaTopology | next/topology.ts | adapter-internal | next/client | low | keep internal | topologyFromDiscoveryDocument | tests | Browser HTTP topology only; never PG / embedded Auth. |

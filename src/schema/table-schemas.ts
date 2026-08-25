@@ -14,6 +14,7 @@ function isScalarFormKind(kind: ModelColumnKind): boolean {
   return (
     kind === "string" ||
     kind === "number" ||
+    kind === "decimal" ||
     kind === "boolean" ||
     kind === "enumeration"
   );
@@ -27,6 +28,9 @@ function createBaseSchema(column: AnyColumnBuilder): ZodTypeAny {
       return z.boolean();
     case "number":
       return z.number();
+    case "decimal":
+      // Precision-safe runtime representation (matches PostgreSQL NUMERIC wire).
+      return z.string();
     case "json":
       return (config.jsonSchema ?? z.unknown()) as ZodTypeAny;
     case "enumeration":

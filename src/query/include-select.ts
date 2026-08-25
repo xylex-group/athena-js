@@ -1,15 +1,16 @@
-import { compileSelectShape } from "../query-ast.ts";
 import type { AthenaSelectShape } from "../query-ast.ts";
+import { compileSelectShape } from "../query-ast.ts";
 import type { AthenaRelationDescriptor } from "./descriptor.ts";
 
 function relationEmbedToken(relation: AthenaRelationDescriptor): string {
-  const table = relation.via?.trim() || relation.targetModel?.trim() || relation.name;
+  const table =
+    relation.via?.trim() || relation.targetModel?.trim() || relation.name;
   const schema = relation.targetSchema?.trim();
   return schema ? `${schema}.${table}` : table;
 }
 
 function relationSelectShape(
-  relation: AthenaRelationDescriptor
+  relation: AthenaRelationDescriptor,
 ): AthenaSelectShape {
   if (relation.star || !relation.columns?.length) {
     return { "*": true };
@@ -23,7 +24,7 @@ function relationSelectShape(
  */
 export function compileIncludeSelectString(
   columns: string | string[],
-  relations: readonly AthenaRelationDescriptor[] | undefined
+  relations: readonly AthenaRelationDescriptor[] | undefined,
 ): string {
   if (!relations?.length) {
     return Array.isArray(columns) ? columns.join(",") : columns;

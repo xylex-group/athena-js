@@ -1,20 +1,22 @@
 # Athena JS CLI Command Reference
 
-This page is the source of truth for `athena-js` CLI usage.
+This page is a **deep contract**, not the product CLI inventory. Catalog SSOT is `packages/athena-js/src/cli/commands-catalog.ts` (`CLI_COMMAND_CATALOG`), rendered on the Blume site as [`CliCatalog`](https://athena.xbp.app/docs/cli) from `apps/docs-athena-js/lib/generated/cli-commands.ts`. Groups include `policy` (`athena-js policy list|show|validate|lint|coverage|explain|simulate|fingerprint|export`) and `schema` (`schema diff --policy-impact`).
 
-If you only need generated contract output, this page plus
+If you only need generator contract output, this page plus
 [`generator-config.md`](generator-config.md) is enough.
 
 ## Command surface
 
-Current CLI scope:
+Documented here (incomplete vs catalog):
 
 - root help + global `-v` / `--version` + full inventory via `--commands` / `-C`
 - `generate` subcommand (introspect + write models/registry; optional config ensure)
 - `init` subcommand (create or intelligently update `athena.config.ts`)
 - `migrate` subcommand (apply/status/plan application SQL migrations; direct Postgres)
 - `env check` / `env validate` (validate `.env` / `.env.local` keys and URLs)
-- `api-key generate` (local secret scaffolding)
+- `doctor` (project health: Node, config, env, local runtime)
+- `validate` (local Data Runtime / Embedded Auth inspect)
+- `api-key generate` (offline `ATHENA_KEY_12` / P12 secret; not a store-backed app key)
 - `api-key create` / `api-key list` (gateway admin `POST/GET /admin/api-keys`)
 - `rights list` / `rights catalog` / `rights create` (gateway admin rights surfaces)
 
@@ -29,6 +31,8 @@ athena-js help generate
 athena-js help init
 athena-js help migrate
 athena-js help env
+athena-js help doctor
+athena-js help validate
 athena-js help api-key
 athena-js help commands
 athena-js --version
@@ -49,6 +53,7 @@ athena-js commands --groups
 Behavior:
 
 - `athena-js`, `--help`, `-h`, and `help` print root usage
+- `athena-js --help generate` (and `athena-js generate --help`) print `generate` usage
 - `athena-js help generate` prints `generate` usage
 - `athena-js help init` prints `init` usage
 - `-v`, `--version`, `version`, and `v` print `@xylex-group/athena <semver>`
@@ -135,6 +140,30 @@ Checks include:
 
 Exit code `1` when any check is `error`.
 
+## Doctor
+
+```bash
+athena-js doctor
+athena-js doctor --strict
+athena-js doctor --skip-runtime
+athena-js doctor --json
+athena-js doctor --config ./athena.config.ts
+athena-js help doctor
+```
+
+Read-only project health check. It reports tooling, config, environment, and (when a direct Postgres profile exists) the same local Data Runtime / Embedded Auth inspect as `athena-js validate`.
+
+| Option | Effect |
+| --- | --- |
+| `--config <path>` | Explicit generator config path |
+| `--strict` | Promote env warnings and pending migrations to errors |
+| `--skip-runtime` | Skip Postgres ping and Auth schema inspect |
+| `--json` | Machine-readable JSON report |
+| `--plain` | Disable color / TTY styling |
+| `--help`, `-h` | Doctor help |
+
+Does not write files or apply migrations. Exit code `1` when any check is `error`. Use `athena-js validate` when you only want the local runtime inspect.
+
 ## API keys
 
 ```bash
@@ -152,15 +181,17 @@ athena-js api-key --help
 
 ### Local `generate`
 
-Cryptographically strong offline secret for scaffolding `ATHENA_API_KEY`.
+Offline static admin / P12 secret for scaffolding `ATHENA_KEY_12` (must also be
+set on the gateway process). This does **not** register a store-backed
+`ath_<publicId>.<secret>` app key — use `api-key create` for `ATHENA_API_KEY`.
 
 | Option | Effect |
 | --- | --- |
 | `--bytes <n>` | Entropy bytes before base64url (16–64, default 32) |
-| `--prefix <str>` | Prefix (default `ath_`; use `--prefix ""` for none) |
-| `--write` | Write into env file (default `.env.local`) |
+| `--prefix <str>` | Prefix (default empty; do not use `ath_` unless you know you want it) |
+| `--write` | Write into env file (default `.env.local` as `ATHENA_KEY_12`) |
 | `--env-file <path>` | Target file (implies `--write`) |
-| `--env-key <name>` | Variable name (default `ATHENA_API_KEY`) |
+| `--env-key <name>` | Variable name (default `ATHENA_KEY_12`; cannot be `ATHENA_API_KEY` / other app-key aliases) |
 | `--force` | Overwrite an existing value |
 
 ### Gateway `create` / `list`
@@ -176,7 +207,7 @@ Calls Athena gateway admin routes with the **static admin key**
 | Option | Effect |
 | --- | --- |
 | `--name <name>` | Display name (**create**, required) |
-| `--rights <a,b>` | Comma-separated rights (must already exist in `api_key_rights`) |
+| `--rights <a,b>` | Comma-separated Athena right keys. Each token is `parseAthenaRightKey` (fail-closed; `admin:read` is invalid, no colon→dot). Gateway still requires the name in `api_key_rights` |
 | `--client-name <c>` | Bind key to `X-Athena-Client` |
 | `--description <text>` | Optional description |
 | `--expires-at <iso>` | Optional expiration |
@@ -202,9 +233,9 @@ athena-js rights --help
 
 | Subcommand | Route | Purpose |
 | --- | --- | --- |
-| `rights catalog` | `GET /admin/rights/catalog` | Unified native + dynamic rights catalog |
+| `rights catalog` | `GET /admin/rights/catalog` | Unified native + dynamic rights catalog (Rust gateway SSOT; JS does not dump `NATIVE_RIGHTS`) |
 | `rights list` | `GET /admin/api-key-rights` | Dynamic rights store rows |
-| `rights create` | `POST /admin/api-key-rights` | Bootstrap a right before granting it on a key |
+| `rights create` | `POST /admin/api-key-rights` | Bootstrap a right. `--name` is `parseAthenaRightKey` (fail-closed) |
 
 Auth: same static admin key + gateway URL as `api-key create/list`.
 
@@ -224,20 +255,37 @@ athena-js migrate
 athena-js migrate --dry-run
 athena-js migrate status
 athena-js migrate plan
+athena-js migrate check --strict
+athena-js migrate graph
+athena-js migrate explain 0007
+athena-js migrate drift
+athena-js migrate reconcile
+athena-js migrate reconcile --apply --yes
 athena-js migrate --config ./athena.config.ts
+athena-js migrate auth sync
 athena-js migrate --help
 ```
 
 Applies ordered SQL files from `athena/migrations` (or `migrations.directory`) against a
-**direct** PostgreSQL database. See [migrations.md](migrations.md) for ledger, checksum,
+**direct** PostgreSQL database. Embedded Auth uses a separate package-owned ledger;
+`athena/managed/auth/migrations` is a rematerialized inspection view only.
+See [migrations.md](migrations.md) for ledger, checksum,
 advisory lock, and immutability guarantees.
 
 | Option / subcommand | Effect |
 | --- | --- |
-| `(default)` | Apply pending migrations |
-| `status` | Print applied/pending/conflict table (no writes beyond ledger bootstrap/lock) |
-| `plan` | Show plan; fail closed on history conflicts |
+| `(default)` | Apply pending migrations after whole-batch semantic preflight |
+| `status` | Print applied/pending/conflict table (no writes beyond lock) |
+| `plan` | Compiler report; fail closed on history conflicts and schema drift |
+| `check` | Static analysis + physical verification; `--strict` fails dynamic SQL |
+| `graph` | Object dependency graph |
+| `explain <file>` | Creates/reads/deps for one migration |
+| `drift` | Ledger vs projected vs physical catalog |
+| `reconcile` | Three-way diagnose (repo / ledger / physical). No SQL |
+| `reconcile --apply` | HIGH-confidence metadata repair only (requires `--yes` off-TTY) |
+| `auth sync` | Rematerialize package-owned Embedded Auth SQL under `athena/managed/auth/migrations` |
 | `--dry-run` | List pending migrations without applying |
+| `--allow-dirty-migrations` | Apply uncommitted migration files (requires `--yes` off-TTY) |
 | `--config <path>` | Explicit config path |
 | `--help`, `-h` | Migrate help |
 
@@ -257,11 +305,12 @@ Options:
 
 | Option | Effect |
 | --- | --- |
-| `--config <path>` | Explicit config file (relative or absolute) |
+| `--config <path>` | Explicit config file (relative or absolute). `--config=<path>` also works |
 | `--dry-run` | Render artifacts and print mode/target hints without writing model/registry files; config ensure is also dry-run only |
 | `--no-write-config` | Do not create or update `athena.config.ts` (pure env-only / locked-config CI) |
 | `--no-discover-schemas` | Skip live schema discovery; use only configured or env schema lists |
 | `--write-config` | Explicitly enable config ensure (default) |
+| `--color` / `--no-color` | Force or disable ANSI color (also `--color=always\|never`, `FORCE_COLOR`, `NO_COLOR`) |
 | `--help`, `-h` | Show generate-specific help |
 
 ### What generate does by default
@@ -293,20 +342,37 @@ athena-js migrate
 athena-js migrate --dry-run
 athena-js migrate status
 athena-js migrate plan
+athena-js migrate check --strict
+athena-js migrate graph
+athena-js migrate explain 0007
+athena-js migrate drift
+athena-js migrate reconcile
+athena-js migrate reconcile --apply --yes
 athena-js migrate --config ./athena.config.ts
+athena-js migrate auth sync
 athena-js migrate --help
 ```
 
 Applies ordered SQL files from `athena/migrations` (or `migrations.directory`) against a
-**direct** PostgreSQL database. See [migrations.md](migrations.md) for ledger, checksum,
+**direct** PostgreSQL database. Embedded Auth uses a separate package-owned ledger;
+`athena/managed/auth/migrations` is a rematerialized inspection view only.
+See [migrations.md](migrations.md) for ledger, checksum,
 advisory lock, and immutability guarantees.
 
 | Option / subcommand | Effect |
 | --- | --- |
-| `(default)` | Apply pending migrations |
-| `status` | Print applied/pending/conflict table (no writes beyond ledger bootstrap/lock) |
-| `plan` | Show plan; fail closed on history conflicts |
+| `(default)` | Apply pending migrations after whole-batch semantic preflight |
+| `status` | Print applied/pending/conflict table (no writes beyond lock) |
+| `plan` | Compiler report; fail closed on history conflicts and schema drift |
+| `check` | Static analysis + physical verification; `--strict` fails dynamic SQL |
+| `graph` | Object dependency graph |
+| `explain <file>` | Creates/reads/deps for one migration |
+| `drift` | Ledger vs projected vs physical catalog |
+| `reconcile` | Three-way diagnose (repo / ledger / physical). No SQL |
+| `reconcile --apply` | HIGH-confidence metadata repair only (requires `--yes` off-TTY) |
+| `auth sync` | Rematerialize package-owned Embedded Auth SQL under `athena/managed/auth/migrations` |
 | `--dry-run` | List pending migrations without applying |
+| `--allow-dirty-migrations` | Apply uncommitted migration files (requires `--yes` off-TTY) |
 | `--config <path>` | Explicit config path |
 | `--help`, `-h` | Migrate help |
 

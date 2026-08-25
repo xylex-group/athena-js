@@ -1,4 +1,7 @@
-import type { AthenaRelationCatalog, AthenaRelationDescriptor } from "../query/engine/index.ts";
+import type {
+	AthenaRelationCatalog,
+	AthenaRelationDescriptor,
+} from "../query/engine/index.ts";
 import type { AthenaPostgresQueryable } from "./driver.ts";
 
 const FK_SQL = `
@@ -30,53 +33,56 @@ ORDER BY src_ns.nspname, src_rel.relname, con.conname, src_ord.ordinality
 `.trim();
 
 interface ForeignKeyRow {
-  constraint_name: string;
-  from_column: string;
-  from_schema: string;
-  from_table: string;
-  position: number | string;
-  to_column: string;
-  to_schema: string;
-  to_table: string;
+	constraint_name: string;
+	from_column: string;
+	from_schema: string;
+	from_table: string;
+	position: number | string;
+	to_column: string;
+	to_schema: string;
+	to_table: string;
 }
 
-const catalogCache = new WeakMap<AthenaPostgresQueryable, Promise<AthenaRelationCatalog>>();
+const catalogCache = new WeakMap<
+	AthenaPostgresQueryable,
+	Promise<AthenaRelationCatalog>
+>();
 
 export async function loadPostgresRelationCatalog(
-  queryable: AthenaPostgresQueryable
+	queryable: AthenaPostgresQueryable,
 ): Promise<AthenaRelationCatalog> {
-  const cached = catalogCache.get(queryable);
-  if (cached) {
-    return cached;
-  }
-  const pending = queryable.query(FK_SQL).then((result) => {
-    const groups = new Map<string, AthenaRelationDescriptor>();
-    for (const raw of result.rows as ForeignKeyRow[]) {
-      const id = `${raw.from_schema}.${raw.from_table}.${raw.constraint_name}`;
-      const existing = groups.get(id);
-      if (existing) {
-        existing.from.columns.push(raw.from_column);
-        existing.to.columns.push(raw.to_column);
-        continue;
-      }
-      groups.set(id, {
-        cardinality: "many-to-one",
-        from: {
-          columns: [raw.from_column],
-          schema: raw.from_schema,
-          table: raw.from_table,
-        },
-        id,
-        name: raw.to_table,
-        to: {
-          columns: [raw.to_column],
-          schema: raw.to_schema,
-          table: raw.to_table,
-        },
-      });
-    }
-    return { entries: [...groups.values()] };
-  });
-  catalogCache.set(queryable, pending);
-  return pending;
+	const cached = catalogCache.get(queryable);
+	if (cached) {
+		return cached;
+	}
+	const pending = queryable.query(FK_SQL).then((result) => {
+		const groups = new Map<string, AthenaRelationDescriptor>();
+		for (const raw of result.rows as ForeignKeyRow[]) {
+			const id = `${raw.from_schema}.${raw.from_table}.${raw.constraint_name}`;
+			const existing = groups.get(id);
+			if (existing) {
+				existing.from.columns.push(raw.from_column);
+				existing.to.columns.push(raw.to_column);
+				continue;
+			}
+			groups.set(id, {
+				cardinality: "many-to-one",
+				from: {
+					columns: [raw.from_column],
+					schema: raw.from_schema,
+					table: raw.from_table,
+				},
+				id,
+				name: raw.to_table,
+				to: {
+					columns: [raw.to_column],
+					schema: raw.to_schema,
+					table: raw.to_table,
+				},
+			});
+		}
+		return { entries: [...groups.values()] };
+	});
+	catalogCache.set(queryable, pending);
+	return pending;
 }

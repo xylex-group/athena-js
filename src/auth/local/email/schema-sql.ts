@@ -1,6 +1,42 @@
 import { AUTH_EMAIL_EVENT_CATALOG } from "../../email/events.ts";
 
 /**
+ * Frozen 014 seed. Released migration 014 permanently inserted the ten later
+ * events with `default_template_key = NULL`. Do not regenerate this from the
+ * live catalog — 024 is the forward fix.
+ */
+const AUTH_EMAIL_EVENT_CATALOG_V014: ReadonlyArray<{
+  category: string;
+  default_template_key: string | null;
+  description: string;
+  event_type: string;
+  optional_variables: readonly string[];
+  required_variables: readonly string[];
+}> = AUTH_EMAIL_EVENT_CATALOG.map((entry) => {
+  const futureKeys: Record<string, null> = {
+    "organization.create": null,
+    "organization.member.added": null,
+    "organization.member.invite.reminder": null,
+    "organization.member.invite.revoked": null,
+    "organization.member.removed": null,
+    "organization.member.role.updated": null,
+    "user.password.changed": null,
+    "user.security.alert": null,
+    "user.sign-in.email": null,
+    "user.sign-up.welcome": null,
+  };
+  return {
+    category: entry.category,
+    default_template_key:
+      entry.event_type in futureKeys ? null : entry.default_template_key,
+    description: entry.description,
+    event_type: entry.event_type,
+    optional_variables: entry.optional_variables,
+    required_variables: entry.required_variables,
+  };
+});
+
+/**
  * Rust Athena Auth email tables (`services/athena-auth` migrations 006, 007,
  * 011, 012, 014, 015 + runtime ensure-schema). Same names and columns so a
  * shared Postgres is mutually readable.
@@ -119,7 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_email_event_types_is_active ON athena.email_event
 CREATE INDEX IF NOT EXISTS idx_email_templates_event_type ON athena.email_templates (event_type);
 CREATE INDEX IF NOT EXISTS idx_email_templates_event_type_locale_active
     ON athena.email_templates (event_type, locale, is_active);
-${emailEventTypeSeedSql()}
+${emailEventTypeSeedSql(AUTH_EMAIL_EVENT_CATALOG_V014)}
 `,
     version: 14,
   },
@@ -135,6 +171,155 @@ ALTER TABLE athena.email_templates
 `,
     version: 15,
   },
+  {
+    name: "024_email_event_default_templates",
+    sql: `
+INSERT INTO athena.email_event_types (
+    event_type, category, description, default_template_key,
+    required_variables, optional_variables, is_active, is_system, metadata
+)
+VALUES
+    (
+        'user.sign-in.email',
+        'user_security',
+        'Email-based sign-in link or magic-link authentication flow.',
+        'magic_link_email',
+        '["sign_in_url"]'::jsonb,
+        '["app_name"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"auth"}'::jsonb
+    ),
+    (
+        'user.sign-up.welcome',
+        'user_lifecycle',
+        'Welcome message after account creation.',
+        'welcome_email',
+        '["user_name"]'::jsonb,
+        '["app_name","dashboard_url"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"auth"}'::jsonb
+    ),
+    (
+        'user.password.changed',
+        'user_security',
+        'Security notification after password change completes.',
+        'password_changed_email',
+        '[]'::jsonb,
+        '["app_name","support_url"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"auth"}'::jsonb
+    ),
+    (
+        'user.security.alert',
+        'user_security',
+        'General security alert notification (suspicious sign-in, new device, policy event).',
+        'security_alert_email',
+        '["alert_title","alert_details"]'::jsonb,
+        '["app_name","support_url"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"auth"}'::jsonb
+    ),
+    (
+        'organization.create',
+        'organization_lifecycle',
+        'Organization creation confirmation and onboarding.',
+        'organization_created_email',
+        '["organization_name"]'::jsonb,
+        '["app_name","organization_url"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"organization"}'::jsonb
+    ),
+    (
+        'organization.member.added',
+        'organization_lifecycle',
+        'Notify when a member is added without invite flow.',
+        'organization_member_added_email',
+        '["organization_name","member_identity"]'::jsonb,
+        '["app_name","actor_identity"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"organization"}'::jsonb
+    ),
+    (
+        'organization.member.removed',
+        'organization_lifecycle',
+        'Notify when a member is removed from an organization.',
+        'organization_member_removed_email',
+        '["organization_name","member_identity"]'::jsonb,
+        '["app_name","actor_identity"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"organization"}'::jsonb
+    ),
+    (
+        'organization.member.role.updated',
+        'organization_lifecycle',
+        'Notify when organization member role is changed.',
+        'organization_member_role_updated_email',
+        '["organization_name","member_identity","new_role"]'::jsonb,
+        '["app_name","previous_role","actor_identity"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"organization"}'::jsonb
+    ),
+    (
+        'organization.member.invite.reminder',
+        'organization_lifecycle',
+        'Reminder message for pending organization invitations.',
+        'organization_invitation_reminder_email',
+        '["organization_name","invitation_url"]'::jsonb,
+        '["app_name","role","inviter_identity"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"organization"}'::jsonb
+    ),
+    (
+        'organization.member.invite.revoked',
+        'organization_lifecycle',
+        'Notification that an invitation has been revoked.',
+        'organization_invitation_revoked_email',
+        '["organization_name","invited_email"]'::jsonb,
+        '["app_name","inviter_identity"]'::jsonb,
+        TRUE,
+        TRUE,
+        '{"scope":"organization"}'::jsonb
+    )
+ON CONFLICT (event_type) DO UPDATE
+SET
+    category = EXCLUDED.category,
+    description = EXCLUDED.description,
+    default_template_key = EXCLUDED.default_template_key,
+    required_variables = EXCLUDED.required_variables,
+    optional_variables = EXCLUDED.optional_variables,
+    is_active = EXCLUDED.is_active,
+    is_system = EXCLUDED.is_system,
+    metadata = EXCLUDED.metadata,
+    updated_at = NOW();
+UPDATE athena.email_templates AS t
+SET event_type = m.event_type
+FROM (
+    VALUES
+        ('magic_link_email', 'user.sign-in.email'),
+        ('welcome_email', 'user.sign-up.welcome'),
+        ('password_changed_email', 'user.password.changed'),
+        ('security_alert_email', 'user.security.alert'),
+        ('organization_created_email', 'organization.create'),
+        ('organization_member_added_email', 'organization.member.added'),
+        ('organization_member_removed_email', 'organization.member.removed'),
+        ('organization_member_role_updated_email', 'organization.member.role.updated'),
+        ('organization_invitation_reminder_email', 'organization.member.invite.reminder'),
+        ('organization_invitation_revoked_email', 'organization.member.invite.revoked')
+) AS m(template_key, event_type)
+WHERE t.template_key = m.template_key
+  AND (t.event_type IS NULL OR t.event_type IS DISTINCT FROM m.event_type);
+`,
+    version: 24,
+  },
 ];
 
 function sqlLiteral(value: string | null): string {
@@ -144,8 +329,17 @@ function sqlLiteral(value: string | null): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
 
-function emailEventTypeSeedSql(): string {
-  const values = AUTH_EMAIL_EVENT_CATALOG.map(
+function emailEventTypeSeedSql(
+  catalog: ReadonlyArray<{
+    category: string;
+    default_template_key: string | null;
+    description: string;
+    event_type: string;
+    optional_variables: readonly string[];
+    required_variables: readonly string[];
+  }> = AUTH_EMAIL_EVENT_CATALOG,
+): string {
+  const values = catalog.map(
     (entry) => `(
         ${sqlLiteral(entry.event_type)},
         ${sqlLiteral(entry.category)},

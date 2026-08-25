@@ -128,6 +128,24 @@ export function asStringField(
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * Better Auth organization.update posts `{ data: { name, slug, logo }, organizationId }`.
+ * Top-level fields remain accepted for older callers.
+ */
+export function asDataEnvelopeStringField(
+  body: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const nested = body.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const fromData = asStringField(nested as Record<string, unknown>, key);
+    if (fromData !== undefined) {
+      return fromData;
+    }
+  }
+  return asStringField(body, key);
+}
+
 export function requireStringField(
   body: Record<string, unknown>,
   key: string

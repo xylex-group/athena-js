@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-15
 **Status:** Accepted
+**Amended by:** [0028](0028-client-runtime-context-and-facade.md) — realizes `src/client/` construction/context; does not change this contract’s public-export rules.
 **Author:** Floris
 **Accepted by:** Floris
 **Pinned versions:**
@@ -47,7 +48,7 @@ A client refactor can appear complete in source while stale declarations or gene
 ## Validation
 
 - Enforce source ownership with focused import-boundary checks or an architecture test.
-- `src/client.ts` must continue shrinking toward fluent builder orchestration only; result/error handling, SQL/debug compilation, raw request dispatch, public configuration, and immutable core/view ownership belong in their focused modules.
+- `src/client.ts` is the public re-export façade (ADR 0028). Core/view factories live in `src/client/context.ts`; fluent orchestration lives in `src/client-fluent.ts` until later pipeline extraction. Result/error handling, SQL/debug compilation, raw request dispatch, and public configuration belong in their focused modules.
 - Run focused client, query, auth, chat, storage, Next, React, generator, and browser tests.
 - Run `pnpm docs:methods` and require a clean second run.
 - Run `pnpm typecheck`, `pnpm build`, and `pnpm check:all`.

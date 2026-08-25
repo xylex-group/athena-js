@@ -5,6 +5,7 @@ import {
   ATHENA_AUTH_SESSION_COOKIE_NAME,
   ATHENA_AUTH_SESSION_COOKIE_NAMES,
   clearAthenaAuthSessionOnAppHost,
+  createAthenaAuthBridgeHandlers,
   createAthenaAuthSessionBridgeHandlers,
   createAthenaAuthSessionBridgePathHandlers,
   isAthenaAuthSessionBridgePath,
@@ -71,6 +72,61 @@ test("POST bridge sets httpOnly session cookie", async () => {
     cookies.some(
       (c) =>
         c.includes("sess_token") || c.includes(encodeURIComponent("sess_token"))
+    )
+  );
+});
+
+test("GET native bridge exchanges bridge_code and ignores query token", async () => {
+  const seen: Array<{ code: string; destinationOrigin: string }> = [];
+  const { GET } = createAthenaAuthBridgeHandlers({
+    exchange: async ({ code, destinationOrigin }) => {
+      seen.push({ code, destinationOrigin });
+      if (code !== "once") {
+        return null;
+      }
+      return {
+        expiresAt: "2030-01-01T00:00:00.000Z",
+        sessionToken: "sess_from_code",
+      };
+    },
+  });
+
+  const first = await GET(
+    new Request(
+      "https://app.example.com/api/auth/bridge-session?bridge_code=once&token=leaked-bearer&redirectTo=%2Fsettings"
+    )
+  );
+  assert.equal(first.status, 303);
+  assert.equal(
+    first.headers.get("location"),
+    "https://app.example.com/settings"
+  );
+  const cookies = getSetCookies(first);
+  assert.ok(cookies.some((cookie) => cookie.includes("HttpOnly")));
+  assert.ok(
+    cookies.some(
+      (cookie) =>
+        cookie.includes("sess_from_code") ||
+        cookie.includes(encodeURIComponent("sess_from_code"))
+    )
+  );
+  assert.ok(cookies.every((cookie) => !cookie.includes("leaked-bearer")));
+  assert.deepEqual(seen, [
+    { code: "once", destinationOrigin: "https://app.example.com" },
+  ]);
+
+  const replay = await GET(
+    new Request(
+      "https://app.example.com/api/auth/bridge-session?bridge_code=spent"
+    )
+  );
+  assert.equal(replay.status, 303);
+  const replayCookies = getSetCookies(replay);
+  assert.ok(
+    replayCookies.every(
+      (cookie) =>
+        !cookie.includes("sess_from_code") &&
+        !cookie.includes(encodeURIComponent("sess_from_code"))
     )
   );
 });
@@ -146,6 +202,7 @@ test("path handlers match /api/auth/session and reject other paths", async () =>
 test("next/server re-exports session bridge symbols", async () => {
   const server = await import("../src/next/server.ts");
   assert.equal(typeof server.createAthenaAuthSessionBridgeHandlers, "function");
+  assert.equal(typeof server.createAthenaAuthBridgeHandlers, "function");
   assert.equal(
     typeof server.createAthenaAuthSessionBridgePathHandlers,
     "function"

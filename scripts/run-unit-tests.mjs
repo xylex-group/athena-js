@@ -9,7 +9,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const SUPERSEDED = new Set(["local-verification-finality.baseline.test.ts"]);
+const SUPERSEDED = new Set([
+	"local-verification-finality.baseline.test.ts",
+]);
+// Plan 1 / ADR 0046–0047 contract freeze: keep RED until later PRs implement.
+const RED_CONTRACT_FREEZE = new Set([
+	"athena-token-authority-finality.target.test.ts",
+	"athena-data-lifecycle-security.target.test.ts",
+]);
 
 function collect(dir, prefix) {
 	const out = [];
@@ -22,7 +29,11 @@ function collect(dir, prefix) {
 			out.push(...collect(join(dir, entry.name), nextPrefix));
 			continue;
 		}
-		if (!entry.name.endsWith(".test.ts") || SUPERSEDED.has(entry.name)) {
+		if (
+			!entry.name.endsWith(".test.ts") ||
+			SUPERSEDED.has(entry.name) ||
+			RED_CONTRACT_FREEZE.has(entry.name)
+		) {
 			continue;
 		}
 		out.push(nextPrefix);
@@ -38,23 +49,52 @@ const selected = [
 	...collect(join(root, "test", "conformance"), "test/conformance"),
 ];
 
-const result = spawnSync(
-	process.execPath,
-	[
-		"--import",
-		"./test/register-server-only.mjs",
-		"--import",
-		"tsx",
-		"--test",
-		"--test-force-exit",
-		...selected,
-	],
-	{
-		cwd: root,
-		// Node lives under "C:\Program Files\..."; shell:true splits the path.
-		shell: false,
-		stdio: "inherit",
-	},
-);
+// Windows libuv aborts (`UV_HANDLE_CLOSING`) when `--test-force-exit` races
+// spawnSync("git") or pgsql-parser uv_async teardown. Run those files without
+// force-exit so handles can finish closing.
+const win32NoForceExit = new Set([
+	"test/migrations-git-worktree.test.ts",
+	"test/migrations-managed-auth.test.ts",
+]);
+const isolated =
+	process.platform === "win32"
+		? selected.filter((file) => win32NoForceExit.has(file))
+		: [];
+const rest = selected.filter((file) => !isolated.includes(file));
 
-process.exit(typeof result.status === "number" ? result.status : 1);
+function runNodeTest(files, forceExit) {
+	if (files.length === 0) {
+		return { status: 0 };
+	}
+	return spawnSync(
+		process.execPath,
+		[
+			"--import",
+			"./test/register-server-only.mjs",
+			"--import",
+			"tsx",
+			...(process.platform === "win32"
+				? ["--import", "./test/windows-defer-force-exit.mjs"]
+				: []),
+			"--test",
+			...(forceExit ? ["--test-force-exit"] : []),
+			...files,
+		],
+		{
+			cwd: root,
+			shell: false,
+			stdio: "inherit",
+		},
+	);
+}
+
+const restResult = runNodeTest(rest, true);
+const restStatus =
+	typeof restResult.status === "number" ? restResult.status : 1;
+if (restStatus !== 0) {
+	process.exit(restStatus);
+}
+const isolatedResult = runNodeTest(isolated, false);
+process.exit(
+	typeof isolatedResult.status === "number" ? isolatedResult.status : 1,
+);

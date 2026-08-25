@@ -12,8 +12,8 @@
  * ```
  *
  * Accepts any of:
- * - `createClient(...)`  → uses `client.auth.getSession`
- * - `createClient(...).auth`
+ * - `createClient()`  → uses `client.auth.getSession`
+ * - `createClient().auth`
  * - auth-ui style `{ getSession }`
  */
 
@@ -37,7 +37,7 @@ export interface SessionStatusPanelProps {
  * this component is the copy-paste surface for docs and anti-stale tests.
  */
 export function SessionStatusPanel(
-  props: SessionStatusPanelProps
+  props: SessionStatusPanelProps,
 ): ReactElement | null {
   const state = useSession(props.authClient, props.options);
 
@@ -83,7 +83,7 @@ export function SessionStatusPanel(
  */
 export function useExampleSession(
   authClient: UseSessionAuthClient,
-  options?: UseSessionOptions
+  options?: UseSessionOptions,
 ): UseSessionResult {
   return useSession(authClient, options);
 }

@@ -68,7 +68,7 @@ test("createAthenaDataHandlers rejects withContext views", () => {
 	const client = createClient({
 		auth: false,
 		databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_handlers",
-		gatewayTransport: mockTransport("view"),
+		gatewayTransport: mockTransport("request-view"),
 	});
 	const view = client.withContext({});
 	assert.throws(
@@ -81,7 +81,7 @@ test("createAthenaDataHandlers rejects withContext views", () => {
 			assert.match(error.message, /process-wide Athena root/);
 			assert.equal(
 				(error as { code?: string }).code,
-				"ATHENA_HANDLER_ROOT_CLIENT_REQUIRED",
+				"ATHENA_RUNTIME_OWNERSHIP_INVALID",
 			);
 			return true;
 		},

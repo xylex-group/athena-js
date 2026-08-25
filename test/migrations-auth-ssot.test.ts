@@ -27,6 +27,13 @@ class MemoryBackend implements MigrationBackend {
   async listAppliedMigrations(): Promise<AppliedMigration[]> {
     return [...this.rows];
   }
+
+  async inspectCatalog() {
+    const { emptyPhysicalCatalog } = await import(
+      "../src/migrations/analysis/catalog.ts"
+    );
+    return emptyPhysicalCatalog();
+  }
   async applyMigration(migration: MigrationFile): Promise<AppliedMigrationResult> {
     const row: AppliedMigrationResult = {
       appliedAt: new Date(),

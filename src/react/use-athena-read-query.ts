@@ -14,7 +14,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export interface UseAthenaReadQueryOptions {
   /**
-   * v3 Athena client (`createClient(...)` or a `withContext` / session-scoped view).
+   * v3 Athena client (`createClient()` or a `withContext` / session-scoped view).
    * Required for fetches when `enabled` is true.
    */
   client?: AthenaReadQueryClient | null;

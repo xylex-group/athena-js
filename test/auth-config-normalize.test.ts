@@ -32,6 +32,56 @@ test("auth:false normalizes to disabled execution", () => {
 	assert.equal(normalized.execution, "disabled");
 });
 
+test("normalizeAthenaAuthConfig always includes APP_URL in trustedOrigins", () => {
+	const previous = process.env.APP_URL;
+	process.env.APP_URL = "https://app.example.com/dashboard";
+	try {
+		const normalized = normalizeAthenaAuthConfig({
+			mode: "local",
+			security: { trustedOrigins: ["https://other.example.com"] },
+		});
+		assert.equal(
+			normalized.security.trustedOrigins.includes("https://app.example.com"),
+			true,
+		);
+		assert.equal(
+			normalized.security.trustedOrigins.includes("https://other.example.com"),
+			true,
+		);
+	} finally {
+		if (previous === undefined) {
+			delete process.env.APP_URL;
+		} else {
+			process.env.APP_URL = previous;
+		}
+	}
+});
+
+test("normalizeAthenaAuthConfig dedupes repeated passkey origins", () => {
+	const origin = "https://2f6c-178-230-72-220.ngrok-free.app";
+	const normalized = normalizeAthenaAuthConfig({
+		mode: "local",
+		passkey: { origins: [origin, `${origin}/`] },
+	});
+	assert.deepEqual(normalized.passkey.origins, [origin]);
+	assert.equal(
+		normalized.security.trustedOrigins.filter((entry) => entry === origin)
+			.length,
+		1,
+	);
+});
+
+test("normalizeAthenaAuthConfig includes passkey.origins in trustedOrigins", () => {
+	const normalized = normalizeAthenaAuthConfig({
+		mode: "local",
+		passkey: { origins: ["http://localhost:3010/"] },
+	});
+	assert.equal(
+		normalized.security.trustedOrigins.includes("http://localhost:3010"),
+		true,
+	);
+});
+
 test("explicit remote mode keeps direct routing", () => {
 	const normalized = normalizeAthenaAuthConfig({
 		mode: "remote",

@@ -159,6 +159,7 @@ try {
     "package/dist/server.d.ts",
     "package/dist/next/client.js",
     "package/dist/next/server.js",
+    "package/dist/next/session.js",
     "package/bin/athena-js.js",
   ]) {
     if (!relativeFiles.includes(required)) {

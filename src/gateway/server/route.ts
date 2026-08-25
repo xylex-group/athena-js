@@ -5,6 +5,8 @@ export type AthenaGatewayServerRoute =
   | { kind: "gateway"; operation: AthenaRuntimeOperation }
   | { kind: "health" }
   | { kind: "capabilities" }
+  | { kind: "devtools-events" }
+  | { kind: "devtools-stream" }
   | { kind: "unknown" };
 
 const GATEWAY_OPERATIONS: ReadonlyArray<{
@@ -34,6 +36,18 @@ export function resolveAthenaGatewayServerRoute(
     normalized.endsWith("/capabilities")
   ) {
     return { kind: "capabilities" };
+  }
+  if (
+    normalized === "/api/athena/devtools/v1/events" ||
+    normalized.endsWith("/devtools/v1/events")
+  ) {
+    return { kind: "devtools-events" };
+  }
+  if (
+    normalized === "/api/athena/devtools/v1/stream" ||
+    normalized.endsWith("/devtools/v1/stream")
+  ) {
+    return { kind: "devtools-stream" };
   }
 
   for (const entry of GATEWAY_OPERATIONS) {

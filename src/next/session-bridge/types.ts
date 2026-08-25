@@ -80,6 +80,27 @@ export interface AthenaAuthSessionBridgeOptions {
  *
  * Extends {@link AthenaAuthSessionBridgeOptions} with path matching.
  */
+export interface AthenaAuthBridgeExchangeInput {
+  code: string;
+  destinationOrigin: string;
+}
+
+export interface AthenaAuthBridgeExchangeResult {
+  expiresAt?: string | undefined;
+  sessionToken: string;
+}
+
+/**
+ * App-origin GET `?bridge_code=` handlers. Exchange is server-side only.
+ */
+export interface AthenaAuthBridgeHandlerOptions
+  extends AthenaAuthSessionBridgeOptions {
+  defaultRedirectTo?: string | undefined;
+  exchange: (
+    input: AthenaAuthBridgeExchangeInput,
+  ) => Promise<AthenaAuthBridgeExchangeResult | null | undefined>;
+}
+
 export interface AthenaAuthSessionBridgePathOptions
   extends AthenaAuthSessionBridgeOptions {
   /**

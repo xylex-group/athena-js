@@ -3,16 +3,17 @@
 Shared URL resolution for Athena Auth base and upstream hosts, exported from
 `@xylex-group/athena/utils`.
 
-Aligned with Athena Auth UI (`base-url.ts`) so apps, the SDK, and UI packages
-share the same env key order and normalization rules.
+Aligned with Auth UI internals (`src/lib/athena/base-url.ts`, unpublished) so
+apps, the SDK, and UI packages share the same env key order and normalization
+rules.
 
 ## One implementation only
 
 These helpers are the **canonical** implementation for apps, Auth UI, and the
 SDK. Do **not** keep a local `*Primitive` reimplementation or thin wrapper that
 re-exports the same logic under different names — import from
-`@xylex-group/athena/utils` (or the re-export at
-`@xylex-group/athena-auth-ui/athena/base-url`) directly.
+`@xylex-group/athena/utils` directly. Auth UI does not publish
+`./athena/base-url` ([ADR 0022](../../../docs/adr/technical/0022-athena-auth-ui-presentation-layer.md)).
 
 See also the migration map in [`utils-and-helpers.md`](utils-and-helpers.md).
 
@@ -25,20 +26,18 @@ Athena Auth does **not** always need a same-origin `baseUrl` of `/api/auth`.
 | **Proxy** (default) | App origin `/api/auth/*` → your Next route proxies upstream | `appendAuthPath: true`, `authUrl: "/api/auth"` |
 | **Direct upstream** | Hosted Athena Auth origin (cookies on auth domain) | `appendAuthPath: false`, absolute `ATHENA_AUTH_UPSTREAM_URL` / public upstream |
 
-`@xylex-group/athena-auth-ui` already owns the product seam for this:
+Configure routing on the root client; Auth UI only presents it:
 
-- `createAthenaAuthClient({ baseUrl, appendAuthPath, upstreamUrl })`
-- `resolveAthenaAuthClientBaseUrl(url, upstream, { appendAuthPath: false })`
-- `@xylex-group/athena-auth-ui/auth/routing-debug` + **Auth routing debug overlay**
+- `createClient({ auth: { routing: "same-origin" | "direct", url?, upstreamUrl? } })`
+- `resolveAthenaAuthClientBaseUrl` from `@xylex-group/athena/utils`
+- `@xylex-group/athena-auth-ui/auth/routing-debug` overlay (dev)
 - Reference app: `athena-auth-ui/examples/next-heroui-example`
-  - env: `ATHENA_AUTH_ROUTING_MODE=direct-upstream`
-  - `src/lib/auth-routing.ts` switches proxy vs direct for browser + server clients
 
 ### Direct upstream (auth-ui)
 
 ```ts
-import { createAthenaAuthClient } from "@xylex-group/athena-auth-ui/athena/client"
-import { resolveAthenaAuthClientBaseUrl } from "@xylex-group/athena-auth-ui/athena/base-url"
+import { createClient } from "@xylex-group/athena"
+import { resolveAthenaAuthClientBaseUrl } from "@xylex-group/athena/utils"
 
 // Absolute upstream — no forced /api/auth append
 const authBaseUrl = resolveAthenaAuthClientBaseUrl(
@@ -47,10 +46,10 @@ const authBaseUrl = resolveAthenaAuthClientBaseUrl(
   { appendAuthPath: false },
 )
 
-const authClient = createAthenaAuthClient({
-  baseUrl: authBaseUrl,
-  appendAuthPath: false,
-  // or pass upstreamUrl and let the client resolve
+const athena = createClient({
+  url: process.env.NEXT_PUBLIC_ATHENA_URL!,
+  key: process.env.NEXT_PUBLIC_ATHENA_API_KEY!,
+  auth: { routing: "direct", url: authBaseUrl },
 })
 ```
 
@@ -64,9 +63,10 @@ hardcoding only `/api/auth` in every sample.
 
 ### Proxy mode (still valid)
 
-Same-origin `/api/auth` + Next `createAthenaAuthProxyHandlers` is still the
-default for many apps (and for middleware that reads app-host cookies / session
-bridge).
+Same-origin `/api/auth` + Next `createAthenaAuthHandlers` from
+`@xylex-group/athena/next/server` is still the default for many apps (and for
+middleware that reads app-host cookies / session bridge). Do not import
+`@xylex-group/athena-auth-ui/athena/proxy`.
 
 ## Import
 

@@ -2,21 +2,21 @@
 
 Athena Auth has one product contract and two server runtimes:
 
-| Runtime | Location | When to use |
-| --- | --- | --- |
-| Rust | `services/athena-auth` | Dedicated auth service, large deployments |
-| TypeScript | `@xylex-group/athena/auth/server` | One Next.js app + one Postgres database |
+| Runtime    | Location                          | When to use                               |
+| ---------- | --------------------------------- | ----------------------------------------- |
+| Rust       | `services/athena-auth`            | Dedicated auth service, large deployments |
+| TypeScript | `@xylex-group/athena/auth/server` | One Next.js app + one Postgres database   |
 
 Application code should not care which runtime is serving `/api/auth/*`.
 
 ## Minimal app
 
 ```ts
-import { createClient } from "@xylex-group/athena/server"
+import { createClient } from "@xylex-group/athena/server";
 
 export const athena = createClient({
   databaseUrl: process.env.DATABASE_URL!,
-})
+});
 ```
 
 `databaseUrl` / `db.pgUri` / `env.DATABASE_URL` infers `auth.mode: "local"`.
@@ -24,9 +24,11 @@ Explicit `auth.mode: "local"` is equivalent. `auth: false` and `auth.url` win.
 
 ```ts
 // app/api/athena + /api/auth
-import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
+import { createAthenaNextHandlers } from "@xylex-group/athena/next/server";
 
-export const { auth, data } = createAthenaNextHandlers({ client: athena })
+export const { auth, billing, data, storage } = createAthenaNextHandlers({
+  client: athena,
+});
 ```
 
 Browser: `createClient({ topology: { discover: "next" } })` from
@@ -34,10 +36,10 @@ Browser: `createClient({ topology: { discover: "next" } })` from
 
 ```ts
 // app/api/auth/[...all]/route.ts
-import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
-import { athena } from "@/lib/athena"
+import { createAthenaNextHandlers } from "@xylex-group/athena/next/server";
+import { athena } from "@/lib/athena";
 
-export const { GET, POST } = createAthenaNextHandlers({ client: athena }).auth
+export const { GET, POST } = createAthenaNextHandlers({ client: athena }).auth;
 ```
 
 `DATABASE_URL` is the only required infrastructure connection. Do not set
@@ -47,18 +49,32 @@ An explicit secret is optional. When omitted, the runtime bootstraps a
 database-backed key in `athena.runtime_key`. Never derive that secret from the
 database password.
 
+## Runtime composition
+
+`createAthenaAuthRuntime` is a composition root, not a procedure dump ([ADR 0042](../../../../docs/adr/technical/0042-athena-auth-canonical-architecture.md)):
+
+```text
+createAthenaAuthRuntime
+  = createRuntimeDependencies
+  + createAuthRouter          # typed route() — session | credential | user |
+                              # organization | passkey | token | email | admin
+  + request middleware        # tracing, origin, timings, error boundary
+```
+
+Password-reset (`/forget-password`, `/reset-password`) and organization invitation procedures live in `credential-password-routes.ts` and `organization-invitation-routes.ts`. Do not add business procedures back into `runtime.ts`.
+
 ## Framework-neutral handle
 
 ```ts
-import { createAthenaAuth } from "@xylex-group/athena/auth/server"
+import { createAthenaAuth } from "@xylex-group/athena/auth/server";
 
 const auth = createAthenaAuth({
   database: process.env.DATABASE_URL!,
-})
+});
 
 export default {
   fetch: (request: Request) => auth.handle(request),
-}
+};
 ```
 
 ## Moving to standalone Rust
@@ -86,8 +102,12 @@ auth server implementation.
 Local mode uses the Athena Auth PostgreSQL schema (`athena.users`,
 `athena.sessions`, `athena.accounts`, organizations, …). The TypeScript runtime
 applies the same core tables the Rust service uses, plus a schema ledger and
-runtime keyring. Call `athena.auth.server.migrate()` explicitly in production
-if you disable auto-migrate.
+runtime keyring. Ledger generation **22** adds `athena.passkeys.updated_at`
+(`ALTER TABLE … ADD COLUMN IF NOT EXISTS`; generation 5 `CREATE TABLE` is not
+rewritten). Ledger generation **28** adds `athena.oauth_transactions` (hashed
+OAuth CSRF state + encrypted PKCE; not served on HTTP yet). Call
+`athena.auth.server.migrate()` explicitly in production if you disable
+auto-migrate.
 
 ## Implemented locally vs fail-closed
 
@@ -107,13 +127,87 @@ Implemented against the Rust HTTP contract:
 - session tokens `session_<uuid>` and cookie `athena-auth.session-token`
 
 Not yet implemented in the TypeScript runtime (unknown routes return `404`,
-not a silent success):
+not a silent success). The generated catalog
+(`contracts/auth/routes.generated.json` / `ATHENA_AUTH_OPERATIONS`) is
+authoritative:
 
-- OAuth / social callback engine
-- passkeys / WebAuthn
-- admin email template CRUD
+- Social HTTP is **served** when `auth.social.providers` is configured ([ADR 0050](../../../../docs/adr/technical/0050-athena-js-social-oauth-orchestration.md) engine + [ADR 0053](../../../../docs/adr/technical/0053-athena-js-embedded-social-http-and-hooks.md) routes). Advertised `social.providers` lists only configured served ids. Unconfigured apps stay `[]`.
+- passkeys / WebAuthn advertisement (`passkeys: true` once every portable passkeys operation is embedded-supported). Construct `passkeys` / `webauthn` still throw (not config keys). Local runtime serves registration, authentication, list/update/delete, and `GET /.well-known/webauthn`.
 - grants / ABAC evaluator
 - session intelligence / geo IP
 
+Admin email records, templates, failures, and event-type list **are** served
+locally (`embedded: "supported"` in the catalog). Do not list them as a gap.
+
 Use the Rust server when those plugins are required, or wait for the next
 parity slice. Do not treat a 404 as “feature disabled and allowed.”
+
+## Passkey relying party (identity only)
+
+Optional `auth.passkey` on local config freezes one immutable WebAuthn RP at
+Auth init (`id`, `name`, `origins`, `relatedOrigins`). Precedence: explicit
+`rpId` / `rpName` / origins → unique-host `security.trustedOrigins` →
+documented localhost defaults **only** in development. Production with a
+`passkey` key and no trusted identity throws `ATHENA_RUNTIME_CONFIG_INVALID`.
+RP ID is never taken from `Host`, `X-Forwarded-Host`, or `Origin`.
+`passkey.enabled: true` is operator intent. Advertised `passkeys` follows the generated operation catalog, not this flag.
+
+## Social OAuth config (orchestration + HTTP)
+
+Canonical bag on local `createClient`. Object maps on `auth.social`, `auth.oauth`,
+and `auth.socialProviders` normalize once. Apps do not import `google()` for
+this common case. Configured providers are advertised and the four social HTTP
+routes (`POST /sign-in/social`, `GET /callback/{provider}`, `POST /link-social`,
+`POST /unlink-account`) are served. Unconfigured apps stay `social.providers: []`.
+
+```ts
+import { createClient } from "@xylex-group/athena/server";
+
+export const athena = createClient({
+  databaseUrl: process.env.DATABASE_URL!,
+  auth: {
+    mode: "local",
+    social: {
+      providers: {
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        },
+        github: {
+          clientId: process.env.GITHUB_CLIENT_ID!,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        },
+      },
+    },
+  },
+});
+```
+
+`auth.social: true` / `auth.oauth: true` is invalid (`ATHENA_RUNTIME_CONFIG_INVALID`).
+There is no `createOAuthClient`, `createSocialClient`, or `athena.oauth`.
+`clientSecret` and the transaction store are server-only (not in browser /
+Next client / React Native / Auth UI). Post-auth redirects must match
+`security.trustedOrigins`; tokens never appear in the redirect query. Last-credential
+unlink is rejected.
+
+## Domain hooks
+
+`createClient({ auth: { mode: "local", hooks } })` and `createAthenaAuthRuntime({ hooks })` accept the same `AthenaAuthHooks` map. Keys are implemented domain events only (`user.create`, `organization.create`, `session.issue`, `passkey.register`, `passkey.update`, `passkey.delete`, …). See ADR 0039 and ADR 0041.
+
+Passkey rename and delete use the same `executeAuthMutation` nucleus as register: `previous → before → transaction(scope.stores + persistAudit) → after`. Hook and `audit_log_auth` payloads are identifying `AthenaAuthHookPasskey` only (`id`, `name`, `userId`, optional `createdAt`) — never public key, credential ID, authenticator data, or challenge data. The public `AthenaPasskeyRecord` is authenticator metadata (`displayName`, vendor, device type, transports, backup) without cryptographic material.
+
+`athena.audit_log_auth` meaning is the Auth Event IR on `ATHENA_AUTH_EVENT_DEFINITIONS` ([ADR 0052](../../../../docs/adr/technical/0052-athena-auth-audit-event-ir.md)): mutation kind, typed `resolveSubject({ previous, result, actor, input })`, optional org resolver, previous/result policy. The executor validates then persists inside the mutation transaction; `insertAuditLogAuth` does not guess subject or organization ids. Deletes capture a sanitized previous object and a tombstone `{ deleted: true, id, … }`. `session.revoke` writes one audit row per revoked session (`secondaryEvents`). `session.activeOrganization.update` always uses `actor.sessionId` as `subject_id`. Missing required semantics throw `ATHENA_AUTH_AUDIT_*` (8024–8029) when audit logging is enabled. Do not backfill historical rows from scavenged ids.
+
+Optional `auth.passkey.registration` / `authentication` set WebAuthn userVerification, residentKey, authenticatorAttachment, and the `credProps` extension. Unspecified passwordless registration defaults to `residentKey: "required"` / `requireResidentKey: true` and requests `credProps` unless the operator set `credProps: false` ([ADR 0044](../../../../docs/adr/technical/0044-athena-passkey-discoverability-and-webauthn-ownership.md)). Operator `residentKey` remains an override. Default registration omits `authenticatorAttachment`. `auth.passkey.onboarding.enabled` starts a durable registration transaction instead of creating a user before the ceremony finishes. Advertised `passkey.onboarding` is additive; Auth UI must not infer onboarding from `passkeys: true`.
+
+Callbacks are **not** copied onto `NormalizedAthenaAuthConfig`. Pass `athenaAuthConfig(config.auth)?.hooks` into the runtime.
+
+- `before` — serial, fail-fast; throw vetoes the transaction (`ATHENA_AUTH_HOOK_REJECTED` unless already `AthenaAuthRuntimeError`)
+- `after` — serial, continue-on-error; HTTP success is preserved after commit
+- `onError` — best-effort; its throw is logged and swallowed
+
+Compound rules: signup emits `user.create` and, when auto sign-in succeeds, a sibling `session.issue`. Org create emits one `organization.create`. Invite accept emits `organization.invitation.accept` only. Ban emits `user.ban` only. Role change emits `organization.member.role.update` (not the email string `organization.member.role.updated`).
+
+Transactional email (`authEmailEvents`) stays a separate notification catalog. Map those strings onto domain events; do not register them as `auth.hooks` keys.
+
+v1 caches the embedded runtime per PostgreSQL runtime object and fingerprints **hooks object identity**. Reuse a module-level `hooks` const. A different object against the same cached runtime throws `ATHENA_AUTH_RUNTIME_CONFIG_CONFLICT` (temporary; a stable registration model is debt).

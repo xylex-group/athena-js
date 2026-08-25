@@ -87,23 +87,27 @@ test("Node createClient attaches root internals and satisfies next handlers", ()
   assert.equal(typeof handlers.auth.GET, "function");
 });
 
-test("request views keep source=view and cannot own handlers", () => {
+test("request views keep source=request and cannot own handlers", () => {
   const root = createClient({
     auth: false,
     databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_server_export",
     gatewayTransport: mockTransport(),
   });
   const view = root.withContext({ userId: "user-1" });
-  assert.equal(getAthenaClientInternals(view)?.source, "view");
-  assert.equal(getAthenaClientInternals(view)?.ownership, "view");
+  assert.equal(getAthenaClientInternals(view)?.source, "request");
+  assert.equal(getAthenaClientInternals(view)?.ownership, "request");
   assert.equal(getAthenaClientInternals(view)?.runtimeOwnership, "borrowed");
   const rootDiag = getAthenaRuntimeDiagnostics(root);
-  const viewDiag = getAthenaRuntimeDiagnostics(view);
   assert.ok(rootDiag);
-  assert.ok(viewDiag);
-  assert.equal(rootDiag.runtimeId, viewDiag.runtimeId);
   assert.equal(rootDiag.ownership, "root");
-  assert.equal(viewDiag.ownership, "view");
+  assert.throws(
+    () => getAthenaRuntimeDiagnostics(view),
+    (error: unknown) => {
+      assert.ok(error instanceof AthenaRuntimeOwnershipError);
+      assert.equal(error.code, "ATHENA_RUNTIME_OWNERSHIP_INVALID");
+      return true;
+    },
+  );
   assert.throws(
     () =>
       createAthenaDataHandlers({
@@ -112,7 +116,7 @@ test("request views keep source=view and cannot own handlers", () => {
     (error: unknown) => {
       assert.ok(error instanceof AthenaRuntimeOwnershipError);
       assert.ok(error instanceof AthenaConfigurationError);
-      assert.equal(error.code, "ATHENA_HANDLER_ROOT_CLIENT_REQUIRED");
+      assert.equal(error.code, "ATHENA_RUNTIME_OWNERSHIP_INVALID");
       assert.equal(error.received, "request-view");
       assert.equal(error.expected, "root");
       return true;

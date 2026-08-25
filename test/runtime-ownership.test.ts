@@ -87,7 +87,12 @@ test("request views share the root runtime id and cannot close it", async () => 
     gatewayTransport: mockTransport(),
   });
   const view = root.withContext({ userId: "u1" });
-  await (view as unknown as typeof root).close();
+  await assert.rejects(
+    () => (view as unknown as typeof root).close(),
+    (error: unknown) =>
+      error instanceof AthenaRuntimeOwnershipError &&
+      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID",
+  );
   const afterViewClose = getAthenaRuntimeDiagnostics(root);
   assert.equal(afterViewClose?.closed, false);
   assert.equal(afterViewClose?.requestViewsCreated, 1);

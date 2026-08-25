@@ -27,8 +27,11 @@ export type {
   AthenaRuntimeModelIndex,
 } from "./model-registry.ts";
 export type {
+  AthenaMalformedRightsDiagnostic,
+  AthenaMalformedRightsSource,
   AthenaPrincipal,
   AthenaPrincipalAuthority,
+  AthenaPrincipalInput,
   AthenaPrincipalResolutionInput,
   AthenaPrincipalResolver,
   AthenaResolvedPrincipal,
@@ -39,9 +42,11 @@ export type {
   AthenaRuntimeSessionLookup,
 } from "./principal.ts";
 export {
+  ATHENA_MALFORMED_RIGHTS_KIND,
   anonymousAthenaPrincipal,
   anonymousResolvedPrincipal,
   normalizeAthenaPrincipal,
+  subscribeAthenaMalformedRightsDiagnostics,
 } from "./principal.ts";
 export type {
   AthenaRuntimeAuthMode,

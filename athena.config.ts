@@ -1,4 +1,4 @@
-import { defineAthenaConfig, generatorEnv } from "./src/generator/index.ts";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
 
 export default defineAthenaConfig({
   experimental: {

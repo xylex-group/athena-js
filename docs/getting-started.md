@@ -1,6 +1,6 @@
 # Getting started with Athena JS 3
 
-Package version: `@xylex-group/athena@3.0.0`.
+Package version: `@xylex-group/athena@{{ATHENA_JS_PACKAGE_VERSION}}`.
 
 ## Install
 
@@ -95,7 +95,10 @@ const files = await athena.storage.file.list({ catalogId: 'documents' })
 ```
 
 Configure service overrides through `auth`, `chat`, `storage`, `db`, or
-`billing` objects on `createClient` config.
+`billing` objects on `createClient` config. Nested financial creates require a
+caller-owned `idempotencyKey` ([ADR 0048](../../docs/adr/technical/0048-athena-js-billing-financial-safety.md)).
+Trusted Node may use `storage: { provider: "local", root }` for catalog-optional
+file I/O ([storage/index.md](./storage/index.md)).
 
 ## Generated models (Architecture 4.0)
 

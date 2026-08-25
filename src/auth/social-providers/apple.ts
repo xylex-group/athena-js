@@ -30,7 +30,7 @@ export type {
 export const apple = (options: AppleOptions) => {
   const tokenEndpoint = "https://appleid.apple.com/auth/token";
   return {
-    async createAuthorizationURL({ state, scopes, redirectURI }) {
+    async createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }) {
       if (!(getPrimaryClientId(options.clientId) && options.clientSecret)) {
         logger.error(
           "Client ID and client secret are required for Apple. Make sure to provide them in the options."
@@ -46,6 +46,7 @@ export const apple = (options: AppleOptions) => {
       }
       const url = await createAuthorizationURL({
         authorizationEndpoint: "https://appleid.apple.com/auth/authorize",
+        codeVerifier,
         id: "apple",
         options,
         redirectURI,

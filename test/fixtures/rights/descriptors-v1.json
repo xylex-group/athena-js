@@ -1,0 +1,294 @@
+{
+  "authority": "crates/athena-rights",
+  "descriptors": [
+    {
+      "action": "manage",
+      "description": "Manage billing customer bindings and customer lifecycle state.",
+      "isPattern": false,
+      "key": "billing.customer.manage",
+      "kind": "grant",
+      "resource": "billing.customer",
+      "source": "billing"
+    },
+    {
+      "action": "read",
+      "description": "Read invoices, receipts, and other billing documents.",
+      "isPattern": false,
+      "key": "billing.document.read",
+      "kind": "grant",
+      "resource": "billing.document",
+      "source": "billing"
+    },
+    {
+      "action": "manage",
+      "description": "Create or update billing resources and orchestration state.",
+      "isPattern": false,
+      "key": "billing.manage",
+      "kind": "grant",
+      "resource": "billing",
+      "source": "billing"
+    },
+    {
+      "action": "admin",
+      "description": "Administer billing-provider connections, webhooks, and profiles.",
+      "isPattern": false,
+      "key": "billing.provider.admin",
+      "kind": "grant",
+      "resource": "billing.provider",
+      "source": "billing"
+    },
+    {
+      "action": "read",
+      "description": "Read canonical billing records and provider-backed billing state.",
+      "isPattern": false,
+      "key": "billing.read",
+      "kind": "grant",
+      "resource": "billing",
+      "source": "billing"
+    },
+    {
+      "action": "manage",
+      "description": "Issue and track refunds through billing providers.",
+      "isPattern": false,
+      "key": "billing.refund.manage",
+      "kind": "grant",
+      "resource": "billing.refund",
+      "source": "billing"
+    },
+    {
+      "action": "manage",
+      "description": "Manage subscription lifecycle state in canonical billing.",
+      "isPattern": false,
+      "key": "billing.subscription.manage",
+      "kind": "grant",
+      "resource": "billing.subscription",
+      "source": "billing"
+    },
+    {
+      "action": "open",
+      "description": "Grant access when an invoice is opened or issued.",
+      "isPattern": false,
+      "key": "invoice.open",
+      "kind": "grant",
+      "resource": "invoice",
+      "source": "billing"
+    },
+    {
+      "action": "paid",
+      "description": "Grant access when an invoice has been paid.",
+      "isPattern": false,
+      "key": "invoice.paid",
+      "kind": "grant",
+      "resource": "invoice",
+      "source": "billing"
+    },
+    {
+      "action": "failed",
+      "description": "Grant failure-handling access when a payment-link payment fails.",
+      "isPattern": false,
+      "key": "payment-link.failed",
+      "kind": "grant",
+      "resource": "payment-link",
+      "source": "billing"
+    },
+    {
+      "action": "paid",
+      "description": "Grant access when a payment-link payment has succeeded.",
+      "isPattern": false,
+      "key": "payment-link.paid",
+      "kind": "grant",
+      "resource": "payment-link",
+      "source": "billing"
+    },
+    {
+      "action": "failed",
+      "description": "Grant access when a canonical payment fails.",
+      "isPattern": false,
+      "key": "payment.failed",
+      "kind": "grant",
+      "resource": "payment",
+      "source": "billing"
+    },
+    {
+      "action": "paid",
+      "description": "Grant access when a canonical payment reaches a paid state.",
+      "isPattern": false,
+      "key": "payment.paid",
+      "kind": "grant",
+      "resource": "payment",
+      "source": "billing"
+    },
+    {
+      "action": "refunded",
+      "description": "Grant access when a canonical payment is refunded.",
+      "isPattern": false,
+      "key": "payment.refunded",
+      "kind": "grant",
+      "resource": "payment",
+      "source": "billing"
+    },
+    {
+      "action": "active",
+      "description": "Grant access when a subscription is active.",
+      "isPattern": false,
+      "key": "subscription.active",
+      "kind": "grant",
+      "resource": "subscription",
+      "source": "billing"
+    },
+    {
+      "action": "canceled",
+      "description": "Grant access when a subscription is canceled.",
+      "isPattern": false,
+      "key": "subscription.canceled",
+      "kind": "grant",
+      "resource": "subscription",
+      "source": "billing"
+    },
+    {
+      "action": "past-due",
+      "description": "Grant access when a subscription becomes past due.",
+      "isPattern": false,
+      "key": "subscription.past-due",
+      "kind": "grant",
+      "resource": "subscription",
+      "source": "billing"
+    },
+    {
+      "action": "*",
+      "description": "Global wildcard right that satisfies every runtime right check.",
+      "isPattern": true,
+      "key": "*",
+      "kind": "wildcard",
+      "resource": "*",
+      "source": "gateway"
+    },
+    {
+      "action": "delete",
+      "description": "Wildcard right that satisfies every resource-specific delete right.",
+      "isPattern": true,
+      "key": "*.delete",
+      "kind": "wildcard",
+      "resource": "*",
+      "source": "gateway"
+    },
+    {
+      "action": "read",
+      "description": "Wildcard right that satisfies every resource-specific read right.",
+      "isPattern": true,
+      "key": "*.read",
+      "kind": "wildcard",
+      "resource": "*",
+      "source": "gateway"
+    },
+    {
+      "action": "write",
+      "description": "Wildcard right that satisfies every resource-specific write right.",
+      "isPattern": true,
+      "key": "*.write",
+      "kind": "wildcard",
+      "resource": "*",
+      "source": "gateway"
+    },
+    {
+      "action": "*",
+      "description": "Wildcard right that satisfies every gateway.* action in runtime matching.",
+      "isPattern": true,
+      "key": "gateway.*",
+      "kind": "wildcard",
+      "resource": "gateway",
+      "source": "gateway"
+    },
+    {
+      "action": "delete",
+      "description": "Fallback delete right when a resource-specific selector cannot be derived.",
+      "isPattern": false,
+      "key": "gateway.delete",
+      "kind": "fallback",
+      "resource": "gateway",
+      "source": "gateway"
+    },
+    {
+      "action": "query",
+      "description": "Execute the structured Athena gateway query surface.",
+      "isPattern": false,
+      "key": "gateway.query",
+      "kind": "capability",
+      "resource": "gateway",
+      "source": "gateway"
+    },
+    {
+      "action": "read",
+      "description": "Fallback read right when a resource-specific selector cannot be derived.",
+      "isPattern": false,
+      "key": "gateway.read",
+      "kind": "fallback",
+      "resource": "gateway",
+      "source": "gateway"
+    },
+    {
+      "action": "execute",
+      "description": "Execute the Athena gateway RPC surface.",
+      "isPattern": false,
+      "key": "gateway.rpc.execute",
+      "kind": "capability",
+      "resource": "gateway.rpc",
+      "source": "gateway"
+    },
+    {
+      "action": "proxy",
+      "description": "Access the Athena storage proxy routes.",
+      "isPattern": false,
+      "key": "gateway.storage_proxy",
+      "kind": "capability",
+      "resource": "gateway.storage_proxy",
+      "source": "gateway"
+    },
+    {
+      "action": "proxy",
+      "description": "Access the Athena Typesense proxy routes.",
+      "isPattern": false,
+      "key": "gateway.typesense_proxy",
+      "kind": "capability",
+      "resource": "gateway.typesense_proxy",
+      "source": "gateway"
+    },
+    {
+      "action": "write",
+      "description": "Fallback write right when a resource-specific selector cannot be derived.",
+      "isPattern": false,
+      "key": "gateway.write",
+      "kind": "fallback",
+      "resource": "gateway",
+      "source": "gateway"
+    },
+    {
+      "action": "delete",
+      "description": "Template for resource-scoped delete rights such as users.delete.",
+      "isPattern": true,
+      "key": "{resource}.delete",
+      "kind": "template",
+      "resource": "{resource}",
+      "source": "gateway"
+    },
+    {
+      "action": "read",
+      "description": "Template for resource-scoped read rights such as users.read.",
+      "isPattern": true,
+      "key": "{resource}.read",
+      "kind": "template",
+      "resource": "{resource}",
+      "source": "gateway"
+    },
+    {
+      "action": "write",
+      "description": "Template for resource-scoped write rights such as users.write.",
+      "isPattern": true,
+      "key": "{resource}.write",
+      "kind": "template",
+      "resource": "{resource}",
+      "source": "gateway"
+    }
+  ],
+  "version": 1
+}

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../src/auth/contract/index.ts";
 import { passwordHashNeedsRehash } from "../src/auth/local/password.ts";
+import { createEmbeddedCapabilitySnapshot } from "../src/auth/capabilities.ts";
+import { normalizeAthenaAuthConfig } from "../src/auth/config.ts";
 import { createAthenaAuthRuntime } from "../src/auth/local/runtime.ts";
 import { AthenaConfigurationError, createClient } from "../src/v3-client.ts";
 
@@ -34,7 +36,10 @@ test("GET /ok and /health terminate locally without a remote service", async () 
 	const runtime = createRuntime();
 	const ok = await runtime.handle(new Request("http://app.local/api/auth/ok"));
 	assert.equal(ok.status, 200);
-	assert.deepEqual(await json(ok), { ok: true });
+	assert.deepEqual(await json(ok), {
+		ok: true,
+		capabilities: createEmbeddedCapabilitySnapshot(),
+	});
 
 	const health = await runtime.handle(
 		new Request("http://app.local/api/auth/health"),
@@ -44,6 +49,23 @@ test("GET /ok and /health terminate locally without a remote service", async () 
 	assert.equal(body.status, "ok");
 	assert.equal(body.service, "athena-auth");
 	assert.ok(health.headers.get("x-athena-trace-id"));
+});
+
+test("GET /ok advertises passkeys when auth.passkey.enabled is true", async () => {
+	const runtime = createAthenaAuthRuntime({
+		autoMigrate: false,
+		config: normalizeAthenaAuthConfig({
+			mode: "local",
+			passkey: { enabled: true, rpId: "localhost" },
+		}),
+		hasher: createTestHasher(),
+	});
+	const ok = await runtime.handle(new Request("http://app.local/api/auth/ok"));
+	assert.equal(ok.status, 200);
+	const body = await json(ok);
+	assert.deepEqual(body.capabilities, createEmbeddedCapabilitySnapshot({
+		passkeyEnabled: true,
+	}));
 });
 
 test("unknown routes return a contract error envelope", async () => {
@@ -185,12 +207,10 @@ test("forgot password is enumeration-resistant and reset consumes the token once
 	let capturedToken: string | undefined;
 	const capturing = createAthenaAuthRuntime({
 		autoMigrate: false,
-		email: {
-			send: (message) => {
-				capturedToken = message.url;
-			},
-		},
 		hasher: createTestHasher(),
+		legacySend: (message) => {
+			capturedToken = message.url;
+		},
 	});
 	await capturing.handle(
 		new Request("http://app.local/api/auth/sign-up/email", {
@@ -261,6 +281,27 @@ test("organization create/list/invite/accept stay scoped to the member", async (
 	const createdBody = await json(created);
 	const organization = createdBody.organization as { id: string };
 	assert.ok(organization.id);
+
+	const selfInvite = await runtime.handle(
+		new Request("http://app.local/api/auth/organization/invite-member", {
+			body: JSON.stringify({
+				email: "  Owner@Example.com ",
+				organizationId: organization.id,
+				role: "member",
+			}),
+			headers: {
+				"content-type": "application/json",
+				cookie: ownerCookie,
+			},
+			method: "POST",
+		}),
+	);
+	assert.equal(selfInvite.status, 400);
+	const selfInviteBody = await json(selfInvite);
+	assert.equal(
+		selfInviteBody.message,
+		"You cannot invite your own email as a member",
+	);
 
 	const member = await runtime.handle(
 		new Request("http://app.local/api/auth/sign-up/email", {
@@ -352,4 +393,79 @@ test("password PHC hashes from the Rust default profile do not need rehash", () 
 		),
 		false,
 	);
+});
+
+test("organization update applies Better Auth data envelope name, slug, and logo", async () => {
+	const runtime = createRuntime();
+	const owner = await runtime.handle(
+		new Request("http://app.local/api/auth/sign-up/email", {
+			body: JSON.stringify({
+				email: "org-update@example.com",
+				password: "Password123!",
+			}),
+			headers: { "content-type": "application/json" },
+			method: "POST",
+		}),
+	);
+	const ownerCookie = owner.headers.get("set-cookie") ?? "";
+	const created = await runtime.handle(
+		new Request("http://app.local/api/auth/organization/create", {
+			body: JSON.stringify({ name: "Acme", slug: "acme" }),
+			headers: {
+				"content-type": "application/json",
+				cookie: ownerCookie,
+			},
+			method: "POST",
+		}),
+	);
+	assert.equal(created.status, 200);
+	const createdBody = await json(created);
+	const organization = createdBody.organization as { id: string };
+
+	const updated = await runtime.handle(
+		new Request("http://app.local/api/auth/organization/update", {
+			body: JSON.stringify({
+				data: {
+					image: "data:image/png;base64,abc",
+					logo: "data:image/png;base64,abc",
+					name: "Acme Labs",
+					slug: "acme-labs",
+				},
+				organizationId: organization.id,
+			}),
+			headers: {
+				"content-type": "application/json",
+				cookie: ownerCookie,
+			},
+			method: "POST",
+		}),
+	);
+	assert.equal(updated.status, 200);
+	const updatedBody = await json(updated);
+	const next = updatedBody.organization as {
+		logo: string | null;
+		name: string;
+		slug: string;
+	};
+	assert.equal(next.name, "Acme Labs");
+	assert.equal(next.slug, "acme-labs");
+	assert.equal(next.logo, "data:image/png;base64,abc");
+
+	const cleared = await runtime.handle(
+		new Request("http://app.local/api/auth/organization/update", {
+			body: JSON.stringify({
+				data: { logo: "" },
+				organizationId: organization.id,
+			}),
+			headers: {
+				"content-type": "application/json",
+				cookie: ownerCookie,
+			},
+			method: "POST",
+		}),
+	);
+	assert.equal(cleared.status, 200);
+	const clearedBody = await json(cleared);
+	const afterClear = clearedBody.organization as { logo: string | null };
+	assert.equal(afterClear.logo, null);
 });

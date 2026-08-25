@@ -30,36 +30,39 @@ type KnownSelectColumnKey<Row> = AthenaColumnKey<Row>;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type AthenaFilterOperator =
-  | "eq"
-  | "neq"
-  | "gt"
-  | "gte"
-  | "lt"
-  | "lte"
-  | "like"
-  | "ilike"
-  | "is"
-  | "in"
-  | "contains"
-  | "containedBy";
+/** findMany AST where operators. Fluent `.match` / `.or` / `.not` are not in this list. */
+export const ATHENA_FILTER_OPERATORS = [
+  "eq",
+  "neq",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "like",
+  "ilike",
+  "is",
+  "in",
+  "contains",
+  "containedBy",
+] as const;
+
+type AthenaFilterOperator = (typeof ATHENA_FILTER_OPERATORS)[number];
+
+const ATHENA_ARRAY_FILTER_OPERATORS = [
+  "in",
+  "contains",
+  "containedBy",
+] as const satisfies readonly AthenaFilterOperator[];
+
+type AthenaArrayFilterOperator = (typeof ATHENA_ARRAY_FILTER_OPERATORS)[number];
 
 type AthenaWherePrimitive = AthenaConditionValue;
 
-export interface AthenaWhereOperatorInput {
-  containedBy?: AthenaConditionArrayValue;
-  contains?: AthenaConditionArrayValue;
-  eq?: AthenaConditionValue;
-  gt?: AthenaConditionValue;
-  gte?: AthenaConditionValue;
-  ilike?: AthenaConditionValue;
-  in?: AthenaConditionArrayValue;
-  is?: AthenaConditionValue;
-  like?: AthenaConditionValue;
-  lt?: AthenaConditionValue;
-  lte?: AthenaConditionValue;
-  neq?: AthenaConditionValue;
-}
+export type AthenaWhereOperatorInput = {
+  [K in AthenaFilterOperator]?: K extends AthenaArrayFilterOperator
+    ? AthenaConditionArrayValue
+    : AthenaConditionValue;
+};
 
 export type AthenaRelationWhereInput<Row = AthenaRowShape> = {
   every?: AthenaWhere<Row>;
@@ -79,7 +82,7 @@ type AthenaWhereColumnInput<Row = AthenaRowShape> = Partial<
 
 type AthenaBooleanSafeOperator = Exclude<
   AthenaFilterOperator,
-  "in" | "contains" | "containedBy"
+  AthenaArrayFilterOperator
 >;
 
 type AthenaWhereBooleanSafeOperatorInput = Partial<
@@ -425,32 +428,18 @@ export type AthenaFindManyResult<
     RelationSelectionResult<TContext, TSelect>
 >;
 
-const FILTER_OPERATORS = new Set<AthenaFilterOperator>([
-  "eq",
-  "neq",
-  "gt",
-  "gte",
-  "lt",
-  "lte",
-  "like",
-  "ilike",
-  "is",
-  "in",
-  "contains",
-  "containedBy",
-]);
+const FILTER_OPERATORS = new Set<AthenaFilterOperator>(ATHENA_FILTER_OPERATORS);
 
-const BOOLEAN_SAFE_OPERATORS = new Set<AthenaBooleanSafeOperator>([
-  "eq",
-  "neq",
-  "gt",
-  "gte",
-  "lt",
-  "lte",
-  "like",
-  "ilike",
-  "is",
-]);
+const ARRAY_FILTER_OPERATORS = new Set<AthenaArrayFilterOperator>(
+  ATHENA_ARRAY_FILTER_OPERATORS
+);
+
+const BOOLEAN_SAFE_OPERATORS = new Set<AthenaBooleanSafeOperator>(
+  ATHENA_FILTER_OPERATORS.filter(
+    (op): op is AthenaBooleanSafeOperator =>
+      !ATHENA_ARRAY_FILTER_OPERATORS.includes(op as AthenaArrayFilterOperator)
+  )
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -677,9 +666,7 @@ function compileColumnWhere(
       );
     }
     if (
-      (rawOperator === "in" ||
-        rawOperator === "contains" ||
-        rawOperator === "containedBy") &&
+      ARRAY_FILTER_OPERATORS.has(rawOperator as AthenaArrayFilterOperator) &&
       !Array.isArray(rawValue)
     ) {
       throw new Error(

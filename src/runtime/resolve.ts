@@ -18,13 +18,21 @@ interface ResolveAuthInput {
   url?: string | null;
 }
 
-interface ResolveConfigInput {
+export interface ResolveConfigInput {
   auth?: false | ResolveAuthInput | null;
   databaseUrl?: string | null;
-  db?: { d1?: unknown; pgUri?: string | null };
+  db?: { d1?: unknown; pgUri?: string | null; pool?: unknown };
   env?: Record<string, string | undefined>;
   mode?: string | null;
-  storage?: { r2?: unknown; url?: string | null };
+  storage?: {
+    bucket?: string | null;
+    prefix?: string | null;
+    provider?: string | null;
+    r2?: unknown;
+    root?: string | null;
+    s3?: unknown;
+    url?: string | null;
+  };
   url?: string | null;
 }
 
@@ -36,7 +44,7 @@ export type AthenaRuntimeEnvironment =
 
 export type AthenaDbTransport = "postgres" | "gateway" | "d1";
 export type AthenaAuthRuntime = "embedded" | "remote" | "disabled";
-export type AthenaStorageTransport = "http" | "r2" | "none";
+export type AthenaStorageTransport = "http" | "r2" | "local" | "s3" | "none";
 
 export interface ResolvedAthenaRuntime {
   auth: { runtime: AthenaAuthRuntime };
@@ -193,9 +201,30 @@ export function resolveAthenaRuntime(
     }
   }
 
+  const wantsLocalStorage = config.storage?.provider === "local";
+  if (wantsLocalStorage && !trustedNode) {
+    throw new AthenaConfigurationError(
+      "ATHENA_STORAGE_LOCAL_NODE_REQUIRED",
+      'storage.provider "local" requires a Node.js server runtime. Import createClient from @xylex-group/athena in a server module.',
+      "storage"
+    );
+  }
+  const wantsS3Storage = config.storage?.provider === "s3";
+  if (wantsS3Storage && !trustedNode) {
+    throw new AthenaConfigurationError(
+      "ATHENA_STORAGE_S3_NODE_REQUIRED",
+      'storage.provider "s3" requires a Node.js server runtime. Import createClient from @xylex-group/athena in a server module.',
+      "storage"
+    );
+  }
+
   let storageTransport: AthenaStorageTransport = "none";
-  if (hasR2) {
+  if (wantsLocalStorage) {
+    storageTransport = "local";
+  } else if (hasR2) {
     storageTransport = "r2";
+  } else if (wantsS3Storage) {
+    storageTransport = "s3";
   } else if (hasStorageUrl) {
     storageTransport = "http";
   }

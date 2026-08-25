@@ -6,9 +6,12 @@
 /** Local migration file discovered under the migrations directory. */
 export interface MigrationFile {
   checksum: string;
+  executionId?: string;
   filename: string;
   name: string;
   path: string;
+  provenance?: import("./source-control/types.ts").MigrationFileProvenance;
+  sourceDirty?: boolean;
   sql: string;
   version: number;
 }
@@ -17,14 +20,26 @@ export interface MigrationFile {
 export interface AppliedMigration {
   appliedAt: Date;
   checksum: string;
+  executionId?: string;
   executionMs: number;
   name: string;
+  sourceBlobSha?: string;
+  sourceBranch?: string;
+  sourceCommit?: string;
+  sourceDirty?: boolean;
+  sourcePath?: string;
+  sourceRepository?: string;
   version: number;
 }
 
 export type MigrationPlanStatus = "applied" | "pending";
 
-export type MigrationConflictKind = "checksum-mismatch" | "missing-local";
+export type MigrationConflictKind =
+  | "checksum-mismatch"
+  | "missing-local"
+  | "name-mismatch"
+  | "historical-insertion"
+  | "duplicate-version";
 
 export type MigrationDisplayStatus =
   | MigrationPlanStatus
@@ -59,7 +74,25 @@ export interface MigrationBackend {
   applyMigration(migration: MigrationFile): Promise<AppliedMigrationResult>;
   close(): Promise<void>;
   ensureLedger(): Promise<void>;
+  inspectCatalog(): Promise<
+    import("./analysis/catalog.ts").PhysicalCatalog
+  >;
   listAppliedMigrations(): Promise<AppliedMigration[]>;
+  listArchivedSources?(): Promise<
+    import("./reconciliation/types.ts").ArchivedMigrationSource[]
+  >;
+  repairLedgerChecksum?(version: number, checksum: string): Promise<void>;
+  insertReconciliation?(row: {
+    action: string;
+    classification: string;
+    confidence: string;
+    evidence: unknown;
+    newChecksum?: string;
+    oldChecksum?: string;
+    physicalFingerprint?: string;
+    repositoryCommit?: string;
+    version: number;
+  }): Promise<void>;
   releaseLock(): Promise<void>;
 }
 
@@ -68,7 +101,13 @@ export type MigrationCommandMode =
   | "status"
   | "plan"
   | "dry-run"
-  | "repair";
+  | "repair"
+  | "check"
+  | "graph"
+  | "explain"
+  | "drift"
+  | "reconcile"
+  | "verify";
 
 export interface RunMigrationsOptions {
   /**
@@ -110,6 +149,24 @@ export interface RunMigrationsOptions {
   yes?: boolean;
   json?: boolean;
   plain?: boolean;
+  /** Fail on dynamic SQL / unverifiable constructs. */
+  strict?: boolean;
+  /** Target for `migrate explain <file-or-version>`. */
+  explainTarget?: string;
+  /** Apply HIGH-confidence reconcile repairs (never migration SQL). */
+  applyReconcile?: boolean;
+  /**
+   * Apply/repair despite uncommitted migration files or migrate config.
+   */
+  allowDirtyMigrations?: boolean;
+  /** @deprecated Use allowDirtyMigrations */
+  allowDirty?: boolean;
+  /**
+   * Injectable source-control inspector for tests.
+   */
+  inspectSourceControl?: (
+    input: import("./source-control/types.ts").InspectSourceControlInput
+  ) => import("./source-control/types.ts").MigrationSourceControlState;
   /** Optional presentation adapter; defaults from flags/TTY. */
   ui?: import("../cli/ui/types.ts").AthenaCliUI;
 }
@@ -134,6 +191,10 @@ export interface MigrationRunSummary {
   databaseLabel: string;
   skippedCount: number;
   newlyApplied: AppliedMigrationResult[];
+  semantic?: import("./analysis/compiler.ts").CompileMigrationsResult;
+  gitWorktree?: import("./git-worktree.ts").DirtyMigrationWorktree;
+  sourceControl?: import("./source-control/types.ts").MigrationSourceControlState;
+  reconciliation?: import("./reconciliation/types.ts").ReconciliationReport;
 }
 
 export class MigrationError extends Error {
@@ -145,7 +206,8 @@ export class MigrationError extends Error {
     | "PROVIDER"
     | "EXECUTION"
     | "LOCK"
-    | "LEDGER";
+    | "LEDGER"
+    | "SEMANTIC";
 
   constructor(
     code: MigrationError["code"],

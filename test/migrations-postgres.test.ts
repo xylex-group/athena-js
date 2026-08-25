@@ -202,6 +202,14 @@ test("postgres backend bootstraps ledger, locks, applies, and unlocks", async ()
 		true,
 	);
 	assert.equal(
+		texts.some((t) => t.includes("INSERT INTO athena.schema_migration_sources")),
+		true,
+	);
+	assert.equal(
+		texts.some((t) => t.includes("athena.schema_migration_reconciliations")),
+		true,
+	);
+	assert.equal(
 		texts.some((t) => t.includes("pg_advisory_unlock")),
 		true,
 	);

@@ -1,23 +1,40 @@
+export { builtinAuthEmailBody, builtinTemplateRow } from "./builtins.ts";
 export {
-  ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED,
-  type AthenaAuthEmailAttachmentFailureMode,
-  type AthenaAuthEmailDeliveryResult,
-  type AthenaAuthEmailFailureRow,
-  type AthenaAuthEmailMessage,
-  type AthenaAuthEmailProvider,
-  type AthenaAuthEmailProviderContext,
-  type AthenaAuthEmailRecordRow,
-  type AthenaAuthEmailTemplateRow,
-  type AthenaAuthResolvedEmailAttachment,
+	type AuthEmailApplicationView,
+	type AuthEmailTemplateView,
+	type AuthEmailUserView,
+	assertAuthEmailRequiredVariables,
+	type ChangeEmailTemplateData,
+	type DeleteUserConfirmationTemplateData,
+	flattenAuthEmailTemplateData,
+	type OrganizationInvitationTemplateData,
+	type OtpTemplateData,
+	type PasswordResetTemplateData,
+	resolveAuthEmailTemplate,
+	type VerifyEmailTemplateData,
+} from "./catalog.ts";
+export {
+	ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED,
+	type AthenaAuthEmailAttachmentFailureMode,
+	type AthenaAuthEmailFailureRow,
+	type AthenaAuthEmailRecordRow,
+	type AthenaAuthEmailTemplateRow,
 } from "./contract.ts";
 export {
-  AUTH_EMAIL_EVENT_CATALOG,
-  authEmailEvents,
-  flattenAuthEmailEvents,
-  getAuthEmailEventDefinition,
-  type AthenaAuthEmailEventDefinition,
-  type AuthEmailEventNested,
-} from "./events.ts";
-export { renderAuthEmailFragment } from "./renderer.ts";
-export { consoleEmailProvider, createTestEmailProvider } from "./provider.ts";
+	createTransactionalMailer,
+	type EmitAuthEmailContext,
+	type EmitAuthEmailInput,
+	emitAuthEmail,
+	type LegacyAuthEmailSend,
+} from "./emit.ts";
 export { AthenaAuthEmailError } from "./errors.ts";
+export {
+	type AthenaAuthEmailEventDefinition,
+	AUTH_EMAIL_EVENT_CATALOG,
+	type AuthEmailEventNested,
+	authEmailEvents,
+	flattenAuthEmailEvents,
+	getAuthEmailEventDefinition,
+} from "./events.ts";
+export { createTestEmailDeliveryPort } from "./provider.ts";
+export { renderAuthEmailFragment } from "./renderer.ts";

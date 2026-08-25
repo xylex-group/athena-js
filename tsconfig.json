@@ -1,28 +1,20 @@
 {
+  "extends": "./tsconfig.src.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": ["ES2022", "DOM"],
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "allowJs": false,
-    "checkJs": false,
-    "allowImportingTsExtensions": true,
+    "rootDir": ".",
     "noEmit": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "jsx": "react-jsx",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "types": ["node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "examples"]
+  "include": ["src/**/*", "test/**/*.ts", "test-sdk/src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "examples",
+    "test/fixtures",
+    "test-sdk/node_modules"
+  ]
 }

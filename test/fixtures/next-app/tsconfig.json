@@ -11,7 +11,6 @@
     "allowImportingTsExtensions": true,
     "jsx": "preserve",
     "types": ["node"],
-    "baseUrl": ".",
     "paths": {
       "@xylex-group/athena/next/client": ["../../../src/next/client.ts"],
       "@xylex-group/athena/next/server": ["../../../src/next/server.ts"]

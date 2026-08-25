@@ -20,23 +20,23 @@ import type { EnvLike } from "./athena-auth-url.ts";
  * ```
  */
 export function requireEnv(names: readonly string[], env?: EnvLike): string {
-  if (!names.length) {
-    throw new Error(
-      "requireEnv() requires at least one environment variable name."
-    );
-  }
+	if (!names.length) {
+		throw new Error(
+			"requireEnv() requires at least one environment variable name.",
+		);
+	}
 
-  const source = env ?? readProcessEnv();
-  for (const name of names) {
-    const value = source[name]?.trim();
-    if (value) {
-      return value;
-    }
-  }
+	const source = env ?? readProcessEnv();
+	for (const name of names) {
+		const value = source[name]?.trim();
+		if (value) {
+			return value;
+		}
+	}
 
-  throw new Error(
-    `Missing required environment variable. Expected one of: ${names.join(", ")}`
-  );
+	throw new Error(
+		`Missing required environment variable. Expected one of: ${names.join(", ")}`,
+	);
 }
 
 /**
@@ -44,29 +44,29 @@ export function requireEnv(names: readonly string[], env?: EnvLike): string {
  * none of the keys are set.
  */
 export function readEnv(
-  names: readonly string[],
-  env?: EnvLike
+	names: readonly string[],
+	env?: EnvLike,
 ): string | undefined {
-  if (!names.length) {
-    return undefined;
-  }
+	if (!names.length) {
+		return undefined;
+	}
 
-  const source = env ?? readProcessEnv();
-  for (const name of names) {
-    const value = source[name]?.trim();
-    if (value) {
-      return value;
-    }
-  }
-  return undefined;
+	const source = env ?? readProcessEnv();
+	for (const name of names) {
+		const value = source[name]?.trim();
+		if (value) {
+			return value;
+		}
+	}
+	return undefined;
 }
 
 function readProcessEnv(): EnvLike {
-  try {
-    const processEnv = (globalThis as { process?: { env?: EnvLike } }).process
-      ?.env;
-    return processEnv ?? {};
-  } catch {
-    return {};
-  }
+	try {
+		const processEnv = (globalThis as { process?: { env?: EnvLike } }).process
+			?.env;
+		return processEnv ?? {};
+	} catch {
+		return {};
+	}
 }

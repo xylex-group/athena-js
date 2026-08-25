@@ -1,7 +1,7 @@
 /**
  * Portable Athena read-query definition and executor.
  *
- * Runs findMany / select page queries against `createClient(...).db` with
+ * Runs findMany / select page queries against `createClient().db` with
  * expression columns, display aliases, filters, order, and total-count handling.
  * UI hooks (pagination, dataProxy, TanStack) live in consumer packages such as
  * athena-auth-ui — this module is the SDK contract only.
@@ -11,7 +11,6 @@ import {
   type AthenaQueryDebugAst,
   getAthenaDebugAst,
 } from "../query-debug-ast.ts";
-import type { AthenaClient } from "../v3-client-core.ts";
 
 export type AthenaReadQueryMode = "findMany" | "select";
 
@@ -109,9 +108,40 @@ export type AthenaReadQueryFlatRow = Record<string, unknown> & {
   __rowKey: string;
 };
 
-/** Minimal client shape: any `createClient(...)` result (or scoped view) with `.db`. */
+/**
+ * Narrow `db` surface used by portable read-query execution.
+ * Does not depend on the public client façade type.
+ */
+export interface AthenaReadQueryBuilder {
+  currentPage: (page: number) => AthenaReadQueryBuilder;
+  findMany: (options: unknown) => Promise<{
+    count?: number | null;
+    data?: unknown;
+  }>;
+  order: (
+    column: string,
+    options: { ascending: boolean }
+  ) => AthenaReadQueryBuilder;
+  pageSize: (size: number) => AthenaReadQueryBuilder;
+  select: (
+    columns?: unknown,
+    options?: { count?: string; head?: boolean }
+  ) => Promise<{
+    count?: number | null;
+    data?: unknown;
+  }>;
+}
+
+export interface AthenaReadQueryDb {
+  from: (
+    table: string,
+    options?: { schema?: string }
+  ) => AthenaReadQueryBuilder;
+}
+
+/** Minimal client shape: any `createClient()` result (or scoped view) with `.db`. */
 export interface AthenaReadQueryClient {
-  readonly db: AthenaClient["db"] | object;
+  readonly db: AthenaReadQueryDb;
 }
 
 export interface AthenaReadQueryExecutionInput {
@@ -436,21 +466,26 @@ export function applyAthenaReadQueryFilters<T extends object>(
 /** @deprecated Prefer {@link applyAthenaReadQueryFilters}. */
 export const applyAthenaTableFilters = applyAthenaReadQueryFilters;
 
-export function applyAthenaReadQuerySelectOrder<
-  T extends { order: (column: string, options: { ascending: boolean }) => T },
->(queryBuilder: T, orderBy: AthenaReadQueryOrderByInput | undefined) {
+export function applyAthenaReadQuerySelectOrder<T extends object>(
+  queryBuilder: T,
+  orderBy: AthenaReadQueryOrderByInput | undefined,
+): T {
   const normalized = normalizeAthenaReadQueryOrderBy(orderBy);
   if (normalized.length === 0) {
     return queryBuilder;
   }
 
-  return normalized.reduce<T>(
-    (builder, entry) =>
-      builder.order(entry.column, {
-        ascending: entry.direction !== "desc",
-      }),
-    queryBuilder,
-  );
+  return normalized.reduce((builder, entry) => {
+    const order = (builder as {
+      order?: (column: string, options: { ascending: boolean }) => T;
+    }).order;
+    if (typeof order !== "function") {
+      return builder;
+    }
+    return order.call(builder, entry.column, {
+      ascending: entry.direction !== "desc",
+    });
+  }, queryBuilder);
 }
 
 /** @deprecated Prefer {@link applyAthenaReadQuerySelectOrder}. */
@@ -572,7 +607,7 @@ export async function executeAthenaReadQuery({
   pageSize,
   query,
 }: AthenaReadQueryExecutionInput): Promise<AthenaReadQueryExecutionResult> {
-  const db = (client as AthenaClient).db;
+  const db = client.db;
   const baseBuilder = db.from(query.table, {
     schema: query.schema,
   });

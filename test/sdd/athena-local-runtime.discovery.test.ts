@@ -5,7 +5,10 @@ import { strict as assert } from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { AthenaConfigurationError } from "../../src/config/errors.ts";
-import type { AthenaRuntimeDiscoveryDocument } from "../../src/gateway/discovery-types.ts";
+import {
+	type AthenaRuntimeDiscoveryDocument,
+	parseAthenaRuntimeDiscoveryDocument,
+} from "../../src/gateway/discovery-types.ts";
 import { handleAthenaGatewayRequest } from "../../src/gateway/server/adapter.ts";
 import {
 	createClient,
@@ -399,6 +402,64 @@ test("discovery: HTTP handlers expose capability document", async () => {
 	assert.equal(body.protocol.major, 1);
 	assert.equal(body.capabilities.fetch, true);
 	assert.equal(body.ok, true);
+});
+
+test("discovery: parser keeps documents when diagnostics are absent or malformed", () => {
+	assert.ok(parseAthenaRuntimeDiscoveryDocument(compatibleDocument));
+	const withDiagnostics = {
+		...compatibleDocument,
+		diagnostics: {
+			auth: "embedded",
+			database: "postgres-direct",
+			runtime: "node",
+			storage: "none",
+			passkey: {
+				configured: true,
+				enabled: true,
+				onboardingEnabled: false,
+				origins: ["http://localhost:3000"],
+				relatedOrigins: [],
+				rpId: "localhost",
+				rpName: "next-minimal",
+				timeoutMs: 60_000,
+				userVerification: "preferred",
+			},
+			config: {
+				autoMigrate: true,
+				authWarnings: [],
+				databaseConfigured: true,
+				generatorConfigFile: "athena.config.ts",
+				localMigrationFiles: 2,
+				migrationsDirectory: "athena/migrations",
+				migrationsDirectoryFound: true,
+				modelsAttached: true,
+			},
+		},
+	};
+	const parsed = parseAthenaRuntimeDiscoveryDocument(withDiagnostics);
+	assert.ok(parsed);
+	assert.equal(parsed.diagnostics?.auth, "embedded");
+	assert.equal(parsed.diagnostics?.passkey.rpName, "next-minimal");
+	assert.equal(parsed.diagnostics?.passkey.authenticatorAttachment, null);
+	assert.equal(parsed.diagnostics?.passkey.residentKey, null);
+	assert.equal(parsed.diagnostics?.config?.generatorConfigFile, "athena.config.ts");
+	assert.equal(parsed.diagnostics?.config?.localMigrationFiles, 2);
+	const malformedConfig = parseAthenaRuntimeDiscoveryDocument({
+		...withDiagnostics,
+		diagnostics: {
+			...withDiagnostics.diagnostics,
+			config: { autoMigrate: "yes" },
+		},
+	});
+	assert.ok(malformedConfig);
+	assert.equal(malformedConfig.diagnostics?.auth, "embedded");
+	assert.equal(malformedConfig.diagnostics?.config, undefined);
+	const malformed = parseAthenaRuntimeDiscoveryDocument({
+		...compatibleDocument,
+		diagnostics: { auth: "nope" },
+	});
+	assert.ok(malformed);
+	assert.equal(malformed.diagnostics, undefined);
 });
 
 test("discovery: next/client source stays free of Node runtime", async () => {

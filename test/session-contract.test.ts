@@ -45,6 +45,22 @@ test("isAbortError detects AbortError name", () => {
   assert.equal(isAbortError(new Error("x")), false);
 });
 
+test("isAbortError detects Chrome abort-without-reason strings", () => {
+  assert.equal(
+    isAbortError(
+      "Network error while calling GET /get-session: signal is aborted without reason"
+    ),
+    true
+  );
+  assert.equal(
+    isAbortError({
+      message:
+        "Network error while calling GET /get-session: signal is aborted without reason",
+    }),
+    true
+  );
+});
+
 
 test("toSessionData freezes session fields", () => {
   const data = toSessionData(transport);

@@ -4,6 +4,7 @@ import {
   type AthenaAuthErrorBody,
 } from "../contract/index.ts";
 import { PACKAGE_VERSION } from "../../sdk-version.ts";
+import { currentAuthRequestTiming } from "./request-timing.ts";
 
 export class AthenaAuthRuntimeError extends Error {
   readonly code?: string;
@@ -104,7 +105,13 @@ export function jsonResponse(
     responseHeaders.set(ATHENA_AUTH_TRACE_ID_HEADER, traceId);
     responseHeaders.set(ATHENA_AUTH_REQUEST_ID_HEADER, traceId);
   }
-  return new Response(JSON.stringify(body), {
+  const serializeStarted = performance.now();
+  const bodyText = JSON.stringify(body);
+  currentAuthRequestTiming()?.addSpan(
+    "serialize",
+    performance.now() - serializeStarted
+  );
+  return new Response(bodyText, {
     headers: responseHeaders,
     status,
   });

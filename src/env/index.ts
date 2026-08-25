@@ -70,6 +70,17 @@ export const ATHENA_ENV_API_KEY_KEYS = [
   "X_API_KEY",
 ] as const;
 
+/**
+ * Public application origin keys for app identity. First configured
+ * http(s) value wins. Losing aliases are not independently trusted.
+ */
+export const ATHENA_ENV_APP_URL_KEYS = [
+  "APP_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "NEXT_PUBLIC_URL",
+  "BETTER_AUTH_URL",
+] as const;
+
 /** Client-name keys accepted by createClient resolveCore (`X-Athena-Client`). */
 export const ATHENA_ENV_CLIENT_KEYS = [
   "ATHENA_CLIENT",

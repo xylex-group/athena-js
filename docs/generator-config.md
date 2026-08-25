@@ -38,7 +38,7 @@ For the full command matrix and troubleshooting, see
 
 ## Config discovery
 
-`loadGeneratorConfig()` discovers the first file in this order when `--config` is not passed:
+`loadAthenaConfig()` and `loadGeneratorConfig()` share the same discovery order. `loadGeneratorConfig()` is used when `--config` is not passed to generate/migrate:
 
 - `athena.config.ts`
 - `athena.config.js`
@@ -102,18 +102,48 @@ Use `--config` with a relative or absolute path to avoid this in monorepos.
 
 ## Config surface at a glance
 
+Static project SSOT is permissive `AthenaConfig`. Generator compile-time SSOT remains required-provider `AthenaGeneratorConfig` ([ADR 0043](../../../docs/adr/technical/0043-athena-js-policy-dx-and-data-lifecycle.md)).
+
 ```ts
-export interface AthenaGeneratorConfig {
-  provider: GeneratorProviderInputConfig
+export interface AthenaConfig {
+  provider?: GeneratorProviderInputConfig
+  models?: AthenaClientModelsInput
+  policies?: AthenaPolicyProjectConfig
+  tooling?: AthenaToolingEntrypoints
+  migrations?: AthenaMigrationsConfig
   output?: GeneratorOutputConfig
   naming?: Partial<GeneratorNamingConfig>
   filter?: GeneratorFilterConfig
   features?: Partial<GeneratorFeatureFlags>
   experimental?: Partial<GeneratorExperimentalFlags>
 }
+
+export interface AthenaGeneratorConfig
+  extends Omit<AthenaConfig, "provider"> {
+  provider: GeneratorProviderInputConfig
+}
 ```
 
-All nested sections are validated by normal TypeScript shape and then normalized with defaults.
+- `defineAthenaConfig` is the permissive identity (`provider` optional). Policy-only / generate-less apps may omit `provider`.
+- `defineGeneratorConfig` is a **deprecated, distinct** strict identity — **not** an alias of `defineAthenaConfig`. It still requires `provider` at the type level.
+- `loadAthenaConfig()` retains `models`, `policies`, and `tooling` exactly. It does **not** import `tooling.*` paths, instantiate clients, or open a database.
+- `loadGeneratorConfig()` is the required-provider projection (`NormalizedAthenaGeneratorConfig`). Extra project-only keys are dropped. Env-only fallback still requires a resolvable provider.
+- `athena-js generate` / `runSchemaGenerator` always `loadGeneratorConfig` and must not import `tooling.models` or the generated registry.
+- `createClient` never reads `tooling.*` paths. Apps pass `models` / `policies` explicitly.
+
+Bootstrap-safe tooling paths (`athena-js generate` does not import them; Policy CLI lazy-resolves `tooling.policies` via `loadAthenaConfig`, without provider/DB):
+
+```ts
+export default defineAthenaConfig({
+  provider: { kind: "postgres", mode: "direct" },
+  tooling: {
+    models: "./athena/generated/registry.ts",
+    policies: "./athena/policies.ts",
+  },
+});
+```
+
+All nested generator sections are validated by TypeScript shape and then normalized with defaults.
 
 That means:
 
@@ -126,8 +156,6 @@ That means:
 Use this helper to keep autocompletion and exactness in config files.
 For env-backed values, pair it with `generatorEnv(...)` so config files stay typed
 without manual `process.env`, non-null assertions, string splits, or boolean parsing.
-
-`defineGeneratorConfig` remains a deprecated alias of `defineAthenaConfig` until **5.0** (AD-003).
 
 Smallest direct-mode config:
 
@@ -183,16 +211,16 @@ export default defineAthenaConfig({
     ),
     targets: {
       model: generatorEnv("ATHENA_GENERATOR_MODEL_TARGET", {
-        default: "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
+        default: "athena/generated/models/{schema_kebab}/{model_kebab}.ts",
       }),
       schema: generatorEnv("ATHENA_GENERATOR_SCHEMA_TARGET", {
-        default: "athena/schemas/{schema_kebab}.ts",
+        default: "athena/generated/schema/{schema_kebab}.ts",
       }),
       database: generatorEnv("ATHENA_GENERATOR_DATABASE_TARGET", {
-        default: "athena/relations.ts",
+        default: "athena/generated/relations.ts",
       }),
       registry: generatorEnv("ATHENA_GENERATOR_REGISTRY_TARGET", {
-        default: "src/lib/athena/generated/registry.ts",
+        default: "athena/generated/registry.ts",
       }),
     },
     placeholderMap: generatorEnv.json("ATHENA_GENERATOR_PLACEHOLDER_MAP", {
@@ -282,11 +310,11 @@ export default defineAthenaConfig({
     ),
     targets: {
       model: generatorEnv("ATHENA_GENERATOR_MODEL_TARGET", {
-        default: "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
+        default: "athena/generated/models/{schema_kebab}/{model_kebab}.ts",
       }),
-      schema: "athena/schemas/{schema_kebab}.ts",
-      database: "athena/relations.ts",
-      registry: "src/lib/athena/generated/registry.ts",
+      schema: "athena/generated/schema/{schema_kebab}.ts",
+      database: "athena/generated/relations.ts",
+      registry: "athena/generated/registry.ts",
     },
     placeholderMap: generatorEnv.json("ATHENA_GENERATOR_PLACEHOLDER_MAP", {
       default: { namespace: "{database_kebab}/{schema_kebab}" },
@@ -831,9 +859,11 @@ The full config and pipeline APIs are also exposed from JS/TS:
 
 | API | Role |
 | --- | --- |
-| `defineAthenaConfig` | Typed identity helper for config files |
+| `defineAthenaConfig` | Permissive typed identity for `AthenaConfig` (`provider` optional) |
+| `defineGeneratorConfig` | Deprecated strict identity for `AthenaGeneratorConfig` (required `provider`; not an alias) |
 | `generatorEnv` | Typed env readers for strings, lists, booleans, oneOf, JSON |
-| `loadGeneratorConfig` / `findGeneratorConfigPath` / `normalizeGeneratorConfig` | Load and normalize `athena.config.*` |
+| `loadAthenaConfig` | Load static project SSOT; retains `models` / `policies` / `tooling`; does not import tooling paths |
+| `loadGeneratorConfig` / `findGeneratorConfigPath` / `normalizeGeneratorConfig` | Required-provider projection of `athena.config.*` |
 | `renderGeneratorConfigFile` | Render a modern config TypeScript source string |
 | `ensureGeneratorConfigFile` | Intelligent create/update (surgical schema patch) |
 | `detectGeneratorProviderMode` | Prefer direct vs gateway from env |

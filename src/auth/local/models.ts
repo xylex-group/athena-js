@@ -85,6 +85,22 @@ export interface AuthInvitationRow {
   status: string;
 }
 
+export interface AuthPasskeyRow {
+  aaguid: string | null;
+  backed_up: boolean;
+  counter: bigint | string | number;
+  created_at: Date | string;
+  credential_id: string;
+  device_type: string;
+  id: string;
+  name: string;
+  public_key: string;
+  resident_key: boolean | null;
+  transports: string | null;
+  updated_at: Date | string;
+  user_id: string;
+}
+
 function asIso(value: Date | string | null | undefined): string | null {
   if (!value) {
     return null;

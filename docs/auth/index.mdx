@@ -29,6 +29,9 @@ This folder documents the full `createClient(...).auth.*` surface with one secti
 - [Callback](./callback.mdx)
 - [React `useSession`](./use-session.mdx) — accepts `createClient(config)` or its `.auth` namespace
 - [Native Server Bootstrap](./server-bootstrap.mdx)
+- [Local TypeScript runtime](./local-runtime.md) — `createAthenaAuthRuntime` composition (ADR 0042)
+
+Better Auth flat methods over frozen `createClient().auth` are an adapter (`createBetterAuthCompatibilityAdapter` from `@xylex-group/athena`), not the product contract.
 
 ## Base setup
 

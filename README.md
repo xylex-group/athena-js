@@ -1,6 +1,6 @@
 # @xylex-group/athena
 
-current version: `5.2.0`
+current version: `5.3.0`
 Athena JS 5 is the TypeScript SDK for Athena database, authentication, storage, chat, and billing. Application code uses one constructor. Complexity stays inside Athena.
 
 ## Install
@@ -173,16 +173,16 @@ export function createAthenaServer(options?: { session?: unknown; scope?: { user
 }
 ```
 
-Mount `/api/athena` and `/api/auth` from that same root (do not pass a `withContext` view):
+Mount `/api/athena`, `/api/auth`, `/api/athena/storage`, and `/api/athena/billing` from that same root (do not pass a `withContext` view). Storage and billing handlers are present only when those runtimes exist:
 
 ```ts
 import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
 import { athena } from "@/lib/athena/root"
 
-export const { auth, data } = createAthenaNextHandlers({ client: athena })
+export const { auth, billing, data, storage } = createAthenaNextHandlers({ client: athena })
 ```
 
-Browser client (discovers `/api/athena` + `/api/auth`; no `auth.routing`):
+Browser client (discovers `/api/athena` + `/api/auth`; attaches storage/billing when discovery advertises them; no `auth.routing`):
 
 ```ts
 "use client"
@@ -228,6 +228,35 @@ athena.billing
 
 Service-specific URLs override unified-root routing. An unconfigured namespace stays present and throws `AthenaConfigurationError` with `ATHENA_SERVICE_NOT_CONFIGURED` when invoked.
 
+Nested financial creates (`payments`, `customers`, `refunds`, `paymentLinks`, `subscriptions`) require a caller-owned `idempotencyKey`. Retry is operation-aware; ambiguous writes are never `retry: "safe"` without a replay guarantee. See [Financial operation safety](https://athena.xbp.app/docs/billing/safety) and [ADR 0048](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0048-athena-js-billing-financial-safety.md). Local nested ports also require dialect Athena Rights (`billing.payments.write`, …) after capability and before the provider — [ADR 0058](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0058-athena-js-billing-rights-adoption.md). Grant strings never authorize.
+
+Trusted Node can run a catalog-optional filesystem ObjectStore (no Athena HTTP storage, no `s3_id` / `connectionId`):
+
+```ts
+const athena = createClient({
+  storage: { provider: "local", root: "./.athena-storage" },
+})
+await athena.storage.file.upload({
+  files: bytes,
+  storage_key: "docs/notes.txt",
+})
+```
+
+Trusted Node can also inject an S3 (or S3-compatible) object client. Athena does not add `@aws-sdk` or read `AWS_*`:
+
+```ts
+const athena = createClient({
+  storage: {
+    provider: "s3",
+    bucket: "athena-objects",
+    prefix: "tenant-a",
+    s3: injectedS3Client,
+  },
+})
+```
+
+Browser / React Native reject `provider: "local"` (`ATHENA_STORAGE_LOCAL_NODE_REQUIRED`) and `provider: "s3"` (`ATHENA_STORAGE_S3_NODE_REQUIRED`). Presign, retention, and ACL on the local adapter throw `ATHENA_STORAGE_CAPABILITY_UNSUPPORTED`. See [storage/index.md](./docs/storage/index.md), [ADR 0027](./docs/adr/0027-embedded-storage-runtime.md), and [ADR 0057](../../docs/adr/technical/0057-athena-js-direct-s3-storage-provider.md).
+
 ## Runtime diagnostics
 
 ```ts
@@ -244,6 +273,7 @@ athena.capabilities
 | `@xylex-group/athena/react` | React hooks (session projection) |
 | `@xylex-group/athena/react-native` | React Native entry |
 | `@xylex-group/athena/next/client` | Next browser façade |
+| `@xylex-group/athena/next/session` | Next RSC session lookup |
 | `@xylex-group/athena/next/server` | Next request-scoped façade |
 | `@xylex-group/athena/cloudflare` | Workers / D1 / R2 |
 | `@xylex-group/athena/auth/server` | Advanced embedded Auth server |
@@ -258,6 +288,6 @@ athena.capabilities
 
 ## Migration notes
 
-Athena 5 has one normal constructor: `createClient()`. Specialized factories (`createAthenaBrowserClient`, `createAthenaServerClient`, Cloudflare helpers) remain advanced façades over that root. Do not introduce `createAuthClient()` / `createEmbeddedClient()` as alternative application roots.
+Athena 5 has one normal constructor: `createClient()`. Specialized factories (`createAthenaBrowserClient`, `createAthenaServerClient`, Cloudflare helpers) remain advanced façades over that root. Do not introduce `createAuthClient()` / `createStorageClient()` / `createPolicyClient()` / `createEmbeddedClient()` as alternative application roots. Local ObjectStore (`storage.provider: "local"`) and Direct S3 (`storage.provider: "s3"`) cannot be combined with each other or with `storage.url` / `storage.r2` on the same client.
 
 Historical Athena JS 3 flags (`experimental`, `typecheckColumns`) are gone. Storage and error normalization do not require enable flags.

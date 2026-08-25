@@ -3,10 +3,13 @@ import { test } from "node:test";
 import {
   ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT,
   createAthenaAuthCapabilitiesStore,
+  createEmbeddedCapabilitySnapshot,
   isCapabilityEnabled,
   isSocialCapabilityEnabled,
   resolveSocialProvidersForUi,
 } from "../src/auth/capabilities.ts";
+import { ATHENA_AUTH_OPERATIONS } from "../src/auth/contract/operations.generated.ts";
+import { deriveEmbeddedCapabilityAdvertisement } from "../src/auth/contract/operations.ts";
 import { createAuthModule } from "../src/auth/client.ts";
 
 test("unknown capabilities are not treated as disabled (INV-P)", () => {
@@ -46,6 +49,29 @@ test("known false disables; known true enables", () => {
   assert.equal(isCapabilityEnabled(caps, "organizations"), true);
 });
 
+test("hydrate applies only while status is unknown", () => {
+  const store = createAthenaAuthCapabilitiesStore();
+  assert.equal(
+    store.hydrate({
+      passkeys: true,
+      source: "bootstrap",
+      status: "known",
+    }),
+    true,
+  );
+  assert.equal(store.get().status, "known");
+  assert.equal(store.get().passkeys, true);
+  assert.equal(
+    store.hydrate({
+      passkeys: false,
+      source: "http",
+      status: "known",
+    }),
+    false,
+  );
+  assert.equal(store.get().passkeys, true);
+});
+
 test("getSnapshot aliases get and does not invent a second owner", () => {
   const store = createAthenaAuthCapabilitiesStore({
     status: "known",
@@ -57,7 +83,12 @@ test("getSnapshot aliases get and does not invent a second owner", () => {
   assert.equal(store.getSnapshot().password, true);
 });
 
-test("embedded 5.1 snapshot advertises password/session and hides social/passkeys", () => {
+test("embedded 5.1 snapshot advertises password/session and hides social; passkeys follow operator enablement", () => {
+  const implementation = deriveEmbeddedCapabilityAdvertisement(
+    ATHENA_AUTH_OPERATIONS,
+  );
+  assert.equal(implementation.passkeys, true);
+
   const snap = ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT;
   assert.equal(snap.status, "known");
   assert.equal(snap.source, "bootstrap");
@@ -70,6 +101,10 @@ test("embedded 5.1 snapshot advertises password/session and hides social/passkey
   assert.equal(isSocialCapabilityEnabled(snap), false);
   assert.equal(isCapabilityEnabled(snap, "passkeys"), false);
   assert.equal(isCapabilityEnabled(snap, "password"), true);
+
+  const enabled = createEmbeddedCapabilitySnapshot({ passkeyEnabled: true });
+  assert.equal(enabled.passkeys, true);
+  assert.equal(isCapabilityEnabled(enabled, "passkeys"), true);
 });
 
 test("known-false social/passkeys fail closed on the public client", async () => {
@@ -88,7 +123,14 @@ test("known-false social/passkeys fail closed on the public client", async () =>
   assert.equal(social.status, 501);
   assert.equal(social.errorDetails?.code, "ATHENA_AUTH_CAPABILITY_DISABLED");
 
-  const passkey = await auth.passkey.generateRegisterOptions({});
-  assert.equal(passkey.ok, false);
-  assert.equal(passkey.errorDetails?.code, "ATHENA_AUTH_CAPABILITY_DISABLED");
+  const denied = await auth.passkey.generateRegisterOptions({});
+  assert.equal(denied.ok, false);
+  assert.equal(denied.status, 501);
+  assert.equal(denied.errorDetails?.code, "ATHENA_AUTH_CAPABILITY_DISABLED");
+
+  const enabled = createAuthModule({
+    capabilities: createEmbeddedCapabilitySnapshot({ passkeyEnabled: true }),
+  }).auth;
+  const passkey = await enabled.passkey.generateRegisterOptions({});
+  assert.notEqual(passkey.errorDetails?.code, "ATHENA_AUTH_CAPABILITY_DISABLED");
 });

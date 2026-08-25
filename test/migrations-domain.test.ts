@@ -227,4 +227,44 @@ test("planMigrations handles empty, pending, applied, mismatch, and db-ahead", (
 		ahead.conflicts.find((c) => c.kind === "missing-local")?.version,
 		3,
 	);
+
+	const renamed = planMigrations({
+		local: [
+			file({
+				version: 1,
+				name: "functions",
+				filename: "0001_functions.sql",
+				sql: "A",
+			}),
+		],
+		applied: [
+			applied({ version: 1, name: "initial", checksum: checksumMigrationSql("A") }),
+		],
+	});
+	assert.equal(renamed.conflicts[0]?.kind, "name-mismatch");
+
+	const inserted = planMigrations({
+		local: [
+			initial,
+			next,
+			file({
+				version: 3,
+				name: "late",
+				filename: "0003_late.sql",
+				sql: "C",
+			}),
+		],
+		applied: [
+			applied({ version: 1, name: "initial", checksum: initial.checksum }),
+			applied({ version: 3, name: "late", checksum: checksumMigrationSql("C") }),
+		],
+	});
+	assert.equal(
+		inserted.conflicts.some((c) => c.kind === "historical-insertion"),
+		true,
+	);
+	assert.equal(
+		inserted.conflicts.find((c) => c.kind === "historical-insertion")?.version,
+		2,
+	);
 });

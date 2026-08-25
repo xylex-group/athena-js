@@ -25,7 +25,11 @@ not product navigation.
 2. A **manifest allowlist** decides what the public site receives.
 3. A generator rewrites package Markdown into Fumadocs MDX (frontmatter, links,
    banners, sidebar `meta.json`).
-4. Dev / postinstall / build run the generator; CI can `--check` for drift.
+4. `{{ATHENA_JS_PACKAGE_VERSION}}` is substituted from
+   `packages/athena-js/package.json`. `--check` fails if the generated index
+   still pins `@3.0.0` while the package is 5.x, or if `next-js.mdx` mentions
+   `createAthenaBrowserClient` before `topology.discover`.
+5. Dev / postinstall / build run the generator; CI can `--check` for drift.
 
 ```text
 packages/athena-js/docs/**
@@ -34,8 +38,10 @@ packages/athena-js/docs/**
            │  apps/docs/scripts/sync-athena-js-docs.mts
            │  - strip / inject frontmatter
            │  - rewrite relative links → /docs/sdks/athena-js/...
+           │  - inject package.json version for {{ATHENA_JS_PACKAGE_VERSION}}
            │  - inject "do not edit" banner
            │  - write meta.json from nav
+           │  - check: current version + Next golden-path order
            ▼
 apps/docs/content/docs/sdks/athena-js/**
            │

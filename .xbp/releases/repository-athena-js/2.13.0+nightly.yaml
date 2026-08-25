@@ -1,0 +1,411 @@
+scope_kind: repository
+scope_label: athena-js
+scope_slug: repository-athena-js
+version: 2.13.0+nightly
+tag_name: v2.13.0+nightly
+branch_name: null
+baseline:
+  source: github-tag
+  reference: v3.27.0
+  tag: v3.27.0
+selection:
+  changed_files:
+  - .xbp/releases/repository-athena/3.27.0.yaml
+  - .xbp/xbp.json
+  - .xbp/xbp.yaml
+  - CHANGELOG.md
+  - Cargo.lock
+  - Cargo.toml
+  - SECURITY.md
+  - apps/cloudflare-athena/package.json
+  - apps/cloudflare-d1-proxy/package.json
+  - apps/desktop/package.json
+  - apps/desktop/src-tauri/Cargo.toml
+  - apps/docs/.gitignore
+  - apps/docs/athena-auth.json
+  - apps/docs/athena-auth.yaml
+  - apps/docs/athena-openapi-admin.yaml
+  - apps/docs/athena-openapi-chat.yaml
+  - apps/docs/athena-openapi-db.yaml
+  - apps/docs/athena-openapi-storage.yaml
+  - apps/docs/cloudflare-builds.json
+  - apps/docs/content/docs/authentication/sessions.mdx
+  - apps/docs/content/docs/sdks/athena-auth-ui/auth-proxy-routing-and-cookies.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/admin.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/auth-url-helpers.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/clear-auth-cookies.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/email-templates-send.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/index.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/meta.json
+  - apps/docs/content/docs/sdks/athena-js/auth/organization.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/routing-proxy-and-direct-upstream.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/session-bridge.mdx
+  - apps/docs/content/docs/sdks/athena-js/auth/use-session.mdx
+  - apps/docs/content/docs/sdks/athena-js/experimental-options.mdx
+  - apps/docs/content/docs/sdks/athena-js/index.mdx
+  - apps/docs/content/docs/sdks/athena-js/meta.json
+  - apps/docs/content/docs/sdks/athena-js/organization-membership.mdx
+  - apps/docs/content/docs/sdks/athena-js/typecheck-columns.mdx
+  - apps/docs/content/docs/sdks/athena-js/utils-and-helpers.mdx
+  - apps/docs/package.json
+  - apps/docs/pnpm-lock.yaml
+  - apps/docs/public/openapi/athena-admin.yaml
+  - apps/docs/public/openapi/athena-auth.json
+  - apps/docs/public/openapi/athena-auth.yaml
+  - apps/docs/public/openapi/athena-chat.yaml
+  - apps/docs/public/openapi/athena-db.yaml
+  - apps/docs/public/openapi/athena-storage.yaml
+  - apps/docs/public/openapi/athena.yaml
+  - apps/docs/scripts/prepare-athena-openapi.mts
+  - apps/docs/src/lib/openapi.ts
+  - apps/docs/worker-configuration.d.ts
+  - apps/docs/wrangler.jsonc
+  - apps/marketing/apps/studio/package.json
+  - apps/marketing/apps/web/package.json
+  - apps/marketing/package.json
+  - apps/web/package.json
+  - apps/wss-gateway/package.json
+  - crates/athena-actix/Cargo.toml
+  - crates/athena-api-key/Cargo.toml
+  - crates/athena-backups/Cargo.toml
+  - crates/athena-billing-core/Cargo.toml
+  - crates/athena-billing-mollie/Cargo.toml
+  - crates/athena-billing-stripe/Cargo.toml
+  - crates/athena-billing/Cargo.toml
+  - crates/athena-cdc/Cargo.toml
+  - crates/athena-chat/Cargo.toml
+  - crates/athena-cli/Cargo.toml
+  - crates/athena-client-pressure/Cargo.toml
+  - crates/athena-clone/Cargo.toml
+  - crates/athena-control-plane/Cargo.toml
+  - crates/athena-daemon/Cargo.toml
+  - crates/athena-dns/Cargo.toml
+  - crates/athena-driver/Cargo.toml
+  - crates/athena-observability/Cargo.toml
+  - crates/athena-pipelines/Cargo.toml
+  - crates/athena-provisioning/Cargo.toml
+  - crates/athena-query/Cargo.toml
+  - crates/athena-rights/Cargo.toml
+  - crates/athena-s3/Cargo.toml
+  - crates/athena-scheduler/Cargo.toml
+  - crates/athena-schema-heal/Cargo.toml
+  - crates/athena-typesense/Cargo.toml
+  - crates/athena-webhooks/Cargo.toml
+  - crates/athena-worker/Cargo.toml
+  - crates/athena-wss/Cargo.toml
+  - docs/athena-auth-versioning-incident-2026-07-09.md
+  - openapi.yaml
+  - package.json
+  - packages/athena-js/.xbp/releases/repository-athena-js/3.27.0.yaml
+  - packages/athena-js/.xbp/releases/repository-athena-js/4.3.7.yaml
+  - packages/athena-js/.xbp/xbp.yaml
+  - packages/athena-js/README.md
+  - packages/athena-js/TODO.md
+  - packages/athena-js/bin/athena-js.js
+  - packages/athena-js/docs/api-reference.md
+  - packages/athena-js/docs/athena-auth-url.md
+  - packages/athena-js/docs/auth-cookies.md
+  - packages/athena-js/docs/auth-routes.md
+  - packages/athena-js/docs/auth-routing-proxy-and-direct-upstream.md
+  - packages/athena-js/docs/auth-session-bridge.md
+  - packages/athena-js/docs/auth-session-forwarding.md
+  - packages/athena-js/docs/auth/admin.mdx
+  - packages/athena-js/docs/auth/email-templates-send.mdx
+  - packages/athena-js/docs/auth/index.mdx
+  - packages/athena-js/docs/auth/organization.mdx
+  - packages/athena-js/docs/auth/use-session.mdx
+  - packages/athena-js/docs/getting-started.md
+  - packages/athena-js/docs/index.md
+  - packages/athena-js/docs/organization-membership.md
+  - packages/athena-js/docs/type-surface-manifest.md
+  - packages/athena-js/docs/typecheck-columns.md
+  - packages/athena-js/docs/typed-schema-registry.md
+  - packages/athena-js/docs/utils-and-helpers.md
+  - packages/athena-js/package-lock.json
+  - packages/athena-js/package.json
+  - packages/athena-js/pnpm-lock.yaml
+  - packages/athena-js/scripts/rewrite-provider-factories.mjs
+  - packages/athena-js/scripts/split-microsoft-types.mjs
+  - packages/athena-js/scripts/split-provider-modules.mjs
+  - packages/athena-js/src/auth/env/index.ts
+  - packages/athena-js/src/auth/env/logger.ts
+  - packages/athena-js/src/auth/error.ts
+  - packages/athena-js/src/auth/error/api-error.ts
+  - packages/athena-js/src/auth/error/athena-auth-error.ts
+  - packages/athena-js/src/auth/error/index.ts
+  - packages/athena-js/src/auth/fetch.ts
+  - packages/athena-js/src/auth/fetch/athena-fetch.ts
+  - packages/athena-js/src/auth/fetch/body.ts
+  - packages/athena-js/src/auth/fetch/index.ts
+  - packages/athena-js/src/auth/fetch/types.ts
+  - packages/athena-js/src/auth/index.ts
+  - packages/athena-js/src/auth/oauth2/client-credentials-token.ts
+  - packages/athena-js/src/auth/oauth2/client-id.ts
+  - packages/athena-js/src/auth/oauth2/create-authorization-url.ts
+  - packages/athena-js/src/auth/oauth2/index.ts
+  - packages/athena-js/src/auth/oauth2/jwks/cache.ts
+  - packages/athena-js/src/auth/oauth2/jwks/fetch-jwks.ts
+  - packages/athena-js/src/auth/oauth2/jwks/get-jwks.ts
+  - packages/athena-js/src/auth/oauth2/jwks/index.ts
+  - packages/athena-js/src/auth/oauth2/jwks/types.ts
+  - packages/athena-js/src/auth/oauth2/jwks/verify-access-token.ts
+  - packages/athena-js/src/auth/oauth2/jwks/verify-jws.ts
+  - packages/athena-js/src/auth/oauth2/oauth-provider.ts
+  - packages/athena-js/src/auth/oauth2/pkce.ts
+  - packages/athena-js/src/auth/oauth2/refresh-access-token.ts
+  - packages/athena-js/src/auth/oauth2/reject-redirects.ts
+  - packages/athena-js/src/auth/oauth2/token-utils.ts
+  - packages/athena-js/src/auth/oauth2/types.ts
+  - packages/athena-js/src/auth/oauth2/utils.ts
+  - packages/athena-js/src/auth/oauth2/validate-authorization-code.ts
+  - packages/athena-js/src/auth/oauth2/verify.ts
+  - packages/athena-js/src/auth/social-providers/README.md
+  - packages/athena-js/src/auth/social-providers/account-status.ts
+  - packages/athena-js/src/auth/social-providers/apple-crypto.ts
+  - packages/athena-js/src/auth/social-providers/apple-keys.ts
+  - packages/athena-js/src/auth/social-providers/apple-types.ts
+  - packages/athena-js/src/auth/social-providers/apple.ts
+  - packages/athena-js/src/auth/social-providers/athena.ts
+  - packages/athena-js/src/auth/social-providers/atlassian.ts
+  - packages/athena-js/src/auth/social-providers/cognito-keys.ts
+  - packages/athena-js/src/auth/social-providers/cognito-types.ts
+  - packages/athena-js/src/auth/social-providers/cognito.ts
+  - packages/athena-js/src/auth/social-providers/discord.ts
+  - packages/athena-js/src/auth/social-providers/dropbox.ts
+  - packages/athena-js/src/auth/social-providers/facebook-types.ts
+  - packages/athena-js/src/auth/social-providers/facebook-verify.ts
+  - packages/athena-js/src/auth/social-providers/facebook.ts
+  - packages/athena-js/src/auth/social-providers/figma.ts
+  - packages/athena-js/src/auth/social-providers/github.ts
+  - packages/athena-js/src/auth/social-providers/gitlab.ts
+  - packages/athena-js/src/auth/social-providers/google-keys.ts
+  - packages/athena-js/src/auth/social-providers/google-types.ts
+  - packages/athena-js/src/auth/social-providers/google-verify.ts
+  - packages/athena-js/src/auth/social-providers/google.ts
+  - packages/athena-js/src/auth/social-providers/helpers/get-jwks-public-key.ts
+  - packages/athena-js/src/auth/social-providers/helpers/index.ts
+  - packages/athena-js/src/auth/social-providers/helpers/merge-scopes.ts
+  - packages/athena-js/src/auth/social-providers/helpers/trim-trailing-slash.ts
+  - packages/athena-js/src/auth/social-providers/huggingface.ts
+  - packages/athena-js/src/auth/social-providers/index.ts
+  - packages/athena-js/src/auth/social-providers/kakao.ts
+  - packages/athena-js/src/auth/social-providers/kick.ts
+  - packages/athena-js/src/auth/social-providers/line.ts
+  - packages/athena-js/src/auth/social-providers/linear.ts
+  - packages/athena-js/src/auth/social-providers/linkedin.ts
+  - packages/athena-js/src/auth/social-providers/microsoft-entra-id.ts
+  - packages/athena-js/src/auth/social-providers/microsoft-keys.ts
+  - packages/athena-js/src/auth/social-providers/microsoft-types.ts
+  - packages/athena-js/src/auth/social-providers/naver.ts
+  - packages/athena-js/src/auth/social-providers/notion.ts
+  - packages/athena-js/src/auth/social-providers/paybin.ts
+  - packages/athena-js/src/auth/social-providers/paypal-keys.ts
+  - packages/athena-js/src/auth/social-providers/paypal-types.ts
+  - packages/athena-js/src/auth/social-providers/paypal.ts
+  - packages/athena-js/src/auth/social-providers/polar.ts
+  - packages/athena-js/src/auth/social-providers/railway.ts
+  - packages/athena-js/src/auth/social-providers/reddit.ts
+  - packages/athena-js/src/auth/social-providers/registry.ts
+  - packages/athena-js/src/auth/social-providers/roblox.ts
+  - packages/athena-js/src/auth/social-providers/salesforce.ts
+  - packages/athena-js/src/auth/social-providers/slack.ts
+  - packages/athena-js/src/auth/social-providers/spotify.ts
+  - packages/athena-js/src/auth/social-providers/tiktok.ts
+  - packages/athena-js/src/auth/social-providers/twitch.ts
+  - packages/athena-js/src/auth/social-providers/twitter.ts
+  - packages/athena-js/src/auth/social-providers/vercel.ts
+  - packages/athena-js/src/auth/social-providers/vk.ts
+  - packages/athena-js/src/auth/social-providers/wechat.ts
+  - packages/athena-js/src/auth/social-providers/zoom-types.ts
+  - packages/athena-js/src/auth/social-providers/zoom.ts
+  - packages/athena-js/src/auth/types.ts
+  - packages/athena-js/src/auth/types/helper.ts
+  - packages/athena-js/src/auth/types/index.ts
+  - packages/athena-js/src/auth/utils/base64.ts
+  - packages/athena-js/src/browser.ts
+  - packages/athena-js/src/cli/index.ts
+  - packages/athena-js/src/client.ts
+  - packages/athena-js/src/cookies/index.ts
+  - packages/athena-js/src/cookies/session-cookie-detection.ts
+  - packages/athena-js/src/db/module.ts
+  - packages/athena-js/src/index.ts
+  - packages/athena-js/src/next/client.ts
+  - packages/athena-js/src/next/server.ts
+  - packages/athena-js/src/next/session-bridge/README.md
+  - packages/athena-js/src/next/session-bridge/client.ts
+  - packages/athena-js/src/next/session-bridge/constants.ts
+  - packages/athena-js/src/next/session-bridge/cookie.ts
+  - packages/athena-js/src/next/session-bridge/handlers.ts
+  - packages/athena-js/src/next/session-bridge/index.ts
+  - packages/athena-js/src/next/session-bridge/payload.ts
+  - packages/athena-js/src/next/session-bridge/types.ts
+  - packages/athena-js/src/organization/ensure-active-organization.ts
+  - packages/athena-js/src/organization/index.ts
+  - packages/athena-js/src/react/index.ts
+  - packages/athena-js/src/react/use-session.ts
+  - packages/athena-js/src/select-column-types.ts
+  - packages/athena-js/src/social-providers/index.ts
+  - packages/athena-js/src/utils/athena-auth-url.ts
+  - packages/athena-js/src/utils/athena-request-headers.ts
+  - packages/athena-js/src/utils/auth-cookies.ts
+  - packages/athena-js/src/utils/auth-routes.ts
+  - packages/athena-js/src/utils/coercions.ts
+  - packages/athena-js/src/utils/index.ts
+  - packages/athena-js/src/utils/request-origin.ts
+  - packages/athena-js/src/utils/require-env.ts
+  - packages/athena-js/test-sdk/package.json
+  - packages/athena-js/test/athena-auth-url.test.ts
+  - packages/athena-js/test/auth-routes.test.ts
+  - packages/athena-js/test/coercions.test.ts
+  - packages/athena-js/test/cookies.test.ts
+  - packages/athena-js/test/oauth2-fetch-regressions.test.ts
+  - packages/athena-js/test/organization-ensure-active.test.ts
+  - packages/athena-js/test/request-origin.test.ts
+  - packages/athena-js/test/session-bridge.test.ts
+  - packages/athena-js/test/session-cookie-detection.test.ts
+  - packages/athena-js/test/social-providers.test.ts
+  - packages/athena-js/test/type-compatibility.ts
+  - packages/athena-js/tsup.config.ts
+  - scripts/setup-cloudflare-workers-builds.mjs
+  - services/athena-auth/.dev.vars.example
+  - services/athena-auth/.xbp/xbp.yaml
+  - services/athena-auth/Cargo.lock
+  - services/athena-auth/Cargo.toml
+  - services/athena-auth/README.md
+  - services/athena-auth/apps/demo/package.json
+  - services/athena-auth/apps/demo/packages/athena-auth-js/package.json
+  - services/athena-auth/apps/demo/packages/athena-auth-ui-js/package.json
+  - services/athena-auth/athena-auth.env.example
+  - services/athena-auth/compat-tests/reference-server/package.json
+  - services/athena-auth/config.yaml
+  - services/athena-auth/config.yaml.example
+  - services/athena-auth/crates/api/Cargo.toml
+  - services/athena-auth/crates/api/src/plugins/organization/handlers/member.rs
+  - services/athena-auth/crates/api/src/plugins/organization/handlers/org.rs
+  - services/athena-auth/crates/api/src/plugins/organization/mod.rs
+  - services/athena-auth/crates/api/src/plugins/session_management.rs
+  - services/athena-auth/crates/caching-matrix/Cargo.toml
+  - services/athena-auth/crates/core/Cargo.toml
+  - services/athena-auth/crates/core/README.md
+  - services/athena-auth/crates/core/src/adapters/database.rs
+  - services/athena-auth/crates/core/src/adapters/memory.rs
+  - services/athena-auth/crates/derive/Cargo.toml
+  - services/athena-auth/crates/multitenancy/Cargo.toml
+  - services/athena-auth/crates/observability/Cargo.toml
+  - services/athena-auth/docker-compose.yml
+  - services/athena-auth/docs/cloudflare-deploy-audit.md
+  - services/athena-auth/docs/cloudflare-deploy-flow.puml
+  - services/athena-auth/migrations/002_create_organization_tables.sql
+  - services/athena-auth/migrations/019_organization_read_indexes.sql
+  - services/athena-auth/ops/docker/config.yaml
+  - services/athena-auth/package.json
+  - services/athena-auth/runbooks/TROUBLESHOOTING.md
+  - services/athena-auth/schema.sql
+  - services/athena-auth/scripts/deploy-worker.ps1
+  - services/athena-auth/sql/provision.sql
+  - services/athena-auth/src/bin/server.rs
+  - services/athena-auth/tests/compat_organization_tests.rs
+  - services/athena-auth/worker/__tests__/config.test.ts
+  - services/athena-auth/worker/src/config.ts
+  - services/athena-auth/worker/src/index.ts
+  - services/athena-auth/worker/worker-configuration.d.ts
+  - services/athena-auth/wrangler.jsonc
+  version_targets:
+  - path: README.md
+  - path: openapi.yaml
+  - path: openapi.yml
+  - path: package.json
+  - path: package-lock.json
+  - path: Cargo.toml
+  - path: Cargo.lock
+  - path: pyproject.toml
+  - path: composer.json
+  - path: deno.json
+  - path: deno.jsonc
+  - path: Chart.yaml
+  - path: app.json
+  - path: manifest.json
+  - path: pom.xml
+  - path: build.gradle
+  - path: build.gradle.kts
+  - path: mix.exs
+  - path: xbp.yaml
+  - path: xbp.yml
+  - path: xbp.json
+  - path: .xbp/xbp.json
+  - path: .xbp/xbp.yaml
+  - path: .xbp/xbp.yml
+  - path: openapi.json
+  publish_targets:
+  - kind: npm
+    manifest_path: package.json
+    package_name: '@xylex-group/athena'
+domain: null
+cloudflare_evidence: []
+status: Completed
+steps:
+  commit_release_docs:
+    status: Completed
+    started_at: 2026-07-12T06:25:47.516135600Z
+    completed_at: 2026-07-12T06:25:47.973943300Z
+    last_error: null
+    details:
+      paths:
+      - C:\Users\floris\documents\github\athena\packages\athena-js\CHANGELOG.md
+      - C:\Users\floris\documents\github\athena\packages\athena-js\SECURITY.md
+  github_release:
+    status: Completed
+    started_at: 2026-07-12T06:25:41.243235100Z
+    completed_at: 2026-07-12T06:25:42.720285800Z
+    last_error: null
+    details:
+      release_id: 352687266
+      release_url: https://github.com/xylex-group/athena/releases/tag/v2.13.0%2Bnightly
+  publish_linear:
+    status: Completed
+    started_at: 2026-07-12T06:25:42.727179700Z
+    completed_at: 2026-07-12T06:25:47.470363600Z
+    last_error: null
+    details:
+      initiatives:
+      - id: fd28f67f-8dc8-44b2-bf14-3821ce389145
+        name: Changelog
+        url: null
+  push_tag:
+    status: Completed
+    started_at: 2026-07-12T06:25:37.381524Z
+    completed_at: 2026-07-12T06:25:40.090886300Z
+    last_error: null
+    details:
+      branch_name: null
+      tag_name: v2.13.0+nightly
+  sync_release_docs:
+    status: Completed
+    started_at: 2026-07-12T06:25:47.471118300Z
+    completed_at: 2026-07-12T06:25:47.515440Z
+    last_error: null
+    details:
+      paths:
+      - C:\Users\floris\documents\github\athena\packages\athena-js\CHANGELOG.md
+      - C:\Users\floris\documents\github\athena\packages\athena-js\SECURITY.md
+  sync_version:
+    status: Completed
+    started_at: 2026-07-12T06:25:27.102807100Z
+    completed_at: 2026-07-12T06:25:27.560620800Z
+    last_error: null
+    details:
+      updated_paths:
+      - C:\Users\floris\documents\github\athena\packages\athena-js\README.md
+      - C:\Users\floris\documents\github\athena\packages\athena-js\package.json
+      - C:\Users\floris\documents\github\athena\packages\athena-js\package-lock.json
+      - C:\Users\floris\documents\github\athena\packages\athena-js\.xbp/xbp.yaml
+  upload_openapi_assets:
+    status: Completed
+    started_at: 2026-07-12T06:25:42.726332700Z
+    completed_at: 2026-07-12T06:25:42.726789500Z
+    last_error: null
+    details:
+      uploaded_assets: []
+created_at: 2026-07-12T06:25:27.098094Z
+updated_at: 2026-07-12T06:25:47.974485Z
+completed_at: 2026-07-12T06:25:47.974485Z

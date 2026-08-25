@@ -11,7 +11,10 @@ Canonical application session APIs for `@xylex-group/athena`.
 
 Never treat transport and app session as the same public type.
 
-## Server (`@xylex-group/athena/next/server`)
+## Server
+
+- Session **lookup:** `@xylex-group/athena/next/session` (`getServerSession`)
+- Composition root (still re-exports session helpers): `@xylex-group/athena/next/server`
 
 ### `getServerSession(options?) → GetServerSessionResult`
 

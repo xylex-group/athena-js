@@ -3,6 +3,8 @@
 `executeAthenaReadQuery` runs a portable page query against a v3 Athena client.
 Use it for tables, KPIs, scripts, and server data proxies that share one definition shape.
 
+The executor types against **`AthenaReadQueryClient`** (a narrow `{ db }` with `from`), not the public `AthenaClient` façade. Any `createClient` result or request view that exposes `.db` satisfies it.
+
 ## Construction boundary
 
 The executor **never** creates a client. Pass a result of:
@@ -132,7 +134,7 @@ Do not confuse:
 | `useAthenaQuery` | `@xylex-group/athena-auth-ui` | TanStack + pagination + optional proxy |
 | `useQuery` / `useAthenaQueryClient` | `@xylex-group/athena/react` | Generic Athena-native cache |
 | `createAthenaQueryClient` | `@xylex-group/athena/react` | Athena-native cache factory |
-| `createAuthUiTanstackQueryClient` | `@xylex-group/athena-auth-ui` | TanStack factory (old name `createAthenaQueryClient` is deprecated there) |
+| `createAuthUiTanstackQueryClient` | `@xylex-group/athena-auth-ui` (package root; not `./athena/query-client`) | TanStack UI-cache factory (old name `createAthenaQueryClient` is deprecated there) |
 
 ## Aliases
 

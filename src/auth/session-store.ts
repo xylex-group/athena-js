@@ -12,6 +12,8 @@
  * - SESSION-INV-07 ordered subscriber notifications
  */
 
+import { isAbortError } from "./session-errors.ts";
+
 export type AthenaAuthSessionStatus =
   | "unknown"
   | "loading"
@@ -30,8 +32,17 @@ export type AthenaAuthSessionListener<TSession = unknown> = (
   snapshot: AthenaAuthSessionSnapshot<TSession>
 ) => void;
 
+export type AthenaInitialAuthState<TSession = unknown> =
+  | { status: "authenticated"; session: TSession }
+  | { status: "unauthenticated"; session: null };
+
 export interface AthenaAuthSessionStore<TSession = unknown> {
   getSnapshot(): AthenaAuthSessionSnapshot<TSession>;
+  /**
+   * Cold-start seed only. No-ops unless status is `unknown`.
+   * Does not start a refresh or merge into a newer mutation.
+   */
+  hydrate(state: AthenaInitialAuthState<TSession>): boolean;
   invalidate(reason?: "signOut" | "revoke" | "manual"): void;
   setSession(
     session: TSession | null,
@@ -77,6 +88,33 @@ export function createAthenaAuthSessionStore<
       return snapshot;
     },
 
+    hydrate(state) {
+      if (snapshot.status !== "unknown") {
+        return false;
+      }
+      if (state.status === "authenticated") {
+        if (state.session == null) {
+          return false;
+        }
+        epoch += 1;
+        commit({
+          epoch,
+          error: null,
+          session: state.session,
+          status: "authenticated",
+        });
+        return true;
+      }
+      epoch += 1;
+      commit({
+        epoch,
+        error: null,
+        session: null,
+        status: "unauthenticated",
+      });
+      return true;
+    },
+
     invalidate(reason = "manual") {
       epoch += 1;
       inFlightEpoch = null;
@@ -105,6 +143,20 @@ export function createAthenaAuthSessionStore<
         },
 
         setError(error) {
+          if (isAbortError(error)) {
+            if (inFlightEpoch != null) {
+              inFlightEpoch = null;
+              epoch += 1;
+              commit({
+                epoch,
+                error: null,
+                session: snapshot.session,
+                status:
+                  snapshot.session == null ? "unauthenticated" : "authenticated",
+              });
+            }
+            return;
+          }
           epoch += 1;
           // Transport/infrastructure errors must not clear a still-valid session
           // and must not cancel an in-flight refresh.
@@ -144,6 +196,16 @@ export function createAthenaAuthSessionStore<
               error: null,
               session: result.session,
               status: result.session == null ? "unauthenticated" : "authenticated",
+            });
+            return;
+          }
+          if (isAbortError(result.error)) {
+            commit({
+              epoch,
+              error: null,
+              session: snapshot.session,
+              status:
+                snapshot.session == null ? "unauthenticated" : "authenticated",
             });
             return;
           }

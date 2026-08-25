@@ -1,4 +1,9 @@
 import {
+	isDisabledAthenaAuthConfig,
+	isLocalAthenaAuthConfig,
+	normalizeAthenaAuthConfig,
+} from "../src/auth/config.ts";
+import {
 	type AthenaClient,
 	type AthenaClientConfig,
 	type AthenaRequestContext,
@@ -44,10 +49,25 @@ const context: AthenaRequestContext = {
 
 const disabledAuthOnly: AthenaClientConfig = {
 	auth: false,
+	chat: false,
 	db: { pgUri: "postgres://example.invalid/app" },
 };
+type AthenaChatModeKeys = import("../src/v3-client-core.ts").AthenaChatMode;
+const _chatModeIsAuthAligned: AthenaChatModeKeys = "local";
+void _chatModeIsAuthAligned;
+void ("remote" satisfies AthenaChatModeKeys);
+// @ts-expect-error Chat disablement is chat:false, not mode:"disabled"
+const _chatModeRejectsDisabled: AthenaChatModeKeys = "disabled";
+void _chatModeRejectsDisabled;
 // @ts-expect-error auth:false cannot carry url / mode fields
 void disabledAuthOnly.auth.url;
+
+// Classification helpers must accept createClient `auth` without requiring
+// AthenaAuthConfig to be a Record<string, unknown> bag (DTS / tsup).
+declare const createClientAuth: AthenaClientConfig["auth"];
+void isDisabledAthenaAuthConfig(createClientAuth);
+void isLocalAthenaAuthConfig(createClientAuth);
+void normalizeAthenaAuthConfig(createClientAuth);
 
 // Local Auth root (next-minimal): autoMigrate is a public createClient field.
 const localAuthRoot: AthenaClientConfig = {
@@ -61,6 +81,43 @@ void createClient(localAuthRoot);
 type AthenaAuthConfigKeys =
 	keyof import("../src/v3-client-core.ts").AthenaAuthConfig;
 void ("autoMigrate" satisfies AthenaAuthConfigKeys);
+
+type AuthConfigOwnsEmail = "email" extends keyof import("../src/v3-client-core.ts").AthenaAuthConfig
+	? true
+	: false;
+const _authMustNotOwnEmailTransport: AuthConfigOwnsEmail = false;
+void _authMustNotOwnEmailTransport;
+
+const _authConfigRejectsNestedProvider: import("../src/v3-client-core.ts").AthenaAuthConfig =
+	{
+		mode: "local",
+		// @ts-expect-error Auth must not own email.provider
+		email: { provider: { id: "stolen" } },
+	};
+void _authConfigRejectsNestedProvider;
+
+const emailRootConfig: AthenaClientConfig = {
+	auth: { mode: "local" },
+	databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena",
+	email: {
+		defaults: {
+			from: "no-reply@example.com",
+			fromName: "Athena",
+			locale: "en",
+			replyTo: "support@example.com",
+		},
+		provider: {
+			id: "test",
+			send: async () => ({
+				accepted: ["user@example.com"],
+				provider: "test",
+				rejected: [],
+				success: true,
+			}),
+		},
+	},
+};
+void emailRootConfig.email?.provider;
 
 const config: AthenaClientConfig<typeof models> = {
 	auth: { credentials: "include" },
@@ -92,6 +149,14 @@ void client.storage.getStorageFileUrl("file_1", { purpose: "download" });
 void client.storage.getStorageFileProxy("file_1", { purpose: "stream" });
 // file facade mirrors the proxy route without replacing getStorageFileUrl.
 void client.storage.file.proxy("file_1", { purpose: "read" });
+
+void client.email.configured;
+void client.email.diagnostics;
+void client.email.send({
+	subject: "Hello",
+	text: "Hi",
+	to: "user@example.com",
+});
 
 void scoped.from(userModel).select("id,email");
 void scoped.from("users").select("id,email");

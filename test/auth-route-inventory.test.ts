@@ -2,8 +2,18 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import {
+	ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT,
+	createEmbeddedCapabilitySnapshot,
+} from "../src/auth/capabilities.ts";
+import { ATHENA_AUTH_OPERATIONS } from "../src/auth/contract/operations.generated.ts";
+import {
+	type AthenaAuthOperationDefinition,
+	deriveEmbeddedCapabilityAdvertisement,
+	listMissingEmbeddedOperations,
+} from "../src/auth/contract/operations.ts";
 
 const packageRoot = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -11,21 +21,6 @@ const packageRoot = path.resolve(
 );
 
 const KNOWN_MISSING_IN_LOCAL = new Set([
-	"GET /callback/{provider}",
-	"GET /change-email/verify",
-	"GET /delete-user/verify",
-	"GET /email/list",
-	"GET /passkey/generate-register-options",
-	"GET /passkey/list-user-passkeys",
-	"GET /reset-password/{token}",
-	"POST /link-social",
-	"POST /passkey/delete-passkey",
-	"POST /passkey/generate-authenticate-options",
-	"POST /passkey/update-passkey",
-	"POST /passkey/verify-authentication",
-	"POST /passkey/verify-registration",
-	"POST /sign-in/social",
-	"POST /unlink-account",
 ]);
 
 test("mechanical auth route inventory keeps JWT routes on both runtimes", () => {
@@ -46,9 +41,36 @@ test("mechanical auth route inventory keeps JWT routes on both runtimes", () => 
 		),
 	) as {
 		missingInLocal: string[];
+		operations: AthenaAuthOperationDefinition[];
 		rust: string[];
 		sdkMissing: string[];
 	};
+
+	assert.equal(Array.isArray(inventory.operations), true);
+	assert.equal(inventory.operations.length > 0, true);
+	for (const operation of inventory.operations) {
+		assert.equal(typeof operation.id, "string");
+		assert.equal(typeof operation.method, "string");
+		assert.equal(typeof operation.path, "string");
+		assert.equal(typeof operation.capability, "string");
+		assert.equal(
+			operation.rust === "supported" || operation.rust === "unsupported",
+			true,
+		);
+		assert.equal(
+			operation.embedded === "supported" ||
+				operation.embedded === "unsupported",
+			true,
+		);
+		assert.equal(
+			operation.auth === "public" ||
+				operation.auth === "optional-session" ||
+				operation.auth === "session" ||
+				operation.auth === "admin",
+			true,
+		);
+		assert.equal(typeof operation.mutation, "boolean");
+	}
 
 	for (const required of [
 		"POST /token",
@@ -86,4 +108,51 @@ test("mechanical auth route inventory keeps JWT routes on both runtimes", () => 
 		[],
 		`allowlisted gaps were implemented — remove them from KNOWN_MISSING_IN_LOCAL: ${resolved.join(", ")}`,
 	);
+
+	const catalogGaps = listMissingEmbeddedOperations(inventory.operations);
+	assert.deepEqual(
+		catalogGaps,
+		[...KNOWN_MISSING_IN_LOCAL].sort(),
+		"generated operations must be the SSOT behind KNOWN_MISSING_IN_LOCAL",
+	);
+});
+
+test("embedded capability snapshot matches generated operation support", () => {
+	const advertised = deriveEmbeddedCapabilityAdvertisement(
+		ATHENA_AUTH_OPERATIONS,
+	);
+	assert.equal(advertised.passkeys, true);
+	assert.equal(advertised.socialProvidersAdvertised, true);
+	assert.equal(ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT.passkeys, false);
+	assert.equal(
+		createEmbeddedCapabilitySnapshot({ passkeyEnabled: true }).passkeys,
+		advertised.passkeys,
+	);
+	assert.deepEqual(
+		ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT.social?.providers,
+		[],
+	);
+});
+
+test("passkey related origins and optional-session are in the operation catalog", () => {
+	const related = ATHENA_AUTH_OPERATIONS.find(
+		(operation) =>
+			operation.method === "GET" && operation.path === "/.well-known/webauthn",
+	);
+	assert.ok(related);
+	assert.equal(related?.id, "passkey.relatedOrigins");
+	assert.equal(related?.capability, "passkeys");
+	assert.equal(related?.rust, "supported");
+	assert.equal(related?.embedded, "supported");
+	assert.equal(related?.auth, "public");
+	assert.equal(related?.mutation, false);
+
+	const authenticateOptions = ATHENA_AUTH_OPERATIONS.find(
+		(operation) =>
+			operation.method === "POST" &&
+			operation.path === "/passkey/generate-authenticate-options",
+	);
+	assert.ok(authenticateOptions);
+	assert.equal(authenticateOptions?.auth, "optional-session");
+	assert.equal(authenticateOptions?.capability, "passkeys");
 });

@@ -38,17 +38,26 @@ test("P11: embedded Auth rejects WebAuthn/passkeys aliases", () => {
   );
 });
 
-test("P11: embedded Auth rejects a JS-only OAuth stack", () => {
-  assert.throws(
-    () =>
-      createClient({
-        auth: { oauth: { google: { clientId: "x" } } } as never,
-        databaseUrl: SAMPLE_PG,
-        env: {},
-      }),
-    (error: unknown) =>
+test("P11: object auth.oauth provider maps are not a JS-only OAuth stack", () => {
+  let client: unknown;
+  try {
+    client = createClient({
+      auth: {
+        mode: "remote",
+        oauth: { google: { clientId: "x" } },
+        url: "https://auth.example.test",
+      } as never,
+      env: {},
+    });
+  } catch (error) {
+    assert.equal(
       error instanceof AthenaConfigurationError &&
-      error.code === "ATHENA_AUTH_FEATURE_UNSUPPORTED" &&
-      /oauth/i.test(error.message)
-  );
+        error.code === "ATHENA_AUTH_FEATURE_UNSUPPORTED",
+      false,
+      "object auth.oauth must not throw ATHENA_AUTH_FEATURE_UNSUPPORTED",
+    );
+    throw error;
+  }
+  assert.ok(client);
+  void SAMPLE_PG;
 });

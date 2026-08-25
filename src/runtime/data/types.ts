@@ -1,6 +1,7 @@
 import type { AthenaGatewayClient } from "../../gateway/client.ts";
 import type { AthenaRuntimeDiscoveryDocument } from "../../gateway/discovery-types.ts";
 import type { AthenaGatewayResponse } from "../../gateway/types.ts";
+import type { AthenaDataLifecycleConfig } from "./lifecycle/types.ts";
 import type { AthenaPolicyDecision, AthenaPolicyMode } from "../../policy/decision.ts";
 import type { AthenaPolicyRegistry } from "../../policy/registry.ts";
 import type {
@@ -34,14 +35,21 @@ export type AthenaRuntimeModelEnforcement = "off" | "known-only" | "strict";
 export interface AthenaRuntimeRequest {
   operation: AthenaRuntimeOperation;
   payload: unknown;
+  /**
+   * Non-authoritative client intent. Policy always sees `operation`.
+   * Fluent upsert sets `"upsert"` while the wire stays insert.
+   */
+  semanticOperation?: "insert" | "update" | "delete" | "upsert";
 }
 
 export interface AthenaRuntimeRequestContext {
+  eventId?: string;
   headers?: Record<string, string>;
+  policyDecision?: AthenaPolicyDecision;
   request?: Request;
   requestId?: string;
   resolvedPrincipal?: AthenaResolvedPrincipal;
-  policyDecision?: AthenaPolicyDecision;
+  traceId?: string;
 }
 
 export interface AthenaRuntimeLimits {
@@ -118,17 +126,28 @@ export type AthenaRuntimeErrorCode =
 
 export interface AthenaRuntimeExecutionEvent {
   affectedRows?: number;
+  afterHooksMs?: number;
+  audit?: boolean;
+  authorizeMs?: number;
   backend?: AthenaRuntimeCapabilities["transport"] | string;
+  beforeHooksMs?: number;
   compileMs?: number;
   decision?: string;
   errorKind?: string;
+  errorPhase?: string;
+  eventId?: string;
   executeMs?: number;
   operation: string;
   policyIds?: string[];
+  prepareMs?: number;
   principalAuthority?: string;
   requestId: string;
   resource?: string;
   runtime: "embedded";
+  semanticOperation?: "insert" | "update" | "delete" | "upsert";
+  totalMs?: number;
+  traceId?: string;
+  transactionSemantics?: "atomic" | "backend-managed" | "unknown";
 }
 
 export interface AthenaServerRuntime {
@@ -144,19 +163,26 @@ export interface AthenaServerRuntime {
     request: AthenaRuntimeRequest,
     context?: AthenaRuntimeRequestContext
   ): Promise<AthenaGatewayResponse<unknown>>;
+  readonly lifecycle?: { data?: AthenaDataLifecycleConfig };
   readonly modelIndex?: {
     readonly enforcement: AthenaRuntimeModelEnforcement;
     get(resource: string):
       | {
           canonicalResource: string;
           columns: ReadonlySet<string>;
+          database?: string;
+          model?: string;
           relations: ReadonlyMap<string, { kind: string }>;
+          schema?: string;
+          table: string;
         }
       | undefined;
   };
   readonly transport: AthenaGatewayClient;
   readonly rpcExpose?: ReadonlySet<string>;
   readonly onExecutionEvent?: (event: AthenaRuntimeExecutionEvent) => void;
+  /** Client-shaped input for DevTools snapshot production (Node/local only). */
+  readonly devtoolsProduceInput?: Record<string, unknown>;
 }
 
 export interface CreateAthenaServerRuntimeConfig {
@@ -175,6 +201,7 @@ export interface CreateAthenaServerRuntimeConfig {
   limits?: AthenaRuntimeLimits;
   rawSql?: boolean | { enabled: boolean };
   rpc?: boolean | { enabled: boolean; expose?: readonly string[] };
+  lifecycle?: { data?: AthenaDataLifecycleConfig };
   onExecutionEvent?: (event: AthenaRuntimeExecutionEvent) => void;
   security: {
     http?: AthenaRuntimeHttpSecurity;
@@ -186,4 +213,6 @@ export interface CreateAthenaServerRuntimeConfig {
   http?: boolean;
   /** Next handlers pass protocol 1.1 ads; omitted for Data-only 1.0. */
   discoveryDocument?: AthenaRuntimeDiscoveryDocument;
+  /** Optional extra facts for GET /api/athena/capabilities DevTools snapshot. */
+  devtoolsProduceInput?: Record<string, unknown>;
 }

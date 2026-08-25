@@ -23,13 +23,33 @@ export type AthenaStorageErrorHandler = (
   error: AthenaStorageError
 ) => void | Promise<void>;
 
+/** Local / adapter capability gap — never silently approximate the missing op. */
+export const ATHENA_STORAGE_CAPABILITY_UNSUPPORTED =
+  "ATHENA_STORAGE_CAPABILITY_UNSUPPORTED" as const;
+
+export type AthenaStorageCapabilityUnsupportedCode =
+  typeof ATHENA_STORAGE_CAPABILITY_UNSUPPORTED;
+
+export class AthenaStorageCapabilityError extends Error {
+  readonly code: AthenaStorageCapabilityUnsupportedCode =
+    ATHENA_STORAGE_CAPABILITY_UNSUPPORTED;
+
+  constructor(operation: string) {
+    super(
+      `${ATHENA_STORAGE_CAPABILITY_UNSUPPORTED}: ${operation} is not supported on this storage adapter.`
+    );
+    this.name = "AthenaStorageCapabilityError";
+  }
+}
+
 export type AthenaStorageErrorCode =
   | "INVALID_URL"
   | "NETWORK_ERROR"
   | "HTTP_ERROR"
   | "INVALID_JSON"
   | "INVALID_ATHENA_ENVELOPE"
-  | "UNKNOWN_ERROR";
+  | "UNKNOWN_ERROR"
+  | AthenaStorageCapabilityUnsupportedCode;
 
 export const AthenaStorageErrorCode = {
   HttpError: "HTTP_ERROR",

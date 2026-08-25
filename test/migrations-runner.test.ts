@@ -42,6 +42,13 @@ class MemoryBackend implements MigrationBackend {
 		return [...this.rows];
 	}
 
+	async inspectCatalog() {
+		const { emptyPhysicalCatalog } = await import(
+			"../src/migrations/analysis/catalog.ts"
+		);
+		return emptyPhysicalCatalog();
+	}
+
 	async applyMigration(
 		migration: MigrationFile,
 	): Promise<AppliedMigrationResult> {
@@ -278,6 +285,106 @@ test("normalize path uses checksum of exact local SQL for applied match", async 
 		assert.equal(summary.pendingCount, 0);
 		assert.equal(summary.newlyApplied.length, 0);
 		assert.equal(backend.appliedSql.length, 0);
+	} finally {
+		rmSync(root, { force: true, recursive: true });
+	}
+});
+
+test("migrate status warns on unknown Auth generations; check and drift fail closed", async () => {
+	const root = mkdtempSync(join(tmpdir(), "athena-mig-unknown-auth-"));
+	const unknownPlan = {
+		appliedCount: 1,
+		conflictCount: 1,
+		driftCount: 0,
+		entries: [
+			{
+				action: "none" as const,
+				checksum: "abc",
+				ledgerState: "applied" as const,
+				name: "021_runtime_key_and_ledger",
+				repairability: "idempotent" as const,
+				schemaState: "healthy" as const,
+				version: 21,
+			},
+			{
+				action: "blocked" as const,
+				checksum: "",
+				ledgerState: "unknown" as const,
+				name: "099_future_generation",
+				repairability: "manual" as const,
+				schemaState: "unknown" as const,
+				version: 99,
+			},
+		],
+		hasBlockingDrift: false,
+		health: "FUTURE_GENERATION" as const,
+		pendingCount: 0,
+	};
+	try {
+		writeProject(root, {});
+		const status = await runMigrations({
+			cwd: root,
+			mode: "status",
+			createBackend: async () => new MemoryBackend(),
+			planAuthSchema: async () => unknownPlan,
+			log: () => undefined,
+		});
+		assert.equal(
+			status.diagnostics?.some((item) => item.code === "ATHENA_AUTH_LEDGER_UNKNOWN"),
+			true,
+		);
+
+		await assert.rejects(
+			() =>
+				runMigrations({
+					cwd: root,
+					mode: "check",
+					createBackend: async () => new MemoryBackend(),
+					planAuthSchema: async () => unknownPlan,
+					log: () => undefined,
+				}),
+			(error: unknown) =>
+				error instanceof MigrationError &&
+				error.code === "HISTORY" &&
+				/does not know/i.test(error.message),
+		);
+		await assert.rejects(
+			() =>
+				runMigrations({
+					cwd: root,
+					mode: "drift",
+					createBackend: async () => new MemoryBackend(),
+					planAuthSchema: async () => unknownPlan,
+					log: () => undefined,
+				}),
+			/ATHENA_AUTH_LEDGER_UNKNOWN|does not know/i,
+		);
+	} finally {
+		rmSync(root, { force: true, recursive: true });
+	}
+});
+
+test("migrate status fails closed when Embedded Auth is unreachable", async () => {
+	const root = mkdtempSync(join(tmpdir(), "athena-mig-auth-down-"));
+	try {
+		writeProject(root, { "0001_initial.sql": "SELECT 1;\n" });
+		const refused = Object.assign(
+			new Error("connect ECONNREFUSED 127.0.0.1:5432"),
+			{ code: "ECONNREFUSED" },
+		);
+		await assert.rejects(
+			() =>
+				runMigrations({
+					cwd: root,
+					mode: "status",
+					createBackend: async () => new MemoryBackend(),
+					createAuthDatabase: async () => {
+						throw refused;
+					},
+					log: () => undefined,
+				}),
+			/ATHENA_AUTH_LEDGER_UNREACHABLE/,
+		);
 	} finally {
 		rmSync(root, { force: true, recursive: true });
 	}

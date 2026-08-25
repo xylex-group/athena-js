@@ -1,642 +1,602 @@
-import { resolve } from "node:path";
-import {
-  createPostgresAuthDatabase,
-  type AthenaAuthDatabase,
-} from "../auth/local/database.ts";
-import {
-  type AthenaAuthMigrationPlan,
-  getAthenaAuthExpectedLedger,
-  migrateAthenaAuthSchema,
-  planAthenaAuthSchema,
-  repairAthenaAuthSchema,
-} from "../auth/local/schema.ts";
 import { AthenaAuthRuntimeError } from "../auth/local/errors.ts";
-import { repairabilityForAuthMigration } from "../auth/local/schema-manifest.ts";
-import { createCliUi, type AthenaCliUI } from "../cli/ui/index.ts";
-import { loadGeneratorConfig } from "../generator/config.ts";
-import { resolveGeneratorDatabaseAuthority } from "../generator/database-authority.ts";
-import type { NormalizedAthenaGeneratorConfig } from "../generator/types.ts";
-import type { MigrationBackend } from "./backend.ts";
+import type { AthenaAuthMigrationPlan } from "../auth/local/schema.ts";
+import { formatDiagnostic } from "./analysis/diagnostics.ts";
 import {
-  DEFAULT_MIGRATIONS_DIRECTORY,
-  discoverMigrations,
-} from "./discovery.ts";
+	explainMigration,
+	formatMigrationGraph,
+	formatPreflightFailure,
+} from "./analysis/index.ts";
+import { applyApplicationMigrations } from "./application/apply.ts";
+import {
+	assertDirectPostgres,
+	databaseLabel,
+	providerLabel,
+} from "./application/authority.ts";
+import { prepareApplicationMigrationRun } from "./application/prepare.ts";
+import { reconcileApplicationMigrations } from "./application/reconcile.ts";
+import {
+	blockingSemantic,
+	compileApplicationSemantics,
+} from "./application/semantics.ts";
+import type { MigrationBackend } from "./backend.ts";
+import { applyEmbeddedAuthMigrations } from "./embedded-auth/apply.ts";
+import { applyEmbeddedChatMigrations } from "./embedded-chat/apply.ts";
+import { loadAuthPlan } from "./embedded-auth/plan.ts";
+import { repairEmbeddedAuthMigrations } from "./embedded-auth/repair.ts";
+import {
+	formatManagedAuthDrift,
+	type ManagedAuthInspection,
+} from "./managed-auth.ts";
 import { planHasBlockingConflicts, planMigrations } from "./planner.ts";
 import { createPostgresMigrationBackend } from "./postgres.ts";
-import { buildMigrationReportView } from "./report.ts";
+import { isHighAutoRepair } from "./reconciliation/index.ts";
+import { formatConflictBlock } from "./reporting/conflicts.ts";
 import {
-  type AppliedMigrationResult,
-  type MigrationCommandMode,
-  MigrationError,
-  type MigrationPlan,
-  type MigrationRunSummary,
-  type RunMigrationsOptions,
+	formatUnknownAuthLedgerError,
+	hasUnknownAuthGenerations,
+	renderReport,
+	unknownAuthLedgerDiagnostics,
+} from "./reporting/render.ts";
+import {
+	formatPlanProvenance,
+	formatSourceSafetyWarning,
+} from "./source-control/index.ts";
+import {
+	type AppliedMigrationResult,
+	type MigrationCommandMode,
+	MigrationError,
+	type MigrationPlan,
+	type MigrationRunSummary,
+	type RunMigrationsOptions,
 } from "./types.ts";
 
-function resolveMigrationsDirectory(
-  config: NormalizedAthenaGeneratorConfig,
-  cwd: string
-): string {
-  const configured = config.migrations.directory;
-  return resolve(cwd, configured || DEFAULT_MIGRATIONS_DIRECTORY);
-}
-
-function providerLabel(config: NormalizedAthenaGeneratorConfig): string {
-  const { provider } = config;
-  if (provider.kind === "postgres") {
-    return `postgres/${provider.mode}`;
-  }
-  return `${provider.kind}/${provider.mode}`;
-}
-
-function databaseLabel(config: NormalizedAthenaGeneratorConfig): string {
-  const { provider } = config;
-  if (provider.kind === "postgres") {
-    if (provider.mode === "direct") {
-      return (
-        provider.database ??
-        extractDatabaseName(provider.connectionString) ??
-        "postgres"
-      );
-    }
-    return provider.database;
-  }
-  if (provider.kind === "scylla") {
-    return provider.keyspace;
-  }
-  return "unknown";
-}
-
-function extractDatabaseName(connectionString: string): string | undefined {
-  try {
-    const normalized = connectionString.replace(/^postgresql:/i, "postgres:");
-    const url = new URL(normalized);
-    const name = url.pathname.replace(/^\//, "");
-    return name.length > 0 ? decodeURIComponent(name) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function relativeDirectoryDisplay(cwd: string, absoluteDirectory: string): string {
-  const normalizedCwd = cwd.replace(/\\/g, "/");
-  const normalizedDir = absoluteDirectory.replace(/\\/g, "/");
-  if (normalizedDir.startsWith(`${normalizedCwd}/`)) {
-    return normalizedDir.slice(normalizedCwd.length + 1);
-  }
-  if (normalizedDir === normalizedCwd) {
-    return ".";
-  }
-  return absoluteDirectory.replace(/\\/g, "/");
-}
-
-function formatConflictBlock(plan: MigrationPlan): string {
-  const lines: string[] = [];
-  for (const conflict of plan.conflicts) {
-    if (conflict.kind === "checksum-mismatch") {
-      const filename =
-        conflict.local?.filename ??
-        `${String(conflict.version).padStart(4, "0")}_${conflict.applied?.name ?? "unknown"}.sql`;
-      lines.push(
-        [
-          "Migration integrity error",
-          "",
-          `${filename} was already applied but its contents have changed.`,
-          "",
-          "Stored checksum:",
-          conflict.applied?.checksum ?? "(missing)",
-          "",
-          "Current checksum:",
-          conflict.local?.checksum ?? "(missing local file)",
-          "",
-          "Applied migrations are immutable.",
-          "Create a new migration instead of editing an applied migration.",
-        ].join("\n")
-      );
-      continue;
-    }
-
-    if (conflict.kind === "missing-local") {
-      const label = conflict.applied
-        ? `${String(conflict.version).padStart(4, "0")}_${conflict.applied.name}`
-        : String(conflict.version).padStart(4, "0");
-      lines.push(
-        [
-          "Migration history conflict",
-          "",
-          `Database contains migration ${label}`,
-          "but no matching local migration exists.",
-          "",
-          "Refusing to continue because this checkout is older than the database migration history.",
-        ].join("\n")
-      );
-    }
-  }
-  return lines.join("\n\n");
-}
-
-function assertDirectPostgres(
-  config: NormalizedAthenaGeneratorConfig
-): { connectionString: string; database?: string } {
-  const { provider } = config;
-  if (provider.kind !== "postgres") {
-    throw new MigrationError(
-      "PROVIDER",
-      `athena-js migrate currently requires a direct PostgreSQL provider.\nUnsupported provider: ${provider.kind}/${provider.mode}.`
-    );
-  }
-  if (provider.mode !== "direct") {
-    throw new MigrationError(
-      "PROVIDER",
-      [
-        "athena-js migrate currently requires a direct PostgreSQL provider.",
-        "Gateway-backed migration execution is not yet supported.",
-        "Raw DDL needs privileged database access outside the normal query gateway.",
-      ].join("\n")
-    );
-  }
-  if (!provider.connectionString) {
-    throw new MigrationError(
-      "CONFIG",
-      "Direct PostgreSQL provider is missing connectionString (set DATABASE_URL / PG_URL or provider.connectionString)."
-    );
-  }
-  return {
-    connectionString: provider.connectionString,
-    database: provider.database,
-  };
-}
-
-function resolveUi(options: RunMigrationsOptions): AthenaCliUI {
-  if (options.ui) {
-    return options.ui;
-  }
-  return createCliUi({
-    json: options.json,
-    plain: options.plain,
-    write: options.log,
-  });
-}
-
-async function openAuthDatabase(
-  options: RunMigrationsOptions,
-  connectionString: string
-): Promise<AthenaAuthDatabase | undefined> {
-  if (options.createAuthDatabase) {
-    return options.createAuthDatabase(connectionString);
-  }
-  if (options.createBackend) {
-    // Test backends typically skip live Auth DB access.
-    return undefined;
-  }
-  return createPostgresAuthDatabase(connectionString);
-}
-
-function offlineExpectedAuthPlan(): AthenaAuthMigrationPlan {
-  const expected = getAthenaAuthExpectedLedger();
-  const entries = expected.map((entry) => ({
-    version: entry.version,
-    name: entry.name,
-    checksum: entry.checksum ?? "",
-    ledgerState: "absent" as const,
-    schemaState: "unknown" as const,
-    action: "apply" as const,
-    repairability: repairabilityForAuthMigration(entry.version),
-  }));
-  return {
-    entries,
-    appliedCount: 0,
-    pendingCount: entries.length,
-    driftCount: 0,
-    conflictCount: 0,
-    hasBlockingDrift: false,
-  };
-}
-
-async function loadAuthPlan(
-  options: RunMigrationsOptions,
-  connectionString: string,
-  inspectSchema: boolean
-): Promise<AthenaAuthMigrationPlan> {
-  if (options.planAuthSchema) {
-    return options.planAuthSchema();
-  }
-  const database = await openAuthDatabase(options, connectionString);
-  if (!database) {
-    // Test/backends without Auth DB still render the expected ledger offline.
-    return offlineExpectedAuthPlan();
-  }
-  try {
-    return await planAthenaAuthSchema(database, { inspectSchema });
-  } finally {
-    await database.close?.();
-  }
-}
-
-async function applyEmbeddedAuthSchema(
-  options: RunMigrationsOptions,
-  connectionString: string,
-  ui: AthenaCliUI
-): Promise<void> {
-  if (options.migrateAuthSchema) {
-    ui.info("→ Embedded Auth schema applying");
-    await options.migrateAuthSchema();
-    ui.success("✓ Embedded Auth schema applied");
-    return;
-  }
-  if (options.createBackend && !options.createAuthDatabase) {
-    return;
-  }
-  ui.info("→ Embedded Auth schema applying");
-  const database = await openAuthDatabase(options, connectionString);
-  if (!database) {
-    return;
-  }
-  try {
-    await migrateAthenaAuthSchema(database);
-  } finally {
-    await database.close?.();
-  }
-  ui.success("✓ Embedded Auth schema applied");
-}
-
-function renderReport(
-  ui: AthenaCliUI,
-  summary: Pick<
-    MigrationRunSummary,
-    "providerLabel" | "databaseLabel" | "directory" | "plan" | "mode"
-  >,
-  authPlan: AthenaAuthMigrationPlan | undefined,
-  outcome: string,
-  diagnostics: MigrationRunSummary["diagnostics"] = []
-): void {
-  const report = buildMigrationReportView({
-    summary,
-    authPlan,
-    outcome,
-    diagnostics,
-    logPath: undefined,
-  });
-  ui.renderMigrationReport(report);
+function translateRunError(error: unknown): MigrationError {
+	if (error instanceof MigrationError) {
+		return error;
+	}
+	if (error instanceof AthenaAuthRuntimeError) {
+		return new MigrationError("EXECUTION", error.publicMessage, {
+			cause: error,
+		});
+	}
+	return new MigrationError(
+		"EXECUTION",
+		error instanceof Error ? error.message : String(error),
+		{ cause: error },
+	);
 }
 
 /**
  * Programmatic migration runner (Node/tooling only).
+ *
+ * Thin coordinator: application ledger and Embedded Auth ledger stay separate.
  */
 export async function runMigrations(
-  options: RunMigrationsOptions = {}
+	options: RunMigrationsOptions = {},
 ): Promise<MigrationRunSummary> {
-  const cwd = options.cwd ?? process.cwd();
-  const ui = resolveUi(options);
-  const mode: MigrationCommandMode =
-    options.mode ?? (options.dryRun ? "dry-run" : "apply");
-  const dryRun =
-    mode === "dry-run" || mode === "plan" || Boolean(options.dryRun);
+	const prepared = await prepareApplicationMigrationRun(options);
+	const {
+		cwd,
+		ui,
+		mode,
+		dryRun,
+		config,
+		directoryDisplay,
+		local,
+		sourceControl,
+		sourceSafety,
+		gitWorktree,
+		managedAuth,
+		mutating,
+	} = prepared;
+	const applyChatIfEnabled = async (connectionString: string): Promise<void> => {
+		await applyEmbeddedChatMigrations(options, connectionString, ui, config.modules);
+	};
 
-  // Same database-authority path as `athena-js init` schema discovery /
-  // generate: load config (applies project `.env*`) then normalize provider.
-  const loaded = await loadGeneratorConfig({
-    configPath: options.configPath,
-    cwd,
-  });
-  const authority = resolveGeneratorDatabaseAuthority({
-    applyProjectEnv: false,
-    cwd,
-    loaded,
-    mode: "direct",
-  });
-  const config = {
-    ...loaded.config,
-    provider: authority.provider,
-  };
-  authority.restoreEnv();
-  const absoluteDirectory = resolveMigrationsDirectory(config, cwd);
-  const directoryDisplay = relativeDirectoryDisplay(cwd, absoluteDirectory);
+	let backend: MigrationBackend | undefined;
+	let connectionString = "";
+	const newlyApplied: AppliedMigrationResult[] = [];
+	let plan: MigrationPlan = { applied: [], conflicts: [], pending: [] };
+	let authPlan: AthenaAuthMigrationPlan | undefined;
 
-  const discover =
-    options.discover ??
-    ((directory: string) => discoverMigrations({ cwd, directory }));
+	try {
+		const pg = assertDirectPostgres(config);
+		connectionString = pg.connectionString;
+		backend =
+			(await options.createBackend?.({
+				connectionString: pg.connectionString,
+				database: pg.database,
+			})) ??
+			(await createPostgresMigrationBackend({
+				connectionString: pg.connectionString,
+				database: pg.database,
+			}));
 
-  const local = await discover(
-    absoluteDirectory.startsWith(cwd)
-      ? relativeDirectoryDisplay(cwd, absoluteDirectory)
-      : absoluteDirectory
-  );
+		await backend.acquireLock();
+		if (mode === "apply" || mode === "repair") {
+			await backend.ensureLedger();
+		}
+		const applied = await backend.listAppliedMigrations();
+		plan = planMigrations({ applied, local });
 
-  let backend: MigrationBackend | undefined;
-  let connectionString = "";
-  const newlyApplied: AppliedMigrationResult[] = [];
-  let plan: MigrationPlan = { applied: [], conflicts: [], pending: [] };
-  let authPlan: AthenaAuthMigrationPlan | undefined;
+		const gitDiagnostics =
+			gitWorktree.dirty && !mutating
+				? [
+						{
+							level: "warn" as const,
+							code: "ATHENA-MIG-GIT-001",
+							message: [
+								formatPlanProvenance(sourceControl),
+								"",
+								formatSourceSafetyWarning(sourceControl, sourceSafety),
+							].join("\n"),
+						},
+					]
+				: [];
+		if (gitDiagnostics[0]) {
+			ui.warn(gitDiagnostics[0].message);
+		}
 
-  try {
-    const pg = assertDirectPostgres(config);
-    connectionString = pg.connectionString;
-    backend =
-      (await options.createBackend?.({
-        connectionString: pg.connectionString,
-        database: pg.database,
-      })) ??
-      (await createPostgresMigrationBackend({
-        connectionString: pg.connectionString,
-        database: pg.database,
-      }));
+		const summaryBase = {
+			databaseLabel: databaseLabel(config),
+			directory: directoryDisplay,
+			dryRun,
+			gitWorktree,
+			mode,
+			plan,
+			providerLabel: providerLabel(config),
+			sourceControl,
+		};
 
-    await backend.acquireLock();
-    // Inspection modes must stay non-mutating: no CREATE SCHEMA/TABLE.
-    // Apply/repair may bootstrap the ledger.
-    if (mode === "apply" || mode === "repair") {
-      await backend.ensureLedger();
-    }
-    const applied = await backend.listAppliedMigrations();
-    plan = planMigrations({ applied, local });
+		if (mode === "repair") {
+			authPlan = await loadAuthPlan(options, connectionString, true);
+			const repairEntries =
+				authPlan?.entries.filter((entry) => entry.action === "repair") ?? [];
+			renderReport(
+				ui,
+				summaryBase,
+				authPlan,
+				repairEntries.length === 0
+					? "No Embedded Auth repairs required."
+					: `${repairEntries.length} migration(s) require repair`,
+				[],
+			);
 
-    const summaryBase = {
-      databaseLabel: databaseLabel(config),
-      directory: directoryDisplay,
-      dryRun,
-      mode,
-      plan,
-      providerLabel: providerLabel(config),
-    };
+			if (repairEntries.length === 0) {
+				return {
+					...summaryBase,
+					appliedCount: plan.applied.length,
+					authPlan,
+					conflicts: plan.conflicts,
+					diagnostics: [],
+					failedCount: 0,
+					newlyApplied: [],
+					pendingCount: plan.pending.length,
+					skippedCount: 0,
+				};
+			}
 
-    if (mode === "repair") {
-      authPlan = await loadAuthPlan(options, connectionString, true);
-      const repairEntries =
-        authPlan?.entries.filter((entry) => entry.action === "repair") ?? [];
-      renderReport(
-        ui,
-        summaryBase,
-        authPlan,
-        repairEntries.length === 0
-          ? "No Embedded Auth repairs required."
-          : `${repairEntries.length} migration(s) require repair`,
-        []
-      );
+			if (!options.yes && !dryRun) {
+				if (!ui.capabilities.isTty || ui.capabilities.mode !== "interactive") {
+					throw new MigrationError(
+						"CONFIG",
+						[
+							"migrate repair requires confirmation.",
+							"",
+							"Re-run with --yes in CI/non-TTY environments:",
+							"",
+							"  athena-js migrate repair --yes",
+						].join("\n"),
+					);
+				}
+				const confirmed = await ui.confirm(
+					"Repair drifted Embedded Auth schema now?",
+				);
+				if (!confirmed) {
+					throw new MigrationError("CONFIG", "Repair cancelled.");
+				}
+			}
 
-      if (repairEntries.length === 0) {
-        return {
-          ...summaryBase,
-          appliedCount: plan.applied.length,
-          authPlan,
-          conflicts: plan.conflicts,
-          diagnostics: [],
-          failedCount: 0,
-          newlyApplied: [],
-          pendingCount: plan.pending.length,
-          skippedCount: 0,
-        };
-      }
+			await repairEmbeddedAuthMigrations(options, connectionString, dryRun);
+			authPlan = await loadAuthPlan(options, connectionString, true);
+			return {
+				...summaryBase,
+				appliedCount: plan.applied.length,
+				authPlan,
+				conflicts: plan.conflicts,
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: plan.pending.length,
+				skippedCount: dryRun ? repairEntries.length : 0,
+			};
+		}
 
-      if (!options.yes && !dryRun) {
-        if (!ui.capabilities.isTty || ui.capabilities.mode !== "interactive") {
-          throw new MigrationError(
-            "CONFIG",
-            [
-              "migrate repair requires confirmation.",
-              "",
-              "Re-run with --yes in CI/non-TTY environments:",
-              "",
-              "  athena-js migrate repair --yes",
-            ].join("\n")
-          );
-        }
-        const confirmed = await ui.confirm(
-          "Repair drifted Embedded Auth schema now?"
-        );
-        if (!confirmed) {
-          throw new MigrationError("CONFIG", "Repair cancelled.");
-        }
-      }
+		const inspectAuth =
+			mode === "status" ||
+			mode === "plan" ||
+			mode === "apply" ||
+			mode === "check" ||
+			mode === "drift" ||
+			mode === "verify";
+		authPlan = await loadAuthPlan(options, connectionString, inspectAuth);
 
-      if (options.repairAuthSchema) {
-        await options.repairAuthSchema({ dryRun });
-      } else if (!options.createBackend || options.createAuthDatabase) {
-        const database = await openAuthDatabase(options, connectionString);
-        if (database) {
-          try {
-            await repairAthenaAuthSchema(database, { dryRun });
-          } finally {
-            await database.close?.();
-          }
-        }
-      }
+		if (!backend) {
+			throw new MigrationError(
+				"PROVIDER",
+				"Migration backend was not initialized.",
+			);
+		}
 
-      authPlan = await loadAuthPlan(options, connectionString, true);
-      return {
-        ...summaryBase,
-        appliedCount: plan.applied.length,
-        authPlan,
-        conflicts: plan.conflicts,
-        diagnostics: [],
-        failedCount: 0,
-        newlyApplied: [],
-        pendingCount: plan.pending.length,
-        skippedCount: dryRun ? repairEntries.length : 0,
-      };
-    }
+		const semantic = await compileApplicationSemantics({
+			backend,
+			cacheDir: cwd,
+			local,
+			plan,
+			strict: options.strict,
+		});
 
-    // Auth plan for status/plan/dry-run/apply presentation.
-    // Status/plan inspect physical schema; dry-run may skip heavy inspect for speed
-    // but status and apply paths must see drift.
-    const inspectAuth =
-      mode === "status" || mode === "plan" || mode === "apply";
-    try {
-      authPlan = await loadAuthPlan(options, connectionString, inspectAuth);
-    } catch (error) {
-      if (
-        error instanceof AthenaAuthRuntimeError &&
-        error.code === "ATHENA_AUTH_DATABASE_RESULT_INVALID"
-      ) {
-        throw new MigrationError("EXECUTION", error.publicMessage, {
-          cause: error,
-        });
-      }
-      // Ledger missing / connection issues during status: show expected offline later.
-    }
+		if (mode === "reconcile") {
+			const reconciliation = await reconcileApplicationMigrations({
+				backend,
+				cwd,
+				directoryDisplay,
+				local,
+				options,
+				semantic,
+				ui,
+			});
+			const eligible = reconciliation.diagnoses.filter(isHighAutoRepair);
+			return {
+				...summaryBase,
+				appliedCount: plan.applied.length,
+				authPlan,
+				conflicts: plan.conflicts,
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: plan.pending.length,
+				reconciliation,
+				semantic,
+				skippedCount: options.applyReconcile ? 0 : eligible.length,
+			};
+		}
 
-    if (mode === "status" || mode === "plan") {
-      const outcome = planHasBlockingConflicts(plan)
-        ? "Application migration history has conflicts."
-        : authPlan?.hasBlockingDrift
-          ? "Embedded Auth schema drift detected."
-          : plan.pending.length === 0 && (authPlan?.pendingCount ?? 0) === 0
-            ? "Database is up to date."
-            : "Pending migrations remain.";
+		if (mode === "graph") {
+			ui.info(formatMigrationGraph(semantic.graph));
+			return {
+				...summaryBase,
+				appliedCount: plan.applied.length,
+				authPlan,
+				conflicts: plan.conflicts,
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: plan.pending.length,
+				semantic,
+				skippedCount: 0,
+			};
+		}
 
-      renderReport(ui, summaryBase, authPlan, outcome);
+		if (mode === "explain") {
+			const target = (options.explainTarget ?? "").trim();
+			const analysis = semantic.analyses.find(
+				(item) =>
+					item.filename === target ||
+					item.version === Number(target) ||
+					item.filename.startsWith(`${target}_`) ||
+					item.filename.includes(target),
+			);
+			if (!analysis) {
+				throw new MigrationError(
+					"CONFIG",
+					`Unknown migration to explain: ${target || "(missing)"}. Use a version or filename.`,
+				);
+			}
+			ui.info(explainMigration(analysis));
+			return {
+				...summaryBase,
+				appliedCount: plan.applied.length,
+				authPlan,
+				conflicts: plan.conflicts,
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: plan.pending.length,
+				semantic,
+				skippedCount: 0,
+			};
+		}
 
-      if (planHasBlockingConflicts(plan)) {
-        throw new MigrationError("HISTORY", formatConflictBlock(plan));
-      }
+		if (
+			mode === "status" ||
+			mode === "plan" ||
+			mode === "check" ||
+			mode === "drift" ||
+			mode === "verify"
+		) {
+			return inspectCombinedLedgers({
+				authPlan,
+				gitDiagnostics,
+				managedAuth,
+				mode,
+				plan,
+				semantic,
+				strict: Boolean(options.strict),
+				summaryBase,
+				ui,
+			});
+		}
 
-      return {
-        ...summaryBase,
-        appliedCount: plan.applied.length,
-        authPlan,
-        conflicts: plan.conflicts,
-        diagnostics: [],
-        failedCount: 0,
-        newlyApplied: [],
-        pendingCount: plan.pending.length,
-        skippedCount: 0,
-      };
-    }
+		if (planHasBlockingConflicts(plan)) {
+			renderReport(
+				ui,
+				summaryBase,
+				authPlan,
+				"Application migration history has conflicts.",
+				[{ level: "error", message: formatConflictBlock(plan) }],
+			);
+			throw new MigrationError("HISTORY", formatConflictBlock(plan));
+		}
 
-    if (planHasBlockingConflicts(plan)) {
-      renderReport(
-        ui,
-        summaryBase,
-        authPlan,
-        "Application migration history has conflicts.",
-        [{ level: "error", message: formatConflictBlock(plan) }]
-      );
-      throw new MigrationError("HISTORY", formatConflictBlock(plan));
-    }
+		if (blockingSemantic(semantic)) {
+			const message = formatPreflightFailure(semantic.diagnostics);
+			renderReport(ui, summaryBase, authPlan, "Migration preflight failed.", [
+				{ level: "error", code: "ATHENA-MIG-DEP-001", message },
+			]);
+			throw new MigrationError("SEMANTIC", message);
+		}
 
-    if (mode === "dry-run") {
-      const outcome =
-        plan.pending.length === 0
-          ? "No pending application migrations. No database changes were made."
-          : `${plan.pending.length} pending application migration(s). No database changes were made.`;
-      renderReport(ui, summaryBase, authPlan, outcome);
-      return {
-        ...summaryBase,
-        appliedCount: plan.applied.length,
-        authPlan,
-        conflicts: plan.conflicts,
-        diagnostics: [],
-        failedCount: 0,
-        newlyApplied: [],
-        pendingCount: plan.pending.length,
-        skippedCount: plan.pending.length,
-      };
-    }
+		if (mode === "dry-run") {
+			const outcome =
+				plan.pending.length === 0
+					? "No pending application migrations. No database changes were made."
+					: `${plan.pending.length} pending application migration(s). No database changes were made.`;
+			renderReport(ui, summaryBase, authPlan, outcome);
+			return {
+				...summaryBase,
+				appliedCount: plan.applied.length,
+				authPlan,
+				conflicts: plan.conflicts,
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: plan.pending.length,
+				semantic,
+				skippedCount: plan.pending.length,
+			};
+		}
 
-    // apply
-    if (authPlan?.hasBlockingDrift) {
-      const driftMessage = [
-        "Embedded Auth schema drift detected",
-        "",
-        ...authPlan.entries
-          .filter((entry) => entry.schemaState === "drift")
-          .flatMap((entry) => [
-            entry.name,
-            "",
-            ...(entry.drift ?? []).map(
-              (item) =>
-                `  Missing ${item.kind.replace("missing-", "")}: ${item.object}`
-            ),
-            "",
-          ]),
-        "Migration history says these migrations were already applied.",
-        "",
-        "Athena will not silently modify a drifted schema.",
-        "",
-        "Run:",
-        "",
-        "  athena-js migrate repair",
-      ].join("\n");
-      renderReport(ui, summaryBase, authPlan, "Embedded Auth schema drift.", [
-        { level: "error", code: "ATHENA_AUTH_SCHEMA_DRIFT", message: driftMessage },
-      ]);
-      throw new MigrationError("HISTORY", driftMessage);
-    }
+		if (authPlan?.hasBlockingDrift) {
+			const driftMessage = [
+				"Embedded Auth schema drift detected",
+				"",
+				...authPlan.entries
+					.filter((entry) => entry.schemaState === "drift")
+					.flatMap((entry) => [
+						entry.name,
+						"",
+						...(entry.drift ?? []).map(
+							(item) =>
+								`  Missing ${item.kind.replace("missing-", "")}: ${item.object}`,
+						),
+						"",
+					]),
+				"Migration history says these migrations were already applied.",
+				"",
+				"Athena will not silently modify a drifted schema.",
+				"",
+				"Run:",
+				"",
+				"  athena-js migrate repair",
+			].join("\n");
+			renderReport(ui, summaryBase, authPlan, "Embedded Auth schema drift.", [
+				{
+					level: "error",
+					code: "ATHENA_AUTH_SCHEMA_DRIFT",
+					message: driftMessage,
+				},
+			]);
+			throw new MigrationError("HISTORY", driftMessage);
+		}
 
-    if (local.length === 0 && plan.pending.length === 0) {
-      ui.info("No application migrations found.");
-      await applyEmbeddedAuthSchema(options, connectionString, ui);
-      authPlan = await loadAuthPlan(options, connectionString, true);
-      renderReport(ui, summaryBase, authPlan, "0 application migrations applied.");
-      return {
-        ...summaryBase,
-        appliedCount: 0,
-        authPlan,
-        conflicts: [],
-        diagnostics: [],
-        failedCount: 0,
-        newlyApplied: [],
-        pendingCount: 0,
-        skippedCount: 0,
-      };
-    }
+		if (local.length === 0 && plan.pending.length === 0) {
+			ui.info(`No application SQL files in ${directoryDisplay}.`);
+			await applyEmbeddedAuthMigrations(options, connectionString, ui);
+			await applyChatIfEnabled(connectionString);
+			authPlan = await loadAuthPlan(options, connectionString, true);
+			renderReport(
+				ui,
+				summaryBase,
+				authPlan,
+				`No application SQL files in ${directoryDisplay}. Embedded Auth is a separate ledger (listed above).`,
+			);
+			return {
+				...summaryBase,
+				appliedCount: 0,
+				authPlan,
+				conflicts: [],
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: 0,
+				skippedCount: 0,
+			};
+		}
 
-    for (const entry of plan.applied) {
-      ui.info(`✓ ${entry.migration.filename} already applied`);
-    }
+		for (const entry of plan.applied) {
+			ui.info(`✓ ${entry.migration.filename} already applied`);
+		}
 
-    if (plan.pending.length === 0) {
-      ui.info("Application migrations are up to date.");
-      await applyEmbeddedAuthSchema(options, connectionString, ui);
-      authPlan = await loadAuthPlan(options, connectionString, true);
-      renderReport(
-        ui,
-        summaryBase,
-        authPlan,
-        `${plan.applied.length} application migrations current.`
-      );
-      return {
-        ...summaryBase,
-        appliedCount: plan.applied.length,
-        authPlan,
-        conflicts: [],
-        diagnostics: [],
-        failedCount: 0,
-        newlyApplied: [],
-        pendingCount: 0,
-        skippedCount: 0,
-      };
-    }
+		if (plan.pending.length === 0) {
+			ui.info("Application migrations are up to date.");
+			await applyEmbeddedAuthMigrations(options, connectionString, ui);
+			await applyChatIfEnabled(connectionString);
+			authPlan = await loadAuthPlan(options, connectionString, true);
+			renderReport(
+				ui,
+				summaryBase,
+				authPlan,
+				`${plan.applied.length} application migrations current.`,
+			);
+			return {
+				...summaryBase,
+				appliedCount: plan.applied.length,
+				authPlan,
+				conflicts: [],
+				diagnostics: [],
+				failedCount: 0,
+				newlyApplied: [],
+				pendingCount: 0,
+				skippedCount: 0,
+			};
+		}
 
-    if (!backend) {
-      throw new MigrationError(
-        "PROVIDER",
-        "Migration backend was not initialized."
-      );
-    }
+		newlyApplied.push(
+			...(await applyApplicationMigrations(backend, plan.pending, ui)),
+		);
+		await applyEmbeddedAuthMigrations(options, connectionString, ui);
+		await applyChatIfEnabled(connectionString);
+		authPlan = await loadAuthPlan(options, connectionString, true);
 
-    for (const entry of plan.pending) {
-      ui.info(`→ ${entry.migration.filename} applying`);
-      const result = await backend.applyMigration(entry.migration);
-      newlyApplied.push(result);
-      ui.success(`✓ ${entry.migration.filename} ${result.executionMs} ms`);
-    }
+		const outcome = `${newlyApplied.length} migration(s) applied`;
+		renderReport(ui, summaryBase, authPlan, outcome);
 
-    await applyEmbeddedAuthSchema(options, connectionString, ui);
-    authPlan = await loadAuthPlan(options, connectionString, true);
-
-    const outcome = `${newlyApplied.length} migration(s) applied`;
-    renderReport(ui, summaryBase, authPlan, outcome);
-
-    return {
-      ...summaryBase,
-      appliedCount: plan.applied.length + newlyApplied.length,
-      authPlan,
-      conflicts: [],
-      diagnostics: [],
-      failedCount: 0,
-      newlyApplied,
-      pendingCount: 0,
-      skippedCount: 0,
-    };
-  } catch (error) {
-    if (error instanceof MigrationError) {
-      throw error;
-    }
-    if (error instanceof AthenaAuthRuntimeError) {
-      throw new MigrationError("EXECUTION", error.publicMessage, {
-        cause: error,
-      });
-    }
-    throw new MigrationError(
-      "EXECUTION",
-      error instanceof Error ? error.message : String(error),
-      { cause: error }
-    );
-  } finally {
-    if (backend) {
-      await backend.close();
-    }
-  }
+		return {
+			...summaryBase,
+			appliedCount: plan.applied.length + newlyApplied.length,
+			authPlan,
+			conflicts: [],
+			diagnostics: [],
+			failedCount: 0,
+			newlyApplied,
+			pendingCount: 0,
+			skippedCount: 0,
+		};
+	} catch (error) {
+		throw translateRunError(error);
+	} finally {
+		if (backend) {
+			await backend.close();
+		}
+	}
 }
 
+function managedAuthDiagnostics(
+	managedAuth: ManagedAuthInspection,
+	level: "warn" | "error",
+): NonNullable<MigrationRunSummary["diagnostics"]> {
+	if (!managedAuth.drifted) {
+		return [];
+	}
+	return [
+		{
+			level,
+			code: "ATHENA-MIG-AUTH-MANAGED-001",
+			message: formatManagedAuthDrift(managedAuth),
+		},
+	];
+}
+
+function inspectCombinedLedgers(input: {
+	authPlan: AthenaAuthMigrationPlan | undefined;
+	gitDiagnostics: NonNullable<MigrationRunSummary["diagnostics"]>;
+	managedAuth: ManagedAuthInspection;
+	mode: Extract<
+		MigrationCommandMode,
+		"status" | "plan" | "check" | "drift" | "verify"
+	>;
+	plan: MigrationPlan;
+	semantic: NonNullable<MigrationRunSummary["semantic"]>;
+	strict: boolean;
+	summaryBase: Pick<
+		MigrationRunSummary,
+		| "providerLabel"
+		| "databaseLabel"
+		| "directory"
+		| "plan"
+		| "mode"
+		| "dryRun"
+		| "gitWorktree"
+		| "sourceControl"
+	>;
+	ui: import("../cli/ui/types.ts").AthenaCliUI;
+}): MigrationRunSummary {
+	const {
+		authPlan,
+		gitDiagnostics,
+		managedAuth,
+		mode,
+		plan,
+		semantic,
+		strict,
+		summaryBase,
+		ui,
+	} = input;
+	const semanticBlocked = blockingSemantic(semantic);
+	const unknownAuth = hasUnknownAuthGenerations(authPlan);
+	const outcome = planHasBlockingConflicts(plan)
+		? "Application migration history has conflicts."
+		: semanticBlocked
+			? "Application schema drift / unsatisfied dependencies."
+			: authPlan?.hasBlockingDrift
+				? "Embedded Auth schema drift detected."
+				: unknownAuth || (authPlan?.conflictCount ?? 0) > 0
+					? "Embedded Auth ledger has unknown or conflicting generations."
+					: plan.pending.length === 0 && (authPlan?.pendingCount ?? 0) === 0
+						? "Database is up to date."
+						: "Pending migrations remain.";
+
+	const semanticDiagnostics = semantic.diagnostics.map((item) => ({
+		level: "error" as const,
+		code: item.code,
+		message: formatDiagnostic(item),
+	}));
+	const verification = mode === "check" || mode === "drift" || mode === "verify";
+	const managedLevel =
+		strict && (mode === "check" || mode === "verify") ? "error" : "warn";
+	const combinedDiagnostics = [
+		...gitDiagnostics,
+		...semanticDiagnostics,
+		...unknownAuthLedgerDiagnostics(authPlan, verification ? "error" : "warn"),
+		...managedAuthDiagnostics(managedAuth, managedLevel),
+	];
+
+	if (mode === "plan" || mode === "check" || mode === "drift") {
+		ui.info(formatMigrationGraph(semantic.graph));
+	}
+
+	renderReport(ui, summaryBase, authPlan, outcome, combinedDiagnostics);
+
+	if (planHasBlockingConflicts(plan)) {
+		throw new MigrationError("HISTORY", formatConflictBlock(plan));
+	}
+	if (
+		semanticBlocked &&
+		(mode === "check" || mode === "drift" || mode === "plan")
+	) {
+		throw new MigrationError(
+			"SEMANTIC",
+			formatPreflightFailure(semantic.diagnostics),
+		);
+	}
+	if (verification && unknownAuth && authPlan) {
+		throw new MigrationError("HISTORY", formatUnknownAuthLedgerError(authPlan));
+	}
+	if (managedLevel === "error" && managedAuth.drifted) {
+		throw new MigrationError("INTEGRITY", formatManagedAuthDrift(managedAuth));
+	}
+
+	return {
+		...summaryBase,
+		appliedCount: plan.applied.length,
+		authPlan,
+		conflicts: plan.conflicts,
+		diagnostics: combinedDiagnostics,
+		failedCount: semanticBlocked ? 1 : 0,
+		newlyApplied: [],
+		pendingCount: plan.pending.length,
+		semantic,
+		skippedCount: 0,
+	};
+}

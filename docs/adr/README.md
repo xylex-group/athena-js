@@ -37,6 +37,9 @@ This directory contains the architecture contracts for the Athena JS single-clie
 | [0024](0024-athena-query-descriptor-and-model-graph.md) | One DSL (`from(model)`); `AthenaQueryDescriptor` is cache IR; structured key matching; entity key = model + context + PK. | 0003, 0004, 0006, 0021 | Proposed |
 | [0025](0025-athena-database-transactions.md) | Portable `db.transaction([])` vs capability-gated `db.withTransaction`; transport-owned execution; fail closed. | 0015, 0017, 0020, 0022, 0024 | Accepted |
 | [0026](0026-canonical-athena-query-ast.md) | Athena JS owns `AthenaQueryAst` + resolved `AthenaQueryPlan`; Gateway/PG/D1 are compilers. | 0020, 0022-direct-postgres, 0024 | Accepted |
+| [0027](0027-embedded-storage-runtime.md) | `athena.storage` = API + runtime + optional catalog; local ObjectStore; `StorageConnection !== StorageCatalog`. | 0011, 0012, 0015, 0016 | Accepted |
+| [0028](0028-client-runtime-context-and-facade.md) | Realize 0010: `src/client/` owns construction/context; `client.ts` is a façade; modules consume `AthenaClientRuntimeContext`. | 0001, 0002, 0005, 0006, 0010, 0014 | Accepted |
+| [0029](0029-runtime-plan-and-materializers.md) | Internal `AthenaRuntimePlan` + `src/runtime/materializers/*`; `createClient` stays the only constructor (Phases 0–4). | 0001, 0002, 0010, 0014, 0015, 0020, 0027, 0028 | Accepted (Phases 0–4) |
 
 ## Related monorepo ADRs
 
@@ -45,6 +48,15 @@ This directory contains the architecture contracts for the Athena JS single-clie
 | [docs/adr/technical/0018](../../../../docs/adr/technical/0018-athena-js-canonical-mutation-row-count.md) | Count-preferred mutation row-count (`count` else `affectedRows`) + fluent CAS + PG `.or(string)` | Accepted |
 | [docs/adr/technical/0019](../../../../docs/adr/technical/0019-athena-js-local-verification-ssot.md) | Local `test:finality` is the Athena JS release SSOT; CI mirrors it | Accepted |
 | [docs/adr/technical/0020](../../../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md) | Next discovery 1.1 advertises Auth+Data from `ResolvedAthenaRuntime`; browser auto-attaches same-origin `/api/auth` | Accepted |
+| [docs/adr/technical/0021](../../../../docs/adr/technical/0021-athena-js-root-request-runtime-ownership.md) | Runtime `AthenaRootRuntime` / `AthenaRequestRuntime`; `ATHENA_RUNTIME_OWNERSHIP_INVALID`; request views cannot `close()` | Accepted |
+| [docs/adr/technical/0027](../../../../docs/adr/technical/0027-athena-js-embedded-storage-runtime.md) | Catalog-optional `athena.storage` runtime; Node `provider: "local"` ObjectStore; `StorageConnection !== StorageCatalog` | Accepted |
+| [docs/adr/technical/0029](../../../../docs/adr/technical/0029-athena-js-client-runtime-context-decomposition.md) | Client composition root + `src/client/` façade (pairs with package 0028) | Accepted |
+| [docs/adr/technical/0042](../../../../docs/adr/technical/0042-athena-auth-canonical-architecture.md) | Typed Auth API → Better Auth adapter; thin `createAthenaAuthRuntime`; one session SSOT | Accepted |
+| [docs/adr/technical/0049](../../../../docs/adr/technical/0049-athena-js-runtime-plan.md) | Internal Runtime Plan + materializers + resource identity kinds (Phases 0–4). Pairs with package 0029 | Accepted (Phases 0–4) |
+| [docs/adr/technical/0050](../../../../docs/adr/technical/0050-athena-js-social-oauth-orchestration.md) | Social OAuth is orchestration (`createClient` social config + `oauth_transactions` + PKCE/nonce/mix-up); no HTTP/capability flip this slice | Accepted (PRs 1–3 / O2–O5) |
+| [docs/adr/technical/0056](../../../../docs/adr/technical/0056-athena-js-http-principal-authority.md) | Canonical HTTP principal; Storage HTTP Rights; browser Storage/Billing over `/api/athena/storage` and `/api/athena/billing`; cross-domain finality matrix | Accepted |
+| [docs/adr/technical/0057](../../../../docs/adr/technical/0057-athena-js-direct-s3-storage-provider.md) | Direct S3 `StorageObjectProvider` (injected client; no `createStorageClient`; no `@aws-sdk` package dep) | Accepted |
+| [docs/adr/technical/0058](../../../../docs/adr/technical/0058-athena-js-billing-rights-adoption.md) | Local Billing Runtime dialect `AthenaRightKey` gate after capability / before provider ports (`4014`) | Accepted |
 
 ## Cloudflare edge / hybrid decision cluster
 
@@ -73,6 +85,10 @@ Records are owned by Floris for `@xylex-group/athena`.
 
 - ADR 0014 supersedes the absolute ban on Next construction helpers while preserving the single-materializer invariant from ADR 0001 and the no-cache / no-second-core constraints from ADR 0007.
 - ADR 0015–0020 allow alternate **execution** backends (HTTP gateway vs Cloudflare bindings) only at core creation — not inside framework façades. Edge bindings enter through normal `db` / `storage` options (0016) or thin façades (0019).
+- ADR 0027 adds a Node filesystem ObjectStore on the same `storage` option (`provider: "local"`). Catalog/HTTP ports stay; do not add a second storage factory.
+- ADR 0028 realizes 0010’s `src/client/` construction/context split (composition root `AthenaClientRuntimeContext`). `createClient` remains the only consumer constructor. Monorepo pair: technical 0029.
+- ADR 0029 (package) is the internal Runtime Plan + materializers (Phases 0–4). Monorepo pair: technical 0049. Do not conflate with technical 0029.
+- Technical 0050 (social OAuth orchestration, PRs 1–3) is monorepo-only; do not add a package `createOAuthClient` ADR.
 
 ## Relationship to the main report
 

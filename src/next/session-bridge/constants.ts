@@ -26,6 +26,6 @@ export const ATHENA_AUTH_SESSION_COOKIE_NAME = "athena-auth.session-token";
  * with `@xylex-group/athena/cookies` session token lookup.
  */
 export const ATHENA_AUTH_SESSION_COOKIE_NAMES = [
-  ATHENA_AUTH_SESSION_COOKIE_NAME,
-  "athena-auth.session_token",
+	ATHENA_AUTH_SESSION_COOKIE_NAME,
+	"athena-auth.session_token",
 ] as const;

@@ -296,6 +296,25 @@ export class PostgresAuthStores {
     return result.rows;
   }
 
+  async findAccountByProvider(
+    providerId: string,
+    accountId: string,
+  ): Promise<AuthAccountRow | undefined> {
+    const result = await this.db.query<AuthAccountRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.accounts}
+       WHERE provider_id = $1 AND account_id = $2`,
+      [providerId, accountId],
+    );
+    return result.rows[0];
+  }
+
+  async deleteAccount(id: string): Promise<void> {
+    await this.db.query(
+      `DELETE FROM ${ATHENA_AUTH_TABLES.accounts} WHERE id = $1`,
+      [id],
+    );
+  }
+
   async createVerification(input: {
     expiresAt: Date;
     id: string;
@@ -324,6 +343,32 @@ export class PostgresAuthStores {
       [value]
     );
     return result.rows[0];
+  }
+
+  async consumeVerificationByIdentifierAndValue(
+    identifier: string,
+    value: string
+  ): Promise<AuthVerificationRow | undefined> {
+    const result = await this.db.query<AuthVerificationRow>(
+      `DELETE FROM ${ATHENA_AUTH_TABLES.verifications}
+       WHERE identifier = $1
+         AND value = $2
+         AND expires_at > NOW()
+       RETURNING *`,
+      [identifier, value]
+    );
+    return result.rows[0];
+  }
+
+  async expirePasskeyVerifications(now: Date): Promise<number> {
+    const result = await this.db.query<AuthVerificationRow>(
+      `DELETE FROM ${ATHENA_AUTH_TABLES.verifications}
+       WHERE identifier LIKE 'passkey:%'
+         AND expires_at <= $1
+       RETURNING *`,
+      [now.toISOString()]
+    );
+    return result.rowCount;
   }
 
   async createOrganization(input: {
@@ -525,6 +570,8 @@ export class PostgresAuthStores {
     const result = await this.db.query<AuthInvitationRow>(
       `SELECT * FROM ${ATHENA_AUTH_TABLES.invitation}
        WHERE lower(email) = lower($1)
+         AND status = 'pending'
+         AND expires_at > NOW()
        ORDER BY created_at DESC`,
       [email]
     );

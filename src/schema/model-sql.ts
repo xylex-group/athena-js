@@ -65,8 +65,13 @@ interface ResolvedColumn {
   hasDefault: boolean;
   isGenerated: boolean;
   kind: ModelColumnKind;
+  /** Physical column name after `.from(...)` / `columnName`. */
   name: string;
+  /** Authoring key; kept when `name` is remapped to a physical identifier. */
+  logicalName: string;
   nullable: boolean;
+  precision?: number;
+  scale?: number;
 }
 
 interface ResolvedTable {
@@ -131,6 +136,7 @@ function resolveColumns(meta: ModelMetadataBase): ResolvedColumn[] {
       hasDefault: false,
       isGenerated: false,
       kind: "string" as const,
+      logicalName: name,
       name,
       nullable: false,
     }));
@@ -146,8 +152,11 @@ function resolveColumns(meta: ModelMetadataBase): ResolvedColumn[] {
       hasDefault: col?.hasDefault === true,
       isGenerated: col?.isGenerated === true,
       kind: col?.kind ?? "string",
+      logicalName,
       name: physical,
       nullable,
+      ...(col?.precision === undefined ? {} : { precision: col.precision }),
+      ...(col?.scale === undefined ? {} : { scale: col.scale }),
     };
   });
 }
@@ -248,6 +257,19 @@ export function collectModelsFromSqlInput(
   return out;
 }
 
+function formatNumericSqlType(column: ResolvedColumn): string {
+  if (
+    typeof column.precision === "number" &&
+    typeof column.scale === "number"
+  ) {
+    return `NUMERIC(${column.precision}, ${column.scale})`;
+  }
+  if (typeof column.precision === "number") {
+    return `NUMERIC(${column.precision})`;
+  }
+  return "NUMERIC";
+}
+
 function sqlTypePostgres(
   column: ResolvedColumn,
   isSoleGeneratedPk: boolean
@@ -260,6 +282,8 @@ function sqlTypePostgres(
       return "BOOLEAN";
     case "number":
       return "DOUBLE PRECISION";
+    case "decimal":
+      return formatNumericSqlType(column);
     case "json":
       return "JSONB";
     default:
@@ -276,6 +300,9 @@ function sqlTypeD1(column: ResolvedColumn, isSoleGeneratedPk: boolean): string {
       return "INTEGER";
     case "number":
       return "REAL";
+    case "decimal":
+      // SQLite/D1 has no exact NUMERIC — store as TEXT for precision safety.
+      return "TEXT";
     case "json":
       return "TEXT";
     default:

@@ -11,11 +11,10 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
     "paths": {
-      "@xylex-group/athena": ["../../src/index.ts"],
-      "@xylex-group/athena/*": ["../../src/*"],
-      "@xylex-group/athena/cloudflare": ["../../src/cloudflare/index.ts"]
+      "@xylex-group/athena": ["./../../src/index.ts"],
+      "@xylex-group/athena/*": ["./../../src/*"],
+      "@xylex-group/athena/cloudflare": ["./../../src/cloudflare/index.ts"]
     }
   },
   "include": ["./**/*.ts"],

@@ -1,0 +1,13 @@
+export { apiKeyCatalog } from "./api-key/catalog.ts";
+export { authCatalog } from "./auth/catalog.ts";
+export { commandsCatalog } from "./commands/catalog.ts";
+export { doctorCatalog } from "./doctor/catalog.ts";
+export { envCatalog } from "./env/catalog.ts";
+export { generateCatalog } from "./generate/catalog.ts";
+export { helpCatalog } from "./help/catalog.ts";
+export { initCatalog } from "./init/catalog.ts";
+export { migrateCatalog } from "./migrate/catalog.ts";
+export { rightsCatalog } from "./rights/catalog.ts";
+export { schemaCatalog } from "./schema/catalog.ts";
+export { validateCatalog } from "./validate/catalog.ts";
+export { versionCatalog } from "./version/catalog.ts";

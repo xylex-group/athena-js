@@ -8,7 +8,7 @@ export function createClient<
 >(config: AthenaClientConfig<TModels>): AthenaClient<TModels>
 ```
 
-`AthenaClient<TModels>` is the only public SDK client identity. It always exposes `db`, `auth`, `chat`, `storage`, `from`, `rpc`, `query`, `request`, `verifyConnection`, and `withContext`.
+`AthenaClient<TModels>` is the only public SDK client identity. It always exposes `db`, `auth`, `chat`, `storage`, `billing`, `email`, `from`, `rpc`, `query`, `request`, `verifyConnection`, and `withContext`.
 
 ## Model inference
 

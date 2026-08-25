@@ -1,4 +1,5 @@
 import type { AthenaGatewayCondition, AthenaSortBy } from "../gateway/types.ts";
+import { parseAthenaResourceRef } from "../schema/resource.ts";
 import type { AthenaModelTarget } from "../schema/types.ts";
 import { hashAthenaValue } from "./canonicalize.ts";
 
@@ -50,20 +51,26 @@ export interface AthenaCacheScope {
 export type AthenaCacheContextDescriptor = AthenaCacheScope;
 
 export type AthenaPredicateNode =
-  | {
-      kind: "compare";
-      column?: string;
-      operator: string;
-      value?: unknown;
-    }
-  | {
-      kind: "and" | "or";
-      nodes: readonly AthenaPredicateNode[];
-    }
-  | {
-      kind: "not";
-      node: AthenaPredicateNode;
-    };
+  | AthenaComparePredicateNode
+  | AthenaLogicalPredicateNode
+  | AthenaNotPredicateNode;
+
+export interface AthenaComparePredicateNode {
+  kind: "compare";
+  column?: string;
+  operator: string;
+  value?: unknown;
+}
+
+export interface AthenaLogicalPredicateNode {
+  kind: "and" | "or";
+  nodes: readonly AthenaPredicateNode[];
+}
+
+export interface AthenaNotPredicateNode {
+  kind: "not";
+  node: AthenaPredicateNode;
+}
 
 export interface AthenaSelectionNode {
   columns?: readonly string[];
@@ -204,32 +211,19 @@ function normalizeOptional(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function parseQualifiedTable(tableName: string): {
-  schema?: string;
-  table: string;
-} {
-  const trimmed = tableName.trim();
-  const dot = trimmed.indexOf(".");
-  if (dot <= 0 || dot === trimmed.length - 1) {
-    return { table: trimmed };
-  }
-  return {
-    schema: trimmed.slice(0, dot),
-    table: trimmed.slice(dot + 1),
-  };
-}
-
 export function resolveAthenaQueryTarget(
   tableName: string,
-  model?: AthenaModelTarget
+  model?: AthenaModelTarget,
 ): AthenaQueryTarget {
-  const parsed = parseQualifiedTable(tableName);
+  const parsed = parseAthenaResourceRef(tableName);
   const meta = model?.meta;
-  const schema = normalizeOptional(meta?.schema) ?? parsed.schema;
+  const schema = parsed.schema ?? normalizeOptional(meta?.schema);
   const table =
-    normalizeOptional(meta?.tableName)?.split(".").at(-1) ?? parsed.table;
+    parsed.table ||
+    normalizeOptional(meta?.tableName)?.split(".").at(-1) ||
+    "";
   return {
-    database: normalizeOptional(meta?.database),
+    database: parsed.database ?? normalizeOptional(meta?.database),
     model: normalizeOptional(meta?.model),
     schema,
     table,
@@ -246,14 +240,14 @@ function looksExpression(column: string): boolean {
 
 function compileProjection(
   projection: string | readonly string[] | null | undefined,
-  model?: AthenaModelTarget
+  model?: AthenaModelTarget,
 ): AthenaProjectionDescriptor {
   const modelColumns = model?.meta.columns
     ? Object.keys(model.meta.columns)
     : [];
 
   const classifyColumns = (
-    columns: readonly string[]
+    columns: readonly string[],
   ): AthenaProjectionKind => {
     if (columns.some((column) => looksAggregate(column))) {
       return "aggregate";
@@ -293,7 +287,7 @@ function compileProjection(
 }
 
 function compileFilters(
-  conditions: readonly AthenaGatewayCondition[] | undefined
+  conditions: readonly AthenaGatewayCondition[] | undefined,
 ): AthenaFilterDescriptor[] {
   if (!conditions?.length) {
     return [];
@@ -306,7 +300,7 @@ function compileFilters(
     }))
     .sort((left, right) => {
       const columnCompare = (left.column ?? "").localeCompare(
-        right.column ?? ""
+        right.column ?? "",
       );
       if (columnCompare !== 0) {
         return columnCompare;
@@ -320,7 +314,7 @@ function compileFilters(
 }
 
 function compileOrder(
-  order: AthenaSortBy | undefined
+  order: AthenaSortBy | undefined,
 ): AthenaOrderDescriptor[] {
   if (!order?.field) {
     return [];
@@ -334,7 +328,7 @@ function compileOrder(
 }
 
 function compileRange(
-  input: AthenaQueryDescriptorCompileInput
+  input: AthenaQueryDescriptorCompileInput,
 ): AthenaRangeDescriptor | undefined {
   if (
     input.limit === undefined &&
@@ -353,7 +347,7 @@ function compileRange(
 }
 
 function compileRelations(
-  input: AthenaQueryDescriptorCompileInput
+  input: AthenaQueryDescriptorCompileInput,
 ): AthenaRelationDescriptor[] {
   const requested = input.relations;
   if (!requested?.length) {
@@ -378,7 +372,7 @@ function compileRelations(
 }
 
 function compileContext(
-  context: AthenaCacheScope | undefined
+  context: AthenaCacheScope | undefined,
 ): AthenaCacheScope | undefined {
   if (!context) {
     return;
@@ -399,7 +393,7 @@ function compileContext(
 }
 
 function compilePredicate(
-  filters: readonly AthenaFilterDescriptor[]
+  filters: readonly AthenaFilterDescriptor[],
 ): AthenaPredicateNode | undefined {
   if (filters.length === 0) {
     return;
@@ -419,7 +413,7 @@ function compilePredicate(
 function compileSelection(
   target: AthenaQueryTarget,
   projection: AthenaProjectionDescriptor,
-  relations: readonly AthenaRelationDescriptor[]
+  relations: readonly AthenaRelationDescriptor[],
 ): AthenaSelectionNode[] {
   const root: AthenaSelectionNode = {
     columns: projection.columns,
@@ -444,12 +438,12 @@ function compileDependencies(
   order: readonly AthenaOrderDescriptor[],
   projection: AthenaProjectionDescriptor,
   relations: readonly AthenaRelationDescriptor[],
-  model?: AthenaModelTarget
+  model?: AthenaModelTarget,
 ): AthenaQueryDependencyDescriptor {
   const fields = new Map<string, AthenaFieldDependency>();
   const addField = (
     column: string | undefined,
-    role: AthenaQueryFieldDependencyKind
+    role: AthenaQueryFieldDependencyKind,
   ) => {
     if (!column) {
       return;
@@ -505,8 +499,8 @@ function compileDependencies(
   return {
     fields: [...fields.values()].sort((left, right) =>
       `${left.table}.${left.column}`.localeCompare(
-        `${right.table}.${right.column}`
-      )
+        `${right.table}.${right.column}`,
+      ),
     ),
     models,
     relations: relations.map((relation) => ({
@@ -519,7 +513,7 @@ function compileDependencies(
 
 export function buildAthenaModelScopeKey(
   target: AthenaQueryTarget,
-  context?: AthenaCacheContextDescriptor
+  context?: AthenaCacheContextDescriptor,
 ): readonly unknown[] {
   const qualified = target.schema
     ? `${target.schema}.${target.table}`
@@ -536,7 +530,7 @@ export function buildAthenaQueryKey(
     projection: string;
     range: string;
     relations: string;
-  }
+  },
 ): readonly unknown[] {
   return [
     ...modelScopeKey,
@@ -550,7 +544,7 @@ export function buildAthenaQueryKey(
 }
 
 export function compileAthenaQueryDescriptor(
-  input: AthenaQueryDescriptorCompileInput
+  input: AthenaQueryDescriptorCompileInput,
 ): AthenaQueryDescriptor {
   const target = resolveAthenaQueryTarget(input.tableName, input.model);
   const context = compileContext(input.context);
@@ -565,7 +559,7 @@ export function compileAthenaQueryDescriptor(
     order,
     projection,
     relations,
-    input.model
+    input.model,
   );
   const predicate = compilePredicate(filters);
   const selection = compileSelection(target, projection, relations);
@@ -589,7 +583,7 @@ export function compileAthenaQueryDescriptor(
   return freezeAthenaQueryDescriptor({
     changedFields: input.changedFields?.length
       ? [...input.changedFields].sort((left, right) =>
-          left.localeCompare(right)
+          left.localeCompare(right),
         )
       : undefined,
     context,
@@ -614,7 +608,7 @@ export function compileAthenaQueryDescriptor(
 }
 
 function freezeAthenaQueryDescriptor(
-  descriptor: AthenaQueryDescriptor
+  descriptor: AthenaQueryDescriptor,
 ): AthenaQueryDescriptor {
   freezeDeep(descriptor.dependency.fields);
   freezeDeep(descriptor.dependency.models);
@@ -694,7 +688,7 @@ export function createCapturedAthenaExecutable<TResult>(input: {
 }
 
 export function isAthenaExecutable(
-  value: unknown
+  value: unknown,
 ): value is AthenaExecutable<unknown> {
   if (!isRecord(value)) {
     return false;
@@ -709,6 +703,7 @@ export function isAthenaExecutable(
 export function peekSyncCacheContext(
   resolve:
     | (() =>
+        | AthenaCacheScope
         | {
             accessScope?: string | null;
             organizationId?: string | null;

@@ -1,0 +1,423 @@
+scope_kind = "service"
+scope_label = "athena-js"
+scope_slug = "service-athena-js"
+version = "3.1.2"
+tag_name = "athena-js-3.1.2"
+xbp_version = "10.53.0"
+cloudflare_evidence = []
+status = "Failed"
+created_at = "2026-07-22T17:16:42.026417400Z"
+updated_at = "2026-07-22T17:16:56.423851700Z"
+
+[baseline]
+source = "local-tag"
+reference = "athena-js-3.1.1"
+tag = "athena-js-3.1.1"
+
+[selection]
+changed_files = [
+    ".dockerignore",
+    ".env.example",
+    ".xbp/deploy.lock",
+    ".xbp/deployments/20260721T230432Z-production-athena.json",
+    ".xbp/deployments/20260721T230558Z-production-athena.json",
+    ".xbp/deployments/20260722T024516Z-production-athena.json",
+    ".xbp/deployments/20260722T030759Z-production-athena-operator.json",
+    ".xbp/deployments/20260722T030944Z-production-athena-operator.json",
+    ".xbp/deployments/20260722T044914Z-production-athena.json",
+    ".xbp/deployments/20260722T044919Z-production-athena.json",
+    ".xbp/deployments/20260722T045503Z-production-athena.json",
+    ".xbp/deployments/20260722T045507Z-production-athena.json",
+    ".xbp/deployments/20260722T050122Z-production-athena.json",
+    ".xbp/deployments/20260722T052315Z-production-athena.json",
+    ".xbp/deployments/20260722T052353Z-production-athena.json",
+    ".xbp/deployments/20260722T125051Z-production-athena-auth.json",
+    ".xbp/deployments/20260722T130123Z-production-athena-auth.json",
+    ".xbp/deployments/20260722T130439Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T131301Z-production-athena-auth.json",
+    ".xbp/deployments/20260722T131458Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T131614Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T131741Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T132243Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T134243Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T134346Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T134502Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T150415Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T151823Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T152110Z-production-next-heroui-example.json",
+    ".xbp/deployments/20260722T163528Z-production-next-heroui-example.json",
+    ".xbp/deployments/index.json",
+    ".xbp/releases/service-athena-auth-ui/2.2.0/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena-auth-ui/2.2.0/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-athena-auth-ui/2.2.0/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-athena-auth-ui/2.2.0/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-athena-auth-ui/2.2.0/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-athena-auth-ui/service-athena-auth-ui-2.2.0.toml",
+    ".xbp/releases/service-athena-auth/1.14.3/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena-auth/1.14.3/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-athena-auth/1.14.3/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-athena-auth/1.14.3/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-athena-auth/1.14.3/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-athena-auth/service-athena-auth-1.14.3.toml",
+    ".xbp/releases/service-athena-daemon/4.0.3/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena-daemon/4.0.3/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-athena-daemon/4.0.3/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-athena-daemon/4.0.3/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-athena-daemon/4.0.3/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-athena-daemon/service-athena-daemon-4.0.3.toml",
+    ".xbp/releases/service-athena-js/3.1.1/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena-js/3.1.1/openapi/openapi-athena-4.0.3.json",
+    ".xbp/releases/service-athena-js/3.1.1/openapi/openapi-athena-4.0.3.yaml",
+    ".xbp/releases/service-athena-js/3.1.1/openapi/openapi-athena-auth-1.14.1.json",
+    ".xbp/releases/service-athena-js/3.1.1/openapi/openapi-athena-auth-1.14.1.yaml",
+    ".xbp/releases/service-athena-js/athena-3-1-1.toml",
+    ".xbp/releases/service-athena-scheduler/4.0.3/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena-scheduler/4.0.3/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-athena-scheduler/4.0.3/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-athena-scheduler/4.0.3/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-athena-scheduler/4.0.3/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-athena-scheduler/service-athena-scheduler-4.0.3.toml",
+    ".xbp/releases/service-athena-worker/4.0.3/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena-worker/4.0.3/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-athena-worker/4.0.3/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-athena-worker/4.0.3/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-athena-worker/4.0.3/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-athena-worker/service-athena-worker-4.0.3.toml",
+    ".xbp/releases/service-athena/4.0.3/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena/4.0.3/openapi/openapi-athena-4.0.3.json",
+    ".xbp/releases/service-athena/4.0.3/openapi/openapi-athena-4.0.3.yaml",
+    ".xbp/releases/service-athena/4.0.3/openapi/openapi-athena-auth-1.14.1.json",
+    ".xbp/releases/service-athena/4.0.3/openapi/openapi-athena-auth-1.14.1.yaml",
+    ".xbp/releases/service-athena/4.1.1/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-athena/4.1.1/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-athena/4.1.1/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-athena/4.1.1/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-athena/4.1.1/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-athena/athena-4-0-3.toml",
+    ".xbp/releases/service-athena/service-athena-4.1.1.toml",
+    ".xbp/releases/service-docs/4.0.1/openapi/openapi-athena-1.3.0-wss.yaml",
+    ".xbp/releases/service-docs/4.0.1/openapi/openapi-athena-4.1.1.json",
+    ".xbp/releases/service-docs/4.0.1/openapi/openapi-athena-4.1.1.yaml",
+    ".xbp/releases/service-docs/4.0.1/openapi/openapi-athena-auth-1.14.3.json",
+    ".xbp/releases/service-docs/4.0.1/openapi/openapi-athena-auth-1.14.3.yaml",
+    ".xbp/releases/service-docs/service-docs-4.0.1.toml",
+    ".xbp/versioning/history.jsonl",
+    ".xbp/xbp.toml",
+    "CHANGELOG.md",
+    "Cargo.lock",
+    "Cargo.toml",
+    "Dockerfile",
+    "README.md",
+    "SECURITY.md",
+    "apps/docs/README.md",
+    "apps/docs/content/docs/sdks/athena-auth-ui/components/index.mdx",
+    "apps/docs/content/docs/sdks/athena-auth-ui/components/skeleton.mdx",
+    "apps/docs/package.json",
+    "apps/marketing/apps/studio/package.json",
+    "apps/marketing/apps/web/package.json",
+    "apps/web/.gitignore",
+    "apps/web/package-lock.json",
+    "apps/web/package.json",
+    "apps/web/pnpm-lock.yaml",
+    "apps/web/pnpm-workspace.yaml",
+    "config.yaml",
+    "crates/athena-daemon/Cargo.toml",
+    "crates/athena-daemon/README.md",
+    "crates/athena-daemon/src/workers/clone.rs",
+    "crates/athena-scheduler/Cargo.toml",
+    "crates/athena-scheduler/README.md",
+    "crates/athena-scheduler/src/lib.rs",
+    "crates/athena-worker/Cargo.toml",
+    "crates/athena-worker/README.md",
+    "crates/athena-worker/src/runtime.rs",
+    "dist-workspace.toml",
+    "docker-compose.yml",
+    "openapi.json",
+    "openapi.yaml",
+    "package.json",
+    "packages/athena-auth-ui/.build-numbers.json",
+    "packages/athena-auth-ui/.xbp/xbp.yaml",
+    "packages/athena-auth-ui/README.md",
+    "packages/athena-auth-ui/bun.lock",
+    "packages/athena-auth-ui/docs/admin-access.mdx",
+    "packages/athena-auth-ui/docs/athena-tables.mdx",
+    "packages/athena-auth-ui/docs/components/athena-table.mdx",
+    "packages/athena-auth-ui/docs/components/folded-code-block.mdx",
+    "packages/athena-auth-ui/docs/components/hero-button.mdx",
+    "packages/athena-auth-ui/docs/components/hero-skeleton.mdx",
+    "packages/athena-auth-ui/docs/components/index.mdx",
+    "packages/athena-auth-ui/docs/components/network-request-runner.mdx",
+    "packages/athena-auth-ui/docs/components/shiki-code-block.mdx",
+    "packages/athena-auth-ui/docs/components/skeleton.mdx",
+    "packages/athena-auth-ui/docs/components/user-button.mdx",
+    "packages/athena-auth-ui/docs/data-hooks.mdx",
+    "packages/athena-auth-ui/docs/entrypoints/index.mdx",
+    "packages/athena-auth-ui/docs/entrypoints/primitives.mdx",
+    "packages/athena-auth-ui/docs/entrypoints/root.mdx",
+    "packages/athena-auth-ui/docs/entrypoints/tables.mdx",
+    "packages/athena-auth-ui/docs/entrypoints/utils.mdx",
+    "packages/athena-auth-ui/docs/hooks/index.mdx",
+    "packages/athena-auth-ui/docs/hooks/use-athena-table-view.mdx",
+    "packages/athena-auth-ui/docs/hooks/use-has-admin-access.mdx",
+    "packages/athena-auth-ui/docs/index.mdx",
+    "packages/athena-auth-ui/examples/next-heroui-example/README.md",
+    "packages/athena-auth-ui/examples/next-heroui-example/next.config.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/package.json",
+    "packages/athena-auth-ui/examples/next-heroui-example/pnpm-workspace.yaml",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/app/(site)/billing/page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/app/layout.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/app/sidebar-demo/page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/app/sidebar-demo/sidebar-demo-config.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/app/sidebar-demo/sidebar-demo-generated-code.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/billing-showcase-page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/chat-showcase/chat-side-panel.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/data-hooks-showcase-page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/storage-showcase-page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/table-showcase-page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/table-showcase/table-showcase-actions.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/table-showcase/use-table-showcase.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/components/utils-showcase-page.tsx",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/generated/build-metadata.json",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/lib/app-route-catalog-fallback.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/lib/config-identity.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/lib/table-catalog.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/lib/table-showcase-codegen/index.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/lib/table-showcase-preset.ts",
+    "packages/athena-auth-ui/examples/next-heroui-example/src/lib/table-showcase.ts",
+    "packages/athena-auth-ui/package.json",
+    "packages/athena-auth-ui/packages/heroui-native/README.md",
+    "packages/athena-auth-ui/packages/heroui-native/package.json",
+    "packages/athena-auth-ui/packages/heroui-native/src/components/auth/organization/leave-organization.tsx",
+    "packages/athena-auth-ui/packages/heroui-native/src/components/auth/organization/organization-manager.tsx",
+    "packages/athena-auth-ui/packages/heroui/README.md",
+    "packages/athena-auth-ui/packages/heroui/package.json",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/api-key/api-key-skeleton.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/auth-provider.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-connections-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-format.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-overview-cards.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-payments-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-query-presets.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-subscriptions-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-table-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/billing/billing-webhook-events-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/code/highlighted-code-block.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/code/shiki-code-block.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/deduped-error-toast.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/forgot-password.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/icons/registry.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/magic-link/magic-link.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/network-request-runner.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/index.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/leave-organization.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/member-actions-menu.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/organization-avatar.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/organization-helpers.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/organization-manager.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/use-organization-auth.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/organization/use-organization-manager.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/passkey/passkey-skeleton.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/provider-buttons.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/reset-password.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/settings/account/change-email.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/settings/account/user-profile.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/settings/security/active-sessions.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/settings/security/change-password.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/settings/security/linked-account.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/settings/security/linked-accounts.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sidebar/page-slide-styles.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sidebar/sidebar-footer.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sidebar/sidebar-item.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sidebar/sidebar-nested.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sidebar/tokens.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sidebar/visibility.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sign-in.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/sign-up.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/storage/storage-browser.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/emit-actions.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/emit-columns.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/emit-component.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/emit-imports.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/emit-query.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/emit-transport.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/features.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/format.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/index.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/codegen/types.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/config-identity.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/index.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/preset.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/builder/types.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/core/table-skeleton.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/hooks/use-athena-table-view.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/utils/auth-table-column-utils.test.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/utils/table-action-config.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/utils/table-value-formatters.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/utils/table-value-utils.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/utils/to-athena-table-columns.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/table/utils/to-table-row-actions.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/user/user-avatar.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/user/user-view.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/username/sign-in-username.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/admin-credentials-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/audit-log-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/email-composer-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/email-failures-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/email-templates-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/inbox-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/notifications-center-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/oauth-accounts-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/past-emails-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/request-builder/athena-request-builder.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/request-builder/executors.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/request-builder/kv.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/request-builder/types.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/sdk-method-lab-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/types.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/utils.ts",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-activity-feed-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-auth-disabled-notice.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-controls-card.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-documents-panel.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-logs-panel.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-notifications-panel.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/auth/workspace/workspace-security-panel.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/primitives/animated-height.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/primitives/copy-action-button.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/primitives/hero-button.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/primitives/hero-skeleton.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/components/primitives/read-only-text-field.tsx",
+    "packages/athena-auth-ui/packages/heroui/src/index.ts",
+    "packages/athena-auth-ui/packages/heroui/src/lib/auth/check-admin-permissions.ts",
+    "packages/athena-auth-ui/packages/heroui/src/lib/auth/use-has-admin-access.ts",
+    "packages/athena-auth-ui/packages/heroui/src/lib/deepmerge.ts",
+    "packages/athena-auth-ui/packages/heroui/src/lib/toast.ts",
+    "packages/athena-auth-ui/packages/heroui/src/organization.ts",
+    "packages/athena-auth-ui/packages/heroui/src/primitives.ts",
+    "packages/athena-auth-ui/packages/heroui/src/tables.ts",
+    "packages/athena-auth-ui/packages/heroui/src/utils.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/check-admin-permissions.test.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/columns-from-athena-model.test.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/table-action-config.test.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/table-builder/build-generated-code.test.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/table-builder/format.test.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/to-athena-table-columns.test.ts",
+    "packages/athena-auth-ui/packages/heroui/tests/use-athena-table-view.test.ts",
+    "packages/athena-auth-ui/packages/heroui/vite.config.ts",
+    "packages/athena-auth-ui/pnpm-lock.yaml",
+    "packages/athena-auth-ui/scripts/rebuild-heroui-for-deploy.sh",
+    "packages/athena-js/.xbp/xbp.yaml",
+    "packages/athena-js/README.md",
+    "packages/athena-js/docs/auth/admin.mdx",
+    "packages/athena-js/package-lock.json",
+    "packages/athena-js/package.json",
+    "packages/athena-js/src/admin/index.ts",
+    "packages/athena-js/src/react/index.ts",
+    "packages/athena-js/src/react/use-admin-permission.ts",
+    "packages/athena-js/test/admin.test.ts",
+    "packages/athena-js/test/react-hooks.test.ts",
+    "packages/better-auth-athena/README.md",
+    "packages/better-auth-athena/package.json",
+    "services/athena-auth/.wrangler-dist/README.md",
+    "services/athena-auth/.wrangler-dist/index.js",
+    "services/athena-auth/.wrangler-dist/index.js.map",
+    "services/athena-auth/.xbp/xbp.toml",
+    "services/athena-auth/Cargo.lock",
+    "services/athena-auth/Cargo.toml",
+    "services/athena-auth/openapi.json",
+    "services/athena-auth/openapi.yaml",
+    "services/athena-auth/package.json",
+    "services/athena-auth/scripts/__pycache__/check_deploy_version.cpython-314.pyc",
+    "services/athena-auth/scripts/_cf_container_status.ps1",
+    "services/athena-auth/scripts/_cf_version_detail.ps1",
+    "services/athena-auth/worker/worker-configuration.d.ts",
+    "src/api/chat/runtime.rs",
+    "src/config_validation.rs",
+    "src/daemon/mod.rs",
+    "src/daemon/runtime_registry.rs",
+    "src/utils/best_effort_pg_backoff.rs",
+]
+
+[[selection.version_targets]]
+path = "README.md"
+
+[[selection.version_targets]]
+path = "package.json"
+
+[[selection.version_targets]]
+path = "package-lock.json"
+
+[[selection.version_targets]]
+path = ".xbp/xbp.yaml"
+
+[[selection.publish_targets]]
+kind = "npm"
+manifest_path = "package.json"
+package_name = "@xylex-group/athena"
+
+[steps.commit_release_docs]
+status = "Failed"
+started_at = "2026-07-22T17:16:56.080656500Z"
+completed_at = "2026-07-22T17:16:56.423851700Z"
+last_error = """
+Git commit failed: `git commit -m …` failed: error: pathspec 'packages/athena-js/CHANGELOG.md' did not match any file(s) known to git
+error: pathspec 'packages/athena-js/SECURITY.md' did not match any file(s) known to git"""
+
+[steps.github_release]
+status = "Completed"
+started_at = "2026-07-22T17:16:52.038713300Z"
+completed_at = "2026-07-22T17:16:52.874423700Z"
+
+[steps.github_release.details]
+release_id = 358191034
+release_url = "https://github.com/xylex-group/athena/releases/tag/athena-js-3.1.2"
+
+[steps.publish_linear]
+status = "Completed"
+started_at = "2026-07-22T17:16:52.894833500Z"
+completed_at = "2026-07-22T17:16:55.974756500Z"
+
+[[steps.publish_linear.details.initiatives]]
+id = "fd28f67f-8dc8-44b2-bf14-3821ce389145"
+name = "Changelog"
+
+[steps.push_tag]
+status = "Completed"
+started_at = "2026-07-22T17:16:49.105966200Z"
+completed_at = "2026-07-22T17:16:51.424505900Z"
+
+[steps.push_tag.details]
+tag_name = "athena-js-3.1.2"
+
+[steps.sync_release_docs]
+status = "Completed"
+started_at = "2026-07-22T17:16:55.987408600Z"
+completed_at = "2026-07-22T17:16:56.078894600Z"
+
+[steps.sync_release_docs.details]
+paths = [
+    "CHANGELOG.md",
+    "SECURITY.md",
+]
+
+[steps.sync_version]
+status = "Completed"
+started_at = "2026-07-22T17:16:42.031968400Z"
+completed_at = "2026-07-22T17:16:42.372256400Z"
+
+[steps.sync_version.details]
+updated_paths = [
+    "README.md",
+    "package.json",
+    "package-lock.json",
+    ".xbp/xbp.yaml",
+]
+
+[steps.upload_openapi_assets]
+status = "Completed"
+started_at = "2026-07-22T17:16:52.891483900Z"
+completed_at = "2026-07-22T17:16:52.893285Z"
+
+[steps.upload_openapi_assets.details]
+uploaded_assets = []
+prepared_assets = []

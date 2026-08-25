@@ -160,14 +160,15 @@ export function validateSchemaSnapshot(snapshot: AthenaSchemaSnapshot): void {
           { schema: ns.name, table: `${table.schema}.${table.name}` }
         );
       }
-      if (tableNames.has(table.name)) {
+      const tableKey = table.name;
+      if (tableNames.has(tableKey)) {
         throw new SchemaDiffError(
           "duplicate_table",
           `Duplicate table "${ns.name}.${table.name}"`,
           { schema: ns.name, table: table.name }
         );
       }
-      tableNames.add(table.name);
+      tableNames.add(tableKey);
       validateTable(table);
     }
   }

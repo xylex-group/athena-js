@@ -330,7 +330,7 @@ test("runSchemaGenerator works without a config file when environment defaults a
     assert.equal(result.config.output.format, "table-builder");
     const modelFile = result.files.find((file) => file.kind === "model");
     assert.ok(modelFile);
-    assert.equal(modelFile.path, "src/lib/athena/generated/models/public/users.ts");
+    assert.equal(modelFile.path, "athena/generated/models/public/users.ts");
     assert.equal(
       modelFile.content.includes("export const users = table('users')"),
       true
@@ -813,14 +813,14 @@ test("runSchemaGenerator can filter generated tables down to a smaller surface",
     const modelPaths = result.files
       .filter((file) => file.kind === "model")
       .map((file) => file.path);
-    assert.deepEqual(modelPaths, ["src/lib/athena/generated/models/public/users.ts"]);
+    assert.deepEqual(modelPaths, ["athena/generated/models/public/users.ts"]);
     assert.equal(result.config.output.preset, "athena-direct");
     assert.deepEqual(Object.keys(result.snapshot.schemas.public.tables), [
       "users",
     ]);
     assert.equal(
       result.config.output.targets.registry,
-      "src/lib/athena/generated/registry.ts"
+      "athena/generated/registry.ts"
     );
   } finally {
     rmSync(root, { force: true, recursive: true });
@@ -910,7 +910,7 @@ test("runSchemaGenerator can exclude tables from the generated surface", async (
     const modelPaths = result.files
       .filter((file) => file.kind === "model")
       .map((file) => file.path);
-    assert.deepEqual(modelPaths, ["src/lib/athena/generated/models/public/users.ts"]);
+    assert.deepEqual(modelPaths, ["athena/generated/models/public/users.ts"]);
     assert.deepEqual(
       Object.keys(result.snapshot.schemas.public.tables).sort((a, b) =>
         String(a).localeCompare(String(b))
@@ -1014,8 +1014,8 @@ test("runSchemaGenerator applies includeTables and excludeTables together", asyn
       .map((file) => file.path)
       .sort((a, b) => String(a).localeCompare(String(b)));
     assert.deepEqual(modelPaths, [
-      "src/lib/athena/generated/models/public/notifications.ts",
-      "src/lib/athena/generated/models/public/users.ts",
+      "athena/generated/models/public/notifications.ts",
+      "athena/generated/models/public/users.ts",
     ]);
     assert.deepEqual(
       Object.keys(result.snapshot.schemas.public.tables).sort((a, b) =>
@@ -1168,7 +1168,7 @@ test("runSchemaGenerator honors schema-qualified includeTables selectors", async
     const modelPaths = result.files
       .filter((file) => file.kind === "model")
       .map((file) => file.path);
-    assert.deepEqual(modelPaths, ["src/lib/athena/generated/models/public/users.ts"]);
+    assert.deepEqual(modelPaths, ["athena/generated/models/public/users.ts"]);
     assert.deepEqual(Object.keys(result.snapshot.schemas), ["public"]);
     assert.deepEqual(Object.keys(result.snapshot.schemas.public.tables), [
       "users",

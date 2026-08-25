@@ -5,58 +5,99 @@
  * Node-only import/compiler tooling must not be re-exported here (ACT-POL-07).
  */
 
-export { and, auth, not, or } from "./expr-builders.ts";
 export type {
-  PolicyExprNode,
-  PolicyOperandInput,
-  PolicyOperandNode,
-} from "./expr-builders.ts";
-export { definePolicies, serializePolicyIr } from "./define-policies.ts";
-export { decideAthenaPolicy } from "./decide.ts";
+	DecisionOutcome,
+	DecisionReasonKind,
+	PrincipalKind,
+	PublicAuthorizationMessage,
+} from "../authorization/types.ts";
+export { publicAuthorizationMessage } from "../authorization/types.ts";
 export { applyAthenaPolicyDecision } from "./apply.ts";
 export { bindPolicyExpr } from "./bind.ts";
-export { evaluatePolicyExpr } from "./eval-expr.ts";
+export { coverageAthenaPolicy } from "./coverage.ts";
 export type {
-  AthenaPolicyDecision,
-  AthenaPolicyDecisionReason,
-  AthenaPolicyMode,
+	AthenaPolicyCoverageCell,
+	AthenaPolicyCoverageCellKind,
+	AthenaPolicyCoverageReport,
+} from "./coverage.ts";
+export { decideAthenaPolicy } from "./decide.ts";
+export { explainAthenaPolicy, simulateAthenaPolicy } from "./explain.ts";
+export type {
+	AthenaPolicyExplainInput,
+	AthenaPolicyExplainResult,
+	AthenaPolicySimulateInput,
+	AthenaPolicySimulateResult,
+} from "./explain.ts";
+export type {
+	AthenaPolicyDecision,
+	AthenaPolicyDecisionReason,
+	AthenaPolicyMode,
 } from "./decision.ts";
 export { actionFromRuntimeOperation } from "./decision.ts";
-export { createPolicyRegistry, normalizePolicyDefinitions } from "./registry.ts";
-export type { AthenaPolicyRegistry, CreatePolicyRegistryOptions } from "./registry.ts";
+export { definePolicies, serializePolicyIr } from "./define-policies.ts";
+export { evaluatePolicyExpr } from "./eval-expr.ts";
+export type {
+	PolicyExprNode,
+	PolicyOperandInput,
+	PolicyOperandNode,
+} from "./expr-builders.ts";
+export { and, auth, not, or } from "./expr-builders.ts";
+export { canonicalizeDocument, fingerprintDocument } from "./fingerprint.ts";
+export { lintAthenaPolicy } from "./lint.ts";
+export type {
+	AthenaPolicyLintFinding,
+	AthenaPolicyLintOptions,
+	AthenaPolicyLintReport,
+	AthenaPolicyLintSeverity,
+} from "./lint.ts";
 export {
-  matchPolicyPrincipal,
-  policyAppliesToPrincipal,
+	matchPolicyPrincipal,
+	policyAppliesToPrincipal,
 } from "./match-principal.ts";
-export { fingerprintDocument, canonicalizeDocument } from "./fingerprint.ts";
-export { policy } from "./policy.ts";
 export type {
-  AuthoredPolicy,
-  PolicyActionConfig,
-  PolicyConfig,
-  PolicyPrincipalInput,
+	AuthoredPolicy,
+	PolicyActionConfig,
+	PolicyConfig,
+	PolicyPrincipalInput,
 } from "./policy.ts";
-export type { PolicyRowProxy } from "./row.ts";
+export { policy } from "./policy.ts";
 export {
-  ACTION_BITS,
-  POLICY_IR_VERSION,
-} from "./types.ts";
+	authenticatedOnly,
+	organizationScoped,
+	ownerOrRole,
+	publicRead,
+	roleRestricted,
+	serviceOnly,
+	tenantScoped,
+	userOwned,
+} from "./presets.ts";
+export { reportAthenaPolicySchemaImpact } from "./schema-impact.ts";
+export type { AthenaPolicySchemaImpactHit } from "./schema-impact.ts";
 export type {
-  PolicyActionName,
-  PolicyCompositionName,
-  PolicyDefinition,
-  PolicyExpr,
-  PolicyIrDocument,
-  PolicyOperand,
-  PolicyPrincipal,
-  PolicyResourceRef,
-  PolicyValue,
-  SubjectRef,
-} from "./types.ts";
-export { publicAuthorizationMessage } from "../authorization/types.ts";
+	AthenaPolicyRegistry,
+	CreatePolicyRegistryOptions,
+} from "./registry.ts";
+export {
+	createPolicyRegistry,
+	normalizePolicyDefinitions,
+} from "./registry.ts";
+export type { PolicyRowProxy } from "./row.ts";
 export type {
-  DecisionOutcome,
-  DecisionReasonKind,
-  PrincipalKind,
-  PublicAuthorizationMessage,
-} from "../authorization/types.ts";
+	PolicyActionName,
+	PolicyCompositionName,
+	PolicyDefinition,
+	PolicyExpr,
+	PolicyIrDocument,
+	PolicyOperand,
+	PolicyPrincipal,
+	PolicyResourceBinding,
+	PolicyResourceRef,
+	PolicyValue,
+	SubjectRef,
+	AthenaResourceIdentity,
+	AthenaResourceRef,
+} from "./types.ts";
+export {
+	ACTION_BITS,
+	POLICY_IR_VERSION,
+} from "./types.ts";

@@ -78,6 +78,42 @@ const BROWSER_FORBIDDEN = [
     id: "embedded auth local runtime",
     re: /auth\/local\/(?:runtime|database)\.ts/,
   },
+  {
+    id: "local filesystem storage adapter",
+    re: /storage\/local\.ts/,
+  },
+  {
+    id: "local storage provider",
+    re: /runtime\/providers\/local-provider/,
+  },
+  {
+    id: "s3 storage provider",
+    re: /runtime\/providers\/s3-provider/,
+  },
+  {
+    id: "@aws-sdk/client-s3",
+    re: /@aws-sdk\/client-s3/,
+  },
+  {
+    id: "AWS_SECRET_ACCESS_KEY env",
+    re: /AWS_SECRET_ACCESS_KEY/,
+  },
+  {
+    id: "Mollie official adapter",
+    re: /createOfficialMollieAdapter/,
+  },
+  {
+    id: "Mollie testKey",
+    re: /\btestKey\b/,
+  },
+  {
+    id: "Mollie liveKey",
+    re: /\bliveKey\b/,
+  },
+  {
+    id: "billing HTTP handlers",
+    re: /next\/billing-handlers/,
+  },
 ];
 
 const BROWSER_ARTIFACTS = [

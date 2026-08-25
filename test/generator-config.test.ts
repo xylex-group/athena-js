@@ -1,16 +1,56 @@
 import { strict as assert } from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { explainGeneratorConfigLoadError } from "../src/generator/config.ts";
 import {
   defineAthenaConfig,
   defineGeneratorConfig,
   findGeneratorConfigPath,
+  isCurrentAthenaGeneratedPath,
+  isLegacyFlatAthenaGeneratedPath,
   loadGeneratorConfig,
   normalizeGeneratorConfig,
   normalizeSchemaSelection,
 } from "../src/generator/index.ts";
+
+test("project athena/generated is current; flat athena/* is N-1", () => {
+  assert.equal(isCurrentAthenaGeneratedPath("athena/generated/registry.ts"), true);
+  assert.equal(
+    isCurrentAthenaGeneratedPath("src/lib/athena/generated/registry.ts"),
+    true,
+  );
+  assert.equal(isLegacyFlatAthenaGeneratedPath("athena/generated/registry.ts"), false);
+  assert.equal(isLegacyFlatAthenaGeneratedPath("athena/registry.generated.ts"), true);
+  assert.equal(isLegacyFlatAthenaGeneratedPath("athena/schema.ts"), true);
+});
+
+test("package athena.config.ts imports the compiled SDK, not ./src", () => {
+  const configPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "athena.config.ts"
+  );
+  const content = readFileSync(configPath, "utf8");
+  assert.match(content, /from ["']@xylex-group\/athena["']/);
+  assert.equal(content.includes("./src/"), false);
+});
+
+test("explainGeneratorConfigLoadError describes Node strip-only syntax failures", () => {
+  const error = Object.assign(
+    new Error("TypeScript parameter property is not supported in strip-only mode"),
+    { code: "ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX" }
+  );
+  const explained = explainGeneratorConfigLoadError(
+    error,
+    "/tmp/athena.config.ts"
+  );
+  assert.match(explained.message, /@xylex-group\/athena/);
+  assert.match(explained.message, /parameter properties/);
+  assert.match(explained.message, /\/tmp\/athena\.config\.ts/);
+});
 
 test("findGeneratorConfigPath locates athena.config.ts in project root", () => {
   const root = mkdtempSync(join(tmpdir(), "athena-generator-config-"));
@@ -92,16 +132,16 @@ test("loadGeneratorConfig applies athena folder defaults when output targets are
     assert.equal(loaded.config.output.preset, "athena-direct");
     assert.equal(
       loaded.config.output.targets.model,
-      "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts"
+      "athena/generated/models/{schema_kebab}/{model_kebab}.ts"
     );
     assert.equal(
       loaded.config.output.targets.schema,
-      "src/lib/athena/generated/schema/{schema_kebab}.ts"
+      "athena/generated/schema/{schema_kebab}.ts"
     );
-    assert.equal(loaded.config.output.targets.database, "src/lib/athena/generated/relations.ts");
+    assert.equal(loaded.config.output.targets.database, "athena/generated/relations.ts");
     assert.equal(
       loaded.config.output.targets.registry,
-      "src/lib/athena/generated/registry.ts"
+      "athena/generated/registry.ts"
     );
     assert.deepEqual(loaded.config.filter, {
       excludeTables: [],
@@ -147,16 +187,16 @@ test("loadGeneratorConfig supports the athena-direct output preset", async () =>
     assert.equal(loaded.config.output.format, "table-builder");
     assert.equal(
       loaded.config.output.targets.model,
-      "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts"
+      "athena/generated/models/{schema_kebab}/{model_kebab}.ts"
     );
     assert.equal(
       loaded.config.output.targets.schema,
-      "src/lib/athena/generated/schema/{schema_kebab}.ts"
+      "athena/generated/schema/{schema_kebab}.ts"
     );
-    assert.equal(loaded.config.output.targets.database, "src/lib/athena/generated/relations.ts");
+    assert.equal(loaded.config.output.targets.database, "athena/generated/relations.ts");
     assert.equal(
       loaded.config.output.targets.registry,
-      "src/lib/athena/generated/registry.ts"
+      "athena/generated/registry.ts"
     );
   } finally {
     rmSync(root, { force: true, recursive: true });
@@ -232,7 +272,7 @@ test("loadGeneratorConfig supports provider-only config files with default outpu
     assert.equal(loaded.config.output.format, "table-builder");
     assert.equal(
       loaded.config.output.targets.model,
-      "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts"
+      "athena/generated/models/{schema_kebab}/{model_kebab}.ts"
     );
     if (
       loaded.config.provider.kind !== "postgres" ||
@@ -351,7 +391,7 @@ test("loadGeneratorConfig builds a direct postgres config from environment when 
     assert.equal(loaded.config.output.format, "table-builder");
     assert.equal(
       loaded.config.output.targets.registry,
-      "src/lib/athena/generated/registry.ts"
+      "athena/generated/registry.ts"
     );
     assert.equal(loaded.config.naming.modelType, "snake");
     assert.deepEqual(loaded.config.filter.includeTables, [
@@ -516,8 +556,18 @@ test("loadGeneratorConfig normalizes string boolean feature flags", async () => 
   }
 });
 
-test("defineGeneratorConfig aliases defineAthenaConfig", () => {
-  assert.equal(defineGeneratorConfig, defineAthenaConfig);
+test("defineGeneratorConfig is a distinct strict identity, not an alias", () => {
+  assert.notEqual(defineGeneratorConfig, defineAthenaConfig);
+  assert.equal(typeof defineGeneratorConfig, "function");
+  const config = defineGeneratorConfig({
+    provider: {
+      connectionString: "postgres://postgres:postgres@127.0.0.1:5432/app_db",
+      database: "app_db",
+      kind: "postgres",
+      mode: "direct",
+    },
+  });
+  assert.equal(config.provider.kind, "postgres");
 });
 
 test("defineAthenaConfig is an identity helper for typed configs", () => {
@@ -586,10 +636,10 @@ test("generatorEnv resolves typed env-backed config fields across generator sect
         output: {
           targets: {
             model: generatorEnv('ATHENA_GENERATOR_MODEL_TARGET', {
-              default: 'src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts',
+              default: 'athena/generated/models/{schema_kebab}/{model_kebab}.ts',
             }),
-            schema: 'src/lib/athena/generated/schema/{schema_kebab}.ts',
-            database: 'src/lib/athena/generated/relations.ts',
+            schema: 'athena/generated/schema/{schema_kebab}.ts',
+            database: 'athena/generated/relations.ts',
             registry: 'athena/config.ts',
           },
           placeholderMap: generatorEnv.json('ATHENA_GENERATOR_PLACEHOLDER_MAP', {
@@ -856,7 +906,7 @@ test("loadGeneratorConfig uses runtime indirection instead of direct dynamic imp
   // Allow multiline call; indirection must still use importConfigModule + cacheBust.
   assert.match(
     source,
-    /await importConfigModule\(\s*`\$\{moduleUrl\.href\}\?cacheBust=\$\{Date\.now\(\)\}`\s*\)/
+    /await importConfigModule\(\s*`\$\{moduleUrl\.href\}\?cacheBust=\$\{Date\.now\(\)\}`\s*,?\s*\)/
   );
 
   // Guard the exact regression surface that broke Next.js bundling.

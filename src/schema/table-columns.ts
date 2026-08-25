@@ -19,6 +19,10 @@ export interface ColumnRuntimeConfig<
   readonly jsonSchema?: ZodType<TValue>;
   readonly kind: TKind;
   readonly nullable: TNullable;
+  /** Exact-numeric precision (decimal/numeric columns). */
+  readonly precision?: number;
+  /** Exact-numeric scale (decimal/numeric columns). */
+  readonly scale?: number;
 }
 
 export interface AthenaColumnBuilder<
@@ -63,6 +67,32 @@ export interface AthenaColumnBuilder<
     TColumnName,
     TKind
   >;
+  /**
+   * Exact-numeric precision. Meaningful for `decimal()` / `numeric()` columns.
+   */
+  precision: (
+    value: number
+  ) => AthenaColumnBuilder<
+    TValue,
+    TNullable,
+    THasDefault,
+    TGenerated,
+    TColumnName,
+    TKind
+  >;
+  /**
+   * Exact-numeric scale. Meaningful for `decimal()` / `numeric()` columns.
+   */
+  scale: (
+    value: number
+  ) => AthenaColumnBuilder<
+    TValue,
+    TNullable,
+    THasDefault,
+    TGenerated,
+    TColumnName,
+    TKind
+  >;
   readonly [COLUMN_CONFIG]: ColumnRuntimeConfig<
     TValue,
     TNullable,
@@ -81,6 +111,18 @@ export type AnyColumnBuilder = AthenaColumnBuilder<
   string | undefined,
   ModelColumnKind
 >;
+
+export interface DecimalColumnOptions {
+  precision?: number;
+  scale?: number;
+}
+
+function assertNonNegativeInt(label: string, value: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative integer (received ${value})`);
+  }
+  return value;
+}
 
 function createColumnBuilder<
   TValue,
@@ -132,6 +174,18 @@ function createColumnBuilder<
         nullable: true,
       });
     },
+    precision(value: number) {
+      return createColumnBuilder({
+        ...config,
+        precision: assertNonNegativeInt("precision", value),
+      });
+    },
+    scale(value: number) {
+      return createColumnBuilder({
+        ...config,
+        scale: assertNonNegativeInt("scale", value),
+      });
+    },
   };
 }
 
@@ -176,6 +230,33 @@ export function number(): AthenaColumnBuilder<
     nullable: false,
   });
 }
+
+/**
+ * Exact decimal / numeric column.
+ *
+ * Row values are `string` by default so PostgreSQL NUMERIC/DECIMAL precision is
+ * preserved at the JS boundary. Use `.precision(n)` / `.scale(n)` (or options)
+ * to retain catalog metadata for validation, forms, and schema diffing.
+ */
+export function decimal(
+  options: DecimalColumnOptions = {}
+): AthenaColumnBuilder<string, false, false, false, undefined, "decimal"> {
+  return createColumnBuilder({
+    hasDefault: false,
+    isGenerated: false,
+    kind: "decimal",
+    nullable: false,
+    ...(options.precision === undefined
+      ? {}
+      : { precision: assertNonNegativeInt("precision", options.precision) }),
+    ...(options.scale === undefined
+      ? {}
+      : { scale: assertNonNegativeInt("scale", options.scale) }),
+  });
+}
+
+/** Alias of {@link decimal} for PostgreSQL `NUMERIC` naming. */
+export const numeric = decimal;
 
 export function boolean(): AthenaColumnBuilder<
   boolean,

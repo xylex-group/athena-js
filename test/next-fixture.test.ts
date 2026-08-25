@@ -17,8 +17,8 @@ async function readFixture(relativePath: string): Promise<string> {
 	return readFile(join(fixtureRoot, relativePath), "utf8");
 }
 
-async function readDist(relativePath: string): Promise<string> {
-	return readFile(join(packageRoot, "dist", relativePath), "utf8");
+async function readSrc(relativePath: string): Promise<string> {
+	return readFile(join(packageRoot, "src", relativePath), "utf8");
 }
 
 test("fixture browser modules import createAthenaBrowserClient and public config only", async () => {
@@ -61,27 +61,26 @@ test("fixture server modules import createAthenaServerClient and stay server-onl
 	assert.match(bridgeRoute, /@xylex-group\/athena\/next\/server/);
 });
 
-test("built next/client entry keeps server-only seams out of the browser graph", async () => {
-	const clientJs = await readDist("next/client.js");
-	const clientCjs = await readDist("next/client.cjs");
+test("next/client source keeps server-only seams out of the browser graph", async () => {
+	const source = await readSrc("next/client.ts");
 
-	for (const source of [clientJs, clientCjs]) {
-		assert.equal(source.includes("next/headers"), false);
-		assert.equal(source.includes("server-only"), false);
-		assert.match(source, /createAthenaBrowserClient/);
-		// Actual server secrets must never be inlined into the browser entry.
-		assert.equal(source.includes("server-secret-key-do-not-ship"), false);
-	}
+	assert.equal(source.includes("next/headers"), false);
+	assert.equal(source.includes("server-only"), false);
+	assert.match(source, /export function createClient/);
+	assert.match(source, /export function createAthenaBrowserClient/);
+	// Actual server secrets must never be inlined into the browser entry.
+	assert.equal(source.includes("server-secret-key-do-not-ship"), false);
 });
 
-test("built next/server entry exports the async factory and requires server-only", async () => {
-	const serverJs = await readDist("next/server.js");
-	const serverCjs = await readDist("next/server.cjs");
+test("next/session source is a server-only session lookup barrel", async () => {
+	const source = await readSrc("next/session.ts");
 
-	assert.match(serverJs, /import ['"]server-only['"]/);
-	assert.match(serverCjs, /require\(['"]server-only['"]\)/);
-	assert.match(serverJs, /createAthenaServerClient/);
-	assert.match(serverCjs, /createAthenaServerClient/);
+	assert.match(source, /import ["']server-only["']/);
+	assert.match(source, /getServerSession/);
+	assert.equal(source.includes("v3-client"), false);
+	assert.equal(source.includes("createClient"), false);
+	assert.equal(source.includes("createAthenaServerClient"), false);
+	assert.equal(source.includes("createAthenaNextHandlers"), false);
 });
 
 test("browser factory rejects blank publishable configuration at construction", () => {

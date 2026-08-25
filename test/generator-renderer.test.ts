@@ -242,31 +242,31 @@ test("generateArtifactsFromSnapshot default targets are safe for multiple schema
 	const paths = artifacts.files.map((file) => file.path);
 
 	assert.equal(
-		paths.includes("src/lib/athena/generated/models/public/users.ts"),
+		paths.includes("athena/generated/models/public/users.ts"),
 		true,
 	);
 	assert.equal(
-		paths.includes("src/lib/athena/generated/models/athena/users.ts"),
+		paths.includes("athena/generated/models/athena/users.ts"),
 		true,
 	);
 	assert.equal(
-		paths.includes("src/lib/athena/generated/schema/public.ts"),
+		paths.includes("athena/generated/schema/public.ts"),
 		true,
 	);
 	assert.equal(
-		paths.includes("src/lib/athena/generated/schema/athena.ts"),
+		paths.includes("athena/generated/schema/athena.ts"),
 		true,
 	);
-	assert.equal(paths.includes("src/lib/athena/generated/relations.ts"), true);
-	assert.equal(paths.includes("src/lib/athena/generated/registry.ts"), true);
+	assert.equal(paths.includes("athena/generated/relations.ts"), true);
+	assert.equal(paths.includes("athena/generated/registry.ts"), true);
 });
 
 test("generateArtifactsFromSnapshot auto-scopes colliding multi-schema output paths", () => {
 	const config = defineAthenaConfig({
 		output: {
 			targets: {
-				database: "src/lib/athena/generated/relations.ts",
-				model: "src/lib/athena/generated/models/{model_kebab}.ts",
+				database: "athena/generated/relations.ts",
+				model: "athena/generated/models/{model_kebab}.ts",
 				registry: "athena/config.ts",
 				schema: "athena/schema.ts",
 			},
@@ -284,11 +284,11 @@ test("generateArtifactsFromSnapshot auto-scopes colliding multi-schema output pa
 	const paths = artifacts.files.map((file) => file.path);
 
 	assert.equal(
-		paths.includes("src/lib/athena/generated/models/public/users.ts"),
+		paths.includes("athena/generated/models/public/users.ts"),
 		true,
 	);
 	assert.equal(
-		paths.includes("src/lib/athena/generated/models/athena/users.ts"),
+		paths.includes("athena/generated/models/athena/users.ts"),
 		true,
 	);
 	assert.equal(paths.includes("athena/public/schema.ts"), true);
@@ -305,7 +305,7 @@ test("generateArtifactsFromSnapshot keeps built-in placeholders stable when plac
 			},
 			targets: {
 				database: "athena/{schema}/relations.ts",
-				model: "src/lib/athena/generated/models/{schema}/{model_kebab}.ts",
+				model: "athena/generated/models/{schema}/{model_kebab}.ts",
 				registry: "athena/{schema}/config.ts",
 				schema: "athena/{schema}/schema.ts",
 			},
@@ -323,18 +323,18 @@ test("generateArtifactsFromSnapshot keeps built-in placeholders stable when plac
 	const paths = artifacts.files.map((file) => file.path);
 
 	assert.equal(
-		paths.includes("src/lib/athena/generated/models/public/users.ts"),
+		paths.includes("athena/generated/models/public/users.ts"),
 		true,
 	);
 	assert.equal(
-		paths.includes("src/lib/athena/generated/models/athena/users.ts"),
+		paths.includes("athena/generated/models/athena/users.ts"),
 		true,
 	);
 	assert.equal(paths.includes("athena/public/schema.ts"), true);
 	assert.equal(paths.includes("athena/athena/schema.ts"), true);
 	assert.equal(
 		paths.some((path) =>
-			path.startsWith("src/lib/athena/generated/models/schema/"),
+			path.startsWith("athena/generated/models/schema/"),
 		),
 		false,
 	);
@@ -802,11 +802,11 @@ test("generateArtifactsFromSnapshot wires schema, database, and registry assembl
 
 	assert.equal(
 		modelFile.path,
-		"src/lib/athena/generated/models/public/users.ts",
+		"athena/generated/models/public/users.ts",
 	);
-	assert.equal(schemaFile.path, "src/lib/athena/generated/schema/public.ts");
-	assert.equal(databaseFile.path, "src/lib/athena/generated/relations.ts");
-	assert.equal(registryFile.path, "src/lib/athena/generated/registry.ts");
+	assert.equal(schemaFile.path, "athena/generated/schema/public.ts");
+	assert.equal(databaseFile.path, "athena/generated/relations.ts");
+	assert.equal(registryFile.path, "athena/generated/registry.ts");
 
 	assert.equal(
 		schemaFile.content.includes(
@@ -985,7 +985,7 @@ test("generateArtifactsFromSnapshot legacy preset writes N-1 root athena/* layou
 	assert.equal(paths.includes("athena/schemas/public.ts"), true);
 	assert.equal(paths.includes("athena/relations.ts"), true);
 	assert.equal(paths.includes("athena/registry.generated.ts"), true);
-	assert.equal(paths.includes("src/lib/athena/generated/registry.ts"), false);
+	assert.equal(paths.includes("athena/generated/registry.ts"), false);
 	assert.ok(registryFile);
 	assert.equal(registryFile.content.includes("outputPreset: 'legacy'"), true);
 	assert.equal(registryFile.content.includes("@generated"), true);

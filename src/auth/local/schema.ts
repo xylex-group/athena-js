@@ -1,12 +1,17 @@
 import { checksumMigrationSql } from "../../migrations/checksum.ts";
 import {
-  ATHENA_AUTH_INIT_ADVISORY_LOCK,
+  ATHENA_AUTH_MIGRATION_ADVISORY_LOCK,
   ATHENA_AUTH_SCHEMA_GENERATION,
 } from "../contract/index.ts";
 import type { AthenaAuthDatabase } from "./database.ts";
 import { assertQueryResult } from "./database.ts";
 import { ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS } from "./email/schema-sql.ts";
 import { AthenaAuthRuntimeError } from "./errors.ts";
+import {
+  type AthenaAuthLedgerHealth,
+  classifyAuthLedgerQueryError,
+  healthFromAuthPlan,
+} from "./ledger-health.ts";
 import type { AthenaAuthSchemaDrift } from "./schema-inspect.ts";
 import { inspectAthenaAuthExpectations } from "./schema-inspect.ts";
 import {
@@ -222,7 +227,163 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_runtime_key_active_purpose
 `,
       version: 21,
     },
+    {
+      name: "022_add_updated_at_to_passkeys",
+      sql: `
+ALTER TABLE athena.passkeys ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+`,
+      version: 22,
+    },
+    {
+      name: "023_auth_observability",
+      sql: `
+CREATE TABLE IF NOT EXISTS athena.audit_log_auth (
+    id UUID PRIMARY KEY,
+    event_id UUID NOT NULL,
+    trace_id TEXT NOT NULL,
+    event TEXT NOT NULL,
+    actor_kind TEXT NOT NULL,
+    actor_user_id TEXT,
+    actor_session_id TEXT,
+    subject_type TEXT,
+    subject_id TEXT,
+    organization_id TEXT,
+    previous JSONB,
+    result JSONB,
+    request_ip TEXT,
+    request_user_agent TEXT,
+    outcome TEXT NOT NULL DEFAULT 'success',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS audit_log_auth_event_id_idx
+    ON athena.audit_log_auth(event_id);
+CREATE INDEX IF NOT EXISTS audit_log_auth_trace_id_idx
+    ON athena.audit_log_auth(trace_id);
+CREATE INDEX IF NOT EXISTS audit_log_auth_event_created_at_idx
+    ON athena.audit_log_auth(event, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_auth_actor_user_id_idx
+    ON athena.audit_log_auth(actor_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_auth_subject_idx
+    ON athena.audit_log_auth(subject_type, subject_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_auth_organization_id_idx
+    ON athena.audit_log_auth(organization_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS athena.traces_auth (
+    id UUID PRIMARY KEY,
+    trace_id TEXT NOT NULL,
+    event_id UUID,
+    operation TEXT,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    actor_kind TEXT,
+    actor_user_id TEXT,
+    organization_id TEXT,
+    outcome TEXT NOT NULL,
+    status_code INTEGER,
+    authorize_ms DOUBLE PRECISION,
+    validate_ms DOUBLE PRECISION,
+    before_hooks_ms DOUBLE PRECISION,
+    transaction_ms DOUBLE PRECISION,
+    after_hooks_ms DOUBLE PRECISION,
+    total_ms DOUBLE PRECISION NOT NULL,
+    error_code TEXT,
+    error_phase TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}',
+    started_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS traces_auth_trace_id_idx
+    ON athena.traces_auth(trace_id);
+CREATE INDEX IF NOT EXISTS traces_auth_event_id_idx
+    ON athena.traces_auth(event_id);
+CREATE INDEX IF NOT EXISTS traces_auth_operation_started_at_idx
+    ON athena.traces_auth(operation, started_at DESC);
+CREATE INDEX IF NOT EXISTS traces_auth_outcome_started_at_idx
+    ON athena.traces_auth(outcome, started_at DESC);
+CREATE INDEX IF NOT EXISTS traces_auth_actor_user_id_idx
+    ON athena.traces_auth(actor_user_id, started_at DESC);
+`,
+      version: 23,
+    },
     ...ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS,
+    {
+      name: "025_add_aaguid_to_passkeys",
+      sql: `
+ALTER TABLE athena.passkeys ADD COLUMN IF NOT EXISTS aaguid TEXT;
+`,
+      version: 25,
+    },
+    {
+      name: "026_passkey_resident_key_and_registration_transactions",
+      sql: `
+ALTER TABLE athena.passkeys ADD COLUMN IF NOT EXISTS resident_key BOOLEAN;
+CREATE TABLE IF NOT EXISTS athena.passkey_registration_transactions (
+    id TEXT PRIMARY KEY,
+    challenge_hash TEXT NOT NULL,
+    rp_id TEXT NOT NULL,
+    user_handle TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    context TEXT,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_passkey_reg_tx_challenge_hash
+    ON athena.passkey_registration_transactions (challenge_hash);
+CREATE INDEX IF NOT EXISTS idx_passkey_reg_tx_expires_at
+    ON athena.passkey_registration_transactions (expires_at);
+`,
+      version: 26,
+    },
+    {
+      name: "027_auth_bridge_codes",
+      sql: `CREATE TABLE IF NOT EXISTS athena.auth_bridge_codes (id TEXT PRIMARY KEY, code_hash TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES athena.sessions (id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES athena.users (id) ON DELETE CASCADE, organization_id TEXT, destination_origin TEXT NOT NULL, redirect_path TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, consumed_at TIMESTAMPTZ, consume_reason TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS idx_auth_bridge_codes_expires_at ON athena.auth_bridge_codes (expires_at); CREATE INDEX IF NOT EXISTS idx_auth_bridge_codes_session_id ON athena.auth_bridge_codes (session_id); CREATE INDEX IF NOT EXISTS idx_auth_bridge_codes_user_id ON athena.auth_bridge_codes (user_id); CREATE INDEX IF NOT EXISTS idx_auth_bridge_codes_outstanding_session ON athena.auth_bridge_codes (session_id) WHERE consumed_at IS NULL;`,
+      version: 27,
+    },
+    {
+      name: "028_oauth_transactions",
+      sql: `
+CREATE TABLE IF NOT EXISTS athena.oauth_transactions (
+    id TEXT PRIMARY KEY,
+    state_hash TEXT NOT NULL UNIQUE,
+    provider_id TEXT NOT NULL,
+    intent TEXT NOT NULL,
+    code_challenge_method TEXT NOT NULL,
+    pkce_verifier_ciphertext TEXT NOT NULL,
+    nonce_hash TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    user_id TEXT,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_oauth_transactions_expires_at
+    ON athena.oauth_transactions (expires_at);
+`,
+      version: 28,
+    },
+    {
+      name: "029_notification_preferences",
+      sql: `
+CREATE TABLE IF NOT EXISTS athena.notification_preferences (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    organization_id TEXT NULL,
+    channel TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    digest TEXT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_preferences_user_channel_topic
+  ON athena.notification_preferences (user_id, channel, topic)
+  WHERE organization_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notification_preferences_user_org_channel_topic
+  ON athena.notification_preferences (user_id, organization_id, channel, topic)
+  WHERE organization_id IS NOT NULL;
+`,
+      version: 29,
+    },
   ];
 
 export type AthenaAuthSchemaDirection =
@@ -281,6 +442,7 @@ export interface AthenaAuthMigrationPlan {
   driftCount: number;
   conflictCount: number;
   hasBlockingDrift: boolean;
+  health: AthenaAuthLedgerHealth;
 }
 
 export interface AthenaAuthRepairResult {
@@ -301,8 +463,23 @@ function statementByVersion(
   return SCHEMA_STATEMENTS.find((statement) => statement.version === version);
 }
 
-export function getAthenaAuthExpectedLedger(): AthenaAuthLedgerEntry[] {
+export interface AthenaAuthCanonicalMigration {
+  name: string;
+  sql: string;
+  version: number;
+}
+
+/** Package-owned Auth generations (ledgered, version > 0). Execution SSOT. */
+export function listAthenaAuthCanonicalMigrations(): AthenaAuthCanonicalMigration[] {
   return ledgeredStatements().map((statement) => ({
+    name: statement.name,
+    sql: statement.sql,
+    version: statement.version,
+  }));
+}
+
+export function getAthenaAuthExpectedLedger(): AthenaAuthLedgerEntry[] {
+  return listAthenaAuthCanonicalMigrations().map((statement) => ({
     checksum: checksumMigrationSql(statement.sql),
     name: statement.name,
     version: statement.version,
@@ -499,6 +676,10 @@ async function readAuthSchemaLedgerRows(
     ) {
       throw error;
     }
+    const kind = classifyAuthLedgerQueryError(error);
+    if (kind === "UNINITIALIZED") {
+      return [];
+    }
     try {
       const applied = assertQueryResult<{ name?: string; version: number }>(
         await db.query<{ name?: string; version: number }>(
@@ -517,7 +698,81 @@ async function readAuthSchemaLedgerRows(
       ) {
         throw inner;
       }
-      throw error;
+      if (classifyAuthLedgerQueryError(inner) === "UNINITIALIZED") {
+        return [];
+      }
+      throw wrapAuthLedgerQueryError(inner);
+    }
+  }
+}
+
+function wrapAuthLedgerQueryError(error: unknown): AthenaAuthRuntimeError {
+  if (
+    error instanceof AthenaAuthRuntimeError &&
+    (error.code === "ATHENA_AUTH_DATABASE_RESULT_INVALID" ||
+      error.code === "ATHENA_AUTH_LEDGER_UNREACHABLE" ||
+      error.code === "ATHENA_AUTH_LEDGER_PERMISSION_DENIED")
+  ) {
+    return error;
+  }
+  const kind = classifyAuthLedgerQueryError(error);
+  if (kind === "INVALID_LEDGER") {
+    if (error instanceof AthenaAuthRuntimeError) {
+      return error;
+    }
+    return new AthenaAuthRuntimeError(
+      500,
+      "ATHENA_AUTH_DATABASE_RESULT_INVALID",
+      { cause: error, code: "ATHENA_AUTH_DATABASE_RESULT_INVALID" }
+    );
+  }
+  if (kind === "PERMISSION_DENIED") {
+    return new AthenaAuthRuntimeError(
+      403,
+      [
+        "ATHENA_AUTH_LEDGER_PERMISSION_DENIED",
+        "",
+        "Embedded Auth cannot read athena.auth_schema_migrations.",
+        "",
+        error instanceof Error ? error.message : String(error),
+      ].join("\n"),
+      { cause: error, code: "ATHENA_AUTH_LEDGER_PERMISSION_DENIED" }
+    );
+  }
+  return new AthenaAuthRuntimeError(
+    503,
+    [
+      "ATHENA_AUTH_LEDGER_UNREACHABLE",
+      "",
+      "Embedded Auth could not reach the database to read the migration ledger.",
+      "",
+      error instanceof Error ? error.message : String(error),
+    ].join("\n"),
+    { cause: error, code: "ATHENA_AUTH_LEDGER_UNREACHABLE" }
+  );
+}
+
+/**
+ * Session advisory lock on this Auth database connection.
+ * Distinct from application `pg_advisory_lock(ATHA, MIGS)` — that lock is held
+ * on the migrate backend session and does not cover this connection.
+ */
+export async function withAthenaAuthMigrationLock<T>(
+  db: AthenaAuthDatabase,
+  fn: () => Promise<T>
+): Promise<T> {
+  await db.query(`SELECT pg_advisory_lock($1)`, [
+    ATHENA_AUTH_MIGRATION_ADVISORY_LOCK,
+  ]);
+  try {
+    return await fn();
+  } finally {
+    try {
+      await db.query(`SELECT pg_advisory_unlock($1)`, [
+        ATHENA_AUTH_MIGRATION_ADVISORY_LOCK,
+      ]);
+    } catch {
+      // Session end / pool release drops session-level locks.
     }
   }
 }
@@ -557,13 +812,7 @@ export async function planAthenaAuthSchema(
   try {
     actualRows = await readAuthSchemaLedgerRows(db);
   } catch (error) {
-    if (
-      error instanceof AthenaAuthRuntimeError &&
-      error.code === "ATHENA_AUTH_DATABASE_RESULT_INVALID"
-    ) {
-      throw error;
-    }
-    actualRows = [];
+    throw wrapAuthLedgerQueryError(error);
   }
 
   const actualByVersion = new Map(
@@ -628,7 +877,7 @@ export async function planAthenaAuthSchema(
       ledgerState,
       schemaState,
       action,
-      repairability: repairabilityForAuthMigration(entry.version),
+      repairability: repairabilityForAuthMigration(),
       drift,
     });
   }
@@ -656,6 +905,7 @@ export async function planAthenaAuthSchema(
   const conflictCount = entries.filter(
     (e) => e.action === "blocked" || e.ledgerState === "checksum-mismatch"
   ).length;
+  const hasBlockingDrift = driftCount > 0;
 
   return {
     entries,
@@ -663,7 +913,12 @@ export async function planAthenaAuthSchema(
     pendingCount,
     driftCount,
     conflictCount,
-    hasBlockingDrift: driftCount > 0,
+    hasBlockingDrift,
+    health: healthFromAuthPlan({
+      conflictCount,
+      entries,
+      hasBlockingDrift,
+    }),
   };
 }
 
@@ -671,6 +926,7 @@ export async function repairAthenaAuthSchema(
   db: AthenaAuthDatabase,
   options: { dryRun?: boolean } = {}
 ): Promise<AthenaAuthRepairResult> {
+  return withAthenaAuthMigrationLock(db, async () => {
   const plan = await planAthenaAuthSchema(db, { inspectSchema: true });
   const toRepair = plan.entries.filter((entry) => entry.action === "repair");
   const skipped = toRepair.filter((entry) => entry.repairability !== "idempotent");
@@ -695,8 +951,10 @@ export async function repairAthenaAuthSchema(
   }
 
   await db.transaction(async (tx) => {
+    // Transaction-scoped lock on the same key as the session lock (reentrant
+    // in this session; blocks other Auth connections).
     await tx.query(`SELECT pg_advisory_xact_lock($1)`, [
-      ATHENA_AUTH_INIT_ADVISORY_LOCK,
+      ATHENA_AUTH_MIGRATION_ADVISORY_LOCK,
     ]);
     for (const entry of repairable) {
       const statement = statementByVersion(entry.version);
@@ -708,12 +966,14 @@ export async function repairAthenaAuthSchema(
   });
 
   return { repaired: repairable, skipped, dryRun: false };
+  });
 }
 
 export async function migrateAthenaAuthSchema(
   db: AthenaAuthDatabase,
   options: { allowDrift?: boolean } = {}
 ): Promise<AthenaAuthSchemaStatus> {
+  return withAthenaAuthMigrationLock(db, async () => {
   const expected = getAthenaAuthExpectedLedger();
 
   // Fail closed: ledger-applied migrations with physical drift must not be
@@ -745,7 +1005,7 @@ export async function migrateAthenaAuthSchema(
 
   await db.transaction(async (tx) => {
     await tx.query(`SELECT pg_advisory_xact_lock($1)`, [
-      ATHENA_AUTH_INIT_ADVISORY_LOCK,
+      ATHENA_AUTH_MIGRATION_ADVISORY_LOCK,
     ]);
     await tx.query("CREATE SCHEMA IF NOT EXISTS athena");
     await tx.query(`
@@ -814,17 +1074,14 @@ export async function migrateAthenaAuthSchema(
   });
 
   return readAthenaAuthSchemaStatus(db);
+  });
 }
 
 export async function readAthenaAuthSchemaStatus(
   db: AthenaAuthDatabase
 ): Promise<AthenaAuthSchemaStatus> {
-  try {
-    const rows = await readAuthSchemaLedgerRows(db);
-    return compareAthenaAuthLedgers(rows);
-  } catch {
-    return compareAthenaAuthLedgers([]);
-  }
+  const rows = await readAuthSchemaLedgerRows(db);
+  return compareAthenaAuthLedgers(rows);
 }
 
 export async function assertAthenaAuthSchemaCompatible(

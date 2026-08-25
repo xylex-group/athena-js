@@ -42,10 +42,10 @@ athena-js generate --dry-run
 
 Default output paths:
 
-- `src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts`
-- `athena/schemas/{schema}.ts`
-- `athena/relations.ts`
-- `src/lib/athena/generated/registry.ts`
+- `athena/generated/models/{schema_kebab}/{model_kebab}.ts`
+- `athena/generated/schema/{schema_kebab}.ts`
+- `athena/generated/relations.ts`
+- `athena/generated/registry.ts`
 
 The default schema selection before discovery is `public`.
 With discovery enabled (default), generate expands to every non-system schema that contains tables.

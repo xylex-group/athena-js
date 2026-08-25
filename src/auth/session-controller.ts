@@ -11,8 +11,11 @@ import {
   type AthenaAuthSessionSnapshot,
   type AthenaAuthSessionStatus,
   type AthenaAuthSessionStore,
+  type AthenaInitialAuthState,
   createAthenaAuthSessionStore,
 } from "./session-store.ts";
+
+export type { AthenaInitialAuthState } from "./session-store.ts";
 
 export type AthenaAuthSessionInvalidateReason = "signOut" | "revoke" | "manual";
 
@@ -30,6 +33,7 @@ export interface AthenaAuthSessionController<TSession = unknown> {
   ): void;
   get(): TSession | null;
   getSnapshot(): AthenaAuthSessionSnapshot<TSession>;
+  hydrate(state: AthenaInitialAuthState<TSession>): boolean;
   invalidate(reason?: AthenaAuthSessionInvalidateReason): void;
   setError(error: unknown): void;
   /**
@@ -78,6 +82,9 @@ export function createAthenaAuthSessionController<
     subscribe: (listener) => store.subscribe(listener),
     accept(session, status) {
       store.setSession(session, status);
+    },
+    hydrate(state) {
+      return store.hydrate(state);
     },
     setSession(session, status) {
       store.setSession(session, status);

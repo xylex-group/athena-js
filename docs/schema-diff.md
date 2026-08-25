@@ -1,12 +1,15 @@
 # Schema Diff (Athena-managed surface)
 
 Programmatic foundation for comparing **desired** and **actual** Athena-managed
-schema snapshots.
+schema. Canonical structure is **Schema IR v2** (`AthenaSchemaIr`); see
+[schema-ir.md](./schema-ir.md). v1 `AthenaSchemaSnapshot` is a compatibility
+projection that `diffSchemas` lifts at the boundary.
 
 ```text
-AthenaModels ──► AthenaSchemaSnapshot ──┐
-                                        ├──► normalize ──► diffSchemas ──► SchemaDiff
-Postgres DB  ──► IntrospectionSnapshot ─┘
+AthenaModels ──► table().ir / schemaIrFromModels ──┐
+                                                   ├──► canonicalize ──► diffSchemas ──► SchemaDiff
+Postgres DB  ──► schemaIrFromIntrospection ────────┘
+                   (v1 snapshot lifts via schemaIrFromSnapshot)
 ```
 
 This layer describes **what changed**. It does **not**:
@@ -18,20 +21,21 @@ This layer describes **what changed**. It does **not**:
 
 Those concerns are separate downstream stages.
 
+CLI `athena-js schema diff --policy-impact` is an **authored-policy impact report** (which policies, by model/table, reference dropped or renamed tables/columns). It uses the same `diffSchemas` operations and Policy CLI loader (`loadAthenaConfig` + lazy `tooling.policies`). It is **not** a schema lifecycle engine.
+
 ## Public API
 
 ```ts
 import {
   diffSchemas,
-  normalizeSchemaSnapshot,
-  schemaSnapshotFromModels,
-  schemaSnapshotFromIntrospection,
-  type AthenaSchemaSnapshot,
+  schemaIrFromIntrospection,
+  schemaIrFromModels,
+  type AthenaSchemaIr,
   type SchemaDiff,
-} from "@xylex-group/athena";
+} from "@xylex-group/athena/schema";
 
-// or from the tooling entry:
-// import { diffSchemas, ... } from "@xylex-group/athena/migrations";
+// v1 snapshot helpers remain on the root and /migrations entries:
+// schemaSnapshotFromModels, schemaSnapshotFromIntrospection, AthenaSchemaSnapshot
 ```
 
 ### Direction
@@ -64,15 +68,18 @@ diff.isEmpty === true  // equivalent normalized schemas
 | Foreign keys + ON DELETE / ON UPDATE | FULL |
 | Indexes (structural columns / unique / predicate / method) | FULL |
 | Views, functions, triggers, extensions, RLS | **UNSUPPORTED** (ignored) |
-| Check constraints | UNSUPPORTED (models do not own them yet) |
-| Enum lifecycle (CREATE TYPE …) | PARTIAL (column enum labels only) |
+| Check constraints | Represented on IR (`SchemaConstraint` kind `check`); v1 snapshot projection still omits them |
+| Enum lifecycle (CREATE TYPE …) | First-class `SchemaEnum` on IR; v1 snapshot still has column `enumValues` only |
 
 Athena bookkeeping (`athena.*`, e.g. `athena.schema_migrations`) is excluded by
 default when adapting introspection snapshots.
 
 ## Identity
 
-Tables are never identified by bare name alone:
+IR identity is logical vs physical `{ database, namespace, name }` plus a
+branded `SchemaObjectId`. Same id + changed physical name is a **rename**.
+
+v1 snapshots still key tables as `{ schema, name }` (never bare name):
 
 ```ts
 { schema: "billing", name: "users" }
@@ -117,22 +124,23 @@ planning than three separate ops without linkage.
 
 ## Renames
 
-`rename_table` / `rename_column` exist on the operation union for future explicit
-hints. Automatic rename inference is **not** enabled (false renames are worse
-than conservative drop + create).
+`rename_table` / `rename_column` exist on the operation union. IR branded ids
+are the rename signal (same id, changed physical name). Heuristic name matching
+alone is not the SSOT.
 
 ## Adapters
 
 ### Models
 
-`schemaSnapshotFromModels(input)` walks the same model graph as `modelsToSql`
-and maps column kinds to Postgres SQL types consistently with DDL emission.
+`schemaIrFromModels(input)` (and `table().ir`) walks the same model graph as
+`modelsToSql`. `schemaSnapshotFromModels` projects that IR to v1.
 
 ### Introspection
 
-`schemaSnapshotFromIntrospection(snapshot)` maps
-`IntrospectionSnapshot` → IR. Direct Postgres introspection now also gathers
-defaults, unique constraints, indexes, and FK actions via catalog SQL.
+`schemaIrFromIntrospection(snapshot)` is the public structural emit.
+`schemaSnapshotFromIntrospection` is the v1 projection. Direct Postgres
+introspection also gathers defaults, unique constraints, indexes, and FK
+actions via catalog SQL.
 
 ## Invariants (tested)
 

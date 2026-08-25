@@ -9,6 +9,6 @@
  * @returns Primary non-empty client id, or `undefined` if missing
  */
 export function getPrimaryClientId(clientId: unknown): string | undefined {
-  const value = Array.isArray(clientId) ? clientId[0] : clientId;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+	const value = Array.isArray(clientId) ? clientId[0] : clientId;
+	return typeof value === "string" && value.length > 0 ? value : undefined;
 }

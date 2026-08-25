@@ -23,7 +23,7 @@ function escapeTag(value: string): string {
 
 export function canonicalizeAthenaValue(
   value: unknown,
-  seen = new WeakSet<object>()
+  seen = new WeakSet<object>(),
 ): string {
   if (value === null) {
     return TYPE_NULL;
@@ -90,7 +90,7 @@ export function canonicalizeAthenaValue(
       const entries = [...value.entries()]
         .map(
           ([key, item]) =>
-            `[${canonicalizeAthenaValue(key, seen)},${canonicalizeAthenaValue(item, seen)}]`
+            `[${canonicalizeAthenaValue(key, seen)},${canonicalizeAthenaValue(item, seen)}]`,
         )
         .sort((left, right) => left.localeCompare(right));
       return `${TYPE_MAP}:[${entries.join(",")}]`;
@@ -109,11 +109,11 @@ export function canonicalizeAthenaValue(
 
     const record = value as Record<string, unknown>;
     const keys = Object.keys(record).sort((left, right) =>
-      left.localeCompare(right)
+      left.localeCompare(right),
     );
     const fields = keys.map(
       (key) =>
-        `${TYPE_STRING}:"${escapeTag(key)}":${canonicalizeAthenaValue(record[key], seen)}`
+        `${TYPE_STRING}:"${escapeTag(key)}":${canonicalizeAthenaValue(record[key], seen)}`,
     );
     return `${TYPE_OBJECT}:{${fields.join(",")}}`;
   } finally {

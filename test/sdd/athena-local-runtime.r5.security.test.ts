@@ -523,7 +523,7 @@ test("R5: unknown model is denied", async () => {
 		}),
 	);
 	assert.equal(response.status, 403);
-	assert.equal((await readError(response)).code, "ATHENA_MODEL_NOT_EXPOSED");
+	assert.equal((await readError(response)).code, "ATHENA_POLICY_DENIED");
 });
 
 test("R5: unknown field is denied under policy/strict", async () => {

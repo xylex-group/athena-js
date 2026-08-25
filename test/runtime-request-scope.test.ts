@@ -3,7 +3,10 @@ import { test } from "node:test";
 
 import { createAthenaServerClient } from "../src/next/server.ts";
 import type { AthenaPostgresPool } from "../src/postgres/driver.ts";
-import { getAthenaClientInternals } from "../src/runtime/client-internals.ts";
+import {
+  AthenaRuntimeOwnershipError,
+  getAthenaClientInternals,
+} from "../src/runtime/client-internals.ts";
 import { AthenaConfigurationError, createClient } from "../src/v3-client.ts";
 
 const SAMPLE_PG =
@@ -28,7 +31,7 @@ function createFakePool(ended: { n: number }): AthenaPostgresPool {
   };
 }
 
-test("T-runtime-scope: view.close() does not dispose the root PG runtime", async () => {
+test("T-runtime-scope: request close() throws and does not dispose the root PG runtime", async () => {
   const root = createClient({
     databaseUrl: SAMPLE_PG,
     env: {},
@@ -37,10 +40,21 @@ test("T-runtime-scope: view.close() does not dispose the root PG runtime", async
   const runtime = getAthenaClientInternals(root)?.postgresRuntime;
   assert.ok(runtime);
   const closeView = view as unknown as typeof root;
-  await closeView.close();
-  await closeView.close();
+  await assert.rejects(
+    () => closeView.close(),
+    (error: unknown) =>
+      error instanceof AthenaRuntimeOwnershipError &&
+      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID"
+  );
+  await assert.rejects(
+    () => closeView.close(),
+    (error: unknown) =>
+      error instanceof AthenaRuntimeOwnershipError &&
+      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID"
+  );
   const pool = await runtime.getPool();
   assert.ok(pool);
+  assert.equal(getAthenaClientInternals(root)?.lifecycle.closed, false);
   await root.close();
   await assert.rejects(
     () => runtime.getPool(),
@@ -70,10 +84,17 @@ test("T-runtime-scope: 1000 request views share one postgres runtime", async () 
   assert.equal(views.length, 1000);
   for (const view of views) {
     assert.equal(getAthenaClientInternals(view)?.postgresRuntime, rootRuntime);
-    assert.equal(getAthenaClientInternals(view)?.source, "view");
+    assert.equal(getAthenaClientInternals(view)?.source, "request");
+    assert.equal(getAthenaClientInternals(view)?.ownership, "request");
   }
-  await (views[0] as unknown as typeof root | undefined)?.close();
+  await assert.rejects(
+    () => (views[0] as unknown as typeof root).close(),
+    (error: unknown) =>
+      error instanceof AthenaRuntimeOwnershipError &&
+      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID"
+  );
   assert.equal(getAthenaClientInternals(root)?.postgresRuntime, rootRuntime);
+  assert.equal(getAthenaClientInternals(root)?.lifecycle.closed, false);
   await rootRuntime.getPool();
   await root.close();
 });

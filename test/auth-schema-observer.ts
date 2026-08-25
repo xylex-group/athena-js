@@ -17,6 +17,9 @@ export function createObservingAuthDatabase(options?: {
     async close() {},
     async query(text) {
       statements.push(text);
+      if (/pg_advisory_(?:xact_)?lock|pg_advisory_unlock/i.test(text)) {
+        return { rowCount: 1, rows: [{ acquired: true }] };
+      }
       if (options?.missing) {
         throw new Error(
           'relation "athena.auth_schema_migrations" does not exist'

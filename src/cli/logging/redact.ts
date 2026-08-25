@@ -11,6 +11,9 @@ export function redactSecrets(input: string): string {
   output = output.replace(/(cookie\s*[=:]\s*)[^\n;]+/gi, "$1***");
   output = output.replace(/(password\s*[=:]\s*)\S+/gi, "$1***");
   output = output.replace(/(secret\s*[=:]\s*)\S+/gi, "$1***");
+  // Keys/fields: bridgeCode, bridge_code, bridge-code
+  output = output.replace(/(bridge[_-]?code\s*[=:]\s*)\S+/gi, "$1***");
+  output = output.replace(/(session[_-]?token\s*[=:]\s*)\S+/gi, "$1***");
   return output;
 }
 
@@ -24,7 +27,11 @@ export function redactValue(value: unknown): unknown {
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [key, nested] of Object.entries(value)) {
-      if (/password|secret|token|authorization|cookie|api.?key/i.test(key)) {
+      if (
+        /password|secret|token|authorization|cookie|api.?key|bridge[_-]?code|session[_-]?token|^code$/i.test(
+          key
+        )
+      ) {
         out[key] = "***";
       } else {
         out[key] = redactValue(nested);

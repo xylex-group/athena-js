@@ -91,9 +91,6 @@ export function useAdminPermission(
   const fetchOptions = options.fetchOptions;
   const requestOptions = options.requestOptions;
 
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
-
   const sessionState = useSession(client as UseSessionAuthClient, {
     ...options.sessionOptions,
     enabled: enabled && !sessionProvided && !!client,
@@ -104,8 +101,6 @@ export function useAdminPermission(
     : (sessionState.data as AthenaAdminSessionLike | null);
 
   const sessionPending = !sessionProvided && sessionState.isPending;
-  const sessionUserId = session?.user?.id ?? null;
-  const sessionRole = session?.user?.role ?? null;
 
   const [allowed, setAllowed] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -115,8 +110,6 @@ export function useAdminPermission(
 
   const runCheck = useCallback(async (): Promise<boolean> => {
     const requestId = ++requestIdRef.current;
-    const current = optionsRef.current;
-    const permissions = current.permissions ?? DEFAULT_ADMIN_PERMISSIONS;
 
     if (!(enabled && client)) {
       if (mountedRef.current && requestId === requestIdRef.current) {
@@ -133,21 +126,22 @@ export function useAdminPermission(
       const permissionClient = resolveAdminPermissionClient(client);
       if (!permissionClient) {
         throw new Error(
-          "useAdminPermission requires an Athena client with auth.admin (createClient(...) or auth bindings)"
+          "useAdminPermission requires an Athena client with auth.admin (createClient() or auth bindings)"
         );
       }
 
-      const resolvedSession = sessionProvided
-        ? (current.session ?? null)
-        : (sessionState.data as AthenaAdminSessionLike | null);
+      const permissionSpec = JSON.parse(permissionsKey) as {
+        permission: AthenaAdminHasPermissionRequest["permission"] | null;
+        permissions: AthenaAdminHasPermissionRequest["permissions"];
+      };
 
       const nextAllowed = await hasAdminPermission(permissionClient, {
-        allowRoleBypass: current.allowRoleBypass,
-        fetchOptions: current.fetchOptions,
-        permission: current.permission,
-        permissions,
-        requestOptions: current.requestOptions,
-        session: resolvedSession,
+        allowRoleBypass,
+        fetchOptions,
+        permission: permissionSpec.permission ?? undefined,
+        permissions: permissionSpec.permissions,
+        requestOptions,
+        session,
       });
 
       if (!mountedRef.current || requestId !== requestIdRef.current) {
@@ -174,7 +168,15 @@ export function useAdminPermission(
         setIsChecking(false);
       }
     }
-  }, [client, enabled, sessionProvided, sessionState.data]);
+  }, [
+    allowRoleBypass,
+    client,
+    enabled,
+    fetchOptions,
+    permissionsKey,
+    requestOptions,
+    session,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -191,24 +193,13 @@ export function useAdminPermission(
       return;
     }
 
-    if (!sessionProvided && sessionState.isPending) {
+    if (sessionPending) {
       setIsChecking(true);
       return;
     }
 
     void runCheck();
-  }, [
-    allowRoleBypass,
-    enabled,
-    fetchOptions,
-    permissionsKey,
-    requestOptions,
-    runCheck,
-    sessionPending,
-    sessionProvided,
-    sessionRole,
-    sessionUserId,
-  ]);
+  }, [enabled, runCheck, sessionPending]);
 
   const refetch = useCallback(async () => {
     if (!sessionProvided) {

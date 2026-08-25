@@ -45,7 +45,7 @@ test("buildHeaders includes standard sdk identification header", () => {
 	const headers = client.buildHeaders();
 	assert.equal(
 		headers["X-Athena-Sdk"],
-		`xylex-group/athena ${packageJson.version}`,
+		`@xylex-group/athena ${packageJson.version}`,
 	);
 });
 
@@ -129,7 +129,7 @@ test("fetchGateway uses default client header when none provided", async () => {
 		);
 		assert.equal(
 			headers["X-Athena-Sdk"],
-			`xylex-group/athena ${packageJson.version}`,
+			`@xylex-group/athena ${packageJson.version}`,
 		);
 	} finally {
 		restore();

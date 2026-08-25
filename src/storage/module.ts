@@ -1547,23 +1547,32 @@ export interface DeprecatedInlineStorageConnectionFields {
   session_token?: string;
 }
 
+interface StorageConnectionBySnakeS3Id
+  extends DeprecatedInlineStorageConnectionFields {
+  s3_id: string;
+  s3Id?: string;
+}
+
+interface StorageConnectionByCamelS3Id
+  extends DeprecatedInlineStorageConnectionFields {
+  s3_id?: string;
+  s3Id: string;
+}
+
+interface StorageConnectionByInlineCredentials
+  extends DeprecatedInlineStorageConnectionFields {
+  s3_id?: string;
+  s3Id?: string;
+  endpoint: string;
+  region: string;
+  access_key_id: string;
+  secret_key: string;
+}
+
 export type StorageConnectionSelector =
-  | ({
-      s3_id: string;
-      s3Id?: string;
-    } & DeprecatedInlineStorageConnectionFields)
-  | ({
-      s3_id?: string;
-      s3Id: string;
-    } & DeprecatedInlineStorageConnectionFields)
-  | ({
-      s3_id?: string;
-      s3Id?: string;
-      endpoint: string;
-      region: string;
-      access_key_id: string;
-      secret_key: string;
-    } & DeprecatedInlineStorageConnectionFields);
+  | StorageConnectionBySnakeS3Id
+  | StorageConnectionByCamelS3Id
+  | StorageConnectionByInlineCredentials;
 
 export type StorageObjectFolderCreateRequest = StorageConnectionSelector & {
   bucket: string;
@@ -2877,18 +2886,19 @@ async function callStorageUploadBinaryEndpoint<T>(
     );
   }
 
-  // Clear prior content-type so Blob.type / body can own it (delete is intentional).
-  // biome-ignore lint/performance/noDelete: must remove keys; undefined assign breaks Headers typing
-  delete headers["Content-Type"];
-  // biome-ignore lint/performance/noDelete: must remove keys; undefined assign breaks Headers typing
-  delete headers["content-type"];
+  const nextHeaders: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== "content-type") {
+      nextHeaders[key] = value;
+    }
+  }
   if (isBlobBody(body) && body.type) {
-    headers["Content-Type"] = body.type;
+    nextHeaders["Content-Type"] = body.type;
   }
 
   const requestInit: RequestInit & { duplex?: "half" } = {
     body: body as RequestInit["body"],
-    headers,
+    headers: nextHeaders,
     method: "PUT",
     signal: resolvedOptions?.signal,
   };

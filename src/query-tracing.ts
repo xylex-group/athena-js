@@ -2,7 +2,7 @@ import type {
   AthenaQueryTraceCallsite,
   AthenaQueryTraceEvent,
   InternalClientBehaviorOptions,
-} from "./client.ts";
+} from "./client-fluent.ts";
 import type { AthenaResult } from "./client-result.ts";
 import type {
   AthenaGatewayCallOptions,
@@ -14,6 +14,12 @@ import { attachAthenaDebugAst } from "./query-debug-ast.ts";
 const QUERY_TRACE_STACK_SKIP_PATTERNS = [
   "src\\client.ts",
   "src/client.ts",
+  "src\\client-fluent.ts",
+  "src/client-fluent.ts",
+  "src\\client\\context.ts",
+  "src/client/context.ts",
+  "src\\client\\create-client.ts",
+  "src/client/create-client.ts",
   "src\\query-tracing.ts",
   "src/query-tracing.ts",
   "src\\v3-client.ts",
@@ -42,6 +48,8 @@ export interface AthenaTraceContext {
   operation: AthenaTraceOperation;
   options?: AthenaGatewayCallOptions | AthenaRpcCallOptions;
   payload: unknown;
+  /** Non-authoritative intent. Fluent upsert traces this; Policy still sees insert. */
+  semanticOperation?: "upsert";
   sql: string;
   table?: string;
 }

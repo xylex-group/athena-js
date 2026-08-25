@@ -9,28 +9,28 @@
       "source": "index.md",
       "out": "index.mdx",
       "title": "Athena JS",
-      "description": "Runtime-neutral Athena JS 3 SDK docs index: client construction, Next façades, auth, types, and generator tracks."
+      "description": "Athena JS SDK docs index: client construction."
     },
     {
       "id": "getting-started",
       "source": "getting-started.md",
       "out": "getting-started.mdx",
       "title": "Getting Started",
-      "description": "Install Athena JS 3, create a client, query data, and wire Next.js façades."
+      "description": "Install Athena JS, create a client, query data, and wire Next.js façades."
     },
     {
       "id": "next-js",
       "source": "next-js.md",
       "out": "next-js.mdx",
       "title": "Next.js",
-      "description": "createAthenaBrowserClient and createAthenaServerClient façades, request context, and session bridge entrypoints."
+      "description": "Next.js Local Runtime"
     },
     {
       "id": "api-reference",
       "source": "api-reference.md",
       "out": "api-reference.mdx",
       "title": "API Reference",
-      "description": "Athena JS 3 construction, configuration, request context, errors, and package subpaths."
+      "description": "Athena JS construction, configuration, request context, errors, and package subpaths."
     },
     {
       "id": "complete-method-reference",
@@ -86,13 +86,13 @@
       "source": "storage/index.md",
       "out": "storage.mdx",
       "title": "Storage",
-      "description": "Stable client.storage namespace for catalogs, files, R2, and backups."
+      "description": "Stable client.storage namespace for catalogs, files, R2, Node local ObjectStore, and backups."
     },
     {
       "id": "cloudflare-edge-local",
       "source": "cloudflare-edge-local.md",
       "out": "cloudflare-edge-local.mdx",
-      "title": "Cloudflare Edge-Local (D1 / R2)",
+      "title": "Cloudflare Edge-Local",
       "description": "createCloudflareClient for Worker-owned D1 and R2 without athena_rs."
     },
     {
@@ -100,7 +100,21 @@
       "source": "typed-schema-registry.md",
       "out": "typed-schema-registry.mdx",
       "title": "Typed Schema Registry",
-      "description": "Model contracts, registries, and createClient({ models }) typing."
+      "description": "Model contracts, registries."
+    },
+    {
+      "id": "schema-ir",
+      "source": "schema-ir.md",
+      "out": "schema-ir.mdx",
+      "title": "Schema IR v2",
+      "description": "Canonical Athena Schema IR."
+    },
+    {
+      "id": "schema-diff",
+      "source": "schema-diff.md",
+      "out": "schema-diff.mdx",
+      "title": "Schema Diff",
+      "description": "Structured compare of Schema IR v2"
     },
     {
       "id": "type-surface-manifest",
@@ -142,7 +156,7 @@
       "source": "generator-quickstart.md",
       "out": "generator-quickstart.mdx",
       "title": "Generator Quickstart",
-      "description": "Zero-config generate, athena-js init, and intelligent schema auto-fill for athena.config.ts."
+      "description": "Zero-config generate, athena-js init, and intelligent schema auto-fill "
     },
     {
       "id": "generator-config",
@@ -156,7 +170,7 @@
       "source": "generator-cicd.md",
       "out": "generator-cicd.mdx",
       "title": "Generator CI/CD",
-      "description": "CI gates for generate/init, --no-write-config, schema auto-fill, and gateway vs direct."
+      "description": "CI gates for generate/init"
     },
     {
       "id": "cli-command-reference",
@@ -205,7 +219,7 @@
       "source": "auth/index.mdx",
       "out": "auth/index.mdx",
       "title": "Auth Client",
-      "description": "Full createClient(...).auth surface grouped by domain."
+      "description": "Full createClient().auth"
     },
     {
       "id": "auth-admin",
@@ -219,7 +233,7 @@
       "source": "auth/api-key.mdx",
       "out": "auth/api-key.mdx",
       "title": "API Key",
-      "description": "Auth API key bindings on createClient(...).auth."
+      "description": "Auth API key bindings on createClient().auth."
     },
     {
       "id": "auth-callback",
@@ -303,7 +317,7 @@
       "source": "auth/user.mdx",
       "out": "auth/user.mdx",
       "title": "User",
-      "description": "User lifecycle bindings on createClient(...).auth."
+      "description": "User lifecycle bindings on createClient().auth"
     },
     {
       "id": "auth-react-email",
@@ -331,7 +345,7 @@
       "source": "athena-client-bindings.md",
       "out": "auth/client-bindings.mdx",
       "title": "Client Bindings Map",
-      "description": "Compact single-page map of createClient(...).auth routes."
+      "description": "Compact single-page map of createClient().auth routes."
     },
     {
       "id": "auth-routes",

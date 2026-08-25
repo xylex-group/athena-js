@@ -5,7 +5,7 @@ import type {
   SelectChain,
   TableQueryBuilder,
   UpdateChain,
-} from "../client.ts";
+} from "../client-fluent.ts";
 import type { AthenaResult } from "../client-result.ts";
 import type { AthenaExecutable } from "../query/descriptor.ts";
 import type {

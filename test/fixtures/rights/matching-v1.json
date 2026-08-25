@@ -1,0 +1,81 @@
+{
+  "authority": "crates/athena-rights",
+  "cases": [
+    {
+      "granted": "users.read",
+      "matches": true,
+      "required": "users.read"
+    },
+    {
+      "granted": "users.*",
+      "matches": true,
+      "required": "users.read"
+    },
+    {
+      "granted": "*.read",
+      "matches": true,
+      "required": "users.read"
+    },
+    {
+      "granted": "gateway.read",
+      "matches": true,
+      "required": "users.read"
+    },
+    {
+      "granted": "gateway.*",
+      "matches": true,
+      "required": "users.delete"
+    },
+    {
+      "granted": "*",
+      "matches": true,
+      "required": "users.read"
+    },
+    {
+      "granted": "users.write",
+      "matches": false,
+      "required": "users.read"
+    },
+    {
+      "granted": "tickets.read",
+      "matches": false,
+      "required": "users.read"
+    },
+    {
+      "granted": "*",
+      "matches": true,
+      "required": "gateway.query"
+    },
+    {
+      "granted": "gateway.query",
+      "matches": true,
+      "required": "gateway.query"
+    },
+    {
+      "granted": "gateway.write",
+      "matches": false,
+      "required": "users.read"
+    },
+    {
+      "granted": "users.*",
+      "matches": true,
+      "required": "users.write"
+    }
+  ],
+  "missingRequired": {
+    "granted": [
+      "users.*",
+      "gateway.query"
+    ],
+    "required": [
+      "users.read",
+      "users.write",
+      "tickets.read",
+      "gateway.query"
+    ],
+    "uncovered": [
+      "tickets.read"
+    ]
+  },
+  "version": 1
+}

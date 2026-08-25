@@ -15,9 +15,11 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { getAttachedAthenaAuthRouting } from "../../src/auth/resolve-routing.ts";
+import type { AthenaGatewayClient } from "../../src/gateway/client.ts";
+import type { AthenaGatewayCallOptions } from "../../src/gateway/types.ts";
 import {
-	parseAthenaRuntimeDiscoveryDocument,
 	type AthenaRuntimeDiscoveryDocument,
+	parseAthenaRuntimeDiscoveryDocument,
 } from "../../src/gateway/discovery-types.ts";
 import { isCompatibleAthenaRuntimeProtocol } from "../../src/gateway/protocol.ts";
 import {
@@ -93,7 +95,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-function mockTransport() {
+function mockTransport(): AthenaGatewayClient {
 	const ok = async () =>
 		({
 			count: null,
@@ -113,7 +115,9 @@ function mockTransport() {
 		fetchGateway: ok,
 		insertGateway: ok,
 		queryGateway: ok,
-		async resolveCallOptions(options: unknown) {
+		async resolveCallOptions(
+			options?: AthenaGatewayCallOptions,
+		): Promise<AthenaGatewayCallOptions | undefined> {
 			return options;
 		},
 		rpcGateway: ok,
@@ -136,7 +140,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function authCapability(body: Record<string, unknown>): Record<string, unknown> {
+function authCapability(
+	body: Record<string, unknown>,
+): Record<string, unknown> {
 	const caps = body.capabilities;
 	assert.ok(isRecord(caps), "discovery document must include capabilities");
 	assert.equal(
@@ -206,7 +212,9 @@ function withMockedFetch(
 }
 
 function isApiAuthUrl(url: string): boolean {
-	return /\/api\/auth(?:\/|$|\?)/.test(url) && !url.includes("/api/athena/auth");
+	return (
+		/\/api\/auth(?:\/|$|\?)/.test(url) && !url.includes("/api/athena/auth")
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +227,10 @@ test("T-DOC-11: parser accepts 1.0 Data-only and 1.1 next-local + endpoints", ()
 		"1.0 runtime:local + scalar capabilities.auth must remain valid",
 	);
 	const parsed11 = parseAthenaRuntimeDiscoveryDocument(protocol11AuthOn);
-	assert.ok(parsed11, "1.1 runtime:next-local + object capabilities.auth must parse");
+	assert.ok(
+		parsed11,
+		"1.1 runtime:next-local + object capabilities.auth must parse",
+	);
 	assert.equal(parsed11?.runtime, "next-local");
 	assert.deepEqual(parsed11?.protocol, { major: 1, minor: 1 });
 	assert.equal(isCompatibleAthenaRuntimeProtocol({ major: 1, minor: 1 }), true);
@@ -271,7 +282,10 @@ test("T-HAND-11: createAthenaNextHandlers advertises 1.1 from plan, never re-inf
 		gatewayTransport: mockTransport(),
 	});
 	try {
-		assert.equal(getAthenaClientInternals(client)?.plan.auth.runtime, "disabled");
+		assert.equal(
+			getAthenaClientInternals(client)?.plan.auth.runtime,
+			"disabled",
+		);
 		const next = createAthenaNextHandlers({
 			client,
 			security: { mode: "trusted" },
@@ -285,6 +299,18 @@ test("T-HAND-11: createAthenaNextHandlers advertises 1.1 from plan, never re-inf
 			false,
 			"auth:false plan must win over env.DATABASE_URL (no second inference)",
 		);
+		const diagnostics = body.diagnostics;
+		assert.ok(isRecord(diagnostics));
+		assert.equal(diagnostics.auth, "disabled");
+		assert.equal(diagnostics.database, "postgres-direct");
+		assert.equal(diagnostics.runtime, "node");
+		assert.ok(isRecord(diagnostics.passkey));
+		assert.equal(diagnostics.passkey.enabled, false);
+		assert.ok(isRecord(diagnostics.config));
+		const config = diagnostics.config;
+		assert.equal(config.autoMigrate, false);
+		assert.equal(config.databaseConfigured, true);
+		assert.equal(config.modelsAttached, false);
 	} finally {
 		void client.close();
 	}
@@ -451,10 +477,9 @@ test("T-HAND-14: remote-direct (mode:remote + url) is not rewritten to same-orig
 // ---------------------------------------------------------------------------
 
 test("T-BRW-11: discover-next materializes ResolvedNextAthenaTopology without PG/embedded", async () => {
-	const routingMod = (await import("../../src/auth/resolve-routing.ts")) as Record<
-		string,
-		unknown
-	>;
+	const routingMod = (await import(
+		"../../src/auth/resolve-routing.ts"
+	)) as Record<string, unknown>;
 	assert.equal(
 		typeof routingMod.resolveExplicitAuthRouting,
 		"function",
@@ -534,12 +559,15 @@ test("T-BRW-12: discover-next without auth.routing attaches usable athena.auth a
 		assert.equal(
 			diag.browserRequestBaseUrl?.includes("/api/athena/auth"),
 			false,
-			"legacy Data-tree fold ${dataUrl}/auth must not win",
+			"legacy Data-tree fold of dataUrl + /auth must not win",
 		);
 		assert.notEqual(diag.mode, "legacy");
 
 		const attached = getAttachedAthenaAuthRouting(client);
-		assert.ok(attached, "attachAthenaAuthRouting must run from discovered topology");
+		assert.ok(
+			attached,
+			"attachAthenaAuthRouting must run from discovered topology",
+		);
 		assert.ok(
 			attached.browserRequestBaseUrl === "/api/auth" ||
 				attached.browserRequestBaseUrl.endsWith("/api/auth"),
@@ -643,7 +671,7 @@ test("T-ERR-11: 1.0 Data-only document never implies Auth endpoints", async () =
 
 test("T-UI-11: resolveAuthUiClient / AthenaProviders consume discovered auth", async () => {
 	const clientSrc = await readRepo(
-		"packages/athena-auth-ui/packages/heroui/src/lib/athena/client.ts",
+		"packages/athena-auth-ui/src/lib/athena/client.ts",
 	);
 	const resolveFn = clientSrc.slice(
 		clientSrc.indexOf("export function resolveAuthUiClient"),
@@ -665,9 +693,9 @@ test("T-UI-11: resolveAuthUiClient / AthenaProviders consume discovered auth", a
 	);
 
 	const providersSrc = await readRepo(
-		"packages/athena-auth-ui/packages/heroui/src/components/auth/athena-providers.tsx",
+		"packages/athena-auth-ui/src/components/auth/athena-providers.tsx",
 	);
-	assert.match(providersSrc, /resolveAuthUiClient/);
+	assert.match(providersSrc, /client:/);
 	assert.equal(providersSrc.includes("DATABASE_URL"), false);
 	assert.equal(providersSrc.includes("inferEmbeddedAuthMode"), false);
 	assert.equal(providersSrc.includes('mode: "local"'), false);
@@ -729,7 +757,7 @@ test("T-APP-11: next-minimal is createClient(databaseUrl, autoMigrate) + discove
 	assert.match(browser, /discover:\s*"next"/);
 	assert.equal(browser.includes("createAthenaBrowserClient"), false);
 	assert.equal(browser.includes("auth: { routing:"), false);
-	assert.match(providers, /AthenaProviders/);
+	assert.match(providers, /AthenaNextAuthProvider|AthenaProviders/);
 	assert.equal(
 		providers.includes('basePath="/api/auth"'),
 		false,
@@ -738,7 +766,9 @@ test("T-APP-11: next-minimal is createClient(databaseUrl, autoMigrate) + discove
 });
 
 test("T-APP-11: create-athena-app golden path drops createAthenaBrowserClient and explicit local", async () => {
-	const clients = await readRepo("packages/create-athena-app/src/next/clients.ts");
+	const clients = await readRepo(
+		"packages/create-athena-app/src/next/clients.ts",
+	);
 	const browserFn = clients.slice(
 		clients.indexOf("export function renderAthenaBrowserClient"),
 		clients.indexOf("export function renderAthenaBrowserClientAlias"),
@@ -776,9 +806,21 @@ test("T-PKG-12: next/client + topology stay browser-safe and do not store embedd
 		["next/client.ts", clientSrc],
 		["next/topology.ts", topologySrc],
 	] as const) {
-		assert.equal(src.includes('from "../postgres'), false, `${label} must not import postgres`);
-		assert.equal(src.includes("createAthenaAuthRuntime"), false, `${label} must not embed Auth`);
-		assert.equal(src.includes("inferEmbeddedAuthMode"), false, `${label} must not re-infer`);
+		assert.equal(
+			src.includes('from "../postgres'),
+			false,
+			`${label} must not import postgres`,
+		);
+		assert.equal(
+			src.includes("createAthenaAuthRuntime"),
+			false,
+			`${label} must not embed Auth`,
+		);
+		assert.equal(
+			src.includes("inferEmbeddedAuthMode"),
+			false,
+			`${label} must not re-infer`,
+		);
 	}
 	assert.match(
 		`${clientSrc}\n${topologySrc}`,

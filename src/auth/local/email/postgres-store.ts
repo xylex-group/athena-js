@@ -113,7 +113,9 @@ function hydrateEventType(
   return {
     category: String(row.category ?? ""),
     default_template_key:
-      typeof row.default_template_key === "string" ? row.default_template_key : null,
+      typeof row.default_template_key === "string"
+        ? row.default_template_key
+        : "",
     description: String(row.description ?? ""),
     event_type: String(row.event_type ?? ""),
     is_active: row.is_active !== false,

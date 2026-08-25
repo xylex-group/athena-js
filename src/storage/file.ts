@@ -133,7 +133,7 @@ export interface AthenaStorageFileUploadInput
   public?: boolean;
   resource_id?: string;
   resourceId?: string;
-  s3_id: string;
+  s3_id?: string;
   storage_key?: string;
   storageKey?: string;
   storageKeyTemplate?: string;
@@ -313,7 +313,7 @@ export function createStorageFileModule(
             original_name: input.original_name ?? source.fileName,
             public: input.public,
             resource_id: input.resource_id ?? input.resourceId,
-            s3_id: input.s3_id,
+            s3_id: input.s3_id ?? "",
             server_side_encryption: input.server_side_encryption,
             size_bytes: source.sizeBytes,
             sse: input.sse,
@@ -450,7 +450,7 @@ export function createStorageFileModule(
           original_name: input.original_name ?? source.fileName,
           public: input.public,
           resource_id: input.resource_id ?? input.resourceId,
-          s3_id: input.s3_id,
+          s3_id: input.s3_id ?? "",
           server_side_encryption: input.server_side_encryption,
           size_bytes: source.sizeBytes,
           sse: input.sse,
@@ -728,7 +728,7 @@ export function createStorageFileModule(
         {
           ...listRequest,
           prefix,
-          s3_id: input.s3_id,
+          s3_id: input.s3_id ?? "",
         },
         options
       );

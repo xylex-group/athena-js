@@ -25,6 +25,9 @@ test("v3 client exposes stable service namespaces", () => {
 	assert.equal(typeof client.storage, "object");
 	assert.equal(typeof client.billing, "object");
 	assert.equal(typeof client.billing.getCapabilities, "function");
+	assert.equal(typeof client.email, "object");
+	assert.equal(client.email.configured, false);
+	assert.equal(typeof client.email.send, "function");
 	// Unified root configures storage via /storage derivation.
 	assert.equal(client.capabilities.storage.objects, true);
 });

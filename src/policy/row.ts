@@ -1,3 +1,7 @@
+import {
+	normalizeAthenaResourceRef,
+	type AthenaResourceRef,
+} from "../schema/resource.ts";
 import type { AnyModelDef, ModelColumnMetadata } from "../schema/types.ts";
 import { columnOperand, type PolicyOperandNode } from "./expr-builders.ts";
 
@@ -40,24 +44,27 @@ export function buildRowProxy<TModel extends AnyModelDef>(
   return row as PolicyRowProxy<TModel>;
 }
 
-export function resourceFromModel(model: AnyModelDef): {
-  database?: string;
-  schema?: string;
-  table: string;
-} {
-  const table =
-    model.meta.tableName?.includes(".")
-      ? model.meta.tableName.split(".").pop()!
-      : (model.meta.tableName ?? model.meta.model ?? "unknown");
-
+export function resourceFromModel(model: AnyModelDef): AthenaResourceRef {
+  const tableName = model.meta.tableName;
+  const fallbackTable = model.meta.model ?? "unknown";
+  let table = tableName ?? fallbackTable;
   let schema = model.meta.schema;
-  if (!schema && model.meta.tableName?.includes(".")) {
-    schema = model.meta.tableName.split(".")[0];
+
+  if (tableName?.includes(".")) {
+    const parts = tableName.split(".");
+    const last = parts.at(-1);
+    table = last && last.length > 0 ? last : fallbackTable;
+    if (!schema) {
+      const first = parts[0];
+      if (first && first.length > 0) {
+        schema = first;
+      }
+    }
   }
 
-  return {
-    database: model.meta.database,
-    schema,
+  return normalizeAthenaResourceRef({
+    ...(model.meta.database ? { database: model.meta.database } : {}),
+    ...(schema ? { schema } : {}),
     table,
-  };
+  });
 }

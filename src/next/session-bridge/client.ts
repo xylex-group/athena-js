@@ -8,27 +8,27 @@ const JSON_CONTENT_TYPE = "application/json";
  * Used to no-op client helpers during SSR.
  */
 function isBrowserRuntime(): boolean {
-  // Require a real window object. `"window" in globalThis` stays true after
-  // tests assign `window = undefined`, which incorrectly looked browser-like.
-  const win = (globalThis as { window?: unknown }).window;
-  return typeof win === "object" && win !== null;
+	// Require a real window object. `"window" in globalThis` stays true after
+	// tests assign `window = undefined`, which incorrectly looked browser-like.
+	const win = (globalThis as { window?: unknown }).window;
+	return typeof win === "object" && win !== null;
 }
 
 /**
  * Options for browser-side bridge fetch helpers.
  */
 export interface AthenaAuthSessionBridgeClientOptions {
-  /**
-   * Optional fetch implementation (defaults to global `fetch`).
-   * Useful in tests.
-   */
-  fetch?: typeof fetch | undefined;
-  /**
-   * Bridge route on the app host.
-   *
-   * @defaultValue {@link ATHENA_AUTH_SESSION_BRIDGE_ROUTE}
-   */
-  route?: string | undefined;
+	/**
+	 * Optional fetch implementation (defaults to global `fetch`).
+	 * Useful in tests.
+	 */
+	fetch?: typeof fetch | undefined;
+	/**
+	 * Bridge route on the app host.
+	 *
+	 * @defaultValue {@link ATHENA_AUTH_SESSION_BRIDGE_ROUTE}
+	 */
+	route?: string | undefined;
 }
 
 /**
@@ -50,29 +50,29 @@ export interface AthenaAuthSessionBridgeClientOptions {
  * ```
  */
 export async function persistAthenaAuthSessionOnAppHost(
-  payload: AthenaAuthSessionBridgePayload | null,
-  options?: AthenaAuthSessionBridgeClientOptions
+	payload: AthenaAuthSessionBridgePayload | null,
+	options?: AthenaAuthSessionBridgeClientOptions,
 ): Promise<void> {
-  if (!(payload && isBrowserRuntime())) {
-    return;
-  }
+	if (!(payload && isBrowserRuntime())) {
+		return;
+	}
 
-  const route = options?.route ?? ATHENA_AUTH_SESSION_BRIDGE_ROUTE;
-  const fetchImpl = options?.fetch ?? fetch;
-  const response = await fetchImpl(route, {
-    body: JSON.stringify(payload),
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": JSON_CONTENT_TYPE,
-    },
-    method: "POST",
-  });
+	const route = options?.route ?? ATHENA_AUTH_SESSION_BRIDGE_ROUTE;
+	const fetchImpl = options?.fetch ?? fetch;
+	const response = await fetchImpl(route, {
+		body: JSON.stringify(payload),
+		credentials: "same-origin",
+		headers: {
+			"Content-Type": JSON_CONTENT_TYPE,
+		},
+		method: "POST",
+	});
 
-  if (!response.ok) {
-    throw new Error(
-      "Failed to persist the Athena Auth session on the app host"
-    );
-  }
+	if (!response.ok) {
+		throw new Error(
+			"Failed to persist the Athena Auth session on the app host",
+		);
+	}
 }
 
 /**
@@ -85,20 +85,20 @@ export async function persistAthenaAuthSessionOnAppHost(
  * @throws {Error} When the bridge responds with a non-OK status
  */
 export async function clearAthenaAuthSessionOnAppHost(
-  options?: AthenaAuthSessionBridgeClientOptions
+	options?: AthenaAuthSessionBridgeClientOptions,
 ): Promise<void> {
-  if (!isBrowserRuntime()) {
-    return;
-  }
+	if (!isBrowserRuntime()) {
+		return;
+	}
 
-  const route = options?.route ?? ATHENA_AUTH_SESSION_BRIDGE_ROUTE;
-  const fetchImpl = options?.fetch ?? fetch;
-  const response = await fetchImpl(route, {
-    credentials: "same-origin",
-    method: "DELETE",
-  });
+	const route = options?.route ?? ATHENA_AUTH_SESSION_BRIDGE_ROUTE;
+	const fetchImpl = options?.fetch ?? fetch;
+	const response = await fetchImpl(route, {
+		credentials: "same-origin",
+		method: "DELETE",
+	});
 
-  if (!response.ok) {
-    throw new Error("Failed to clear the Athena Auth session on the app host");
-  }
+	if (!response.ok) {
+		throw new Error("Failed to clear the Athena Auth session on the app host");
+	}
 }

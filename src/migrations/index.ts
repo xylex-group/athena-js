@@ -7,7 +7,32 @@
 
 export type { MigrationBackend } from "./backend.ts";
 export { checksumMigrationSql } from "./checksum.ts";
-export { DEFAULT_MIGRATIONS_DIRECTORY } from "./constants.ts";
+export {
+  DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
+  DEFAULT_MIGRATIONS_DIRECTORY,
+} from "./constants.ts";
+export {
+  ensureApplicationMigrationsDirectory,
+} from "./ensure-directory.ts";
+export {
+  ensureAthenaProjectLayout,
+  formatManagedAuthDrift,
+  inspectManagedAuthMigrations,
+  listManagedAuthMigrationArtifacts,
+  materializeManagedAuthMigrations,
+  MANAGED_AUTH_MIGRATION_HEADER,
+} from "./managed-auth.ts";
+export type {
+  EnsureAthenaProjectLayoutResult,
+  ManagedAuthFileInspection,
+  ManagedAuthInspection,
+  ManagedAuthMigrationArtifact,
+  MaterializeManagedAuthMigrationsResult,
+} from "./managed-auth.ts";
+export type {
+  EnsureApplicationMigrationsDirectoryOptions,
+  EnsureApplicationMigrationsDirectoryResult,
+} from "./ensure-directory.ts";
 export {
   discoverMigrations,
   parseMigrationFilename,
@@ -25,6 +50,45 @@ export {
   PostgresMigrationBackend,
 } from "./postgres.ts";
 export { runMigrations } from "./runner.ts";
+export {
+  assembleReconciliationReport,
+  buildReconciliationReport,
+  formatReconciliationReport,
+  isHighAutoRepair,
+  reconcileVersion,
+} from "./reconciliation/index.ts";
+export type {
+  ArchivedMigrationSource,
+  MigrationReconciliationAction,
+  ReconciliationClassification,
+  ReconciliationConfidence,
+  ReconciliationReport,
+  VersionReconciliation,
+} from "./reconciliation/index.ts";
+export {
+  formatDirtyMigrationError,
+  inspectDirtyMigrationWorktree,
+  parseGitPorcelainLine,
+} from "./git-worktree.ts";
+export {
+  freezePreparedMigrations,
+  inspectSourceControl,
+  parsePorcelainV2,
+} from "./source-control/index.ts";
+export type {
+  DirtyMigrationWorktree,
+  DirtyWorktreeEntry,
+} from "./git-worktree.ts";
+export {
+  analyzeMigrationFile,
+  compileMigrations,
+  DIAGNOSTIC_CODES,
+} from "./analysis/index.ts";
+export type {
+  CompileMigrationsResult,
+  MigrationAnalysis,
+  MigrationDiagnostic,
+} from "./analysis/index.ts";
 export {
   applicationRowsFromPlan,
   authRowsFromPlan,

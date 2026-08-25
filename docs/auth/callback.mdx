@@ -1,5 +1,9 @@
 # Auth Callback
 
+`auth.callback.provider` is the public consumer. Embedded local still does **not**
+serve `GET /callback/{provider}` (Track C HTTP follow-on). Durable OAuth
+transactions exist on the server engine ([ADR 0050](../../../../docs/adr/technical/0050-athena-js-social-oauth-orchestration.md)).
+
 ## Endpoints and methods
 
 - `auth.callback.provider({ provider, code, state })` -> `GET /callback/{provider}?code=...&state=...`

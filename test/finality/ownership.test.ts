@@ -54,7 +54,7 @@ test("N1: RequestClient / request client cannot become handler root", () => {
 			}),
 		(error: unknown) => {
 			assert.ok(error instanceof AthenaRuntimeOwnershipError);
-			assert.equal(error.code, "ATHENA_HANDLER_ROOT_CLIENT_REQUIRED");
+			assert.equal(error.code, "ATHENA_RUNTIME_OWNERSHIP_INVALID");
 			assert.equal(error.received, "request-view");
 			return true;
 		},

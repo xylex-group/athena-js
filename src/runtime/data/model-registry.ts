@@ -1,14 +1,17 @@
 import { AthenaConfigurationError } from "../../config/errors.ts";
+import {
+  athenaResourceKeys,
+  parseAthenaResourceRef,
+  resolvedAthenaResource,
+  type AthenaResolvedResource,
+} from "../../schema/resource.ts";
 import type { ModelRelationMetadata } from "../../schema/types.ts";
 import type { AthenaRuntimeModelEnforcement } from "./types.ts";
 
-export interface AthenaRuntimeModelDescriptor {
-  readonly canonicalResource: string;
+export interface AthenaRuntimeModelDescriptor extends AthenaResolvedResource {
   readonly columns: ReadonlySet<string>;
   readonly primaryKey?: readonly string[];
   readonly relations: ReadonlyMap<string, ModelRelationMetadata>;
-  readonly schema?: string;
-  readonly table: string;
   readonly uniqueKeys: readonly (readonly string[])[];
 }
 
@@ -20,6 +23,7 @@ export interface AthenaRuntimeModelIndex {
 
 interface ModelMetaLike {
   columns?: Partial<Record<string, unknown>>;
+  database?: string;
   model?: string;
   primaryKey?: unknown;
   relations?: Record<string, ModelRelationMetadata>;
@@ -84,13 +88,11 @@ function physicalTable(meta: ModelMetaLike, model: ModelLike): {
     typeof meta.schema === "string" && meta.schema.trim()
       ? meta.schema.trim()
       : undefined;
-  const dot = qualified.lastIndexOf(".");
-  if (dot > 0) {
-    const schema = qualified.slice(0, dot);
-    const table = qualified.slice(dot + 1);
-    return { schema: schemaFromMeta ?? schema, table };
-  }
-  return { schema: schemaFromMeta, table: qualified };
+  const parsed = parseAthenaResourceRef(qualified);
+  return {
+    schema: schemaFromMeta ?? parsed.schema,
+    table: parsed.table,
+  };
 }
 
 function columnNames(meta: ModelMetaLike): Set<string> {
@@ -123,7 +125,25 @@ function columnNames(meta: ModelMetaLike): Set<string> {
 function toDescriptor(model: ModelLike): AthenaRuntimeModelDescriptor {
   const meta = model.meta ?? {};
   const { schema, table } = physicalTable(meta, model);
-  const canonicalResource = schema ? `${schema}.${table}` : table;
+  const parsedQualified = parseAthenaResourceRef(
+    (typeof model.qualifiedName === "string" && model.qualifiedName.trim()) ||
+      (typeof meta.tableName === "string" && meta.tableName.trim()) ||
+      "",
+  );
+  const database =
+    (typeof meta.database === "string" && meta.database.trim()
+      ? meta.database.trim()
+      : undefined) ?? parsedQualified.database;
+  const modelName =
+    typeof meta.model === "string" && meta.model.trim()
+      ? meta.model.trim()
+      : undefined;
+  const resolved = resolvedAthenaResource({
+    ...(database ? { database } : {}),
+    ...(schema ? { schema } : {}),
+    ...(modelName ? { model: modelName } : {}),
+    table,
+  });
   const primaryKey = Array.isArray(meta.primaryKey)
     ? meta.primaryKey.filter(
         (key): key is string => typeof key === "string" && key.trim().length > 0
@@ -138,12 +158,10 @@ function toDescriptor(model: ModelLike): AthenaRuntimeModelDescriptor {
     }
   }
   return {
-    canonicalResource,
+    ...resolved,
     columns: columnNames(meta),
     primaryKey: primaryKey.length > 0 ? primaryKey : undefined,
     relations,
-    schema,
-    table,
     uniqueKeys: primaryKey.length > 0 ? [primaryKey] : [],
   };
 }
@@ -162,7 +180,11 @@ export function buildAthenaRuntimeModelIndex(
 ): AthenaRuntimeModelIndex {
   const collected: ModelLike[] = [];
   collectModels(models, collected);
-  const byAlias = new Map<string, AthenaRuntimeModelDescriptor>();
+  const ambiguous = Symbol("ambiguous");
+  const byAlias = new Map<
+    string,
+    AthenaRuntimeModelDescriptor | typeof ambiguous
+  >();
   const descriptors: AthenaRuntimeModelDescriptor[] = [];
   const claimedCanonical = new Set<string>();
 
@@ -180,18 +202,19 @@ export function buildAthenaRuntimeModelIndex(
     descriptors.push(descriptor);
     const aliases = new Set<string>([
       descriptor.canonicalResource,
-      descriptor.table,
+      ...athenaResourceKeys(descriptor),
     ]);
-    if (descriptor.schema) {
-      aliases.add(`${descriptor.schema}.${descriptor.table}`);
-    }
     for (const alias of aliases) {
       const existing = byAlias.get(alias);
+      if (existing === ambiguous) {
+        continue;
+      }
       if (
         existing &&
         existing.canonicalResource !== descriptor.canonicalResource
       ) {
-        throw invalidRegistry(`ambiguous resource alias ${alias}`);
+        byAlias.set(alias, ambiguous);
+        continue;
       }
       byAlias.set(alias, descriptor);
     }
@@ -205,7 +228,8 @@ export function buildAthenaRuntimeModelIndex(
       if (!trimmed) {
         return undefined;
       }
-      return byAlias.get(trimmed);
+      const found = byAlias.get(trimmed);
+      return found === ambiguous ? undefined : found;
     },
   };
 }

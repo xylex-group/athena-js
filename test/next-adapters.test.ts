@@ -796,3 +796,25 @@ test("createAthenaServerClient({ client }) isolates concurrent request contexts"
 		globalThis.fetch = originalFetch;
 	}
 });
+
+test("discover-next browser client seeds embedded auth capability snapshot", async () => {
+	const { createClient: createNextBrowserClient } = await import(
+		"../src/next/client.ts"
+	);
+	const { ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT } = await import(
+		"../src/auth/capabilities.ts"
+	);
+	const client = createNextBrowserClient({
+		topology: { discover: "next", fallback: "error" },
+	});
+	const snap = (
+		client.auth as {
+			capabilities: { get: () => typeof ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT };
+		}
+	).capabilities.get();
+	assert.equal(snap.status, "known");
+	assert.equal(snap.source, "bootstrap");
+	assert.equal(snap.password, true);
+	assert.equal(snap.organizations, true);
+	assert.equal(snap.passkeys, false);
+});

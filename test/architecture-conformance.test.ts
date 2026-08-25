@@ -56,8 +56,8 @@ function directConfig(preset: "athena-direct" | "legacy" = "athena-direct") {
 	});
 }
 
-/** ACT-003: generated isolation under src/lib/athena/generated */
-test("ACT-003 generated outputs only under src/lib/athena/generated", () => {
+/** ACT-003: generated isolation under the default project artifact root */
+test("ACT-003 generated outputs only under athena/generated", () => {
 	const artifacts = generateArtifactsFromSnapshot(snapshot, directConfig());
 	assert.ok(artifacts.files.length > 0);
 	for (const file of artifacts.files) {

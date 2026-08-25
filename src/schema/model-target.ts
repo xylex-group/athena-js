@@ -26,13 +26,15 @@ export function resolveAthenaModelTargetTableName(
   options: ResolveAthenaModelTargetTableNameOptions = {}
 ): string {
   const explicitTableName = normalizeOptionalName(target.meta.tableName);
-  if (explicitTableName) {
-    return explicitTableName;
-  }
-
   const schemaName = normalizeOptionalName(
     target.meta.schema ?? options.fallbackSchema
   );
+  if (explicitTableName) {
+    if (explicitTableName.includes(".")) {
+      return explicitTableName;
+    }
+    return schemaName ? `${schemaName}.${explicitTableName}` : explicitTableName;
+  }
   const modelName = normalizeOptionalName(
     target.meta.model ?? options.fallbackModel
   );

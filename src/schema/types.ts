@@ -10,6 +10,7 @@ export type ModelColumnKind =
   | "boolean"
   | "number"
   | "string"
+  | "decimal"
   | "json"
   | "enumeration";
 
@@ -23,6 +24,10 @@ export interface ModelColumnMetadata {
   isGenerated?: boolean;
   kind: ModelColumnKind;
   nullable?: boolean;
+  /** Exact-numeric precision when known (PostgreSQL NUMERIC/DECIMAL). */
+  precision?: number;
+  /** Exact-numeric scale when known (PostgreSQL NUMERIC/DECIMAL). */
+  scale?: number;
 }
 
 /**
@@ -353,6 +358,16 @@ export interface IntrospectionColumn {
   isNullable: boolean;
   isPrimaryKey: boolean;
   name: string;
+  /**
+   * Exact-numeric precision from `format_type` / catalog (e.g. NUMERIC(12,2) → 12).
+   * Absent when unknown or not applicable.
+   */
+  numericPrecision?: number | null;
+  /**
+   * Exact-numeric scale from `format_type` / catalog (e.g. NUMERIC(12,2) → 2).
+   * Absent when unknown or not applicable.
+   */
+  numericScale?: number | null;
   typeKind: IntrospectionTypeKind;
   udtName: string;
 }

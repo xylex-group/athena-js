@@ -1,4 +1,5 @@
 import type { AthenaGatewayBaseOptions } from "../gateway/types.ts";
+import type { AthenaRequestHeaderOverrideFields } from "../utils/athena-request-headers.ts";
 
 export type AthenaChatRoomKind = "dm" | "group" | "channel";
 export type AthenaChatMemberRole = "owner" | "admin" | "member";
@@ -429,6 +430,33 @@ export type AthenaChatWebSocketFactory =
       protocols?: string | string[]
     ) => AthenaChatWebSocketLike);
 
+/**
+ * Transport/runtime selection on {@link AthenaChatConfig}.
+ * Disabling Chat is `chat: false` / omitted — never `mode: "disabled"`.
+ */
+export type AthenaChatMode = "local" | "remote";
+
+export interface AthenaChatConfig
+  extends Pick<
+    AthenaRequestHeaderOverrideFields,
+    "bearerToken" | "cookie" | "forceNoCache" | "headers" | "sessionToken"
+  > {
+  /**
+   * Runtime selection. Omitted mode is inferred: `chat.url` → remote,
+   * cluster `url` → remote, `chat: true` + `databaseUrl` → local.
+   * Use `chat: false` to disable; `mode` is never `"disabled"`.
+   */
+  mode?: AthenaChatMode;
+  /**
+   * Root principal resolver consumed by Local Chat (INV-CHAT-011).
+   * User-supplied Chat payload fields never override actor identity.
+   */
+  resolvePrincipal?: import("../runtime/data/principal.ts").AthenaPrincipalResolver;
+  url?: string | null;
+  webSocketFactory?: AthenaChatWebSocketFactory | null;
+  wsUrl?: string | null;
+}
+
 export interface AthenaChatConnectOptions {
   hello?: AthenaChatWsAuthHelloCommand;
   onMessage?: (
@@ -455,6 +483,28 @@ export interface AthenaChatRealtimeConnection {
   unsubscribe: (roomId: string) => void;
 }
 
+export interface AthenaChatRealtimeCapabilities {
+  crossProcess: boolean;
+  messages: boolean;
+  messageDeletes: boolean;
+  messageUpdates: boolean;
+  presence: boolean;
+  reactions: boolean;
+  replayPersisted: boolean;
+  resumable: boolean;
+  typing: boolean;
+  websocket: boolean;
+}
+
+/**
+ * Observable local/remote capability differences. Unsupported realtime
+ * operations throw `ATHENA_CHAT_CAPABILITY_UNSUPPORTED` — they must not no-op.
+ */
+export interface AthenaChatCapabilities {
+  realtime: AthenaChatRealtimeCapabilities;
+  transport: "local" | "remote";
+}
+
 export interface AthenaChatRealtimeModule {
   connect: (options?: AthenaChatConnectOptions) => AthenaChatRealtimeConnection;
   info: (
@@ -463,6 +513,7 @@ export interface AthenaChatRealtimeModule {
 }
 
 export interface AthenaChatModule {
+  readonly capabilities: AthenaChatCapabilities;
   message: {
     reaction: {
       add: (

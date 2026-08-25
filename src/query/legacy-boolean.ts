@@ -112,10 +112,7 @@ function unwrapBalancedParens(token: string): string | null {
   return depth === 0 ? trimmed.slice(1, -1) : null;
 }
 
-function parseGroupCall(
-  token: string,
-  name: "and" | "or"
-): string | null {
+function parseGroupCall(token: string, name: "and" | "or"): string | null {
   const match = new RegExp(`^${name}\\s*\\((.*)\\)$`, "is").exec(token.trim());
   if (!match) {
     return null;
@@ -127,7 +124,7 @@ function parsePredicate(token: string): AthenaGatewayCondition {
   const parts = token.split(".");
   if (parts.length < 3) {
     throw new LegacyBooleanParseError(
-      `Legacy boolean predicate must be column.op.value: ${token}`
+      `Legacy boolean predicate must be column.op.value: ${token}`,
     );
   }
   const column = parts[0]?.trim() ?? "";
@@ -136,12 +133,12 @@ function parsePredicate(token: string): AthenaGatewayCondition {
   const rawValue = parts.slice(2).join(".");
   if (!IDENTIFIER.test(column)) {
     throw new LegacyBooleanParseError(
-      `Legacy boolean column is not a safe identifier: ${column}`
+      `Legacy boolean column is not a safe identifier: ${column}`,
     );
   }
   if (!SIMPLE_OPERATORS.has(operator)) {
     throw new LegacyBooleanParseError(
-      `Legacy boolean operator "${operator}" is not supported`
+      `Legacy boolean operator "${operator}" is not supported`,
     );
   }
   if (operator === "in") {
@@ -158,7 +155,7 @@ function parsePredicate(token: string): AthenaGatewayCondition {
 
 function parseBooleanList(
   expression: string,
-  join: "and" | "or"
+  join: "and" | "or",
 ): LegacyBooleanNode {
   const parts = splitTopLevel(expression, ",");
   if (parts.length === 0) {
@@ -204,7 +201,7 @@ function parseTerm(token: string): LegacyBooleanNode {
 
 export function parseLegacyBooleanExpression(
   expression: string,
-  root: "and" | "or" = "or"
+  root: "and" | "or" = "or",
 ): LegacyBooleanNode {
   const trimmed = expression.trim();
   if (!trimmed) {
@@ -219,25 +216,28 @@ export function parseLegacyBooleanExpression(
  * single `or`/`and`/`not` node for the SQL compiler.
  */
 export function parseLegacyOrExpression(
-  expression: string
+  expression: string,
 ): AthenaGatewayCondition[] {
   const tree = parseLegacyBooleanExpression(expression, "or");
   if (tree.kind === "pred") {
     return [tree.condition];
   }
-  if (tree.kind === "or" && tree.children.every((child) => child.kind === "pred")) {
+  if (
+    tree.kind === "or" &&
+    tree.children.every((child) => child.kind === "pred")
+  ) {
     return tree.children.map((child) =>
-      child.kind === "pred" ? child.condition : child
+      child.kind === "pred" ? child.condition : child,
     ) as AthenaGatewayCondition[];
   }
   throw new LegacyBooleanParseError(
-    "Nested .or() groups require parseLegacyBooleanExpression"
+    "Nested .or() groups require parseLegacyBooleanExpression",
   );
 }
 
 export function compileLegacyBooleanNode(
   node: LegacyBooleanNode,
-  compilePredicate: (condition: AthenaGatewayCondition) => string
+  compilePredicate: (condition: AthenaGatewayCondition) => string,
 ): string {
   switch (node.kind) {
     case "pred":

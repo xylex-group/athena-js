@@ -13,7 +13,7 @@ const client = createClient(config)
 const scoped = client.withContext(context)
 ```
 
-Both values implement `AthenaClient<TModels>`. A scoped client is a view over the same immutable transport core, not a reconstructed legacy client.
+Both values implement `AthenaClient<TModels>`. A scoped client is a view over the same immutable transport core, not a reconstructed legacy client. Internals compose over `AthenaClientRuntimeContext` (`InternalAthenaClientCore`); consumers never construct a second client identity (ADR 0028 / monorepo 0029).
 
 Framework packages may expose thin **construction façades** that only adapt inputs or resolve runtime context, then call `createClient` (ADR 0014):
 
@@ -31,10 +31,18 @@ Façades must not implement a second transport core, cache request-bound clients
 
 | Module | Owns | Must not own |
 | --- | --- | --- |
-| `src/v3-client.ts` | public config/types, environment and service URL resolution, immutable public core, service guards, public view | fluent SQL implementation, response parsing, domain route details, framework imports |
+| `src/v3-client.ts` | Node `createClient`: `prepareNodeRuntimePlan` → `assembleAthenaClient`; root `close()`, trusted-node asserts | fluent SQL, browser graphs, `storage/local.ts` / `postgres/transport.ts` / billing providers / `chat/local/database.ts` |
+| `src/runtime/plan/**` | Internal `AthenaRuntimePlan` (`normalize` / `resolve` / `validate` / `materialize`). Not a public config | package `exports`, provider SDK handles as config |
+| `src/runtime/authority/**` | Request→`AthenaResolvedPrincipal` (server-only). Types stay in `runtime/data/principal.ts` | public `./authority`, minting identity from `x-user-id` / `x-rights` |
+| `src/runtime/finality/matrix.ts` | Cross-domain finality SSOT (Data / Auth / Storage-R2 / Storage-S3 / Billing-Mollie). Not a package export | topology transport matrix, Rights evaluation, provider SDKs |
+| `src/runtime/materializers/**` | Node backends: database, storage, auth, chat, billing | browser graphs, public constructors |
+| `src/v3-client-core.ts` | public `AthenaClient` / config types, `createClientWithNormalizer`, `createClientView`, D1/R2 wiring | `pg`, `node:fs`, `server-only`, Node materializers, `createInternalClientCore` body |
+| `src/client/context.ts` | `InternalAthenaClientCore` / `AthenaClientRuntimeContext`, `createInternalClientCore`, `createInternalClientView` | public constructor overloads, Node-only adapters |
+| `src/client/create-client.ts` | browser-safe `createClient` wrappers re-exported by the façade barrel | Node `v3-client.ts` |
+| `src/client.ts` | public re-export façade (builder/result/request types + universal `createClient`) | factory implementation, Node `close` |
+| `src/client-fluent.ts` | fluent table/RPC/query builder orchestration and builder state | public constructor, environment reads, raw HTTP parsing |
 | `src/context/merge.ts` | shared `mergeAthenaRequestContexts` (deep header merge) used by core views and Next façades | client construction, transports |
 | `src/config/errors.ts` | structured `AthenaConfigurationError` codes and service tags | transport/auth/gateway error types |
-| `src/client.ts` | fluent table/RPC/query builder orchestration, builder state, namespace assembly over an existing core/view | public constructor overloads, environment reads, raw HTTP parsing, SQL rendering internals, normalized error internals |
 | `src/client-result.ts` | `AthenaResult` / `AthenaResultError`, copies transport `count` + mutation-only `affectedRows`, `applyCardinality` → `toSingleResult` | transports, query-builder state, public client construction |
 | `src/result/mutation-meta.ts` | Honest mutation row-count from Gateway aliases / PG `rowCount` / D1 `changes` (never fabricate `0`) | SELECT totals, fluent builders |
 | `src/query/legacy-boolean.ts` | Parse fluent `.or(string)` / nested groups into structured predicates | SQL interpolation, Gateway HTTP emulation |
@@ -46,7 +54,8 @@ Façades must not implement a second transport core, cache request-bound clients
 | `src/query-tracing.ts` | trace events, callsites, and trace execution wrapper | query semantics or response normalization |
 | `src/next/client.ts` | browser-safe façade typing + re-exported bridge/cookie/route helpers | caching, `env` bags, `next/headers`, transport construction |
 | `src/next/server.ts` / `shared.ts` | server façade, request/session context resolvers, session-bridge handlers | module-level client caches, alternate materializers |
-| `src/runtime/client-internals.ts` | WeakMap internals on **root** `createClient` only (`config`, `gatewayTransport`, `plan`, `getAuthStores`) | request views, browser/`v3-client-core` imports |
+| `src/runtime/ownership.ts` | `AthenaRootRuntime` / `AthenaRequestRuntime` (`ownership: "root" \| "request"`), `AthenaRuntimeOwnershipError` | public client identity, second factories |
+| `src/runtime/client-internals.ts` | WeakMap internals (`createRootClientInternals` / `createViewClientInternals`), `requireAthenaRootClientInternals`, `getAthenaRuntimeDiagnostics` | treating a request view as a root |
 | `src/next/data-handlers.ts` | derive Local Runtime HTTP from the root client | rematerializing `pg` / Auth keyring per request |
 | `src/auth/**`, `src/chat/**`, `src/storage/**`, `src/db/**` | domain modules and their route contracts | replacement client materializers |
 | `src/cloudflare/**` | Worker D1/R2 execution transport + `createCloudflareClient` (ADR 0015) | browser bundles, second fluent builder tree |
@@ -56,39 +65,46 @@ Façades must not implement a second transport core, cache request-bound clients
 ## Dependency direction
 
 ```text
-index.ts / browser.ts
-  -> v3-client.ts
-    -> config/errors.ts
-    -> context/merge.ts
-    -> client.ts
-      -> client-result.ts
-      -> client-sql.ts
-      -> client-request.ts
-      -> gateway, query, auth, chat, storage, db modules
+index.ts (Node) / server.ts
+  -> v3-client.ts          (plan pipeline + assemble + close)
+       -> runtime/plan/** + runtime/materializers/**
+       -> v3-client-core.ts
 
-next/client.ts
-  -> v3-client.ts (createClient only)
+browser.ts / next/client.ts / react-native
+  -> v3-client-core.ts     (browser-safe createClient)
+       -> src/client/context.ts     InternalAthenaClientCore factories
+       -> client-fluent.ts          fluent builders (via context view)
 
-next/server.ts
-  -> v3-client.ts (createClient)
-  -> context/merge.ts
-  -> shared.ts (next/headers resolution)
+src/client.ts
+  -> src/client/create-client.ts    wraps v3-client-core createClient
+  -> src/client/context.ts          re-export types/factories
+  -> src/client-fluent.ts           re-export builder types
+
+src/query/** and src/schema/**
+  --X--> client.ts, v3-client-core.ts, v3-client.ts
+
+auth / storage / chat / billing / db / admin
+  --X--> public façade (client.ts / v3-client*.ts)
+  --X--> unrelated feature internals
 ```
 
-The extracted modules do not import `client.ts` or `v3-client.ts` except for type-only or façade composition at the Next boundary. This one-way dependency rule prevents the refactor from replacing one monolith with circular helper barrels.
+`query/read-query.ts` uses `AthenaReadQueryClient` (narrow `.db`), not `AthenaClient`.
 
-Domain modules may depend on shared gateway/context utilities. They must not import the public constructor to manufacture nested clients.
+Feature modules may depend on shared gateway/context/result types. They must not import the public constructor to manufacture nested clients. `src/client/**` may compose modules. Browser entries must not import `v3-client.ts`, `pg`, `node:fs`, or `server-only`.
+
+Architecture tests: `test/sdd/athena-client-decomposition.target.test.ts` (technical ADR 0029 / package 0028); `test/sdd/athena-js-runtime-plan.target.test.ts` (technical ADR 0049 / package 0029).
 
 ## Core and view lifecycle
 
-1. `createClient(config)` normalizes explicit configuration and creates one immutable core.
-2. The core owns service URLs, API key, backend selection, models, behavior flags, gateway transport, and configured context.
-3. The initial public client is a view with no extra request scope.
-4. `withContext(context)` creates another frozen view that references the same core.
-5. Every operation resolves configured context and view context immediately before dispatch.
-6. HTTP chat resolves context per operation. WebSocket chat snapshots context when connecting and resolves it again for reconnect.
+1. Node `createClient(config)` runs `normalizeUniversalConfig` → `resolveRuntimePlan` → `validateRuntimePlan` → `materializeRuntimePlan` → `assembleAthenaClient`. Conflicting `storage.provider: "local"` + `storage.url` / `storage.r2` throws `ATHENA_RUNTIME_CONFIG_INVALID`. Apps do not pass a plan object.
+2. The Node `/server` materializer attaches **root** internals (`ownership: "root"`). Only the root may own PostgreSQL pools, embedded Auth, migrate, `close()`, and HTTP handler mounts.
+3. `withContext(context)` and `createAthenaServerClient` attach **request** internals (`ownership: "request"`, `runtimeOwnership: "borrowed"`). They borrow transport / pools / Auth stores and carry request context.
+4. Every operation resolves configured context and view context immediately before dispatch.
+5. HTTP chat resolves context per operation. WebSocket chat snapshots context when connecting and resolves it again for reconnect.
 
-The architecture deliberately separates immutable process-level configuration from request-level identity and credentials.
+Request-view misuse of a root API throws `ATHENA_RUNTIME_OWNERSHIP_INVALID` (`AthenaRuntimeOwnershipError`). Missing / foreign internals stay `ATHENA_CLIENT_RUNTIME_VERSION_MISMATCH`. Cast `close()` on a request view throws; it does not no-op. `getAthenaRuntimeDiagnostics` is root-only.
+
+The architecture deliberately separates immutable process-level configuration from request-level identity and credentials. See [ADR 0021](../../../docs/adr/technical/0021-athena-js-root-request-runtime-ownership.md).
 
 ## Request-context precedence
 
@@ -141,7 +157,7 @@ Do not duplicate this behavior in consumers or domain modules. Add a stable doma
 
 ## Rules for future extraction
 
-Extract a concern from `client.ts` when all of the following are true:
+Phases 3–8 remain backlog (query execution pipeline, result formatter remainder, transactions, gateway/pg/d1 adapters, `auxiliaries.ts`, compatibility isolation). Extract a concern from `client-fluent.ts` / remaining view assembly when all of the following are true:
 
 - it has a clear input/output contract;
 - it does not need to own mutable builder state;

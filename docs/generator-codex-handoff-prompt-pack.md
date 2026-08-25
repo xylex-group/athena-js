@@ -93,8 +93,10 @@ Keep it implementation-accurate and avoid introducing non-existent CLI flags.
 
 Use these behavior facts when drafting docs:
 
-- `defineGeneratorConfig(...)` is a typed identity helper.
-- `loadGeneratorConfig(...)` loads and normalizes defaults.
+- `defineAthenaConfig(...)` is the permissive `AthenaConfig` identity (`provider` optional).
+- `defineGeneratorConfig(...)` is a distinct strict `AthenaGeneratorConfig` identity (required `provider`; not an alias).
+- `loadAthenaConfig(...)` retains `models` / `policies` / `tooling` and does not import tooling paths.
+- `loadGeneratorConfig(...)` loads and normalizes the required-provider projection (drops project-only keys).
 - `resolveGeneratorProvider(...)` supports:
   - `postgres/direct` (implemented)
   - `postgres/gateway` (implemented using Athena query path)

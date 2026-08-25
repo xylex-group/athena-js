@@ -1,6 +1,32 @@
 # Auth Passkey
 
+Canonical surface: `athena.auth.passkey.*` — eight HTTP methods **plus** browser ceremony helpers `register()` and `signIn()` on the **same** object. Do not add a second client (`createPasskeyClient`, `athena.webauthn`, `athena.embeddedAuth.passkey`). There is no public `createPasskeyModule`. Remote Athena Auth and embedded Athena Auth keep the same public method names ([ADR 0044](../../../../docs/adr/technical/0044-athena-passkey-discoverability-and-webauthn-ownership.md)).
+
+Dedicated Auth (`auth.url`) **persists authenticator metadata** on registration: WebAuthn **BE** (`0x08`) → `deviceType` (`singleDevice` \| `multiDevice`), **BS** (`0x10`) → `backedUp`, client `transports` → JSON-array **string** or omit/NULL. `multiDevice` is not the same flag as `backedUp`. Wire `transports` stays a string (OpenAPI). See [ADR 0021](../../../../docs/adr/technical/0021-athena-passkey-authenticator-metadata-fidelity.md). Public `AthenaPasskeyRecord.authenticator` also carries `residentKey` (`true` \| `false` \| `null` when `credProps.rk` is missing) and provider-neutral `displayName` — never AAGUID, public key, or credential ID.
+
+The browser **never verifies**. Server `rpId` / challenge / options are authoritative. Athena JS owns `navigator.credentials.create` / `get` (`src/auth/passkey/browser`). Auth UI calls `register` / `signIn` and renders state. Internal adapter precedence: `options.rpId` → `options.rp.id` → explicit fallback only (never invent `window.location.hostname` as an RP ID). Public wire type `AthenaPasskeyOptionsResponse` has no top-level `rpId` (`rp.id` only); extra JSON `rpId` is read by the adapter when present.
+
+Construct `passkeys` / `webauthn` throws `ATHENA_AUTH_FEATURE_UNSUPPORTED`. The gated SDK client still `denyPasskeys` (501) when the capability snapshot is `known` and `passkeys` is off. Advertised `passkeys` follows the generated operation catalog plus operator `auth.passkey.enabled`. Binding return type remains `AthenaPasskeyRecord`. Frozen aliases: `AthenaPasskeyRegistrationOptions`, `AthenaPasskeyAuthenticationOptions`, `AthenaPasskeyCredential`. Internal ports + domain types live under `src/auth/passkey/server/` (not a package-root export). Start results carry raw `challenge: Uint8Array`; persist and consume carry `challengeHash` only; consume binds `userId: string | null` ([ADR 0030](../../../../docs/adr/technical/0030-athena-passkey-challenge-domain-raw-vs-hash.md)). Local challenge rows reuse `athena.verifications` (`identifier = passkey:…`); consume is one-shot DELETE of an unexpired `(identifier, value)` — no `consumed_at` ([ADR 0033](../../../../docs/adr/technical/0033-athena-passkey-challenge-consume-delete.md)). Public wire DTOs stay `AthenaPasskeyRecord` / wire `{ id?: string; name?: string }` — do not import the internal domain types from `@xylex-group/athena`.
+
+## Discoverability (passwordless)
+
+Registration intended for “Sign in with passkey” generates `authenticatorSelection.residentKey: "required"` and `requireResidentKey: true` unless the operator set `auth.passkey.registration.residentKey`. That path requests `extensions.credProps: true` unless the operator set `credProps: false`. Missing `credProps.rk` persists `residentKey: null` (discoverability **unknown** — not coerced to `true`).
+
+Default registration **omits** `authenticatorAttachment` (platform and cross-platform stay eligible). Optional `hints` (`client-device` | `security-key` | `hybrid`) are a UI steer only; they do not set an attachment eligibility filter. There is no vendor popup API.
+
+`generateAuthenticateOptions`:
+
+| Caller context | `allowCredentials` |
+| --- | --- |
+| No account identified (usernameless Continue with passkey) | `[]` |
+| Session present | that user’s stored credential IDs |
+| POST `email` and/or `userId` (session not required) | that user’s stored credential IDs (old non-discoverable creds) |
+
+Mutating register / update / delete stay on `executeAuthMutation` ([ADR 0041](../../../../docs/adr/technical/0041-athena-native-passkey-update-delete-events.md)). Secrets never enter audit, hooks, or DevTools dumps.
+
 ## Endpoints and methods
+
+HTTP (capability-gated except `getRelatedOrigins`):
 
 - `auth.passkey.generateRegisterOptions()` -> `GET /passkey/generate-register-options`
 - `auth.passkey.generateAuthenticateOptions()` -> `POST /passkey/generate-authenticate-options`
@@ -11,13 +37,25 @@
 - `auth.passkey.updatePasskey()` -> `POST /passkey/update-passkey`
 - `auth.passkey.getRelatedOrigins()` -> `GET /.well-known/webauthn`
 
+Browser ceremony (orchestrates the HTTP methods above; no ninth route):
+
+- `auth.passkey.register({ name?, email?, hints? })` — generate → `credentials.create` → verify
+- `auth.passkey.signIn({ email?, userId?, autoFill? })` — generate → `credentials.get` → verify; successful verify accepts into `athena.auth.session`
+
 ## Examples
 
 ```ts
 import { client } from "./auth-client"
 
+await client.auth.passkey.register({ name: "Laptop" })
+await client.auth.passkey.signIn()
+await client.auth.passkey.signIn({ email: "user@example.com" })
+
 await client.auth.passkey.generateRegisterOptions()
 await client.auth.passkey.generateAuthenticateOptions()
+await client.auth.passkey.generateAuthenticateOptions({
+  email: "user@example.com",
+})
 
 await client.auth.passkey.verifyRegistration({
   response: "webauthn-registration-response",

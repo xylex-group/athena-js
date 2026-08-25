@@ -12,6 +12,7 @@ Run `@xylex-group/athena` **inside** a Cloudflare Worker against **D1** and opti
 | [ADR 0018](./adr/0018-hybrid-edge-remote-service-routing.md) | Hybrid billing/auth/storage routing |
 | [ADR 0019](./adr/0019-execution-mode-resolution-and-runtime-facades.md) | `auto` / prefer / Worker env façades |
 | [ADR 0020](./adr/0020-client-capabilities-and-edge-layer-honesty.md) | `client.capabilities` + L0–L3 honesty |
+| [ADR 0027](./adr/0027-embedded-storage-runtime.md) | Node local ObjectStore (`provider: "local"`) — not Workers R2 |
 | [API surface](./api-reference.md#cloudflare-edge-local--switchable-runtime) | Signatures and types |
 | [examples/cloudflare](../examples/cloudflare/README.md) | **One example per mode/API** (01–17) |
 

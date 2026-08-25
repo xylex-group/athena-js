@@ -1,6 +1,10 @@
 /**
  * Dual-runtime Auth contract runner (P9).
  * Not a public application API — import from tests / CI only.
+ *
+ * Route existence SSOT is `ATHENA_AUTH_OPERATIONS`. This suite probes
+ * behavior of required capabilities against both runtimes. Wave 1 expands
+ * comparisons (status, body, cookies, headers, DB, audit, capability, error).
  */
 
 export const ATHENA_AUTH_CORE_SUITE_OPS = [

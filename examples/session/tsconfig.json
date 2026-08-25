@@ -14,7 +14,6 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
-    "baseUrl": ".",
     "paths": {
       "@xylex-group/athena": [
         "../../src/index.ts"

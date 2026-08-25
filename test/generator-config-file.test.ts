@@ -1,5 +1,11 @@
 import { strict as assert } from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -27,7 +33,8 @@ test("renderGeneratorConfigFile emits modern direct template with generatorEnv s
   assert.equal(content.includes('mode: "direct"'), true);
   assert.equal(content.includes('preset: "athena-direct"'), true);
   assert.equal(content.includes('format: "table-builder"'), true);
-  assert.equal(content.includes("src/lib/athena/generated/registry.ts"), true);
+  assert.equal(content.includes("athena/generated/registry.ts"), true);
+  assert.equal(content.includes("athena/migrations"), true);
   assert.equal(content.includes('"public"'), true);
   assert.equal(content.includes('"forms"'), true);
   assert.equal(content.includes("postgresGatewayIntrospection: false"), true);
@@ -168,6 +175,16 @@ test("ensureGeneratorConfigFile creates modern config when missing", async () =>
     assert.equal(content.includes('mode: "direct"'), true);
     assert.equal(content.includes('"athena"'), true);
     assert.equal(content.includes('preset: "athena-direct"'), true);
+    assert.equal(
+      existsSync(join(root, "athena", "migrations", ".gitkeep")),
+      true,
+    );
+    assert.equal(
+      result.changes.some((change) =>
+        change.startsWith("created-migrations-directory:"),
+      ),
+      true,
+    );
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
@@ -307,6 +324,7 @@ test("ensureGeneratorConfigFile dry-run does not write files", async () => {
       exists = false;
     }
     assert.equal(exists, false);
+    assert.equal(existsSync(join(root, "athena", "migrations")), false);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

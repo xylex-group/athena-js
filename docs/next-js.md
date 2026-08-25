@@ -7,6 +7,7 @@ separated without a second client implementation.
 | --- | --- |
 | `@xylex-group/athena/server` | Node runtime ownership — `createClient({ databaseUrl })` (`server-only`) |
 | `@xylex-group/athena/next/client` | Browser-safe construction + session-bridge helpers for Client Components |
+| `@xylex-group/athena/next/session` | RSC session lookup (`getServerSession`) without the server composition root (`server-only`) |
 | `@xylex-group/athena/next/server` | Request-scoped construction + context resolvers + handlers (`server-only`) |
 | `@xylex-group/athena` | Universal SDK (browser-conditional root export) |
 
@@ -27,8 +28,9 @@ Use one path per surface. All data paths still call `createClient` under the hoo
 | --- | --- | --- | --- |
 | Process root (default) | `@xylex-group/athena/server` | `createClient({ databaseUrl, auth: { autoMigrate } })` | Owns the PostgreSQL pool + inferred embedded Auth. `lib/athena/root.ts` |
 | Browser data client | `@xylex-group/athena/next/client` | `createClient({ topology: { discover: "next" } })` | Discovers `/api/athena` + `/api/auth`. No `DATABASE_URL` |
+| Server session lookup | `@xylex-group/athena/next/session` | `getServerSession({ appOrigin, requestHeaders })` | Cookie/header session fetch. Does not construct a client |
 | Server request view | `@xylex-group/athena/next/server` | `createAthenaServerClient({ client: athena, session?, scope? })` | **Per request** view via `withContext`; never a runtime owner |
-| Handlers | `@xylex-group/athena/next/server` | `createAthenaNextHandlers({ client: root })` | Mount at `/api/athena` and `/api/auth` from the **root** |
+| Handlers | `@xylex-group/athena/next/server` | `createAthenaNextHandlers({ client: root })` | Mount at `/api/athena`, `/api/auth`, `/api/athena/storage`, and `/api/athena/billing` from the **root** |
 | Hosted browser | `@xylex-group/athena/next/client` | `createAthenaBrowserClient({ url, key })` | Remote Gateway; keep when you are not embedding |
 | Auth UI | `@xylex-group/athena-auth-ui` | `<AuthProvider client={athena}>` | Consumes `athena.auth`; `createAthenaAuthClient` is legacy |
 
@@ -41,6 +43,7 @@ Minimal vs explicit Auth:
 | --- | --- |
 | `ATHENA_DISCOVERY_UNAVAILABLE` | Data probe at `/api/athena` failed |
 | `ATHENA_AUTH_NOT_AVAILABLE` | Data runtime is compatible; Auth is off or not advertised |
+| `ATHENA_RUNTIME_OWNERSHIP_INVALID` | Request view passed to root APIs (`createAthenaNextHandlers`, `createAthenaDataHandlers`, `createAthenaAuthHandlers`, `close()`, `auth.server.migrate()`, `getAthenaRuntimeDiagnostics`) |
 
 ### Do not
 
@@ -270,7 +273,7 @@ export async function athenaForSession(session: {
 ```
 
 Context views share the same immutable transport core as the root client.
-Pass the **root** into handlers — `withContext` views do not carry handler internals.
+Pass the **root** into handlers — `withContext` / `createAthenaServerClient` views throw `ATHENA_RUNTIME_OWNERSHIP_INVALID` (`AthenaRuntimeOwnershipError`). Cast `close()` on a request view throws the same code.
 
 ---
 
@@ -292,7 +295,9 @@ export const athena = createClient({
 import { createAthenaNextHandlers } from '@xylex-group/athena/next/server'
 import { athena } from '@/lib/athena/root'
 
-export const { auth, data } = createAthenaNextHandlers({ client: athena })
+export const { auth, billing, data, storage } = createAthenaNextHandlers({
+  client: athena,
+})
 export const { GET, POST, PATCH, DELETE } = data
 ```
 
@@ -308,6 +313,11 @@ export const { GET, POST } = createAthenaNextHandlers({ client: athena }).auth
 root become `security.mode: "policy"`. Embedded Auth becomes
 `authenticated` + `athena-session` against the same stores. Trusted HTTP still
 requires `unsafeAllowUnauthenticated: true`.
+
+The same `/api/athena` catch-all serves development DevTools routes
+`GET /api/athena/devtools/v1/events` and `GET …/stream` (ADR 0051). Production
+returns 404 `ATHENA_DEVTOOLS_DISABLED`. Types: `@xylex-group/athena/devtools`.
+No `createDevtoolsClient`.
 
 Browser discovery (`topology.discover: "next"`) honors `prefer` and
 `probe.cache`. `prefer: "hosted"` never probes `/api/athena` when `url` +
@@ -356,6 +366,11 @@ await signOutAndClearAthenaSession({
 
 Composable session loader for RSC / route handlers. Prefer this over a thick
 app-local `get-session` module; keep only product org policy in the app.
+
+For a **session lookup only** (no `createClient` / handlers), import
+`getServerSession` from `@xylex-group/athena/next/session`. Use
+`@xylex-group/athena/next/server` when you also need
+`createAthenaServerClient`, `createServerSessionResolver`, or handlers.
 
 Full contract: [auth-session-runtime-contract.md](./auth-session-runtime-contract.md)
 Migration: [migration-session-api-v4.md](./migration-session-api-v4.md)
@@ -461,7 +476,8 @@ and `ATHENA_TABLE_SCHEMA_ROUTE` (`/api/tables/schema`).
 | --- | --- |
 | `@xylex-group/athena` | Universal `createClient` (root/browser conditions) |
 | `@xylex-group/athena/next/client` | Client Components, public config typing, browser bridge + auth URL / cookie / route helpers |
-| `@xylex-group/athena/next/server` | RSC, Server Actions, Route Handlers, bridge handlers, origin/env/header helpers, `ensureActiveOrganization` |
+| `@xylex-group/athena/next/session` | RSC `getServerSession` without `createClient` / handlers |
+| `@xylex-group/athena/next/server` | RSC composition root: request view, handlers, bridges, `ensureActiveOrganization` |
 | `@xylex-group/athena/react` | `useSession`, query hooks |
 | `@xylex-group/athena/cookies` | Cookie read/write helpers |
 | `@xylex-group/athena/utils` | Full utils surface (also re-exported selectively on Next entries) |

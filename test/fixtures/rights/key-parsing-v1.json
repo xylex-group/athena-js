@@ -1,0 +1,121 @@
+{
+  "authority": "crates/athena-rights",
+  "cases": [
+    {
+      "canonical": "gateway.query",
+      "input": "gateway.query",
+      "isPattern": false,
+      "ok": true
+    },
+    {
+      "canonical": "payment-link.paid",
+      "input": "  payment-link.paid  ",
+      "isPattern": false,
+      "ok": true
+    },
+    {
+      "canonical": "{resource}.read",
+      "input": "{resource}.read",
+      "isPattern": true,
+      "ok": true
+    },
+    {
+      "canonical": "*",
+      "input": "*",
+      "isPattern": true,
+      "ok": true
+    },
+    {
+      "error": "RIGHT_KEY_EMPTY",
+      "input": "   ",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_INVALID_CHARACTERS",
+      "input": "gateway .query",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_EMPTY_SEGMENT",
+      "input": "gateway..query",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_MALFORMED_PATTERN",
+      "input": "{}.read",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_INVALID_CHARACTERS",
+      "input": "admin:read",
+      "ok": false
+    },
+    {
+      "canonical": "gateway.rpc.execute",
+      "input": "gateway.rpc.execute",
+      "isPattern": false,
+      "ok": true
+    },
+    {
+      "canonical": "gateway.*",
+      "input": "gateway.*",
+      "isPattern": true,
+      "ok": true
+    },
+    {
+      "canonical": "*.read",
+      "input": "*.read",
+      "isPattern": true,
+      "ok": true
+    },
+    {
+      "canonical": "{resource}.write",
+      "input": "{resource}.write",
+      "isPattern": true,
+      "ok": true
+    },
+    {
+      "canonical": "users.read",
+      "input": "users.read",
+      "isPattern": false,
+      "ok": true
+    },
+    {
+      "error": "RIGHT_KEY_EMPTY_SEGMENT",
+      "input": ".leading",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_EMPTY_SEGMENT",
+      "input": "trailing.",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_MALFORMED_PATTERN",
+      "input": "{bad-hyphen}.read",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_INVALID_CHARACTERS",
+      "input": "{unclosed.read",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_INVALID_CHARACTERS",
+      "input": "has:colon.in.middle",
+      "ok": false
+    },
+    {
+      "error": "RIGHT_KEY_INVALID_CHARACTERS",
+      "input": "﻿gateway.query",
+      "ok": false
+    },
+    {
+      "canonical": "gateway.query",
+      "input": "gateway.query",
+      "isPattern": false,
+      "ok": true
+    }
+  ],
+  "version": 1
+}

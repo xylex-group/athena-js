@@ -99,7 +99,7 @@ function ctx(actor = user(), actorSession = session(), adminStore = store()) {
 		config,
 		hasher,
 		headers: new Headers(),
-		issueSession: async (_request: Request, userId: string) =>
+		issueSession: async (_request, _stores, userId) =>
 			session({ token: "restored-admin-session", user_id: userId }),
 		requireSession: async () => ({
 			session: actorSession,
@@ -107,6 +107,16 @@ function ctx(actor = user(), actorSession = session(), adminStore = store()) {
 			user: actor,
 		}),
 		store: adminStore,
+		hookRequest: (request: Request, path: string) => ({
+			method: request.method,
+			path,
+		}),
+		mutate: async (input) =>
+			input.execute({
+				admin: adminStore,
+				stores: {} as never,
+			}),
+		traceId: "test-trace",
 	};
 }
 

@@ -1,6 +1,6 @@
 import type {
-  AthenaAuthSessionBridgePayload,
-  AthenaAuthSessionBridgeSource,
+	AthenaAuthSessionBridgePayload,
+	AthenaAuthSessionBridgeSource,
 } from "./types.ts";
 
 /**
@@ -24,24 +24,24 @@ import type {
  * ```
  */
 export function resolveSessionBridgePayload(
-  payload: AthenaAuthSessionBridgeSource | null | undefined
+	payload: AthenaAuthSessionBridgeSource | null | undefined,
 ): AthenaAuthSessionBridgePayload | null {
-  const token = payload?.session?.token ?? payload?.token;
+	const token = payload?.session?.token ?? payload?.token;
 
-  if (typeof token !== "string") {
-    return null;
-  }
+	if (typeof token !== "string") {
+		return null;
+	}
 
-  const normalizedToken = token.trim();
-  if (!normalizedToken) {
-    return null;
-  }
+	const normalizedToken = token.trim();
+	if (!normalizedToken) {
+		return null;
+	}
 
-  return {
-    expiresAt:
-      typeof payload?.session?.expiresAt === "string"
-        ? payload.session.expiresAt
-        : undefined,
-    token: normalizedToken,
-  };
+	return {
+		expiresAt:
+			typeof payload?.session?.expiresAt === "string"
+				? payload.session.expiresAt
+				: undefined,
+		token: normalizedToken,
+	};
 }

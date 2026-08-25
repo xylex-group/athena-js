@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const policySrc = join(here, "../src/policy");
@@ -33,7 +33,11 @@ test("ACT-POL-07 policy public surface has no Node importer/compiler graph", () 
     "server-only",
   ];
   for (const token of banned) {
-    assert.equal(index.includes(token), false, `index must not reference ${token}`);
+    assert.equal(
+      index.includes(token),
+      false,
+      `index must not reference ${token}`,
+    );
   }
 
   // Walk local imports from index (shallow) and ensure no importer modules.
@@ -63,10 +67,13 @@ test("ACT-POL-05 contracts/policy errors align with 7000 band", () => {
   };
   assert.equal(errors.base, 7000);
   assert.equal(errors.band ?? "7000-7999", "7000-7999");
-  assert.equal(errors.codes[0]?.code, "POLICY_DENIED");
+  assert.equal(errors.codes[0]?.code, "DENIED");
   assert.equal(errors.codes[0]?.errorNumber, 7000);
   assert.equal(errors.codes[0]?.status, 403);
   assert.ok((errors.codes[0]?.description ?? "").length > 0);
-  assert.equal(errors.codes.some((c) => c.code === "POLICY_SUBJECT_REQUIRED"), true);
+  assert.equal(
+    errors.codes.some((c) => c.code === "SUBJECT_REQUIRED"),
+    true,
+  );
   assert.equal(errors.codes.length, 21);
 });

@@ -1,10 +1,29 @@
 /**
- * Canonical Local Runtime caller identity.
+ * Canonical Local Runtime caller identity (type SSOT).
  *
+ * HTTP request → AthenaResolvedPrincipal lives in `src/runtime/authority/`.
  * One semantic principal for Auth, Policy, and execution context.
  * Authority (how it was obtained) is tracked separately so a `userId`
- * is never treated as trusted on its own.
+ * is never treated as trusted on its own. Do not add a second principal model.
  */
+
+import {
+  tryParseAthenaRightKey,
+  type AthenaRightKey,
+} from "../../rights/key.ts";
+import {
+  emitAthenaMalformedRightsDiagnostic,
+  type AthenaMalformedRightsSource,
+} from "./rights-diagnostics.ts";
+
+export {
+  ATHENA_MALFORMED_RIGHTS_KIND,
+  subscribeAthenaMalformedRightsDiagnostics,
+} from "./rights-diagnostics.ts";
+export type {
+  AthenaMalformedRightsDiagnostic,
+  AthenaMalformedRightsSource,
+} from "./rights-diagnostics.ts";
 
 export interface AthenaPrincipal {
   authenticated: boolean;
@@ -12,11 +31,18 @@ export interface AthenaPrincipal {
   sessionId?: string;
   organizationId?: string;
   role?: string;
-  rights: readonly string[];
+  rights: readonly AthenaRightKey[];
+  /** Legacy provenance; never used to satisfy Right checks. */
   grants: readonly string[];
   service?: string;
   claims?: Readonly<Record<string, unknown>>;
 }
+
+/** Wire / session input. `rights` stays a string array at JSON edges. */
+export type AthenaPrincipalInput = Omit<AthenaPrincipal, "rights" | "grants"> & {
+  grants?: readonly string[];
+  rights?: readonly string[];
+};
 
 export type AthenaPrincipalAuthority =
   | "anonymous"
@@ -114,7 +140,7 @@ export type AthenaRuntimeAuthConfig =
     }
   | {
       mode: "service";
-      principal: AthenaPrincipal;
+      principal: AthenaPrincipalInput;
     };
 
 export type AthenaRuntimeAuthMaterial =
@@ -148,8 +174,31 @@ export function anonymousResolvedPrincipal(): AthenaResolvedPrincipal {
   };
 }
 
+function parsePrincipalRights(
+  raw: readonly string[] | undefined,
+  source: AthenaMalformedRightsSource
+): readonly AthenaRightKey[] {
+  const parsed: AthenaRightKey[] = [];
+  let malformedKeyCount = 0;
+  for (const item of raw ?? []) {
+    if (typeof item !== "string") {
+      malformedKeyCount += 1;
+      continue;
+    }
+    const key = tryParseAthenaRightKey(item);
+    if (key === undefined) {
+      malformedKeyCount += 1;
+      continue;
+    }
+    parsed.push(key);
+  }
+  emitAthenaMalformedRightsDiagnostic(source, malformedKeyCount);
+  return Object.freeze(parsed);
+}
+
 export function normalizeAthenaPrincipal(
-  principal: AthenaPrincipal
+  principal: AthenaPrincipalInput,
+  options?: { source?: AthenaMalformedRightsSource }
 ): AthenaPrincipal {
   return {
     authenticated: principal.authenticated === true,
@@ -160,7 +209,10 @@ export function normalizeAthenaPrincipal(
       : {}),
     ...(principal.role ? { role: principal.role } : {}),
     grants: Object.freeze([...(principal.grants ?? [])]),
-    rights: Object.freeze([...(principal.rights ?? [])]),
+    rights: parsePrincipalRights(
+      principal.rights,
+      options?.source ?? "principal"
+    ),
     ...(principal.service ? { service: principal.service } : {}),
     ...(principal.claims
       ? { claims: Object.freeze({ ...principal.claims }) }

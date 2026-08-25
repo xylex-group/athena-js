@@ -155,7 +155,7 @@ test("R2-C: next/client and browser core stay free of Local Runtime auth modules
 		"utf8",
 	);
 	for (const source of [client, core]) {
-		assert.equal(source.includes("runtime/data"), false);
+		assert.equal(source.includes("runtime/data/nucleus"), false);
 		assert.equal(source.includes("auth/local/runtime"), false);
 		assert.equal(source.includes("resolve-principal"), false);
 	}

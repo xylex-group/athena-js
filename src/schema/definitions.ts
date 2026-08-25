@@ -15,10 +15,10 @@ import type {
  * Declares a model contract with explicit metadata and typed row/insert/update shapes.
  */
 export function defineModel<
-  Row,
+  Row = Record<string, unknown>,
   Insert = Partial<Row>,
   Update = Partial<Insert>,
-  Meta extends ModelMetadata<Row> = ModelMetadata<Row>,
+  Meta extends ModelMetadata<NoInfer<Row>> = ModelMetadata<Row>,
 >(input: { meta: Meta }): ModelDef<Row, Insert, Update, Meta> {
   return input;
 }

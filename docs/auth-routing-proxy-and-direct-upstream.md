@@ -3,9 +3,8 @@
 This page documents how Athena Auth is reached from a host app (Next.js, etc.),
 which package owns which helper, and how session APIs behave in each mode.
 
-**Canonical product routing** lives in **`@xylex-group/athena-auth-ui`**.  
-**Low-level URL resolution** lives in **`@xylex-group/athena/utils`** (and is
-re-exported from auth-ui `athena/base-url`).
+**Canonical product routing** is owned by **`@xylex-group/athena`** (`createClient` auth options + next/server handlers). Auth UI is presentation only ([ADR 0022](../../../docs/adr/technical/0022-athena-auth-ui-presentation-layer.md)).  
+**Low-level URL resolution** lives in **`@xylex-group/athena/utils`**. Auth UI does not publish `./athena/base-url`.
 
 Reference app:
 
@@ -89,8 +88,11 @@ Use auth-ui handlers (do not reimplement Better Auth proxy):
 
 ```ts
 // app/api/auth/[...all]/route.ts
-import { createAthenaAuthProxyHandlers } from "@xylex-group/athena-auth-ui/athena/proxy"
-// or package equivalent export used by next-heroui-example
+import { createAthenaAuthHandlers } from "@xylex-group/athena/next/server"
+import { athena } from "@/lib/athena"
+
+export const { DELETE, GET, HEAD, PATCH, POST, PUT } =
+  createAthenaAuthHandlers(athena)
 ```
 
 ---
@@ -105,9 +107,8 @@ App origin  →  only for UI, gateway, optional bridge
 ### Configuration
 
 ```ts
-import { createAthenaAuthClient } from "@xylex-group/athena-auth-ui/athena/client"
-import { resolveAthenaAuthClientBaseUrl } from "@xylex-group/athena-auth-ui/athena/base-url"
-// also: @xylex-group/athena/utils
+import { createClient } from "@xylex-group/athena"
+import { resolveAthenaAuthClientBaseUrl } from "@xylex-group/athena/utils"
 
 const authBaseUrl = resolveAthenaAuthClientBaseUrl(
   process.env.NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL,
@@ -116,9 +117,10 @@ const authBaseUrl = resolveAthenaAuthClientBaseUrl(
   { appendAuthPath: false },
 )
 
-const authClient = createAthenaAuthClient({
-  baseUrl: authBaseUrl,
-  appendAuthPath: false,
+const athena = createClient({
+  url: process.env.NEXT_PUBLIC_ATHENA_URL!,
+  key: process.env.NEXT_PUBLIC_ATHENA_API_KEY!,
+  auth: { routing: "direct", url: authBaseUrl },
 })
 ```
 
@@ -178,9 +180,9 @@ mirrors the same routing-debug config for both.
 | Concern | Package | Entry |
 |---------|---------|--------|
 | URL normalize / env keys / `appendAuthPath` | **athena-js** | `@xylex-group/athena/utils` |
-| Same helpers re-export | **athena-auth-ui** | `@xylex-group/athena-auth-ui/athena/base-url` |
-| Browser/server auth client factory | **athena-auth-ui** | `@xylex-group/athena-auth-ui/athena/client` |
-| Proxy handlers | **athena-auth-ui** | `athena/proxy` |
+| Root / request clients | **athena-js** | `createClient` / `createAthenaServerClient` |
+| Proxy handlers | **athena-js** | `@xylex-group/athena/next/server` (`createAthenaAuthHandlers`) |
+| Next convenience handlers | **athena-auth-ui** | `@xylex-group/athena-auth-ui/next` (not `./athena/proxy`) |
 | Routing debug config + overlay | **athena-auth-ui** | `auth/routing-debug`, experimental overlay |
 | `useSession` / `auth.getSession` | **athena-js** | `/react`, `createClient(config).auth` |
 | App-host session bridge | **athena-js** | `@xylex-group/athena/next/server` |
@@ -190,14 +192,14 @@ mirrors the same routing-debug config for both.
 
 - Local `*Primitive` base-url stacks  
 - Hardcoded “always `/api/auth`” in every sample when direct-upstream is supported  
-- Custom Better Auth proxy when auth-ui already provides handlers  
+- Custom Better Auth proxy when `@xylex-group/athena/next/server` already provides handlers  
 
 ### App residual (keep thin)
 
 ```ts
-// app: map env → AthenaAuthRoutingDebugConfig
+// app: map env → createClient auth routing
 type Mode = "proxy" | "direct-upstream"
-// then createAthenaAuthClient({ appendAuthPath, baseUrl: resolved })
+// then createClient({ auth: { routing: mode === "direct-upstream" ? "direct" : "same-origin", url } })
 ```
 
 Product defaults (e.g. formations upstream host) stay in app env / `DEFAULT_*`,

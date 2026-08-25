@@ -3,7 +3,7 @@
 Athena JS 3 uses one request-context contract for database, auth, chat, storage,
 billing, and raw requests. Authentication is not a separate client class.
 
-Package version: `@xylex-group/athena@3.0.0`.
+Package version: `@xylex-group/athena@{{ATHENA_JS_PACKAGE_VERSION}}`.
 
 Related: [next-js.md](./next-js.md) · [auth-session-bridge.md](./auth-session-bridge.md) · [request-headers-and-auth-examples.md](./request-headers-and-auth-examples.md)
 

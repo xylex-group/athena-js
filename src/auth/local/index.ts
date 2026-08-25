@@ -10,15 +10,24 @@ export {
 export { createArgon2PasswordHasher, passwordHashNeedsRehash } from "./password.ts";
 export { MemoryAuthStores } from "./memory-stores.ts";
 export {
+  classifyAuthLedgerQueryError,
+  healthFromAuthPlan,
+  type AthenaAuthLedgerHealth,
+  type AthenaAuthLedgerQueryFailure,
+} from "./ledger-health.ts";
+export {
   assertAthenaAuthSchemaCompatible,
   compareAthenaAuthLedgers,
   getAthenaAuthExpectedLedger,
   getAthenaAuthSchemaManifest,
+  listAthenaAuthCanonicalMigrations,
   migrateAthenaAuthSchema,
   planAthenaAuthSchema,
   readAthenaAuthSchemaStatus,
   repairAthenaAuthSchema,
   toAthenaAuthSchemaCompatibility,
+  withAthenaAuthMigrationLock,
+  type AthenaAuthCanonicalMigration,
   type AthenaAuthLedgerEntry,
   type AthenaAuthMigrationAction,
   type AthenaAuthMigrationPlan,

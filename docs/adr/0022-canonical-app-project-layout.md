@@ -63,7 +63,7 @@ Every generated file carries the Athena generated banner.
 - **N** = this layout (generator default `athena-direct` preset).
 - **N-1** = root `athena/*` (generator `legacy` preset) + `app/lib/athena-*`.
 - Generator emits **N only** by default. Doctor warns on N-1. Migrate upgrades to N.
-- `defineAthenaConfig` is preferred; `defineGeneratorConfig` is an alias until 5.0 (AD-003).
+- `defineAthenaConfig` is the permissive project identity (`AthenaConfig`, optional `provider`). `defineGeneratorConfig` is a deprecated **strict** identity (`AthenaGeneratorConfig`, required `provider`) — not an alias (ADR 0043).
 
 ### Dependency graph
 

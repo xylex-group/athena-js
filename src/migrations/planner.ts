@@ -82,6 +82,15 @@ export function planMigrations(input: PlanMigrationsInput): MigrationPlan {
         });
         continue;
       }
+      if (applied.name !== local.name) {
+        conflicts.push({
+          applied,
+          kind: "name-mismatch",
+          local,
+          version,
+        });
+        continue;
+      }
       appliedEntries.push({ migration: local, status: "applied" });
       continue;
     }
@@ -91,10 +100,37 @@ export function planMigrations(input: PlanMigrationsInput): MigrationPlan {
     }
   }
 
+  const maxAppliedVersion = Math.max(
+    0,
+    ...input.applied.map((row) => row.version),
+    ...appliedEntries.map((entry) => entry.migration.version)
+  );
+  const historical = pendingEntries.filter(
+    (entry) => entry.migration.version < maxAppliedVersion
+  );
+  if (historical.length > 0 && maxAppliedVersion > 0) {
+    for (const entry of historical) {
+      conflicts.push({
+        kind: "historical-insertion",
+        local: entry.migration,
+        version: entry.migration.version,
+      });
+    }
+  }
+
+  const pending = pendingEntries.filter(
+    (entry) =>
+      !conflicts.some(
+        (conflict) =>
+          conflict.kind === "historical-insertion" &&
+          conflict.version === entry.migration.version
+      )
+  );
+
   return {
     applied: appliedEntries,
     conflicts,
-    pending: pendingEntries,
+    pending,
   };
 }
 

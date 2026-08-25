@@ -6,6 +6,7 @@ import {
 } from "../src/cloudflare/runtime.ts";
 import {
 	ATHENA_ENV_API_KEY_KEYS,
+	ATHENA_ENV_APP_URL_KEYS,
 	ATHENA_ENV_CLIENT_KEYS,
 	ATHENA_ENV_DB_URL_KEYS,
 	ATHENA_ENV_GATEWAY_URL_KEYS,
@@ -80,6 +81,11 @@ test("requireAthenaEnv throws when url or apiKey missing", () => {
 	});
 	assert.equal(ok.url, "https://x.example.com");
 	assert.equal(ok.apiKey, "k");
+});
+
+test("SSOT: APP_URL is first in Auth trusted-origin app URL catalog", () => {
+	assert.equal(ATHENA_ENV_APP_URL_KEYS[0], "APP_URL");
+	assert.equal(ATHENA_ENV_APP_URL_KEYS.includes("NEXT_PUBLIC_URL"), true);
 });
 
 test("SSOT: GATEWAY_URL keys are URL + DB catalogs in priority order", () => {

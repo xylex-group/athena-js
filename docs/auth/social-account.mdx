@@ -1,5 +1,12 @@
 # Auth Social and Provider Accounts
 
+Public SDK: `athena.auth.social.*`, `athena.auth.account.*`, `athena.auth.callback.provider`.
+There is no `athena.oauth` / `createOAuthClient`.
+
+Embedded local: `createClient({ auth: { social: { providers: { google, github, … } } } })`
+is accepted and normalized ([ADR 0050](../../../../docs/adr/technical/0050-athena-js-social-oauth-orchestration.md)).
+The four social HTTP routes are **not** served yet; advertised `social.providers` stays `[]`.
+
 ## Endpoints and methods
 
 - `auth.social.link()` -> `POST /link-social`

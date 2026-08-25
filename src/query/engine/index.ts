@@ -1,9 +1,16 @@
 export type {
+  AthenaBooleanConditionAst,
   AthenaColumnSelectionAst,
+  AthenaCompareConditionAst,
   AthenaCompareOperator,
   AthenaConditionAst,
+  AthenaContainmentConditionAst,
   AthenaDistinctAst,
   AthenaFieldRefAst,
+  AthenaInConditionAst,
+  AthenaIsNullConditionAst,
+  AthenaLogicalConditionAst,
+  AthenaNotConditionAst,
   AthenaOrderAst,
   AthenaPaginationAst,
   AthenaQueryAst,
@@ -12,9 +19,9 @@ export type {
   AthenaRelationPredicate,
   AthenaRelationSelectionAst,
   AthenaResolvedRelationConditionAst,
-  AthenaSelectQueryAst,
   AthenaSelectedFieldAst,
   AthenaSelectionAst,
+  AthenaSelectQueryAst,
   AthenaSourceAst,
 } from "./ast.ts";
 export {
@@ -76,9 +83,9 @@ export {
   resolveRelation,
 } from "./relations.ts";
 export {
+  countAstRelations,
   DEFAULT_QUERY_MAX_NESTED_DEPTH,
   DEFAULT_QUERY_MAX_RELATIONS,
-  countAstRelations,
   measureAstDepth,
   validatePlanAgainstCapabilities,
   validateQueryComplexity,

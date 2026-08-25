@@ -6,11 +6,13 @@
   "dependencies": {
     "@clack/prompts": "^0.11.0",
     "@noble/hashes": "^1.8.0",
+    "@simplewebauthn/server": "^13.3.2",
     "blessed": "^0.1.81",
     "chalk": "^4.1.2",
     "cron-parser": "^4.9.0",
     "jose": "^6.2.3",
     "pg": "^8.20.0",
+    "pgsql-parser": "^18.2.6",
     "server-only": "^0.0.1",
     "use-sync-external-store": "^1.6.0",
     "zod": "^4.4.3"
@@ -32,6 +34,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^8.57.1",
     "express": "^4.22.2",
+    "mollie-api-typescript": "1.12.25",
     "publint": "^0.3.23",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -39,7 +42,8 @@
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "ultracite": "^7.9.4"
+    "ultracite": "^7.9.4",
+    "next": "16.3.1"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -111,6 +115,18 @@
       "require": "./dist/env.cjs",
       "default": "./dist/env.js"
     },
+    "./email": {
+      "types": "./dist/email.d.ts",
+      "import": "./dist/email.js",
+      "require": "./dist/email.cjs",
+      "default": "./dist/email.js"
+    },
+    "./email/node": {
+      "types": "./dist/email/node.d.ts",
+      "import": "./dist/email/node.js",
+      "require": "./dist/email/node.cjs",
+      "default": "./dist/email/node.js"
+    },
     "./next/client": {
       "types": "./dist/next/client.d.ts",
       "import": "./dist/next/client.js",
@@ -123,6 +139,12 @@
       "require": "./dist/next/server.cjs",
       "default": "./dist/next/server.js"
     },
+    "./next/session": {
+      "types": "./dist/next/session.d.ts",
+      "import": "./dist/next/session.js",
+      "require": "./dist/next/session.cjs",
+      "default": "./dist/next/session.js"
+    },
     "./organization": {
       "types": "./dist/organization.d.ts",
       "import": "./dist/organization.js",
@@ -134,6 +156,24 @@
       "import": "./dist/policy.js",
       "require": "./dist/policy.cjs",
       "default": "./dist/policy.js"
+    },
+    "./rights": {
+      "types": "./dist/rights.d.ts",
+      "import": "./dist/rights.js",
+      "require": "./dist/rights.cjs",
+      "default": "./dist/rights.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js",
+      "require": "./dist/schema.cjs",
+      "default": "./dist/schema.js"
+    },
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "import": "./dist/devtools.js",
+      "require": "./dist/devtools.cjs",
+      "default": "./dist/devtools.js"
     },
     "./package.json": "./package.json",
     "./server": {
@@ -203,6 +243,8 @@
   "peerDependencies": {
     "@react-email/components": ">=1.0.0",
     "@react-email/render": ">=2.0.0",
+    "mollie-api-typescript": ">=1.12.25",
+    "next": ">=15.0.0 <17",
     "pg": ">=8.0.0",
     "react": ">=17.0.0"
   },
@@ -211,6 +253,12 @@
       "optional": true
     },
     "@react-email/render": {
+      "optional": true
+    },
+    "mollie-api-typescript": {
+      "optional": true
+    },
+    "next": {
       "optional": true
     },
     "pg": {
@@ -239,7 +287,7 @@
     "check:tarball": "node scripts/check-release-tarball.mjs",
     "docs:check": "node scripts/check-docs-consistency.mjs",
     "check:release": "pnpm lint && pnpm typecheck:all && pnpm test && pnpm build && pnpm test:browser-bundle && pnpm audit:rn && pnpm check:exports && pnpm check:publint && pnpm check:tarball && pnpm docs:check",
-    "dev": "tsup --watch",
+    "dev": "ATHENA_TSUP_WATCH=1 tsup --watch",
     "docs:methods": "node scripts/generate-sdk-method-reference.mjs",
     "docs:site:check": "pnpm --dir ../../apps/docs docs:sync-athena-js:check",
     "docs:site:sync": "pnpm --dir ../../apps/docs docs:sync-athena-js",
@@ -263,13 +311,15 @@
     "test:finality": "node scripts/run-finality.mjs",
     "test:tarball": "node scripts/check-release-tarball.mjs",
     "test:react-native": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/react-native-adapter.test.ts",
+    "test:expo-fixture": "pnpm --dir test/fixtures/expo check",
     "audit:consumer": "node scripts/audit-consumer-athena-usage.mjs",
     "audit:rn": "node scripts/audit-rn-bundle-safety.mjs",
     "test:browser-bundle": "node scripts/audit-browser-bundle-safety.mjs",
     "test:integration:postgres": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/postgres-introspection.integration.test.ts test/postgres-direct-live.test.ts test/postgres-direct-live-ast.test.ts test/sdd/athena-local-runtime.live.test.ts test/sdd/athena-local-runtime.r6.test.ts test/sdd/athena-local-runtime.r7.test.ts test/sdd/athena-local-runtime.r7.live.test.ts test/sdd/speedrun-pg-finality.live.test.ts",
     "test:policy-conformance": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/sdd/athena-local-runtime.r7.test.ts test/sdd/athena-local-runtime.r3.test.ts",
     "auth:route-parity": "node scripts/auth-route-parity.mjs --print",
-    "test:parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/finality-parity-suite.test.ts test/finality-password-portability.test.ts test/finality-portability.test.ts test/admin-auth-parity.test.ts test/admin-auth-portability.test.ts test/auth-route-inventory.test.ts test/auth-embedded-tier-a.test.ts",
+    "test:parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/finality-parity-suite.test.ts test/finality-password-portability.test.ts test/finality-portability.test.ts test/admin-auth-parity.test.ts test/admin-auth-portability.test.ts test/auth-route-inventory.test.ts test/auth-embedded-tier-a.test.ts test/email-parity.test.ts",
+    "test:email-parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/email-parity.test.ts test/email-architecture.test.ts test/email-auth-injection.test.ts",
     "test:parity:live": "node scripts/run-parity-live.mjs",
     "test:embedded-next": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/finality-handlers-from-root.test.ts test/sdd/athena-local-runtime.r5.security.test.ts test/conformance/act-5-1-embedded.test.ts",
     "test:query-ast": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/query-engine-*.test.ts test/postgres-compile-ast*.test.ts test/d1-compile-ast*.test.ts test/gateway-serialize-ast.test.ts test/query-ast.test.ts test/query-ast-act.test.ts test/query-ast-parity.test.ts",
@@ -318,11 +368,20 @@
       "env": [
         "dist/env.d.ts"
       ],
+      "email": [
+        "dist/email.d.ts"
+      ],
+      "email/node": [
+        "dist/email/node.d.ts"
+      ],
       "next/client": [
         "dist/next/client.d.ts"
       ],
       "next/server": [
         "dist/next/server.d.ts"
+      ],
+      "next/session": [
+        "dist/next/session.d.ts"
       ],
       "organization": [
         "dist/organization.d.ts"
@@ -335,6 +394,12 @@
       ],
       "runtime": [
         "dist/runtime.d.ts"
+      ],
+      "rights": [
+        "dist/rights.d.ts"
+      ],
+      "devtools": [
+        "dist/devtools.d.ts"
       ],
       "react": [
         "dist/react.d.ts"
@@ -353,7 +418,7 @@
       ]
     }
   },
-  "version": "5.2.0",
+  "version": "5.3.0",
   "overrides": {
     "brace-expansion@<1.1.18": "1.1.18",
     "brace-expansion@>=5 <5.0.9": "5.0.9",

@@ -26,6 +26,7 @@ export {
 export {
   normalizeAthenaAuthConfig,
   type AthenaAuthLocalConfig,
+  type AthenaAuthPasskeyOptions,
   type AthenaAuthPublicConfig,
   type AthenaAuthRemoteConfig,
   type NormalizedAthenaAuthConfig,
@@ -35,4 +36,10 @@ export {
   ATHENA_AUTH_DEFAULT_ARGON2,
   ATHENA_AUTH_SCHEMA_GENERATION,
   ATHENA_AUTH_SESSION_COOKIE_NAME,
+  deriveEmbeddedCapabilityAdvertisement,
+  listMissingEmbeddedOperations,
+  operationKey,
+  operationsForCapability,
+  type AthenaAuthOperationDefinition,
 } from "./contract/index.ts";
+export { ATHENA_AUTH_OPERATIONS } from "./contract/operations.generated.ts";

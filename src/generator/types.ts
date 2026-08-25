@@ -1,5 +1,6 @@
 import type { BackendType } from "../gateway/types.ts";
 import type {
+  AthenaClientModelsInput,
   IntrospectionSnapshot,
   SchemaIntrospectionProvider,
 } from "../schema/types.ts";
@@ -229,19 +230,62 @@ export interface NormalizedAthenaMigrationsConfig {
 }
 
 /**
- * Root config contract loaded from `athena.config.ts`.
- *
- * Historically generator-focused; now also carries shared project tooling
- * options such as `migrations` while remaining backward compatible.
+ * Bootstrap-safe path entrypoints for CLI/tooling. Paths are metadata;
+ * `generate` must not import them. Policy CLI may lazy-resolve `policies`.
+ * `createClient` never reads these paths.
  */
-export interface AthenaGeneratorConfig {
+export interface AthenaToolingEntrypoints {
+  models?: string;
+  policies?: string;
+}
+
+/**
+ * Static policy bag on `athena.config.ts`. Applications still pass
+ * `policies` explicitly into `createClient` — this is not a spread bag.
+ */
+export interface AthenaPolicyProjectConfig {
+  definitions?: unknown;
+  enforce?: boolean;
+  mode?: "disabled" | "observe" | "enforce";
+}
+
+/**
+ * Static project SSOT loaded from `athena.config.ts`.
+ *
+ * `provider` is optional so policy-only / generate-less apps can author
+ * a config without a fake database. Generator commands still require
+ * {@link AthenaGeneratorConfig.provider}.
+ */
+export interface AthenaConfig {
   experimental?: Partial<GeneratorExperimentalFlags>;
   features?: Partial<GeneratorFeatureFlags>;
   filter?: GeneratorFilterConfig;
   /** Optional SQL migration tooling settings. */
   migrations?: AthenaMigrationsConfig;
+  /**
+   * Tooling enablement for packaged domain migrations.
+   * `athena-js migrate` applies Embedded Chat iff `modules.chat === true`.
+   * Runtime `createClient({ chat: true })` is the same capability, not the migrate signal.
+   */
+  modules?: {
+    auth?: boolean;
+    chat?: boolean;
+  };
+  models?: AthenaClientModelsInput;
   naming?: Partial<GeneratorNamingConfig>;
   output?: GeneratorOutputConfig;
+  policies?: AthenaPolicyProjectConfig;
+  provider?: GeneratorProviderInputConfig;
+  tooling?: AthenaToolingEntrypoints;
+}
+
+/**
+ * Generator compile-time SSOT: same project fields as {@link AthenaConfig}
+ * but `provider` is required. Used by `defineGeneratorConfig` and
+ * `loadGeneratorConfig` / `athena-js generate`.
+ */
+export interface AthenaGeneratorConfig
+  extends Omit<AthenaConfig, "provider"> {
   provider: GeneratorProviderInputConfig;
 }
 
@@ -254,6 +298,10 @@ export interface NormalizedAthenaGeneratorConfig {
   filter: NormalizedGeneratorFilterConfig;
   internal: GeneratorInternalConfig;
   migrations: NormalizedAthenaMigrationsConfig;
+  modules?: {
+    auth?: boolean;
+    chat?: boolean;
+  };
   naming: GeneratorNamingConfig;
   output: NormalizedGeneratorOutputConfig;
   provider: GeneratorProviderConfig;
@@ -268,10 +316,24 @@ export interface LoadGeneratorConfigOptions {
 }
 
 /**
+ * Options for {@link loadAthenaConfig} — same discovery as the generator loader.
+ */
+export type LoadAthenaConfigOptions = LoadGeneratorConfigOptions;
+
+/**
  * Fully loaded config result including resolved file path.
  */
 export interface LoadedGeneratorConfig {
   config: NormalizedAthenaGeneratorConfig;
+  configPath: string;
+}
+
+/**
+ * Full static project load. Retains `models`, `policies`, and `tooling`
+ * exactly; does not project through {@link NormalizedAthenaGeneratorConfig}.
+ */
+export interface LoadedAthenaConfig {
+  config: AthenaConfig;
   configPath: string;
 }
 

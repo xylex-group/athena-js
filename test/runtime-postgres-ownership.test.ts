@@ -9,7 +9,10 @@ import {
   createPostgresDirectTransport,
   disposePostgresDirectTransport,
 } from "../src/postgres/transport.ts";
-import { getAthenaClientInternals } from "../src/runtime/client-internals.ts";
+import {
+  AthenaRuntimeOwnershipError,
+  getAthenaClientInternals,
+} from "../src/runtime/client-internals.ts";
 import { AthenaConfigurationError, createClient } from "../src/v3-client.ts";
 
 const SAMPLE_PG =
@@ -88,7 +91,12 @@ test("createClient owns one postgres runtime shared by withContext views", async
   assert.equal(getAthenaClientInternals(orgB)?.authRuntime, authRuntime);
   assert.equal((rootRuntime as AthenaPostgresRuntime).ownership, "owned");
   await root.close();
-  await (orgA as unknown as typeof root).close();
+  await assert.rejects(
+    () => (orgA as unknown as typeof root).close(),
+    (error: unknown) =>
+      error instanceof AthenaRuntimeOwnershipError &&
+      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID"
+  );
   await assert.rejects(
     () => rootRuntime.getPool(),
     (error: unknown) =>

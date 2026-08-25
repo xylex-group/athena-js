@@ -1,7 +1,7 @@
 /**
  * Client ownership vs resource ownership.
  *
- *   ownership          — is this object a root or a request view?
+ *   ownership          — is this object a root or a request runtime?
  *   runtimeOwnership   — does this object own / borrow / have no runtime resources?
  *   lifecycle.runtimeId — shared identity across root + views
  */
@@ -11,7 +11,17 @@ import { PACKAGE_VERSION } from "../sdk-version.ts";
 
 export const ATHENA_CLIENT_INTERNAL_PROTOCOL = 1;
 
-export type AthenaClientOwnership = "root" | "view";
+/** Process-wide client: owns pools, embedded Auth, migrate, close, handlers. */
+export interface AthenaRootRuntime {
+  readonly ownership: "root";
+}
+
+/** Request-scoped view: borrows root resources and must not own lifecycle. */
+export interface AthenaRequestRuntime {
+  readonly ownership: "request";
+}
+
+export type AthenaClientOwnership = "root" | "request";
 export type AthenaRuntimeResourceOwnership = "owned" | "borrowed" | "none";
 export type AthenaOwnershipReceived =
   | "request-view"
@@ -44,13 +54,14 @@ export class AthenaRuntimeOwnershipError extends AthenaConfigurationError {
   constructor(options: {
     caller: string;
     code?:
+      | "ATHENA_RUNTIME_OWNERSHIP_INVALID"
       | "ATHENA_HANDLER_ROOT_CLIENT_REQUIRED"
       | "ATHENA_CLIENT_RUNTIME_VERSION_MISMATCH";
     message: string;
     received: AthenaOwnershipReceived;
   }) {
     super(
-      options.code ?? "ATHENA_HANDLER_ROOT_CLIENT_REQUIRED",
+      options.code ?? "ATHENA_RUNTIME_OWNERSHIP_INVALID",
       options.message,
       "db"
     );

@@ -28,26 +28,31 @@
  */
 
 export {
-  type AthenaAuthSessionBridgeClientOptions,
-  clearAthenaAuthSessionOnAppHost,
-  persistAthenaAuthSessionOnAppHost,
+	type AthenaAuthSessionBridgeClientOptions,
+	clearAthenaAuthSessionOnAppHost,
+	persistAthenaAuthSessionOnAppHost,
 } from "./client.ts";
 export {
-  ATHENA_AUTH_SESSION_BRIDGE_ROUTE,
-  ATHENA_AUTH_SESSION_COOKIE_NAME,
-  ATHENA_AUTH_SESSION_COOKIE_NAMES,
+	ATHENA_AUTH_SESSION_BRIDGE_ROUTE,
+	ATHENA_AUTH_SESSION_COOKIE_NAME,
+	ATHENA_AUTH_SESSION_COOKIE_NAMES,
 } from "./constants.ts";
 export {
-  createAthenaAuthSessionBridgeHandlers,
-  createAthenaAuthSessionBridgePathHandlers,
-  handleAthenaAuthSessionBridgeDelete,
-  handleAthenaAuthSessionBridgePost,
-  isAthenaAuthSessionBridgePath,
+	createAthenaAuthBridgeHandlers,
+	createAthenaAuthSessionBridgeHandlers,
+	createAthenaAuthSessionBridgePathHandlers,
+	handleAthenaAuthBridgeGet,
+	handleAthenaAuthSessionBridgeDelete,
+	handleAthenaAuthSessionBridgePost,
+	isAthenaAuthSessionBridgePath,
 } from "./handlers.ts";
 export { resolveSessionBridgePayload } from "./payload.ts";
 export type {
-  AthenaAuthSessionBridgeOptions,
-  AthenaAuthSessionBridgePathOptions,
-  AthenaAuthSessionBridgePayload,
-  AthenaAuthSessionBridgeSource,
+	AthenaAuthBridgeExchangeInput,
+	AthenaAuthBridgeExchangeResult,
+	AthenaAuthBridgeHandlerOptions,
+	AthenaAuthSessionBridgeOptions,
+	AthenaAuthSessionBridgePathOptions,
+	AthenaAuthSessionBridgePayload,
+	AthenaAuthSessionBridgeSource,
 } from "./types.ts";

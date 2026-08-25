@@ -41,6 +41,8 @@ const users = table('users')
 
 `defineSchema`, `defineDatabase`, and `defineRegistry` group model values. `defineModel` remains a low-level compatibility authoring helper, not another client constructor.
 
+Canonical structure is **Schema IR v2** on `@xylex-group/athena/schema`. `table()` returns the same ergonomic def **and** attaches `ir: AthenaSchemaIr`; model metadata is derived from that IR. See [schema-ir.md](./schema-ir.md).
+
 ## D1 edge drop-in + SQL DDL
 
 The same models work on **gateway** (Postgres) and **edge** (D1):

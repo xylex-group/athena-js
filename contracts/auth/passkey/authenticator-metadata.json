@@ -1,0 +1,29 @@
+{
+  "$comment": "Shared authenticator-metadata fixtures for TS tests. Rust consumption path (document only; no ceremony this slice): services/athena-auth/crates/api/src/plugins/passkey/fixtures/authenticator-metadata.json",
+  "be": 8,
+  "bs": 16,
+  "cases": [
+    {
+      "backedUp": false,
+      "deviceType": "singleDevice",
+      "flags": 65,
+      "label": "UP|AT 0x41 — BE clear, BS clear",
+      "transports": null
+    },
+    {
+      "backedUp": false,
+      "deviceType": "multiDevice",
+      "flags": 73,
+      "label": "UP|AT|BE 0x49 — multiDevice is not backedUp",
+      "transports": ["internal", "hybrid"]
+    },
+    {
+      "backedUp": true,
+      "deviceType": "multiDevice",
+      "flags": 89,
+      "label": "UP|AT|BE|BS 0x59",
+      "transports": []
+    }
+  ],
+  "rustFixturePath": "services/athena-auth/crates/api/src/plugins/passkey/fixtures/authenticator-metadata.json"
+}

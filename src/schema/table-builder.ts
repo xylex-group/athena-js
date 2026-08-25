@@ -1,4 +1,6 @@
 import { defineModel } from "./definitions.ts";
+import type { AthenaSchemaIr } from "./ir/document.ts";
+import { schemaIrFromModels } from "./ir/compatibility.ts";
 import type { ModelFormNullishMode, ModelFormValues } from "./model-form.ts";
 import {
   type AnyColumnBuilder,
@@ -164,6 +166,8 @@ export interface AthenaTableDef<
     UpdateFromColumns<TColumns>
   >;
   readonly tableName: ResolvedTableName<TName, TMappedName>;
+  /** Canonical Schema IR v2 document derived from this table. */
+  readonly ir: AthenaSchemaIr;
 }
 
 interface AthenaTableBuilder<
@@ -307,6 +311,8 @@ function toColumnMetadata(column: AnyColumnBuilder): ModelColumnMetadata {
     isGenerated: config.isGenerated,
     kind: config.kind,
     nullable: config.nullable,
+    ...(config.precision === undefined ? {} : { precision: config.precision }),
+    ...(config.scale === undefined ? {} : { scale: config.scale }),
   };
 }
 
@@ -345,17 +351,40 @@ function finalizeTable<
   primaryKey: readonly Extract<keyof TColumns, string>[]
 ): AthenaTableDef<TColumns, TName, TMappedName, TSchemaName> {
   const target = resolveTableTarget(name, mappedName, schemaName);
-  const model = defineModel<
+  const authored = defineModel<
     RowFromColumns<TColumns>,
     InsertFromColumns<TColumns>,
     UpdateFromColumns<TColumns>
   >({
     meta: {
       columns: buildColumnMetadataMap(columns),
-      model: target.model,
+      model: name,
       nullable: buildNullableMap(columns),
       primaryKey: [...primaryKey],
       schema: target.schema,
+      ...(target.model !== name ? { tableName: target.model } : {}),
+    },
+  });
+  const ir = schemaIrFromModels([authored]);
+  const irTable = ir.databases[0]?.namespaces[0]?.tables[0];
+  const logical = irTable?.identity.logical;
+  const model = defineModel<
+    RowFromColumns<TColumns>,
+    InsertFromColumns<TColumns>,
+    UpdateFromColumns<TColumns>
+  >({
+    meta: {
+      columns: authored.meta.columns,
+      model: logical?.name ?? target.model,
+      nullable: authored.meta.nullable,
+      primaryKey: [...primaryKey],
+      schema: logical?.namespace ?? target.schema,
+      ...(logical?.database && logical.database !== "default"
+        ? { database: logical.database }
+        : {}),
+      ...(authored.meta.tableName
+        ? { tableName: authored.meta.tableName }
+        : {}),
     },
   });
 
@@ -368,6 +397,7 @@ function finalizeTable<
   return Object.assign(model, {
     columns,
     kind: "table" as const,
+    ir,
     mappedName,
     name,
     qualifiedName: target.qualifiedName,

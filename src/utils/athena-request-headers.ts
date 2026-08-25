@@ -494,18 +494,18 @@ export function buildAthenaRequestHeaders(
   const reservedClientHeaderKeys = new Set(
     CLIENT_HEADER_CANDIDATES.map((key) => key.toLowerCase())
   );
-  Object.entries(mergedExtraHeaders).forEach(([key, value]) => {
+  for (const [key, value] of Object.entries(mergedExtraHeaders)) {
     if (reservedClientHeaderKeys.has(key.toLowerCase())) {
-      return undefined;
+      continue;
     }
     if (forceNoCache && isCacheControlHeaderName(key)) {
-      return undefined;
+      continue;
     }
     const normalized = normalizeHeaderValue(value);
     if (normalized) {
       headers[key] = normalized;
     }
-  });
+  }
 
   if (forceNoCache) {
     headers["Cache-Control"] = NO_CACHE_HEADER_VALUE;

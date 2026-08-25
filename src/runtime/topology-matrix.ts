@@ -16,7 +16,12 @@ export interface AthenaTopologyMatrixInput {
   db?: { d1?: unknown; pgUri?: string | null };
   env?: Record<string, string | undefined>;
   mode?: string | null;
-  storage?: { r2?: unknown; url?: string | null };
+  storage?: {
+    provider?: string | null;
+    r2?: unknown;
+    root?: string | null;
+    url?: string | null;
+  };
   url?: string | null;
 }
 
@@ -111,6 +116,16 @@ export const ATHENA_TOPOLOGY_MATRIX: readonly AthenaTopologyMatrixRow[] = [
     trustedNode: true,
   },
   {
+    environment: "node",
+    expect: { auth: "remote", db: "gateway", storage: "local" },
+    id: "node-local-storage",
+    input: {
+      env: {},
+      storage: { provider: "local", root: "/tmp/athena-local-storage" },
+    },
+    trustedNode: true,
+  },
+  {
     environment: "browser",
     expect: { auth: "remote", db: "gateway", storage: "none" },
     id: "browser-never-selects-postgres",
@@ -130,6 +145,17 @@ export const ATHENA_TOPOLOGY_MATRIX: readonly AthenaTopologyMatrixRow[] = [
     id: "browser-explicit-local-auth-fails",
     input: { auth: { mode: "local" }, databaseUrl: SAMPLE_PG, env: {} },
     throws: "ATHENA_AUTH_LOCAL_NODE_REQUIRED",
+    trustedNode: false,
+  },
+  {
+    environment: "browser",
+    expect: { auth: "remote", db: "gateway", storage: "none" },
+    id: "browser-local-storage-fails",
+    input: {
+      env: {},
+      storage: { provider: "local", root: "/tmp/athena-local-storage" },
+    },
+    throws: "ATHENA_STORAGE_LOCAL_NODE_REQUIRED",
     trustedNode: false,
   },
   {

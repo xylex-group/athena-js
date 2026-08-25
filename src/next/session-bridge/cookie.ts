@@ -1,6 +1,6 @@
 import {
-  ATHENA_AUTH_SESSION_COOKIE_NAME,
-  ATHENA_AUTH_SESSION_COOKIE_NAMES,
+	ATHENA_AUTH_SESSION_COOKIE_NAME,
+	ATHENA_AUTH_SESSION_COOKIE_NAMES,
 } from "./constants.ts";
 import type { AthenaAuthSessionBridgeOptions } from "./types.ts";
 
@@ -17,17 +17,17 @@ const EXPIRED_AT = new Date(0);
  * @returns `true` when cookies should include `Secure`
  */
 export function resolveRequestIsSecure(request: Request): boolean {
-  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
-  if (forwardedProto) {
-    const first = forwardedProto.split(",")[0]?.trim().toLowerCase();
-    if (first === "https") {
-      return true;
-    }
-    if (first === "http") {
-      return false;
-    }
-  }
-  return new URL(request.url).protocol === "https:";
+	const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
+	if (forwardedProto) {
+		const first = forwardedProto.split(",")[0]?.trim().toLowerCase();
+		if (first === "https") {
+			return true;
+		}
+		if (first === "http") {
+			return false;
+		}
+	}
+	return new URL(request.url).protocol === "https:";
 }
 
 /**
@@ -37,13 +37,13 @@ export function resolveRequestIsSecure(request: Request): boolean {
  * @returns Valid `Date`, or `undefined` when missing / invalid
  */
 export function resolveSessionCookieExpiresAt(
-  value: unknown
+	value: unknown,
 ): Date | undefined {
-  if (typeof value !== "string") {
-    return;
-  }
-  const expiresAt = new Date(value);
-  return Number.isNaN(expiresAt.getTime()) ? undefined : expiresAt;
+	if (typeof value !== "string") {
+		return;
+	}
+	const expiresAt = new Date(value);
+	return Number.isNaN(expiresAt.getTime()) ? undefined : expiresAt;
 }
 
 /**
@@ -52,29 +52,29 @@ export function resolveSessionCookieExpiresAt(
  * @internal
  */
 function serializeCookie(
-  name: string,
-  value: string,
-  options: {
-    path: string;
-    sameSite: "lax" | "strict" | "none";
-    secure: boolean;
-    httpOnly: boolean;
-    expires?: Date | undefined;
-  }
+	name: string,
+	value: string,
+	options: {
+		path: string;
+		sameSite: "lax" | "strict" | "none";
+		secure: boolean;
+		httpOnly: boolean;
+		expires?: Date | undefined;
+	},
 ): string {
-  const parts = [
-    `${encodeURIComponent(name)}=${encodeURIComponent(value)}`,
-    `Path=${options.path}`,
-    "HttpOnly",
-    `SameSite=${options.sameSite === "none" ? "None" : options.sameSite === "strict" ? "Strict" : "Lax"}`,
-  ];
-  if (options.secure) {
-    parts.push("Secure");
-  }
-  if (options.expires) {
-    parts.push(`Expires=${options.expires.toUTCString()}`);
-  }
-  return parts.join("; ");
+	const parts = [
+		`${encodeURIComponent(name)}=${encodeURIComponent(value)}`,
+		`Path=${options.path}`,
+		"HttpOnly",
+		`SameSite=${options.sameSite === "none" ? "None" : options.sameSite === "strict" ? "Strict" : "Lax"}`,
+	];
+	if (options.secure) {
+		parts.push("Secure");
+	}
+	if (options.expires) {
+		parts.push(`Expires=${options.expires.toUTCString()}`);
+	}
+	return parts.join("; ");
 }
 
 /**
@@ -83,14 +83,14 @@ function serializeCookie(
  * @param options - Optional bridge configuration
  */
 export function resolveBridgeCookieConfig(
-  options?: AthenaAuthSessionBridgeOptions
+	options?: AthenaAuthSessionBridgeOptions,
 ) {
-  return {
-    cookieName: options?.cookieName ?? ATHENA_AUTH_SESSION_COOKIE_NAME,
-    cookieNames: options?.cookieNames ?? ATHENA_AUTH_SESSION_COOKIE_NAMES,
-    cookiePath: options?.cookiePath ?? "/",
-    sameSite: options?.sameSite ?? "lax",
-  } as const;
+	return {
+		cookieName: options?.cookieName ?? ATHENA_AUTH_SESSION_COOKIE_NAME,
+		cookieNames: options?.cookieNames ?? ATHENA_AUTH_SESSION_COOKIE_NAMES,
+		cookiePath: options?.cookiePath ?? "/",
+		sameSite: options?.sameSite ?? "lax",
+	} as const;
 }
 
 /**
@@ -103,24 +103,24 @@ export function resolveBridgeCookieConfig(
  * @param options - Bridge cookie options
  */
 export function appendSessionCookie(
-  headers: Headers,
-  request: Request,
-  token: string,
-  expiresAt: Date | undefined,
-  options?: AthenaAuthSessionBridgeOptions
+	headers: Headers,
+	request: Request,
+	token: string,
+	expiresAt: Date | undefined,
+	options?: AthenaAuthSessionBridgeOptions,
 ): void {
-  const config = resolveBridgeCookieConfig(options);
-  const secure = options?.secure ?? resolveRequestIsSecure(request);
-  headers.append(
-    "set-cookie",
-    serializeCookie(config.cookieName, token, {
-      expires: expiresAt,
-      httpOnly: true,
-      path: config.cookiePath,
-      sameSite: config.sameSite,
-      secure,
-    })
-  );
+	const config = resolveBridgeCookieConfig(options);
+	const secure = options?.secure ?? resolveRequestIsSecure(request);
+	headers.append(
+		"set-cookie",
+		serializeCookie(config.cookieName, token, {
+			expires: expiresAt,
+			httpOnly: true,
+			path: config.cookiePath,
+			sameSite: config.sameSite,
+			secure,
+		}),
+	);
 }
 
 /**
@@ -134,23 +134,23 @@ export function appendSessionCookie(
  * @param options - Bridge cookie options
  */
 export function appendClearSessionCookies(
-  headers: Headers,
-  request: Request,
-  options?: AthenaAuthSessionBridgeOptions
+	headers: Headers,
+	request: Request,
+	options?: AthenaAuthSessionBridgeOptions,
 ): void {
-  const config = resolveBridgeCookieConfig(options);
-  const secure = options?.secure ?? resolveRequestIsSecure(request);
-  const names = new Set<string>([config.cookieName, ...config.cookieNames]);
-  for (const name of names) {
-    headers.append(
-      "set-cookie",
-      serializeCookie(name, "", {
-        expires: EXPIRED_AT,
-        httpOnly: true,
-        path: config.cookiePath,
-        sameSite: config.sameSite,
-        secure,
-      })
-    );
-  }
+	const config = resolveBridgeCookieConfig(options);
+	const secure = options?.secure ?? resolveRequestIsSecure(request);
+	const names = new Set<string>([config.cookieName, ...config.cookieNames]);
+	for (const name of names) {
+		headers.append(
+			"set-cookie",
+			serializeCookie(name, "", {
+				expires: EXPIRED_AT,
+				httpOnly: true,
+				path: config.cookiePath,
+				sameSite: config.sameSite,
+				secure,
+			}),
+		);
+	}
 }

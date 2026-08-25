@@ -6,10 +6,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  UPSTREAM_UNAVAILABLE_MESSAGE,
-  sanitizeAuthErrorMessage,
-} from "../http/upstream-html-error.ts";
 import type { AthenaSessionData } from "../auth/session-data.ts";
 import { toSessionData } from "../auth/session-data.ts";
 import type { AthenaAuthSessionSnapshot } from "../auth/session-store.ts";
@@ -24,6 +20,10 @@ import type {
   AthenaAuthSessionResponse,
   AthenaAuthUser,
 } from "../auth/types.ts";
+import {
+  sanitizeAuthErrorMessage,
+  UPSTREAM_UNAVAILABLE_MESSAGE,
+} from "../http/upstream-html-error.ts";
 
 export interface UseSessionOptions {
   callOptions?: AthenaAuthCallOptions;
@@ -47,44 +47,42 @@ export interface UseSessionResult {
 
 type SessionGetter = (
   input?: AthenaAuthFetchCompatibleInput,
-  options?: AthenaAuthCallOptions
+  options?: AthenaAuthCallOptions,
 ) => Promise<AthenaAuthResult<AthenaAuthSessionResponse>>;
 
 type SessionStoreApi = {
   getSnapshot: () => AthenaAuthSessionSnapshot<AthenaAuthSessionResponse>;
   subscribe: (
     listener: (
-      snapshot: AthenaAuthSessionSnapshot<AthenaAuthSessionResponse>
-    ) => void
+      snapshot: AthenaAuthSessionSnapshot<AthenaAuthSessionResponse>,
+    ) => void,
   ) => () => void;
   refresh?: (
     input?: AthenaAuthFetchCompatibleInput,
-    options?: AthenaAuthCallOptions
+    options?: AthenaAuthCallOptions,
   ) => Promise<unknown>;
+};
+
+type UseSessionAuthSurface = {
+  getSession: SessionGetter;
+  session?: SessionStoreApi;
+};
+
+type UseSessionNestedAuth = {
+  getSession?: SessionGetter;
+  session?: SessionStoreApi;
 };
 
 /**
  * Anything `useSession` can resolve a `getSession` from:
  * - auth-ui compatibility client → top-level `getSession`
- * - `createClient(...)` → `auth.getSession`
- * - `createClient(...).auth` → `getSession` on bindings
+ * - `createClient()` → `auth.getSession`
+ * - `createClient().auth` → `getSession` on bindings
  */
 export type UseSessionAuthClient =
-  | { getSession: SessionGetter; session?: SessionStoreApi; auth?: never }
-  | {
-      auth: {
-        getSession: SessionGetter;
-        session?: SessionStoreApi;
-      };
-    }
-  | {
-      getSession: SessionGetter;
-      session?: SessionStoreApi;
-      auth: {
-        getSession?: SessionGetter;
-        session?: SessionStoreApi;
-      };
-    };
+  | (UseSessionAuthSurface & { auth?: never })
+  | { auth: UseSessionAuthSurface }
+  | (UseSessionAuthSurface & { auth: UseSessionNestedAuth });
 
 function resolveGetSession(authClient: UseSessionAuthClient): SessionGetter {
   if (
@@ -103,12 +101,12 @@ function resolveGetSession(authClient: UseSessionAuthClient): SessionGetter {
   }
 
   throw new Error(
-    "useSession requires an auth-capable client (createClient(...).auth)"
+    "useSession requires an auth-capable client (createClient().auth)",
   );
 }
 
 function resolveSessionStore(
-  authClient: UseSessionAuthClient
+  authClient: UseSessionAuthClient,
 ): SessionStoreApi | null {
   if (
     "session" in authClient &&
@@ -133,7 +131,7 @@ function resolveSessionStore(
 function toFallbackErrorDetails(
   code: AthenaAuthErrorCode,
   message: string,
-  status: number
+  status: number,
 ): AthenaAuthErrorDetails {
   return {
     code,
@@ -143,7 +141,7 @@ function toFallbackErrorDetails(
 }
 
 function normalizeTransport(
-  data: AthenaAuthSessionResponse | null | undefined
+  data: AthenaAuthSessionResponse | null | undefined,
 ): AthenaSessionData | null {
   if (!(data?.user?.id && data.session?.id)) {
     return null;
@@ -162,7 +160,7 @@ const EMPTY_STORE_SNAPSHOT: AthenaAuthSessionSnapshot<AthenaAuthSessionResponse>
   });
 
 function snapshotToResult(
-  snapshot: AthenaAuthSessionSnapshot<AthenaAuthSessionResponse>
+  snapshot: AthenaAuthSessionSnapshot<AthenaAuthSessionResponse>,
 ): Omit<UseSessionResult, "refetch"> {
   const data = normalizeTransport(snapshot.session);
   const view = deriveSessionView(data);
@@ -177,7 +175,7 @@ function snapshotToResult(
     error = toFallbackErrorDetails(
       "NETWORK_ERROR",
       sanitizeAuthErrorMessage(rawMessage, UPSTREAM_UNAVAILABLE_MESSAGE),
-      0
+      0,
     );
   }
   return {
@@ -202,7 +200,7 @@ const inflightByGetter = new WeakMap<
 function getSessionDeduped(
   getSession: SessionGetter,
   fetchInput: AthenaAuthFetchCompatibleInput | undefined,
-  callOptions: AthenaAuthCallOptions | undefined
+  callOptions: AthenaAuthCallOptions | undefined,
 ): Promise<AthenaAuthResult<AthenaAuthSessionResponse>> {
   // Only dedupe default mount/refetch shape (no distinct fetch inputs).
   if (fetchInput !== undefined || callOptions !== undefined) {
@@ -235,7 +233,7 @@ function getSessionDeduped(
  */
 export function useSession(
   authClient: UseSessionAuthClient,
-  options: UseSessionOptions = {}
+  options: UseSessionOptions = {},
 ): UseSessionResult {
   const enabled = options.enabled ?? true;
   const refetchOnMount = options.refetchOnMount ?? true;
@@ -260,7 +258,7 @@ export function useSession(
         onStoreChange();
       });
     },
-    [enabled, store]
+    [enabled, store],
   );
   const lastSnapshotRef = useRef(EMPTY_STORE_SNAPSHOT);
   const storeGetSnapshot = useCallback(() => {
@@ -283,7 +281,7 @@ export function useSession(
   const snapshot = useSyncExternalStore(
     storeSubscribe,
     storeGetSnapshot,
-    storeGetSnapshot
+    storeGetSnapshot,
   );
 
   useEffect(() => {
@@ -296,12 +294,12 @@ export function useSession(
       if (typeof currentStore.refresh === "function") {
         void currentStore.refresh(
           fetchInputRef.current,
-          callOptionsRef.current
+          callOptionsRef.current,
         );
       } else {
         void getSessionRef.current(
           fetchInputRef.current,
-          callOptionsRef.current
+          callOptionsRef.current,
         );
       }
     }
@@ -346,7 +344,7 @@ export function useSession(
       const result = await getSessionDeduped(
         getSessionRef.current,
         fetchInputRef.current,
-        callOptionsRef.current
+        callOptionsRef.current,
       );
       if (!mountedRef.current || requestId !== requestIdRef.current) {
         return null;
@@ -354,7 +352,7 @@ export function useSession(
 
       if (result.ok) {
         const normalized = normalizeTransport(
-          (result.data ?? null) as AthenaAuthSessionResponse | null
+          (result.data ?? null) as AthenaAuthSessionResponse | null,
         );
         setData(normalized);
         setError(null);
@@ -363,11 +361,11 @@ export function useSession(
 
       setError(
         result.errorDetails ??
-          toFallbackErrorDetails(
-            "UNKNOWN_ERROR",
-            result.error ?? "Failed to fetch session",
-            result.status
-          )
+        toFallbackErrorDetails(
+          "UNKNOWN_ERROR",
+          result.error ?? "Failed to fetch session",
+          result.status,
+        ),
       );
       return null;
     } catch (requestError) {

@@ -12,8 +12,9 @@
  */
 
 import { normalizeAthenaGatewayBaseUrl } from "../gateway/url.ts";
+import { parseAthenaRightKey } from "../rights/key.ts";
 import { PACKAGE_VERSION } from "../sdk-version.ts";
-import { loadProjectEnv } from "./project-env.ts";
+import { loadProjectEnv } from "./commands/env/project-env.ts";
 
 export const ADMIN_KEY_ENV_KEYS = [
   "ATHENA_KEY_12",
@@ -310,6 +311,9 @@ export async function listGatewayApiKeys(
 export async function createGatewayApiKey(
   options: GatewayAdminClientOptions & { input: CreateGatewayApiKeyInput }
 ): Promise<CreateGatewayApiKeyResult> {
+  const rights = (options.input.rights ?? []).map((raw) =>
+    parseAthenaRightKey(raw)
+  );
   const body = await gatewayAdminRequest({
     ...options,
     body: {
@@ -317,7 +321,7 @@ export async function createGatewayApiKey(
       description: options.input.description ?? undefined,
       expires_at: options.input.expires_at ?? undefined,
       name: options.input.name,
-      rights: options.input.rights ?? [],
+      rights,
     },
     method: "POST",
     path: "/admin/api-keys",
@@ -393,7 +397,7 @@ export async function createGatewayApiKeyRight(
     ...options,
     body: {
       description: options.input.description ?? undefined,
-      name: options.input.name,
+      name: parseAthenaRightKey(options.input.name),
     },
     method: "POST",
     path: "/admin/api-key-rights",

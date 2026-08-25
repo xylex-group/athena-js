@@ -117,14 +117,47 @@ export const ATHENA_AUTH_MIGRATION_EXPECTATIONS: Readonly<
     table("athena", "auth_schema_migrations"),
     table("athena", "runtime_key"),
   ],
+  22: [
+    column("athena", "passkeys", "updated_at"),
+    index("athena", "idx_passkeys_user_id"),
+    index("athena", "idx_passkeys_credential_id"),
+  ],
+  23: [
+    table("athena", "audit_log_auth"),
+    table("athena", "traces_auth"),
+    index("athena", "audit_log_auth_event_id_idx"),
+    index("athena", "traces_auth_trace_id_idx"),
+    index("athena", "traces_auth_event_id_idx"),
+  ],
+  24: [table("athena", "email_event_types")],
+  25: [column("athena", "passkeys", "aaguid")],
+  26: [
+    column("athena", "passkeys", "resident_key"),
+    table("athena", "passkey_registration_transactions"),
+    index("athena", "idx_passkey_reg_tx_challenge_hash"),
+  ],
+  27: [
+    table("athena", "auth_bridge_codes"),
+    index("athena", "idx_auth_bridge_codes_expires_at"),
+    index("athena", "idx_auth_bridge_codes_session_id"),
+    index("athena", "idx_auth_bridge_codes_user_id"),
+    index("athena", "idx_auth_bridge_codes_outstanding_session"),
+  ],
+  28: [
+    table("athena", "oauth_transactions"),
+    index("athena", "idx_oauth_transactions_expires_at"),
+  ],
+  29: [
+    table("athena", "notification_preferences"),
+    index("athena", "uq_notification_preferences_user_channel_topic"),
+    index("athena", "uq_notification_preferences_user_org_channel_topic"),
+  ],
 };
 
 /**
  * Auth migrations use IF NOT EXISTS / ADD COLUMN IF NOT EXISTS and are
  * generally safe to re-apply for structural repair.
  */
-export function repairabilityForAuthMigration(
-  _version: number
-): MigrationRepairability {
+export function repairabilityForAuthMigration(): MigrationRepairability {
   return "idempotent";
 }

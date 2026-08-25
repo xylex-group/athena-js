@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.full.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../src/**/*.ts"],
+  "exclude": ["fixtures", "node_modules"]
+}

@@ -37,11 +37,13 @@ export function serializeAthenaRuntimeDiscoveryDocument(
 
 export const DEFAULT_ATHENA_NEXT_DATA_ENDPOINT = "/api/athena";
 export const DEFAULT_ATHENA_NEXT_AUTH_ENDPOINT = "/api/auth";
+export const DEFAULT_ATHENA_NEXT_STORAGE_ENDPOINT = "/api/athena/storage";
+export const DEFAULT_ATHENA_NEXT_BILLING_ENDPOINT = "/api/athena/billing";
 
 export function serializeAthenaNextRuntimeDiscoveryDocument(input: {
   auth: AthenaRuntimeDiscoveryAuthAvailability;
   dataRuntime: AthenaServerRuntime;
-  endpoints: { auth?: string; data?: string };
+  endpoints: { auth?: string; billing?: string; data?: string; storage?: string };
 }): AthenaRuntimeDiscoveryDocument {
   const base = serializeAthenaRuntimeDiscoveryDocument(input.dataRuntime);
   const dataPath = input.endpoints.data ?? DEFAULT_ATHENA_NEXT_DATA_ENDPOINT;
@@ -55,10 +57,18 @@ export function serializeAthenaNextRuntimeDiscoveryDocument(input: {
             ...(input.auth.transport ? { transport: input.auth.transport } : {}),
           }
         : { available: false },
+      billing: Boolean(input.endpoints.billing),
       data: true,
+      storage: Boolean(input.endpoints.storage),
     },
     endpoints: {
       data: dataPath,
+      ...(input.endpoints.storage
+        ? { storage: input.endpoints.storage }
+        : {}),
+      ...(input.endpoints.billing
+        ? { billing: input.endpoints.billing }
+        : {}),
       ...(input.auth.available && input.endpoints.auth
         ? { auth: input.endpoints.auth }
         : {}),

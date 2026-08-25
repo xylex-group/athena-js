@@ -24,8 +24,8 @@ function createRuntime(
 ) {
 	return createAthenaAuthRuntime({
 		autoMigrate: false,
-		email: email ? { send: email } : undefined,
 		hasher: createTestHasher(),
+		legacySend: email,
 	});
 }
 
