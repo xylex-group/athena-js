@@ -37,9 +37,15 @@ export {
   D1_QUERY_CAPABILITIES,
   GATEWAY_QUERY_CAPABILITIES,
   POSTGRES_QUERY_CAPABILITIES,
+  SQLITE_LOCAL_QUERY_CAPABILITIES,
 } from "./capabilities.ts";
 export type { AthenaQueryErrorCode } from "./errors.ts";
 export { AthenaQueryError } from "./errors.ts";
+export {
+  atMostOneSqlLimit,
+  relationResultShape,
+  type AthenaRelationResultShape,
+} from "./relation-result-shape.ts";
 export {
   canonicalizePagination,
   isFindManyAstPayload,
@@ -49,6 +55,7 @@ export {
   normalizeGatewayConditions,
   normalizeOrderBy,
   normalizePagination,
+  normalizeRelationOrderBy,
   normalizeTransportPayload,
   normalizeWhere,
   parseSelectList,
@@ -76,9 +83,25 @@ export type {
   AthenaRelationDescriptor,
   AthenaRelationEnd,
 } from "./relations.ts";
+export type {
+  RelationalPredicateV1,
+  RelationalComparisonOperatorV1,
+  RelationalQueryRequestV1,
+  RelationalRelationQuantifierV1,
+  RelationalRelationPredicateV1,
+  RelationalRelationReferenceV1,
+  RelationalRelationSelectionV1,
+  RelationalQueryRequestV2,
+  RelationalRelationSelectionV2,
+} from "./relational-serializer.ts";
+export {
+  serializeRelationalQueryV1,
+  serializeRelationalQueryV2,
+} from "./relational-serializer.ts";
 export {
   catalogFromModelRelations,
   catalogFromModels,
+  canonicalIdentity,
   mergeRelationCatalogs,
   resolveRelation,
 } from "./relations.ts";

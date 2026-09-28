@@ -14,6 +14,7 @@ export interface ColumnQueryRow {
   /** Present when catalog SQL includes `pg_get_expr`; optional for older mocks. */
   default_expression?: string | null;
   has_default: boolean;
+  identity_generation?: string | null;
   is_generated: boolean;
   is_nullable: boolean;
   schema_name: string;
@@ -88,6 +89,11 @@ export const POSTGRES_CATALOG_SQL = {
       (ad.adbin IS NOT NULL) AS has_default,
       pg_get_expr(ad.adbin, ad.adrelid) AS default_expression,
       (a.attgenerated <> '') AS is_generated,
+      CASE a.attidentity
+        WHEN 'a' THEN 'always'
+        WHEN 'd' THEN 'by-default'
+        ELSE NULL
+      END AS identity_generation,
       a.attndims AS array_dimensions
     FROM pg_attribute a
     JOIN pg_class c ON c.oid = a.attrelid
@@ -149,22 +155,6 @@ export const POSTGRES_CATALOG_SQL = {
       con.confupdtype
     ORDER BY sn.nspname, sc.relname, con.conname;
   `,
-  uniqueConstraints: `
-    SELECT
-      n.nspname AS schema_name,
-      c.relname AS table_name,
-      con.conname AS constraint_name,
-      ARRAY_AGG(a.attname ORDER BY ck.ordinality) AS columns
-    FROM pg_constraint con
-    JOIN pg_class c ON c.oid = con.conrelid
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    JOIN unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ordinality) ON TRUE
-    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ck.attnum
-    WHERE con.contype = 'u'
-      AND n.nspname = ANY($1::text[])
-    GROUP BY n.nspname, c.relname, con.conname
-    ORDER BY n.nspname, c.relname, con.conname;
-  `,
   indexes: `
     SELECT
       n.nspname AS schema_name,
@@ -217,6 +207,22 @@ export const POSTGRES_CATALOG_SQL = {
       AND n.nspname = ANY($1::text[])
     GROUP BY n.nspname, c.relname
     ORDER BY n.nspname, c.relname;
+  `,
+  uniqueConstraints: `
+    SELECT
+      n.nspname AS schema_name,
+      c.relname AS table_name,
+      con.conname AS constraint_name,
+      ARRAY_AGG(a.attname ORDER BY ck.ordinality) AS columns
+    FROM pg_constraint con
+    JOIN pg_class c ON c.oid = con.conrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ordinality) ON TRUE
+    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ck.attnum
+    WHERE con.contype = 'u'
+      AND n.nspname = ANY($1::text[])
+    GROUP BY n.nspname, c.relname, con.conname
+    ORDER BY n.nspname, c.relname, con.conname;
   `,
 } as const;
 
@@ -391,7 +397,8 @@ export class PostgresCatalogSnapshotAssembler {
         row.array_dimensions ?? 0
       );
       const isExactNumeric =
-        parsedType.name === "numeric" || row.udt_name.toLowerCase() === "numeric" ||
+        parsedType.name === "numeric" ||
+        row.udt_name.toLowerCase() === "numeric" ||
         row.udt_name.toLowerCase() === "decimal" ||
         row.udt_name.toLowerCase() === "money";
       table.columns[row.column_name] = {
@@ -400,6 +407,10 @@ export class PostgresCatalogSnapshotAssembler {
         defaultExpression: row.default_expression ?? null,
         enumValues: enumMap.get(row.type_oid),
         hasDefault: row.has_default,
+        ...(row.identity_generation === "always" ||
+        row.identity_generation === "by-default"
+          ? { identity: row.identity_generation }
+          : {}),
         isGenerated: row.is_generated,
         isNullable: row.is_nullable,
         isPrimaryKey: false,
@@ -445,7 +456,7 @@ export class PostgresCatalogSnapshotAssembler {
         : "many-to-one";
       this.upsertRelation(
         sourceTable,
-        relationKey(row.constraint_name, row.target_table),
+        relationKey(row.constraint_name),
         {
           kind: sourceRelationKind,
           name: row.constraint_name,

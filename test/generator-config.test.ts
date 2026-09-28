@@ -17,13 +17,22 @@ import {
 } from "../src/generator/index.ts";
 
 test("project athena/generated is current; flat athena/* is N-1", () => {
-  assert.equal(isCurrentAthenaGeneratedPath("athena/generated/registry.ts"), true);
+  assert.equal(
+    isCurrentAthenaGeneratedPath("athena/generated/registry.ts"),
+    true
+  );
   assert.equal(
     isCurrentAthenaGeneratedPath("src/lib/athena/generated/registry.ts"),
-    true,
+    true
   );
-  assert.equal(isLegacyFlatAthenaGeneratedPath("athena/generated/registry.ts"), false);
-  assert.equal(isLegacyFlatAthenaGeneratedPath("athena/registry.generated.ts"), true);
+  assert.equal(
+    isLegacyFlatAthenaGeneratedPath("athena/generated/registry.ts"),
+    false
+  );
+  assert.equal(
+    isLegacyFlatAthenaGeneratedPath("athena/registry.generated.ts"),
+    true
+  );
   assert.equal(isLegacyFlatAthenaGeneratedPath("athena/schema.ts"), true);
 });
 
@@ -34,13 +43,41 @@ test("package athena.config.ts imports the compiled SDK, not ./src", () => {
     "athena.config.ts"
   );
   const content = readFileSync(configPath, "utf8");
-  assert.match(content, /from ["']@xylex-group\/athena["']/);
+  assert.match(content, /from ["']@xylex-group\/athena\/config["']/);
   assert.equal(content.includes("./src/"), false);
+});
+
+test("publishes a tooling-leaf ./config without a Policy ./config/node", () => {
+  const packagePath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "package.json"
+  );
+  const tsupPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "tsup.config.ts"
+  );
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as {
+    exports?: Record<string, unknown>;
+  };
+  const tsupConfig = readFileSync(tsupPath, "utf8");
+
+  assert.equal(
+    (packageJson.exports?.["./config"] as { import?: { default?: string } } | undefined)
+      ?.import?.default,
+    "./dist/config.js"
+  );
+  assert.equal(packageJson.exports?.["./config/node"], undefined);
+  assert.match(tsupConfig, /config:\s+"src\/config\/public\.ts"/);
+  assert.doesNotMatch(tsupConfig, /config:\s+"src\/config-entry\.ts"/);
 });
 
 test("explainGeneratorConfigLoadError describes Node strip-only syntax failures", () => {
   const error = Object.assign(
-    new Error("TypeScript parameter property is not supported in strip-only mode"),
+    new Error(
+      "TypeScript parameter property is not supported in strip-only mode"
+    ),
     { code: "ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX" }
   );
   const explained = explainGeneratorConfigLoadError(
@@ -50,6 +87,20 @@ test("explainGeneratorConfigLoadError describes Node strip-only syntax failures"
   assert.match(explained.message, /@xylex-group\/athena/);
   assert.match(explained.message, /parameter properties/);
   assert.match(explained.message, /\/tmp\/athena\.config\.ts/);
+});
+
+test("explainGeneratorConfigLoadError describes unknown .ts extension failures", () => {
+  const error = Object.assign(
+    new Error('Unknown file extension ".ts" for /tmp/athena.config.ts'),
+    { code: "ERR_UNKNOWN_FILE_EXTENSION" }
+  );
+  const explained = explainGeneratorConfigLoadError(
+    error,
+    "/tmp/athena.config.ts"
+  );
+  assert.match(explained.message, /cannot import TypeScript config files/);
+  assert.match(explained.message, /tsx/);
+  assert.equal(explained.code, "ATHENA_CONFIG_IMPORT_FAILED");
 });
 
 test("findGeneratorConfigPath locates athena.config.ts in project root", () => {
@@ -138,7 +189,10 @@ test("loadGeneratorConfig applies athena folder defaults when output targets are
       loaded.config.output.targets.schema,
       "athena/generated/schema/{schema_kebab}.ts"
     );
-    assert.equal(loaded.config.output.targets.database, "athena/generated/relations.ts");
+    assert.equal(
+      loaded.config.output.targets.database,
+      "athena/generated/relations.ts"
+    );
     assert.equal(
       loaded.config.output.targets.registry,
       "athena/generated/registry.ts"
@@ -193,7 +247,10 @@ test("loadGeneratorConfig supports the athena-direct output preset", async () =>
       loaded.config.output.targets.schema,
       "athena/generated/schema/{schema_kebab}.ts"
     );
-    assert.equal(loaded.config.output.targets.database, "athena/generated/relations.ts");
+    assert.equal(
+      loaded.config.output.targets.database,
+      "athena/generated/relations.ts"
+    );
     assert.equal(
       loaded.config.output.targets.registry,
       "athena/generated/registry.ts"
@@ -356,6 +413,10 @@ test("loadGeneratorConfig normalizes table filters from config", async () => {
     assert.deepEqual(loaded.config.filter, {
       excludeTables: ["audit_logs", "public.notifications"],
       includeTables: ["users", "public.notifications"],
+      raw: {
+        excludeTables: ["audit_logs", "public.notifications"],
+        includeTables: "users, public.notifications, users",
+      },
     });
   } finally {
     rmSync(root, { force: true, recursive: true });
@@ -906,8 +967,10 @@ test("loadGeneratorConfig uses runtime indirection instead of direct dynamic imp
   // Allow multiline call; indirection must still use importConfigModule + cacheBust.
   assert.match(
     source,
-    /await importConfigModule\(\s*`\$\{moduleUrl\.href\}\?cacheBust=\$\{Date\.now\(\)\}`\s*,?\s*\)/
+    /(?:await\s+)?importConfigModule\(\s*`\$\{moduleUrl\.href\}\?cacheBust=\$\{Date\.now\(\)\}`\s*,?\s*\)/
   );
+  assert.match(source, /ERR_UNKNOWN_FILE_EXTENSION/);
+  assert.match(source, /function ensureTypeScriptConfigLoader/);
 
   // Guard the exact regression surface that broke Next.js bundling.
   assert.doesNotMatch(
@@ -985,9 +1048,9 @@ test("normalizeGeneratorConfig rejects scylla config missing contactPoints", () 
 test("normalizeGeneratorConfig defaults migrations directory", () => {
   const normalized = normalizeGeneratorConfig({
     provider: {
+      connectionString: "postgres://localhost/app_db",
       kind: "postgres",
       mode: "direct",
-      connectionString: "postgres://localhost/app_db",
     },
   });
   assert.equal(normalized.migrations.directory, "athena/migrations");
@@ -995,15 +1058,14 @@ test("normalizeGeneratorConfig defaults migrations directory", () => {
 
 test("normalizeGeneratorConfig accepts custom migrations directory", () => {
   const normalized = normalizeGeneratorConfig({
-    provider: {
-      kind: "postgres",
-      mode: "direct",
-      connectionString: "postgres://localhost/app_db",
-    },
     migrations: {
       directory: "./db/migrations",
+    },
+    provider: {
+      connectionString: "postgres://localhost/app_db",
+      kind: "postgres",
+      mode: "direct",
     },
   });
   assert.equal(normalized.migrations.directory, "./db/migrations");
 });
-

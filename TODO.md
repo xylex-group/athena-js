@@ -2,7 +2,7 @@
 
 **Branch:** `feat/auth-social-providers`  
 **Linear project (all issues):** **Athena**  
-**Primary repos:** `athena` (`packages/athena-js`, `apps/docs`) + consumers **demo** / **speedrun-formations**
+**Primary repos:** `athena` (`packages/athena-js`, `apps/docs-athena-js`) + consumers **demo** / **speedrun-formations**
 
 ---
 
@@ -50,7 +50,7 @@ Parent all child issues under this epic. Labels (suggested): `athena-js`, `auth`
 | A1 | Port Better Auth social providers under `auth/social-providers` | P0 | 5 | **Done** | `73ad78fb4`, `f7e4d1810` |
 | A2 | Split social-providers + oauth2/jwks; document helpers | P1 | 3 | **Done** | `4b3a57c27`, `283ddcd00` |
 | A3 | Next session cookie bridge (handlers, constants, client/server) | P0 | 4 | **Done** | `3c8e00ecb` |
-| A4 | Docs: session cookie bridge (SDK + apps/docs) | P1 | 2 | **Done** | `e32c1306e` |
+| A4 | Docs: session cookie bridge (SDK + Athena JS docs site) | P1 | 2 | **Done** | `e32c1306e` |
 | A5 | Export `hasAuthSessionCookie` + `SESSION_COOKIE_PATTERNS` | P0 | 2 | **Done** | `3bdd42f37` |
 | A6 | CLI clearer errors on DB ECONNRESET / connection failure | P1 | 1 | **Done** | `1944645e0` |
 | A7 | Export Athena Auth URL helpers + improve CLI messaging | P0 | 3 | **Done** | `5947764fc` |
@@ -77,7 +77,7 @@ Parent all child issues under this epic. Labels (suggested): `athena-js`, `auth`
 | B6 | typecheckColumns array fix + column/table IntelliSense + models table names | P0 | 4 | **Done (pending commit)** | `select-column-types.ts`, `client.ts`, `db/module.ts`, type-compat tests |
 | B7 | `useSession` createClient support docs/types (`UseSessionAuthClient`) | P1 | 2 | **Done (pending commit)** | `src/react/use-session.ts`, use-session docs |
 | B8 | Package docs dump (utils, typecheck, org membership, routing, email send, cookies) | P1 | 3 | **Done (pending commit)** | see Part 3 file list |
-| B9 | apps/docs Fumadocs pages + meta.json for new athena-js guides | P1 | 3 | **Done (pending commit)** | `apps/docs/content/docs/sdks/athena-js/**` |
+| B9 | Athena JS docs pages + metadata for new guides | P1 | 3 | **Done (pending commit)** | `apps/docs-athena-js/docs/**` |
 | B10 | Wire package exports (`./organization`, utils re-exports, tsup) | P0 | 1 | **Done (pending commit)** | `package.json`, `tsup.config.ts`, `src/index.ts` |
 
 **Batch B totals:** 10 issues · Effort sum **22** · All **Done (pending commit)** — **must commit before Linear Done**.
@@ -116,7 +116,7 @@ Parent all child issues under this epic. Labels (suggested): `athena-js`, `auth`
 | D9 | Optional: shared `sendAthenaAuthTemplate` helper (docs/bindings exist today) | P3 | 2 | **Backlog** |
 | D10 | Finish remaining social-provider file splits if any incomplete | P3 | 2 | **Backlog** |
 | D11 | Fix builder vs createClient experimental generics compatibility | P2 | 3 | **Todo** |
-| D12 | Deploy apps/docs with new Fumadocs pages | P1 | 2 | **Todo** |
+| D12 | Deploy the Athena JS docs site with new pages | P1 | 2 | **Todo** |
 
 **Batch D totals:** 12 issues · Effort sum **36** · Open.
 
@@ -203,7 +203,7 @@ Parent all child issues under this epic. Labels (suggested): `athena-js`, `auth`
 
 `index.md`, `getting-started.md`, `athena-auth-url.md`, `auth-cookies.md`, `auth/use-session.mdx`, `auth/admin.mdx`, `auth/organization.mdx`, `auth/index.mdx`, `api-reference.md`, `type-surface-manifest.md`, `typed-schema-registry.md` → **B8**
 
-### apps/docs (new + nav)
+### Athena JS docs site (new + nav)
 
 | File | ID |
 |------|-----|
@@ -237,7 +237,7 @@ Parent all child issues under this epic. Labels (suggested): `athena-js`, `auth`
 | Org list vs member / ensureActive | B1 + B8 | P0 | 3 | Done (pending commit) |
 | Email template resolve + send docs | B8 | P2 | 1 | Done (pending commit) |
 | Utils mega-doc | B8 | P1 | 2 | Done (pending commit) |
-| apps/docs | B9 | P1 | 3 | Done (pending commit) |
+| apps/docs-athena-js | B9 | P1 | 3 | Done (pending commit) |
 | Re-export-first consumers | C1–C8 | P1–P3 | 1–3 | Done (pending commit) |
 | Publish / pin version | D1–D2 | P0 | 3+2 | **Todo** |
 | Delete BA / UI mirrors | D3–D4 | P1 | 4+4 | **Todo** |
@@ -323,7 +323,7 @@ Athena,[athena-js] Auth social providers...,B5,asNonEmptyString,P2,1,Done (pendi
 Athena,[athena-js] Auth social providers...,B6,typecheckColumns array + IntelliSense + models table names,P0,4,Done (pending commit)
 Athena,[athena-js] Auth social providers...,B7,useSession createClient docs/types,P1,2,Done (pending commit)
 Athena,[athena-js] Auth social providers...,B8,Package docs (utils typecheck org routing email cookies),P1,3,Done (pending commit)
-Athena,[athena-js] Auth social providers...,B9,apps/docs Fumadocs pages + nav,P1,3,Done (pending commit)
+Athena,[athena-js] Auth social providers...,B9,Athena JS docs pages + nav,P1,3,Done (pending commit)
 Athena,[athena-js] Auth social providers...,B10,Package exports organization + utils wiring,P0,1,Done (pending commit)
 Athena,[athena-js] Auth social providers...,C1,Speedrun re-exports fresh-session ensureActive base-url verify,P1,2,Done (pending commit)
 Athena,[athena-js] Auth social providers...,C2,Speedrun clearAuthCookies value-helpers session-cookie,P1,2,Done (pending commit)
@@ -344,7 +344,7 @@ Athena,[athena-js] Auth social providers...,D8,createClientFromEnv optional,P2,3
 Athena,[athena-js] Auth social providers...,D9,sendAthenaAuthTemplate helper optional,P3,2,Backlog
 Athena,[athena-js] Auth social providers...,D10,Remaining social-provider splits,P3,2,Backlog
 Athena,[athena-js] Auth social providers...,D11,Builder vs createClient experimental generics,P2,3,Todo
-Athena,[athena-js] Auth social providers...,D12,Deploy apps/docs new pages,P1,2,Todo
+Athena,[athena-js] Auth social providers...,D12,Deploy Athena JS docs new pages,P1,2,Todo
 ```
 
 ---

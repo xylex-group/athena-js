@@ -99,7 +99,7 @@ ATHENA_GENERATOR_BACKEND=postgresql
 If you want the repo to declare intent but still keep config tiny, this is enough:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -119,7 +119,7 @@ With that config, the loader still resolves:
 ## Minimal gateway config file
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -140,7 +140,7 @@ That picks up:
 If you want the new Zero-style surface plus the safer direct registry target:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -203,7 +203,7 @@ This is intended for tooling/debugging, not normal query code.
 If code generation only runs against Athena gateway access in CI, keep the file just as small:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -232,7 +232,7 @@ athena-js generate --dry-run
 You only need to specify the paths you want to override:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -253,7 +253,7 @@ The unspecified targets keep their defaults.
 If you want a leaner generated surface inside a large schema, add table filters:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -315,7 +315,7 @@ ATHENA_GENERATOR_SCHEMA_CONST=camel
 If you want a committed config file but still prefer env-owned secrets and toggles:
 
 ```ts
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {

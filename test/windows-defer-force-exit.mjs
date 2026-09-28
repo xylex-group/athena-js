@@ -4,19 +4,18 @@
  * or `pgsql-parser` teardown. Delay `process.exit` so those handles finish.
  */
 if (process.platform === "win32") {
-	const rawExit = process.exit.bind(process);
-	let deferred = false;
-	process.exit = /** @type {typeof process.exit} */ (
-		(code) => {
-			if (deferred) {
-				rawExit(code);
-				return undefined;
-			}
-			deferred = true;
-			setTimeout(() => {
-				rawExit(code);
-			}, 400);
-			return undefined;
-		}
-	);
+  const rawExit = process.exit.bind(process);
+  let deferred = false;
+  process.exit = /** @type {typeof process.exit} */ (
+    (code) => {
+      if (deferred) {
+        rawExit(code);
+        return;
+      }
+      deferred = true;
+      setTimeout(() => {
+        rawExit(code);
+      }, 400);
+    }
+  );
 }

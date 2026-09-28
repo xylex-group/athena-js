@@ -18,13 +18,13 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/passkey-runtime-finality.register-options.target.test.ts";
+  "test/sdd/passkey-runtime-finality.register-options.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-REG-FAIL-CLOSED",
-	"B-REG-MISSING-ROUTE",
-	"B-REG-NO-HANDLER",
-	"B-REG-SIX-STAY",
-	"B-REG-ENGINE-NOT-WIRED",
-	"B-REG-NO-HOST",
+  "B-REG-FAIL-CLOSED",
+  "B-REG-MISSING-ROUTE",
+  "B-REG-NO-HANDLER",
+  "B-REG-SIX-STAY",
+  "B-REG-ENGINE-NOT-WIRED",
+  "B-REG-NO-HOST",
 ] as const;

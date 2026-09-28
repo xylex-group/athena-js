@@ -1,7 +1,10 @@
-import type { AthenaResult, AthenaResultFormatter } from "../../client-result.ts";
-import type { AthenaExecutable } from "../../query/descriptor.ts";
+import type {
+  AthenaResult,
+  AthenaResultFormatter,
+} from "../../client-result.ts";
 import type { AthenaGatewayClient } from "../../gateway/client.ts";
 import type { AthenaGatewayResponse } from "../../gateway/types.ts";
+import type { AthenaExecutable } from "../../query/descriptor.ts";
 import { getTransactionCacheObserver } from "./cache.ts";
 import { compileTransactionOperations } from "./compile.ts";
 import { AthenaTransactionError } from "./errors.ts";
@@ -17,15 +20,14 @@ import type {
 } from "./types.ts";
 import { UNSUPPORTED_TRANSACTION_CAPABILITIES } from "./types.ts";
 
-export function getTransactionTransport(
-  gateway: AthenaGatewayClient
-): {
+export function getTransactionTransport(gateway: AthenaGatewayClient): {
   capabilities: AthenaTransactionCapabilities;
   transport: NonNullable<AthenaGatewayClient["transactions"]> | undefined;
 } {
   const transport = gateway.transactions;
   return {
-    capabilities: transport?.capabilities ?? UNSUPPORTED_TRANSACTION_CAPABILITIES,
+    capabilities:
+      transport?.capabilities ?? UNSUPPORTED_TRANSACTION_CAPABILITIES,
     transport,
   };
 }
@@ -109,7 +111,8 @@ export async function executeAtomicTransaction<
       {
         backend: capabilities.backend,
         requested: "atomic",
-        suggestion: "Use a backend that advertises capabilities.db.transactions.atomic",
+        suggestion:
+          "Use a backend that advertises capabilities.db.transactions.atomic",
       }
     );
   }
@@ -143,8 +146,7 @@ export async function executeAtomicTransaction<
       }
     );
   }
-  const cache =
-    input.cache ?? getTransactionCacheObserver(input.gateway);
+  const cache = input.cache ?? getTransactionCacheObserver(input.gateway);
   cache?.reconcileCommitted(compiled, results);
   return results as AthenaTransactionResults<T>;
 }

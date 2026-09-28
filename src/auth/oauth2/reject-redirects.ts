@@ -12,6 +12,9 @@ const HTTP_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
  * Node/undici exposes the real 3xx status. Spec-compliant runtimes (Cloudflare
  * Workers, Deno, browsers) return an opaque-redirect filtered response with
  * status 0 and type `"opaqueredirect"`, so the status alone is not enough.
+ *
+ * @param response - OAuth 2.0 response
+ * @returns Whether the response is a redirect
  */
 function isRedirectResponse(response: Response): boolean {
   return (
@@ -20,6 +23,10 @@ function isRedirectResponse(response: Response): boolean {
   );
 }
 
+/**
+ * @param endpoint - OAuth 2.0 endpoint
+ * @returns Redirect refused error
+ */
 function redirectRefused(endpoint: string): AthenaAuthError {
   return new AthenaAuthError(
     `The OAuth endpoint "${endpoint}" returned an HTTP redirect. Server-side OAuth fetches refuse redirects to prevent SSRF; configure the final endpoint URL.`
@@ -32,6 +39,8 @@ function redirectRefused(endpoint: string): AthenaAuthError {
  * Cloudflare Workers (workerd) rejects `redirect: "error"`, so manual mode is
  * used and the resolved response is checked with {@link assertResponseNotRedirect}
  * (or, for betterFetch, with {@link fetchRefusingRedirects}).
+ *
+ * @returns Fetch options
  */
 export const NO_FOLLOW_REDIRECT = { redirect: "manual" } as const;
 
@@ -55,6 +64,10 @@ export function assertResponseNotRedirect(
  * Returns the betterFetch result and throws if the endpoint redirected, on both
  * undici (real 3xx status) and spec-compliant runtimes (opaque redirect, where
  * the error status is 0). The redirect is never followed on any runtime.
+ *
+ * @param url - OAuth 2.0 endpoint
+ * @param options - Fetch options
+ * @returns Fetch result
  */
 export async function fetchRefusingRedirects<T>(
   url: string,

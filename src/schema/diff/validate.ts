@@ -1,5 +1,9 @@
 import { SchemaDiffError } from "./errors.ts";
-import { foreignKeyMatchKey, indexStructuralKey, uniqueStructuralKey } from "./identity.ts";
+import {
+  foreignKeyMatchKey,
+  indexStructuralKey,
+  uniqueStructuralKey,
+} from "./identity.ts";
 import {
   ATHENA_SCHEMA_SNAPSHOT_VERSION,
   type AthenaSchemaSnapshot,
@@ -15,7 +19,7 @@ function validateTable(table: SchemaTable): void {
       throw new SchemaDiffError(
         "duplicate_column",
         `Duplicate column "${column.name}" on table ${tableLabel}`,
-        { table: tableLabel, column: column.name }
+        { column: column.name, table: tableLabel }
       );
     }
     columnNames.add(column.name);
@@ -27,7 +31,7 @@ function validateTable(table: SchemaTable): void {
         throw new SchemaDiffError(
           "missing_pk_column",
           `Primary key column "${col}" missing on table ${tableLabel}`,
-          { table: tableLabel, column: col }
+          { column: col, table: tableLabel }
         );
       }
     }
@@ -40,7 +44,7 @@ function validateTable(table: SchemaTable): void {
       throw new SchemaDiffError(
         "duplicate_unique",
         `Duplicate unique constraint on ${tableLabel}: (${unique.columns.join(", ")})`,
-        { table: tableLabel, columns: unique.columns }
+        { columns: unique.columns, table: tableLabel }
       );
     }
     uniqueKeys.add(key);
@@ -49,7 +53,7 @@ function validateTable(table: SchemaTable): void {
         throw new SchemaDiffError(
           "missing_unique_column",
           `Unique constraint column "${col}" missing on table ${tableLabel}`,
-          { table: tableLabel, column: col }
+          { column: col, table: tableLabel }
         );
       }
     }
@@ -62,8 +66,8 @@ function validateTable(table: SchemaTable): void {
         "fk_arity_mismatch",
         `Foreign key arity mismatch on ${tableLabel}`,
         {
-          table: tableLabel,
           columns: fk.columns,
+          table: tableLabel,
           targetColumns: fk.targetColumns,
         }
       );
@@ -73,7 +77,7 @@ function validateTable(table: SchemaTable): void {
       throw new SchemaDiffError(
         "duplicate_foreign_key",
         `Duplicate foreign key on ${tableLabel}`,
-        { table: tableLabel, columns: fk.columns }
+        { columns: fk.columns, table: tableLabel }
       );
     }
     fkKeys.add(key);
@@ -82,7 +86,7 @@ function validateTable(table: SchemaTable): void {
         throw new SchemaDiffError(
           "missing_fk_column",
           `Foreign key column "${col}" missing on table ${tableLabel}`,
-          { table: tableLabel, column: col }
+          { column: col, table: tableLabel }
         );
       }
     }
@@ -95,7 +99,7 @@ function validateTable(table: SchemaTable): void {
       throw new SchemaDiffError(
         "duplicate_index",
         `Duplicate index on ${tableLabel}`,
-        { table: tableLabel, columns: index.columns.map((c) => c.name) }
+        { columns: index.columns.map((c) => c.name), table: tableLabel }
       );
     }
     indexKeys.add(key);
@@ -104,7 +108,7 @@ function validateTable(table: SchemaTable): void {
         throw new SchemaDiffError(
           "missing_index_column",
           `Index column "${col.name}" missing on table ${tableLabel}`,
-          { table: tableLabel, column: col.name }
+          { column: col.name, table: tableLabel }
         );
       }
     }

@@ -1,71 +1,73 @@
 export type CliOutputMode = "interactive" | "plain" | "json";
 
 export type MigrationDisplayStatus =
-	| "applied"
-	| "pending"
-	| "applying"
-	| "repaired"
-	| "drift"
-	| "checksum-mismatch"
-	| "missing-local"
-	| "name-mismatch"
-	| "historical-insertion"
-	| "unknown"
-	| "failed"
-	| "skipped";
+  | "applied"
+  | "pending"
+  | "applying"
+  | "repaired"
+  | "drift"
+  | "checksum-mismatch"
+  | "legacy-compatible"
+  | "missing-local"
+  | "name-mismatch"
+  | "historical-insertion"
+  | "unknown"
+  | "failed"
+  | "skipped";
 
 export interface CliCapabilities {
-	mode: CliOutputMode;
-	color: boolean;
-	isTty: boolean;
-	quiet: boolean;
-	verbose: boolean;
+  color: boolean;
+  isTty: boolean;
+  mode: CliOutputMode;
+  quiet: boolean;
+  verbose: boolean;
 }
 
 export interface Diagnostic {
-	code?: string;
-	level: "info" | "warn" | "error";
-	message: string;
-	hint?: string;
-	metadata?: Record<string, unknown>;
+  code?: string;
+  hint?: string;
+  level: "info" | "warn" | "error";
+  message: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MigrationRowView {
-	name: string;
-	status: MigrationDisplayStatus;
-	detail?: string;
-	durationMs?: number;
+  detail?: string;
+  durationMs?: number;
+  name: string;
+  status: MigrationDisplayStatus;
 }
 
 export interface MigrationSectionView {
-	title: string;
-	rows: MigrationRowView[];
-	summary?: string;
+  rows: MigrationRowView[];
+  summary?: string;
+  title: string;
 }
 
 export interface MigrationReportView {
-	title: string;
-	target?: {
-		provider: string;
-		database: string;
-		directory: string;
-	};
-	application: MigrationSectionView;
-	auth: MigrationSectionView;
-	outcome: string;
-	diagnostics: Diagnostic[];
-	logPath?: string;
+  application: MigrationSectionView;
+  auth: MigrationSectionView;
+  diagnostics: Diagnostic[];
+  logPath?: string;
+  modules?: readonly MigrationSectionView[];
+  outcome: string;
+  target?: {
+    provider: string;
+    database: string;
+    directory: string;
+  };
+  title: string;
 }
 
 export interface AthenaCliUI {
-	readonly capabilities: CliCapabilities;
-	intro(title: string): void;
-	outro(message: string): void;
-	note(message: string, title?: string): void;
-	warn(message: string): void;
-	error(message: string): void;
-	success(message: string): void;
-	info(message: string): void;
-	renderMigrationReport(report: MigrationReportView): void;
-	confirm(message: string): Promise<boolean>;
+  readonly capabilities: CliCapabilities;
+  confirm(message: string): Promise<boolean>;
+  error(message: string): void;
+  info(message: string): void;
+  intro(title: string): void;
+  note(message: string, title?: string): void;
+  outro(message: string): void;
+  renderMigrationReport(report: MigrationReportView): void;
+  success(message: string): void;
+  warn(message: string): void;
 }

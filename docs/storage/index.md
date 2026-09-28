@@ -9,8 +9,8 @@ The JavaScript SDK has five storage layers to be aware of:
   `audit`, and **`backup`**).
 - Athena server OpenAPI storage routes: multi-provider S3 / **Cloudflare R2**
   endpoints. Deep server reference:
-  [R2 S3 API parity](../../../apps/docs/content/docs/api/storage-r2-s3-api.mdx)
-  (when browsing the monorepo) or product docs `/docs/api/storage-r2-s3-api`.
+  [R2 S3 API parity](../../../../docs/sdk/javascript-storage-file-proxy-spec.md)
+  (when browsing the monorepo).
 - **Edge-local R2 (Workers):** `createCloudflareClient({ r2 })` exposes L3a
   `putObject` / `getObject` / `deleteObject` / `listObjects` on the binding —
   no catalogs/backups. See [cloudflare-edge-local.md](../cloudflare-edge-local.md).
@@ -18,7 +18,10 @@ The JavaScript SDK has five storage layers to be aware of:
   `createClient({ storage: { provider: "local", root } })` from
   `@xylex-group/athena` / `@xylex-group/athena/server`. Bytes live under `root`
   via `athena.storage.file.*` with **no** Athena catalog, `connectionId`, or
-  `s3_id`. ADR [0027](../adr/0027-embedded-storage-runtime.md).
+  `s3_id`. Local `file.list` honors `prefix`, `cursor`, and `limit` (stable key
+  order; next page via returned `cursor`). Invalid object keys (`\0`, `..`)
+  fail as `storage_invalid_request` (3000), not an internal 3010. ADR
+  [0027](../adr/0027-embedded-storage-runtime.md).
 - **Embedded Direct S3 (trusted Node):**
   `createClient({ storage: { provider: "s3", bucket, prefix?, s3 } })`.
   `s3` is an injected duck-typed object client (`getObject` / `putObject` /
@@ -74,7 +77,7 @@ await athena.storage.file.upload({
 })
 const bytes = await athena.storage.file.get("docs/notes.txt")
 await athena.storage.file.head({ storage_key: "docs/notes.txt" })
-await athena.storage.file.list({ prefix: "docs" })
+await athena.storage.file.list({ prefix: "docs", limit: 50 })
 await athena.storage.file.delete("docs/notes.txt")
 ```
 
@@ -111,6 +114,10 @@ const bytes = await athena.storage.file.get("docs/notes.txt")
 - Keys reject `..` and NUL. Configured `prefix` is joined on the physical key; listed keys are logical (prefix stripped).
 - Combining with local, R2, or `storage.url` throws `ATHENA_RUNTIME_CONFIG_INVALID`. Missing `bucket` or client same.
 - Managed catalog `createStorageCatalog({ provider: "s3" })` is unrelated HTTP control-plane registration.
+
+### Embedded Storage HTTP (browser)
+
+Browser / React Native `createClient().storage` posts to same-origin `/api/athena/storage` (discovery may override). Domain bytes are `Uint8Array`. The wire is `{ kind: "athena.storage.bytes", encoding: "base64", bytes }`; the client revives recursively. GET of PNG/ZIP/hostile bytes is `instanceof Uint8Array`, not a tagged JSON object. Runtime overlay failures throw a runtime `AthenaStorageError` with `code` / `errorNumber` / `status` (not a generic `Error`). Distinct from the public gateway catalog `AthenaStorageError` (`HTTP_ERROR`, …). No `createStorageClient`. ADR [0056](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0056-athena-js-http-principal-authority.md) / [0059](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0059-athena-js-storage-billing-transport-finality.md).
 
 ### HTTP / managed catalogs
 
@@ -286,7 +293,7 @@ expected-bucket-owner. Prefer ListObjectsV2. On UploadPart, reusing a part numbe
 Do not rely on SDK helpers that map to those gaps against an R2 catalog — e.g.
 `file.retention.*` (object lock) or ACL-based public visibility.
 
-Full matrix + Athena route mapping: `apps/docs/content/docs/api/storage-r2-s3-api.mdx`.
+Full matrix + Athena route mapping: `docs/sdk/javascript-storage-file-proxy-spec.md`.
 Machine-readable: `athena_r2` provider descriptor `integration.objectLevelOperations`.
 
 R2 compatibility is operation-specific. Object `PUT`, `GET`, `HEAD`, list, delete, and multipart operations are supported. ACL/public-access-block operations, object-lock retention, object tags, and AWS/KMS server-side-encryption headers are not portable to R2; treat those Athena methods as S3-only unless the selected provider explicitly supports them. See [`r2-and-backup-impact-report.md`](./r2-and-backup-impact-report.md) for the current matrix.

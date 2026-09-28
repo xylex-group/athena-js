@@ -1,17 +1,21 @@
 import { ATHENA_AUTH_TABLES } from "../../contract/index.ts";
-import type { AthenaAuthEmailEventDefinition } from "../../email/events.ts";
 import type {
   AthenaAuthEmailFailureRow,
   AthenaAuthEmailRecordRow,
   AthenaAuthEmailTemplateRow,
 } from "../../email/contract.ts";
+import type { AthenaAuthEmailEventDefinition } from "../../email/events.ts";
 import type { AthenaAuthDatabase } from "../database.ts";
 import type { AthenaAuthEmailStore } from "./store.ts";
 
-const TEMPLATE_COLUMNS = `id, template_key, event_type, locale, subject_template, text_template, html_template, variables, variable_bindings, attachments, attachment_failure_mode, is_active, metadata, created_at, updated_at`;
-const FAILURE_COLUMNS = `id, user_id, recipient_email, flow, provider, error_message, metadata, resolved, resolution_note, created_at, updated_at`;
-const EMAIL_COLUMNS = `id, recipient_email, subject, from_address, from_name, text_body, html_body, provider, flow, metadata, created_at, updated_at`;
-const EVENT_COLUMNS = `event_type, category, description, default_template_key, required_variables, optional_variables, is_active, is_system, metadata, created_at, updated_at`;
+const TEMPLATE_COLUMNS =
+  "id, template_key, event_type, locale, subject_template, text_template, html_template, variables, variable_bindings, attachments, attachment_failure_mode, is_active, metadata, created_at, updated_at";
+const FAILURE_COLUMNS =
+  "id, user_id, recipient_email, flow, provider, error_message, error_code, template_id, template_key, metadata, resolved, resolution_note, created_at, updated_at";
+const EMAIL_COLUMNS =
+  "id, recipient_email, subject, from_address, from_name, text_body, html_body, provider, flow, metadata, created_at, updated_at";
+const EVENT_COLUMNS =
+  "event_type, category, description, default_template_key, required_variables, optional_variables, is_active, is_system, metadata, created_at, updated_at";
 
 function asJson(value: unknown, fallback: unknown): unknown {
   if (value === undefined || value === null) {
@@ -41,21 +45,27 @@ function hydrateTemplate(
   row: Record<string, unknown> | undefined
 ): AthenaAuthEmailTemplateRow | undefined {
   if (!row) {
-    return undefined;
+    return;
   }
   return {
-    attachment_failure_mode: row.attachment_failure_mode === "skip" ? "skip" : "fail",
-    attachments: asJson(row.attachments, []) as AthenaAuthEmailTemplateRow["attachments"],
+    attachment_failure_mode:
+      row.attachment_failure_mode === "skip" ? "skip" : "fail",
+    attachments: asJson(
+      row.attachments,
+      []
+    ) as AthenaAuthEmailTemplateRow["attachments"],
     created_at: asIso(row.created_at),
     event_type: typeof row.event_type === "string" ? row.event_type : null,
-    html_template: typeof row.html_template === "string" ? row.html_template : null,
+    html_template:
+      typeof row.html_template === "string" ? row.html_template : null,
     id: String(row.id),
     is_active: row.is_active !== false,
     locale: typeof row.locale === "string" ? row.locale : "en",
     metadata: asJson(row.metadata, {}) as Record<string, unknown>,
     subject_template: String(row.subject_template ?? ""),
     template_key: String(row.template_key),
-    text_template: typeof row.text_template === "string" ? row.text_template : null,
+    text_template:
+      typeof row.text_template === "string" ? row.text_template : null,
     updated_at: asIso(row.updated_at),
     variable_bindings: asJson(
       row.variable_bindings,
@@ -69,18 +79,23 @@ function hydrateFailure(
   row: Record<string, unknown> | undefined
 ): AthenaAuthEmailFailureRow | undefined {
   if (!row) {
-    return undefined;
+    return;
   }
   return {
     created_at: asIso(row.created_at),
+    error_code: typeof row.error_code === "string" ? row.error_code : undefined,
     error_message: String(row.error_message ?? ""),
     flow: String(row.flow ?? ""),
     id: String(row.id),
     metadata: asJson(row.metadata, {}) as Record<string, unknown>,
     provider: typeof row.provider === "string" ? row.provider : null,
     recipient_email: String(row.recipient_email ?? ""),
+    resolution_note:
+      typeof row.resolution_note === "string" ? row.resolution_note : null,
     resolved: row.resolved === true,
-    resolution_note: typeof row.resolution_note === "string" ? row.resolution_note : null,
+    template_id: typeof row.template_id === "string" ? row.template_id : null,
+    template_key:
+      typeof row.template_key === "string" ? row.template_key : null,
     updated_at: asIso(row.updated_at),
   };
 }
@@ -89,7 +104,7 @@ function hydrateEmail(
   row: Record<string, unknown> | undefined
 ): AthenaAuthEmailRecordRow | undefined {
   if (!row) {
-    return undefined;
+    return;
   }
   return {
     created_at: asIso(row.created_at),
@@ -170,7 +185,9 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
     });
   }
 
-  async getTemplate(id: string): Promise<AthenaAuthEmailTemplateRow | undefined> {
+  async getTemplate(
+    id: string
+  ): Promise<AthenaAuthEmailTemplateRow | undefined> {
     const result = await this.db.query<Record<string, unknown>>(
       `SELECT ${TEMPLATE_COLUMNS} FROM ${ATHENA_AUTH_TABLES.emailTemplates} WHERE id = $1`,
       [id]
@@ -220,7 +237,7 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailTemplateRow | undefined> {
     const existing = await this.getTemplate(id);
     if (!existing) {
-      return undefined;
+      return;
     }
     const next = { ...existing, ...patch, id };
     const result = await this.db.query<Record<string, unknown>>(
@@ -282,9 +299,9 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailFailureRow> {
     const result = await this.db.query<Record<string, unknown>>(
       `INSERT INTO ${ATHENA_AUTH_TABLES.emailSendFailures} (
-        id, recipient_email, flow, provider, error_message, metadata, resolved, resolution_note,
-        created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
+        id, recipient_email, flow, provider, error_message, error_code, template_id, template_key,
+        metadata, resolved, resolution_note, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13)
       RETURNING ${FAILURE_COLUMNS}`,
       [
         row.id,
@@ -292,6 +309,9 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
         row.flow,
         row.provider ?? null,
         row.error_message,
+        row.error_code ?? null,
+        row.template_id ?? null,
+        row.template_key ?? null,
         JSON.stringify(row.metadata),
         row.resolved,
         row.resolution_note ?? null,
@@ -312,7 +332,7 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailFailureRow | undefined> {
     const existing = await this.getFailure(id);
     if (!existing) {
-      return undefined;
+      return;
     }
     const next = { ...existing, ...patch, id };
     const result = await this.db.query<Record<string, unknown>>(
@@ -320,7 +340,12 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
         resolved = $2, resolution_note = $3, updated_at = $4
       WHERE id = $1
       RETURNING ${FAILURE_COLUMNS}`,
-      [id, next.resolved, next.resolution_note ?? null, new Date().toISOString()]
+      [
+        id,
+        next.resolved,
+        next.resolution_note ?? null,
+        new Date().toISOString(),
+      ]
     );
     return hydrateFailure(result.rows[0]);
   }
@@ -351,7 +376,9 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
     return hydrateEmail(result.rows[0]);
   }
 
-  async createEmail(row: AthenaAuthEmailRecordRow): Promise<AthenaAuthEmailRecordRow> {
+  async createEmail(
+    row: AthenaAuthEmailRecordRow
+  ): Promise<AthenaAuthEmailRecordRow> {
     const result = await this.db.query<Record<string, unknown>>(
       `INSERT INTO ${ATHENA_AUTH_TABLES.emails} (
         id, recipient_email, subject, from_address, from_name, text_body, html_body,
@@ -386,12 +413,28 @@ export class PostgresAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailRecordRow | undefined> {
     const existing = await this.getEmail(id);
     if (!existing) {
-      return undefined;
+      return;
     }
     const next = { ...existing, ...patch, id };
+    const stamp = next.updated_at || new Date().toISOString();
     const result = await this.db.query<Record<string, unknown>>(
-      `UPDATE ${ATHENA_AUTH_TABLES.emails} SET subject = $2, updated_at = $3 WHERE id = $1 RETURNING ${EMAIL_COLUMNS}`,
-      [id, next.subject, new Date().toISOString()]
+      `UPDATE ${ATHENA_AUTH_TABLES.emails} SET
+        subject = $2,
+        from_address = $3,
+        from_name = $4,
+        provider = $5,
+        metadata = $6::jsonb,
+        updated_at = $7
+      WHERE id = $1 RETURNING ${EMAIL_COLUMNS}`,
+      [
+        id,
+        next.subject,
+        next.from_address,
+        next.from_name,
+        next.provider,
+        JSON.stringify(next.metadata ?? {}),
+        stamp,
+      ]
     );
     return hydrateEmail(result.rows[0]);
   }

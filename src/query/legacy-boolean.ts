@@ -12,9 +12,14 @@
  */
 import type {
   AthenaConditionOperator,
+  AthenaConditionArrayValue,
   AthenaConditionValue,
   AthenaGatewayCondition,
 } from "../gateway/types.ts";
+import type {
+  AthenaComparePredicateNode,
+  AthenaPredicateNode,
+} from "./descriptor.ts";
 
 const SIMPLE_OPERATORS = new Set<AthenaConditionOperator>([
   "eq",
@@ -39,11 +44,6 @@ export class LegacyBooleanParseError extends Error {
     this.name = "LegacyBooleanParseError";
   }
 }
-
-export type LegacyBooleanNode =
-  | { kind: "pred"; condition: AthenaGatewayCondition }
-  | { children: LegacyBooleanNode[]; kind: "and" | "or" }
-  | { child: LegacyBooleanNode; kind: "not" };
 
 function coerceScalar(raw: string): AthenaConditionValue {
   const trimmed = raw.trim();
@@ -120,11 +120,11 @@ function parseGroupCall(token: string, name: "and" | "or"): string | null {
   return match[1] ?? "";
 }
 
-function parsePredicate(token: string): AthenaGatewayCondition {
+function parsePredicate(token: string): AthenaComparePredicateNode {
   const parts = token.split(".");
   if (parts.length < 3) {
     throw new LegacyBooleanParseError(
-      `Legacy boolean predicate must be column.op.value: ${token}`,
+      `Legacy boolean predicate must be column.op.value: ${token}`
     );
   }
   const column = parts[0]?.trim() ?? "";
@@ -133,21 +133,27 @@ function parsePredicate(token: string): AthenaGatewayCondition {
   const rawValue = parts.slice(2).join(".");
   if (!IDENTIFIER.test(column)) {
     throw new LegacyBooleanParseError(
-      `Legacy boolean column is not a safe identifier: ${column}`,
+      `Legacy boolean column is not a safe identifier: ${column}`
     );
   }
   if (!SIMPLE_OPERATORS.has(operator)) {
     throw new LegacyBooleanParseError(
-      `Legacy boolean operator "${operator}" is not supported`,
+      `Legacy boolean operator "${operator}" is not supported`
     );
   }
   if (operator === "in") {
     const inner = rawValue.replace(/^\(|\)$/g, "");
     const values = splitTopLevel(inner, ",").map(coerceScalar);
-    return { column, operator, value: values as never };
+    return {
+      column,
+      kind: "compare",
+      operator,
+      value: values,
+    };
   }
   return {
     column,
+    kind: "compare",
     operator,
     value: coerceScalar(rawValue),
   };
@@ -155,20 +161,23 @@ function parsePredicate(token: string): AthenaGatewayCondition {
 
 function parseBooleanList(
   expression: string,
-  join: "and" | "or",
-): LegacyBooleanNode {
+  join: "and" | "or"
+): AthenaPredicateNode {
   const parts = splitTopLevel(expression, ",");
   if (parts.length === 0) {
     throw new LegacyBooleanParseError("Legacy boolean expression is empty");
   }
   const children = parts.map(parseTerm);
   if (children.length === 1) {
-    return children[0] as LegacyBooleanNode;
+    const [first] = children;
+    if (first) {
+      return first;
+    }
   }
-  return { children, kind: join };
+  return { kind: join, nodes: children };
 }
 
-function parseTerm(token: string): LegacyBooleanNode {
+function parseTerm(token: string): AthenaPredicateNode {
   const trimmed = token.trim();
   if (!trimmed) {
     throw new LegacyBooleanParseError("Empty legacy boolean term");
@@ -185,10 +194,10 @@ function parseTerm(token: string): LegacyBooleanNode {
 
   const notCall = /^not\s*\((.*)\)$/is.exec(trimmed);
   if (notCall) {
-    return { child: parseBooleanList(notCall[1] ?? "", "and"), kind: "not" };
+    return { kind: "not", node: parseBooleanList(notCall[1] ?? "", "and") };
   }
   if (/^not\./i.test(trimmed)) {
-    return { child: parseTerm(trimmed.slice(4)), kind: "not" };
+    return { kind: "not", node: parseTerm(trimmed.slice(4)) };
   }
 
   const grouped = unwrapBalancedParens(trimmed);
@@ -196,18 +205,60 @@ function parseTerm(token: string): LegacyBooleanNode {
     return parseBooleanList(grouped, "and");
   }
 
-  return { condition: parsePredicate(trimmed), kind: "pred" };
+  return parsePredicate(trimmed);
 }
 
 export function parseLegacyBooleanExpression(
   expression: string,
-  root: "and" | "or" = "or",
-): LegacyBooleanNode {
+  root: "and" | "or" = "or"
+): AthenaPredicateNode {
   const trimmed = expression.trim();
   if (!trimmed) {
     throw new LegacyBooleanParseError("Legacy boolean expression is empty");
   }
   return parseBooleanList(trimmed, root);
+}
+
+function isConditionValue(
+  value: unknown
+): value is AthenaConditionValue | AthenaConditionArrayValue {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item === null ||
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean"
+    )
+  );
+}
+
+export function athenaPredicateToGatewayCondition(
+  predicate: AthenaComparePredicateNode
+): AthenaGatewayCondition {
+  if (
+    typeof predicate.column !== "string" ||
+    !SIMPLE_OPERATORS.has(predicate.operator as AthenaConditionOperator) ||
+    !isConditionValue(predicate.value)
+  ) {
+    throw new LegacyBooleanParseError(
+      "Legacy boolean predicate could not be projected to a gateway condition"
+    );
+  }
+  return {
+    column: predicate.column,
+    operator: predicate.operator as AthenaConditionOperator,
+    value: predicate.value,
+  };
 }
 
 /**
@@ -216,39 +267,39 @@ export function parseLegacyBooleanExpression(
  * single `or`/`and`/`not` node for the SQL compiler.
  */
 export function parseLegacyOrExpression(
-  expression: string,
+  expression: string
 ): AthenaGatewayCondition[] {
   const tree = parseLegacyBooleanExpression(expression, "or");
-  if (tree.kind === "pred") {
-    return [tree.condition];
+  if (tree.kind === "compare") {
+    return [athenaPredicateToGatewayCondition(tree)];
   }
   if (
     tree.kind === "or" &&
-    tree.children.every((child) => child.kind === "pred")
+    tree.nodes.every((child) => child.kind === "compare")
   ) {
-    return tree.children.map((child) =>
-      child.kind === "pred" ? child.condition : child,
-    ) as AthenaGatewayCondition[];
+    return tree.nodes.map((child) =>
+      athenaPredicateToGatewayCondition(child)
+    );
   }
   throw new LegacyBooleanParseError(
-    "Nested .or() groups require parseLegacyBooleanExpression",
+    "Nested .or() groups require parseLegacyBooleanExpression"
   );
 }
 
-export function compileLegacyBooleanNode(
-  node: LegacyBooleanNode,
-  compilePredicate: (condition: AthenaGatewayCondition) => string,
+export function compileAthenaPredicateNode(
+  node: AthenaPredicateNode,
+  compilePredicate: (predicate: AthenaComparePredicateNode) => string
 ): string {
   switch (node.kind) {
-    case "pred":
-      return compilePredicate(node.condition);
+    case "compare":
+      return compilePredicate(node);
     case "and":
-      return `(${node.children.map((child) => compileLegacyBooleanNode(child, compilePredicate)).join(" AND ")})`;
+      return `(${node.nodes.map((child) => compileAthenaPredicateNode(child, compilePredicate)).join(" AND ")})`;
     case "or":
-      return `(${node.children.map((child) => compileLegacyBooleanNode(child, compilePredicate)).join(" OR ")})`;
+      return `(${node.nodes.map((child) => compileAthenaPredicateNode(child, compilePredicate)).join(" OR ")})`;
     case "not":
-      return `(NOT (${compileLegacyBooleanNode(node.child, compilePredicate)}))`;
+      return `(NOT (${compileAthenaPredicateNode(node.node, compilePredicate)}))`;
     default:
-      throw new LegacyBooleanParseError("Unknown legacy boolean node");
+      throw new LegacyBooleanParseError("Unknown Athena predicate node");
   }
 }

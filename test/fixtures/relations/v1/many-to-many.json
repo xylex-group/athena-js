@@ -1,0 +1,62 @@
+{
+  "schema": "athena/relations-fixture/v1",
+  "tables": [
+    { "table": "users", "primaryKey": ["id"] },
+    { "table": "roles", "primaryKey": ["id"] },
+    { "table": "user_roles", "primaryKey": ["user_id", "role_id"] }
+  ],
+  "relations": [
+    {
+      "id": "public.users.roles",
+      "name": "roles",
+      "cardinality": "many-to-many",
+      "from": { "table": "users", "columns": ["id"] },
+      "to": { "table": "roles", "columns": ["id"] },
+      "through": {
+        "table": "user_roles",
+        "fromColumns": ["user_id"],
+        "toColumns": ["role_id"]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "forward canonical many-to-many",
+      "request": {
+        "source": { "table": "users" },
+        "relation": "roles",
+        "via": "users.roles"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "many-to-many",
+        "fromColumns": ["id"],
+        "toColumns": ["id"],
+        "junction": {
+          "fromColumns": ["user_id"],
+          "toColumns": ["role_id"]
+        }
+      }
+    },
+    {
+      "name": "reverse canonical many-to-many",
+      "request": {
+        "source": { "table": "roles" },
+        "relation": "users",
+        "via": "users.roles"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "reverse",
+        "cardinality": "many-to-many",
+        "fromColumns": ["id"],
+        "toColumns": ["id"],
+        "junction": {
+          "fromColumns": ["role_id"],
+          "toColumns": ["user_id"]
+        }
+      }
+    }
+  ]
+}

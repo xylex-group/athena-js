@@ -1,3 +1,7 @@
+import type {
+  AthenaAuthenticationMethod,
+} from "./authentication-context.ts";
+
 export interface AuthUserRow {
   ban_expires: Date | string | null;
   ban_reason: string | null;
@@ -20,6 +24,8 @@ export interface AuthUserRow {
 export interface AuthSessionRow {
   active: boolean;
   active_organization_id: string | null;
+  authenticated_at: Date | string;
+  authentication_methods: AthenaAuthenticationMethod[] | string;
   created_at: Date | string;
   expires_at: Date | string;
   id: string;
@@ -58,6 +64,7 @@ export interface AuthVerificationRow {
 
 export interface AuthOrganizationRow {
   created_at: Date | string;
+  created_by_user_id: string | null;
   id: string;
   logo: string | null;
   metadata: Record<string, unknown> | string;
@@ -170,6 +177,7 @@ export function toPublicSession(row: AuthSessionRow) {
 export function toPublicOrganization(row: AuthOrganizationRow) {
   return {
     createdAt: asIsoRequired(row.created_at),
+    createdByUserId: row.created_by_user_id,
     id: row.id,
     logo: row.logo,
     metadata: parseMetadata(row.metadata),
@@ -179,14 +187,76 @@ export function toPublicOrganization(row: AuthOrganizationRow) {
   };
 }
 
-export function toPublicMember(row: AuthMemberRow) {
+function rowString(row: object, snake: string, camel: string): string {
+  const record = row as Record<string, unknown>;
+  const snakeValue = record[snake];
+  if (typeof snakeValue === "string" && snakeValue.length > 0) {
+    return snakeValue;
+  }
+  const camelValue = record[camel];
+  if (typeof camelValue === "string" && camelValue.length > 0) {
+    return camelValue;
+  }
+  return "";
+}
+
+function memberUserId(row: AuthMemberRow): string {
+  return rowString(row, "user_id", "userId");
+}
+
+function memberCreatedAt(row: AuthMemberRow): Date | string {
+  return row.created_at;
+}
+
+export function toPublicMember(
+  row: AuthMemberRow,
+  user?: AuthUserRow | null,
+  authorization?: {
+    canChangeRole: boolean;
+    canRemove: boolean;
+    denialReasons: {
+      changeRole?: string;
+      remove?: string;
+    };
+    roleDisplayName: string;
+    roleKey: string;
+  }
+) {
+  const publicUser = user ? toPublicUser(user) : undefined;
   return {
-    createdAt: asIsoRequired(row.created_at),
+    createdAt: asIsoRequired(memberCreatedAt(row)),
+    email: publicUser?.email ?? null,
     id: row.id,
-    organizationId: row.organization_id,
+    organizationId: rowString(row, "organization_id", "organizationId"),
     role: row.role,
-    userId: row.user_id,
+    user: publicUser,
+    userId: memberUserId(row),
+    ...(authorization ? { authorization } : {}),
   };
+}
+
+export async function toPublicMemberWithUser(
+  row: AuthMemberRow,
+  getUserById: (id: string) => Promise<AuthUserRow | undefined>
+) {
+  return toPublicMember(row, await getUserById(memberUserId(row)));
+}
+
+export async function toPublicMembersWithUsers(
+  members: readonly AuthMemberRow[],
+  getUserById: (id: string) => Promise<AuthUserRow | undefined>
+) {
+  const uniqueIds = [
+    ...new Set(members.map((member) => memberUserId(member)).filter(Boolean)),
+  ];
+  const users = await Promise.all(
+    uniqueIds.map(async (id) => {
+      const user = await getUserById(id);
+      return [id, user] as const;
+    })
+  );
+  const byId = new Map(users);
+  return members.map((row) => toPublicMember(row, byId.get(memberUserId(row))));
 }
 
 export function toPublicInvitation(row: AuthInvitationRow) {

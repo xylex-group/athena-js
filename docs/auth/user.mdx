@@ -6,11 +6,11 @@
 - `auth.resetPassword()` -> `POST /reset-password`
 - `auth.resetPassword.token()` -> `GET /reset-password/{token}`
 - `auth.setPassword()` -> `POST /set-password`
-- `auth.verifyEmail()` -> `GET /verify-email`
-- `auth.sendVerificationEmail()` -> `POST /send-verification-email`
-- `auth.changeEmail()` -> `POST /change-email`
-- `auth.changeEmailVerify()` -> `GET /change-email/verify`
-- `auth.deleteUserVerify()` -> `GET /delete-user/verify`
+- `auth.verificationEmail.verify()` -> `GET /verify-email`
+- `auth.verificationEmail.send()` -> `POST /send-verification-email`
+- `auth.email.change()` -> `POST /change-email`
+- `auth.email.change.verify()` -> `GET /change-email/verify`
+- `auth.user.delete.verify()` -> `GET /delete-user/verify`
 - `auth.changePassword()` -> `POST /change-password`
 - `auth.user.update()` -> `POST /update-user`
 - `auth.user.delete()` -> `POST /delete-user`
@@ -38,26 +38,26 @@ await client.auth.resetPassword.token({
 
 await client.auth.setPassword({ newPassword: "new-strong-password" })
 
-await client.auth.verifyEmail({
+await client.auth.verificationEmail.verify({
   token: "verify_token",
   callbackURL: "https://app.example.com/verified",
 })
 
-await client.auth.sendVerificationEmail({
+await client.auth.verificationEmail.send({
   email: "user@example.com",
   callbackURL: "https://app.example.com/verify",
 })
 
-await client.auth.changeEmail({
+await client.auth.email.change({
   newEmail: "new-user@example.com",
   callbackURL: "https://app.example.com/change-email",
 })
 
-await client.auth.changeEmailVerify({
+await client.auth.email.change.verify({
   query: { token: "change_email_token" },
 })
 
-await client.auth.deleteUserVerify({
+await client.auth.user.delete.verify({
   query: { token: "delete_user_token" },
 })
 

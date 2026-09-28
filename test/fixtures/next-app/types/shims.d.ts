@@ -16,3 +16,8 @@ declare module "next/headers" {
 }
 
 declare module "server-only";
+
+declare module "*.sql" {
+  const sql: string;
+  export default sql;
+}

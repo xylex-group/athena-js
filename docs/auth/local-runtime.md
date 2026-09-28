@@ -26,7 +26,7 @@ Explicit `auth.mode: "local"` is equivalent. `auth: false` and `auth.url` win.
 // app/api/athena + /api/auth
 import { createAthenaNextHandlers } from "@xylex-group/athena/next/server";
 
-export const { auth, billing, data, storage } = createAthenaNextHandlers({
+export const { auth, billing, billingIngress, data, storage } = createAthenaNextHandlers({
   client: athena,
 });
 ```
@@ -159,6 +159,9 @@ and `auth.socialProviders` normalize once. Apps do not import `google()` for
 this common case. Configured providers are advertised and the four social HTTP
 routes (`POST /sign-in/social`, `GET /callback/{provider}`, `POST /link-social`,
 `POST /unlink-account`) are served. Unconfigured apps stay `social.providers: []`.
+Ids that are not in the built-in registry may declare `issuer` (or explicit
+authorize/token/userinfo URLs) for a local/OIDC fixture — used by packed
+`testProvider` tests. Do not add `createOAuthClient`.
 
 ```ts
 import { createClient } from "@xylex-group/athena/server";

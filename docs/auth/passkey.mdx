@@ -32,9 +32,9 @@ HTTP (capability-gated except `getRelatedOrigins`):
 - `auth.passkey.generateAuthenticateOptions()` -> `POST /passkey/generate-authenticate-options`
 - `auth.passkey.verifyRegistration()` -> `POST /passkey/verify-registration`
 - `auth.passkey.verifyAuthentication()` -> `POST /passkey/verify-authentication`
-- `auth.passkey.listUserPasskeys()` -> `GET /passkey/list-user-passkeys`
-- `auth.passkey.deletePasskey()` -> `POST /passkey/delete-passkey`
-- `auth.passkey.updatePasskey()` -> `POST /passkey/update-passkey`
+- `auth.passkey.listUser()` -> `GET /passkey/list-user-passkeys`
+- `auth.passkey.delete()` -> `POST /passkey/delete-passkey`
+- `auth.passkey.update()` -> `POST /passkey/update-passkey`
 - `auth.passkey.getRelatedOrigins()` -> `GET /.well-known/webauthn`
 
 Browser ceremony (orchestrates the HTTP methods above; no ninth route):
@@ -65,10 +65,10 @@ await client.auth.passkey.verifyAuthentication({
   response: "webauthn-authentication-response",
 })
 
-await client.auth.passkey.listUserPasskeys()
+await client.auth.passkey.listUser()
 
-await client.auth.passkey.deletePasskey({ id: "passkey_id" })
-await client.auth.passkey.updatePasskey({
+await client.auth.passkey.delete({ id: "passkey_id" })
+await client.auth.passkey.update({
   id: "passkey_id",
   name: "My Laptop Passkey",
 })

@@ -41,7 +41,7 @@ export const SESSION_COOKIE_PATTERNS = [
  *
  * @example
  * ```ts
- * import { hasAuthSessionCookie } from '@xylex-group/athena/cookies'
+ * import { hasAuthSessionCookie } from '@xylex-group/athena/cookies/session'
  *
  * export function middleware(request: Request) {
  *   if (!hasAuthSessionCookie(request.headers.get('cookie'))) {

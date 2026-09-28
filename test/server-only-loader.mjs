@@ -6,7 +6,7 @@
  * Also remap `@xylex-group/athena/*` to `src/` so examples can import the
  * published package names without a prior `dist/` build.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -76,4 +76,17 @@ export async function resolve(specifier, context, nextResolve) {
     };
   }
   return nextResolve(specifier, context);
+}
+
+export async function load(url, context, nextLoad) {
+  const pathname = url.split("?")[0] ?? url;
+  if (pathname.endsWith(".sql")) {
+    const source = readFileSync(new URL(url), "utf8");
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: `export default ${JSON.stringify(source)};`,
+    };
+  }
+  return nextLoad(url, context);
 }

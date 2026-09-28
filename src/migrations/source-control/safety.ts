@@ -1,4 +1,5 @@
 import { displayCode } from "./status.ts";
+import { ATHENA_MIGRATE_ALLOW_DIRTY_COMMAND } from "../commands.ts";
 import type {
   MigrationSourceControlState,
   MigrationSourceSafety,
@@ -36,7 +37,9 @@ export function applyWouldBeRefused(safety: MigrationSourceSafety): boolean {
   );
 }
 
-export function formatWorktreeChangeLine(change: MigrationWorktreeChange): string {
+export function formatWorktreeChangeLine(
+  change: MigrationWorktreeChange
+): string {
   if (change.origPath) {
     return `  ${displayCode(change.kind)} ${change.origPath} -> ${change.path}`;
   }
@@ -67,7 +70,7 @@ export function formatSourceSafetyError(
     "Commit or stash migration changes and retry.",
     "",
     "Override:",
-    "  athena-js migrate --allow-dirty-migrations",
+    `  ${ATHENA_MIGRATE_ALLOW_DIRTY_COMMAND}`,
   ].join("\n");
 }
 
@@ -79,14 +82,17 @@ export function formatSourceSafetyWarning(
   return [
     "WARNING: migration provenance cannot be guaranteed.",
     "",
-    ...relevant.map((change) =>
-      `${change.path} is ${change.kind === "untracked" ? "uncommitted" : change.kind}.`
+    ...relevant.map(
+      (change) =>
+        `${change.path} is ${change.kind === "untracked" ? "uncommitted" : change.kind}.`
     ),
     "",
     "If applied, the database may contain migration history that cannot",
     "be reconstructed from Git.",
     "",
-    safety === "verified-clean" ? "" : "migrate plan continues; apply would be refused.",
+    safety === "verified-clean"
+      ? ""
+      : "migrate plan continues; apply would be refused.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -109,12 +115,14 @@ export function formatOverridePrompt(
   ].join("\n");
 }
 
-export function formatPlanProvenance(state: MigrationSourceControlState): string {
+export function formatPlanProvenance(
+  state: MigrationSourceControlState
+): string {
   const relevant = state.changedFiles.filter((item) => item.affectsMigrations);
   const lines = [
     "Repository",
     `Commit      ${state.headCommit ?? "(unresolved)"}`,
-    `Branch      ${state.detached ? "(detached)" : state.branch ?? "(unknown)"}`,
+    `Branch      ${state.detached ? "(detached)" : (state.branch ?? "(unknown)")}`,
     `Worktree    ${relevant.length > 0 ? "DIRTY" : "CLEAN"}`,
   ];
   if (relevant.length > 0) {

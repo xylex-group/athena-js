@@ -8,41 +8,75 @@
  */
 
 import {
-  tryParseAthenaRightKey,
   type AthenaRightKey,
+  tryParseAthenaRightKey,
 } from "../../rights/key.ts";
 import {
-  emitAthenaMalformedRightsDiagnostic,
   type AthenaMalformedRightsSource,
+  emitAthenaMalformedRightsDiagnostic,
 } from "./rights-diagnostics.ts";
 
-export {
-  ATHENA_MALFORMED_RIGHTS_KIND,
-  subscribeAthenaMalformedRightsDiagnostics,
-} from "./rights-diagnostics.ts";
 export type {
   AthenaMalformedRightsDiagnostic,
   AthenaMalformedRightsSource,
 } from "./rights-diagnostics.ts";
+export {
+  ATHENA_MALFORMED_RIGHTS_KIND,
+  subscribeAthenaMalformedRightsDiagnostics,
+} from "./rights-diagnostics.ts";
 
 export interface AthenaPrincipal {
   authenticated: boolean;
-  userId?: string;
-  sessionId?: string;
-  organizationId?: string;
-  role?: string;
-  rights: readonly AthenaRightKey[];
+  claims?: Readonly<Record<string, unknown>>;
   /** Legacy provenance; never used to satisfy Right checks. */
   grants: readonly string[];
+  organizationId?: string;
+  oauth?: AthenaOAuthPrincipalContext;
+  rights: readonly AthenaRightKey[];
+  role?: string;
   service?: string;
-  claims?: Readonly<Record<string, unknown>>;
+  sessionId?: string;
+  tenantId?: string;
+  userId?: string;
+}
+
+export interface AthenaOAuthPrincipalContext {
+  clientId: string;
+  grantId: string;
+  resource: string;
+  scopes: readonly string[];
 }
 
 /** Wire / session input. `rights` stays a string array at JSON edges. */
-export type AthenaPrincipalInput = Omit<AthenaPrincipal, "rights" | "grants"> & {
+export type AthenaPrincipalInput = Omit<
+  AthenaPrincipal,
+  "rights" | "grants"
+> & {
   grants?: readonly string[];
   rights?: readonly string[];
 };
+
+/**
+ * Role → Rights projection at session lookup. Not a second Rights catalog.
+ * Invalid keys are dropped by {@link normalizeAthenaPrincipal}.
+ */
+export interface AthenaPrincipalRightsProjection {
+  defaultRole?: string;
+  /**
+   * @deprecated Compatibility only. Prefer persisted authorization assignments.
+   * `role`: project `user.role` / `defaultRole` through `rightsByRole`.
+   * `stored`: persist `user.rights` / `metadata.rights` only. The two modes
+   * never mix. Do not add new `role` consumers.
+   */
+  mode?: "role" | "stored";
+  /**
+   * @deprecated Compatibility projection only. Product SSOT is persisted
+   * `authorization_*` assignments. Do not add new `rightsByRole` consumers.
+   */
+  rightsByRole?: Readonly<Record<string, readonly string[]>>;
+  /** Fail closed at client construction when the role table is incomplete. */
+  strictRoles?: boolean;
+}
 
 export type AthenaPrincipalAuthority =
   | "anonymous"
@@ -64,10 +98,7 @@ export interface AthenaPrincipalResolutionInput {
 
 export type AthenaPrincipalResolver = (
   input: AthenaPrincipalResolutionInput
-) =>
-  | Promise<AthenaResolvedPrincipal | null>
-  | AthenaResolvedPrincipal
-  | null;
+) => Promise<AthenaResolvedPrincipal | null> | AthenaResolvedPrincipal | null;
 
 /** Trusted session lookup result. Never constructed from request identity headers. */
 export interface AthenaRuntimeSessionLookup {
@@ -92,15 +123,21 @@ export type AthenaRuntimeOrganizationVerifier = (input: {
   userId: string;
 }) => boolean | Promise<boolean>;
 
+export type AthenaRuntimeJwtVerifier = (input: {
+  headers: Headers;
+  request?: Request;
+  requestId?: string;
+}) =>
+  | Promise<AthenaResolvedPrincipal | null>
+  | AthenaResolvedPrincipal
+  | null;
+
 /**
  * Duck-typed Athena Auth store surface used by `{ mode: "athena-session" }`.
  * Implemented by MemoryAuthStores / PostgresAuthStores. Not a second principal model.
  */
 export interface AthenaRuntimeAuthSessionStore {
-  getMember?(
-    organizationId: string,
-    userId: string
-  ): Promise<unknown>;
+  getMember?(organizationId: string, userId: string): Promise<unknown>;
   getSessionByToken(token: string): Promise<
     | {
         active?: boolean;
@@ -115,24 +152,41 @@ export interface AthenaRuntimeAuthSessionStore {
     | {
         ban_expires?: Date | string | null;
         banned?: boolean | null;
+        grants?: readonly string[];
         id: string;
+        metadata?: Record<string, unknown> | string | null;
+        rights?: readonly string[];
         role?: string | null;
       }
     | undefined
   >;
+  hasAuthorizationAssignment?(userId: string): Promise<boolean>;
+  resolveEffectiveRights?(input: {
+    activeOrganizationId?: string | null;
+    userId: string;
+  }): Promise<readonly string[]>;
 }
 
 export type AthenaRuntimeSessionLookupFn = (
   token: string
-) => Promise<AthenaRuntimeSessionLookup | null> | AthenaRuntimeSessionLookup | null;
+) =>
+  | Promise<AthenaRuntimeSessionLookup | null>
+  | AthenaRuntimeSessionLookup
+  | null;
 
 export type AthenaRuntimeAuthConfig =
   | false
   | {
+      authorization?: AthenaPrincipalRightsProjection;
       lookupSession?: AthenaRuntimeSessionLookupFn;
       mode: "athena-session";
       stores?: AthenaRuntimeAuthSessionStore;
+      jwtVerifier?: AthenaRuntimeJwtVerifier;
       verifyOrganizationMembership?: AthenaRuntimeOrganizationVerifier;
+    }
+  | {
+      mode: "jwt";
+      verifyToken: AthenaRuntimeJwtVerifier;
     }
   | {
       mode: "custom";
@@ -147,8 +201,13 @@ export type AthenaRuntimeAuthMaterial =
   | { mode: false }
   | {
       lookupSession: AthenaRuntimeSessionLookupFn;
+      jwtVerifier?: AthenaRuntimeJwtVerifier;
       mode: "athena-session";
       verifyOrganizationMembership?: AthenaRuntimeOrganizationVerifier;
+    }
+  | {
+      mode: "jwt";
+      verifyToken: AthenaRuntimeJwtVerifier;
     }
   | {
       mode: "custom";
@@ -207,6 +266,17 @@ export function normalizeAthenaPrincipal(
     ...(principal.organizationId
       ? { organizationId: principal.organizationId }
       : {}),
+    ...(principal.oauth
+      ? {
+          oauth: Object.freeze({
+            clientId: principal.oauth.clientId,
+            grantId: principal.oauth.grantId,
+            resource: principal.oauth.resource,
+            scopes: Object.freeze([...principal.oauth.scopes]),
+          }),
+        }
+      : {}),
+    ...(principal.tenantId ? { tenantId: principal.tenantId } : {}),
     ...(principal.role ? { role: principal.role } : {}),
     grants: Object.freeze([...(principal.grants ?? [])]),
     rights: parsePrincipalRights(

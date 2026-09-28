@@ -20,47 +20,47 @@ export const GENERATE_DEFAULT_ENV_KEY = "ATHENA_KEY_12";
 const GATEWAY_APP_KEY_ENV_KEYS = new Set<string>(ATHENA_ENV_API_KEY_KEYS);
 
 export function gatewayAppKeyGenerateWriteError(envKey: string): string {
-	return [
-		`athena-js api-key generate cannot write ${envKey}.`,
-		"That variable is a store-backed gateway API key (`ath_<publicId>.<secret>`).",
-		"The gateway looks up the public ID in its API key store; this offline command registers no record.",
-		"Create a usable app key with:",
-		"  athena-js api-key create --name <name> --rights gateway.query --write",
-		"Use generate only for the static admin secret (ATHENA_KEY_12 / ATHENA_P12_KEY), which must also be set on the gateway process.",
-	].join("\n");
+  return [
+    `athena-js api-key generate cannot write ${envKey}.`,
+    "That variable is a store-backed gateway API key (`ath_<publicId>.<secret>`).",
+    "The gateway looks up the public ID in its API key store; this offline command registers no record.",
+    "Create a usable app key with:",
+    "  athena-js api-key create --name <name> --rights gateway.query --write",
+    "Use generate only for the static admin secret (ATHENA_KEY_12 / ATHENA_P12_KEY), which must also be set on the gateway process.",
+  ].join("\n");
 }
 
 export function assertGenerateDoesNotWriteGatewayAppKey(envKey: string): void {
-	if (GATEWAY_APP_KEY_ENV_KEYS.has(envKey)) {
-		throw new Error(gatewayAppKeyGenerateWriteError(envKey));
-	}
+  if (GATEWAY_APP_KEY_ENV_KEYS.has(envKey)) {
+    throw new Error(gatewayAppKeyGenerateWriteError(envKey));
+  }
 }
 
 function getRandomBytes(size: number): Uint8Array {
-	return randomBytes(size);
+  return randomBytes(size);
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
-	return Buffer.from(bytes)
-		.toString("base64")
-		.replace(/\+/g, "-")
-		.replace(/\//g, "_")
-		.replace(/=+$/g, "");
+  return Buffer.from(bytes)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/[=]+$/g, "");
 }
 
 export interface GenerateApiKeyOptions {
-	/** Entropy bytes before encoding. Default 32. */
-	bytes?: number;
-	/** Prefix applied to the secret. Default empty. */
-	prefix?: string;
+  /** Entropy bytes before encoding. Default 32. */
+  bytes?: number;
+  /** Prefix applied to the secret. Default empty. */
+  prefix?: string;
 }
 
 export interface GeneratedApiKey {
-	/** Full secret including prefix. */
-	key: string;
-	prefix: string;
-	/** Secret portion without prefix. */
-	secret: string;
+  /** Full secret including prefix. */
+  key: string;
+  prefix: string;
+  /** Secret portion without prefix. */
+  secret: string;
 }
 
 /**
@@ -70,129 +70,129 @@ export interface GeneratedApiKey {
  * value is not mistaken for a store-backed `ath_<publicId>.<secret>` key.
  */
 export function generateApiKey(
-	options: GenerateApiKeyOptions = {},
+  options: GenerateApiKeyOptions = {}
 ): GeneratedApiKey {
-	const bytes = options.bytes ?? DEFAULT_BYTES;
-	if (!Number.isInteger(bytes) || bytes < 16 || bytes > 64) {
-		throw new Error("--bytes must be an integer between 16 and 64.");
-	}
+  const bytes = options.bytes ?? DEFAULT_BYTES;
+  if (!Number.isInteger(bytes) || bytes < 16 || bytes > 64) {
+    throw new Error("--bytes must be an integer between 16 and 64.");
+  }
 
-	const prefix =
-		options.prefix === undefined ? DEFAULT_PREFIX : String(options.prefix);
-	const secret = bytesToBase64Url(getRandomBytes(bytes));
-	return {
-		key: `${prefix}${secret}`,
-		prefix,
-		secret,
-	};
+  const prefix =
+    options.prefix === undefined ? DEFAULT_PREFIX : String(options.prefix);
+  const secret = bytesToBase64Url(getRandomBytes(bytes));
+  return {
+    key: `${prefix}${secret}`,
+    prefix,
+    secret,
+  };
 }
 
 export interface WriteApiKeyToEnvOptions {
-	/** Absolute or cwd-relative env file path. Default `.env.local`. */
-	filePath?: string;
-	cwd?: string;
-	/** Env key to set. Default `ATHENA_KEY_12`. */
-	envKey?: string;
-	/** Generated or provided key value. */
-	key: string;
-	/** Overwrite when the key already exists. Default false. */
-	force?: boolean;
+  cwd?: string;
+  /** Env key to set. Default `ATHENA_KEY_12`. */
+  envKey?: string;
+  /** Absolute or cwd-relative env file path. Default `.env.local`. */
+  filePath?: string;
+  /** Overwrite when the key already exists. Default false. */
+  force?: boolean;
+  /** Generated or provided key value. */
+  key: string;
 }
 
 export interface WriteApiKeyToEnvResult {
-	absolutePath: string;
-	action: "created" | "updated" | "unchanged";
-	envKey: string;
-	previousPresent: boolean;
+  absolutePath: string;
+  action: "created" | "updated" | "unchanged";
+  envKey: string;
+  previousPresent: boolean;
 }
 
 /**
  * Upsert an API key into a dotenv file without clobbering other keys.
  */
 export function writeApiKeyToEnvFile(
-	options: WriteApiKeyToEnvOptions,
+  options: WriteApiKeyToEnvOptions
 ): WriteApiKeyToEnvResult {
-	const cwd = options.cwd ?? process.cwd();
-	const relative = options.filePath ?? ".env.local";
-	const absolutePath = resolve(cwd, relative);
-	const envKey = options.envKey ?? GENERATE_DEFAULT_ENV_KEY;
-	const force = options.force === true;
-	const lineValue = options.key.includes(" ")
-		? `"${options.key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-		: options.key;
-	const assignment = `${envKey}=${lineValue}`;
+  const cwd = options.cwd ?? process.cwd();
+  const relative = options.filePath ?? ".env.local";
+  const absolutePath = resolve(cwd, relative);
+  const envKey = options.envKey ?? GENERATE_DEFAULT_ENV_KEY;
+  const force = options.force === true;
+  const lineValue = options.key.includes(" ")
+    ? `"${options.key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+    : options.key;
+  const assignment = `${envKey}=${lineValue}`;
 
-	if (!existsSync(absolutePath)) {
-		const body = `# Generated by athena-js api-key generate (static admin secret)\n${assignment}\n`;
-		writeFileSync(absolutePath, body, "utf8");
-		return {
-			absolutePath,
-			action: "created",
-			envKey,
-			previousPresent: false,
-		};
-	}
+  if (!existsSync(absolutePath)) {
+    const body = `# Generated by athena-js api-key generate (static admin secret)\n${assignment}\n`;
+    writeFileSync(absolutePath, body, "utf8");
+    return {
+      absolutePath,
+      action: "created",
+      envKey,
+      previousPresent: false,
+    };
+  }
 
-	const original = readFileSync(absolutePath, "utf8");
-	const lines = original.split(/\r?\n/);
-	let previousPresent = false;
-	let replaced = false;
-	let existingValue: string | undefined;
-	const nextLines = lines.map((line) => {
-		const parsed = parseEnvLine(line);
-		if (!parsed || parsed[0] !== envKey) {
-			return line;
-		}
-		previousPresent = true;
-		existingValue = parsed[1];
-		if (parsed[1] === options.key) {
-			return line;
-		}
-		if (!force) {
-			return line;
-		}
-		replaced = true;
-		// Preserve export prefix if present.
-		if (/^\s*export\s+/.test(line)) {
-			return `export ${assignment}`;
-		}
-		return assignment;
-	});
+  const original = readFileSync(absolutePath, "utf8");
+  const lines = original.split(/\r?\n/);
+  let previousPresent = false;
+  let replaced = false;
+  let existingValue: string | undefined;
+  const nextLines = lines.map((line) => {
+    const parsed = parseEnvLine(line);
+    if (!parsed || parsed[0] !== envKey) {
+      return line;
+    }
+    previousPresent = true;
+    existingValue = parsed[1];
+    if (parsed[1] === options.key) {
+      return line;
+    }
+    if (!force) {
+      return line;
+    }
+    replaced = true;
+    // Preserve export prefix if present.
+    if (/^\s*export\s+/.test(line)) {
+      return `export ${assignment}`;
+    }
+    return assignment;
+  });
 
-	if (previousPresent && !replaced) {
-		if (existingValue === options.key) {
-			return {
-				absolutePath,
-				action: "unchanged",
-				envKey,
-				previousPresent: true,
-			};
-		}
-		throw new Error(
-			`${envKey} already set in ${relative}. Re-run with --force to overwrite.`,
-		);
-	}
+  if (previousPresent && !replaced) {
+    if (existingValue === options.key) {
+      return {
+        absolutePath,
+        action: "unchanged",
+        envKey,
+        previousPresent: true,
+      };
+    }
+    throw new Error(
+      `${envKey} already set in ${relative}. Re-run with --force to overwrite.`
+    );
+  }
 
-	if (!previousPresent) {
-		const needsNewline =
-			original.length > 0 &&
-			!original.endsWith("\n") &&
-			!original.endsWith("\r");
-		const suffix = `${needsNewline ? "\n" : ""}${assignment}\n`;
-		writeFileSync(absolutePath, `${original}${suffix}`, "utf8");
-		return {
-			absolutePath,
-			action: "updated",
-			envKey,
-			previousPresent: false,
-		};
-	}
+  if (!previousPresent) {
+    const needsNewline =
+      original.length > 0 &&
+      !original.endsWith("\n") &&
+      !original.endsWith("\r");
+    const suffix = `${needsNewline ? "\n" : ""}${assignment}\n`;
+    writeFileSync(absolutePath, `${original}${suffix}`, "utf8");
+    return {
+      absolutePath,
+      action: "updated",
+      envKey,
+      previousPresent: false,
+    };
+  }
 
-	writeFileSync(absolutePath, `${nextLines.join("\n")}`, "utf8");
-	return {
-		absolutePath,
-		action: "updated",
-		envKey,
-		previousPresent: true,
-	};
+  writeFileSync(absolutePath, `${nextLines.join("\n")}`, "utf8");
+  return {
+    absolutePath,
+    action: "updated",
+    envKey,
+    previousPresent: true,
+  };
 }

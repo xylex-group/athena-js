@@ -1,0 +1,848 @@
+{
+  "src/runtime/authority/headers.ts": {
+    "branches": 7,
+    "loc": 60,
+    "maxFunctionLoc": 16,
+    "maxNesting": 4
+  },
+  "src/runtime/authority/index.ts": {
+    "branches": 0,
+    "loc": 22,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/authority/resolve.ts": {
+    "branches": 59,
+    "loc": 367,
+    "maxFunctionLoc": 105,
+    "maxNesting": 4
+  },
+  "src/runtime/authorization/assignment-replace.ts": {
+    "branches": 17,
+    "loc": 114,
+    "maxFunctionLoc": 32,
+    "maxNesting": 3
+  },
+  "src/runtime/authorization/capabilities.ts": {
+    "branches": 3,
+    "loc": 30,
+    "maxFunctionLoc": 18,
+    "maxNesting": 1
+  },
+  "src/runtime/authorization/capability-rights.ts": {
+    "branches": 0,
+    "loc": 19,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/authorization/catalog-state.ts": {
+    "branches": 3,
+    "loc": 56,
+    "maxFunctionLoc": 16,
+    "maxNesting": 1
+  },
+  "src/runtime/authorization/catalog.ts": {
+    "branches": 11,
+    "loc": 372,
+    "maxFunctionLoc": 19,
+    "maxNesting": 4
+  },
+  "src/runtime/authorization/clone-source.ts": {
+    "branches": 8,
+    "loc": 33,
+    "maxFunctionLoc": 24,
+    "maxNesting": 2
+  },
+  "src/runtime/authorization/decisions.ts": {
+    "branches": 19,
+    "loc": 161,
+    "maxFunctionLoc": 73,
+    "maxNesting": 3
+  },
+  "src/runtime/authorization/index.ts": {
+    "branches": 0,
+    "loc": 20,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/authorization/inspect.ts": {
+    "branches": 0,
+    "loc": 34,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/authorization/memory.ts": {
+    "branches": 127,
+    "loc": 973,
+    "maxFunctionLoc": 63,
+    "maxNesting": 5
+  },
+  "src/runtime/authorization/parse-snapshot.ts": {
+    "branches": 66,
+    "loc": 249,
+    "maxFunctionLoc": 78,
+    "maxNesting": 4
+  },
+  "src/runtime/authorization/postgres.ts": {
+    "branches": 103,
+    "loc": 1577,
+    "maxFunctionLoc": 138,
+    "maxNesting": 4
+  },
+  "src/runtime/authorization/role-descriptor.ts": {
+    "branches": 1,
+    "loc": 41,
+    "maxFunctionLoc": 20,
+    "maxNesting": 1
+  },
+  "src/runtime/authorization/role-invariants.ts": {
+    "branches": 26,
+    "loc": 295,
+    "maxFunctionLoc": 37,
+    "maxNesting": 3
+  },
+  "src/runtime/authorization/shadow.ts": {
+    "branches": 3,
+    "loc": 71,
+    "maxFunctionLoc": 20,
+    "maxNesting": 2
+  },
+  "src/runtime/authorization/snapshot-catalog.ts": {
+    "branches": 11,
+    "loc": 40,
+    "maxFunctionLoc": 37,
+    "maxNesting": 3
+  },
+  "src/runtime/authorization/store.ts": {
+    "branches": 5,
+    "loc": 179,
+    "maxFunctionLoc": 12,
+    "maxNesting": 2
+  },
+  "src/runtime/authorization/templates.ts": {
+    "branches": 34,
+    "loc": 294,
+    "maxFunctionLoc": 16,
+    "maxNesting": 2
+  },
+  "src/runtime/authorization/types.ts": {
+    "branches": 0,
+    "loc": 97,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/client-internals.ts": {
+    "branches": 13,
+    "loc": 293,
+    "maxFunctionLoc": 32,
+    "maxNesting": 2
+  },
+  "src/runtime/data/athena-session.ts": {
+    "branches": 40,
+    "loc": 396,
+    "maxFunctionLoc": 65,
+    "maxNesting": 4
+  },
+  "src/runtime/data/browser-transport.ts": {
+    "branches": 2,
+    "loc": 25,
+    "maxFunctionLoc": 18,
+    "maxNesting": 1
+  },
+  "src/runtime/data/devtools-nucleus.ts": {
+    "branches": 22,
+    "loc": 201,
+    "maxFunctionLoc": 57,
+    "maxNesting": 3
+  },
+  "src/runtime/data/discovery-document.ts": {
+    "branches": 15,
+    "loc": 133,
+    "maxFunctionLoc": 60,
+    "maxNesting": 1
+  },
+  "src/runtime/data/errors.ts": {
+    "branches": 16,
+    "loc": 132,
+    "maxFunctionLoc": 32,
+    "maxNesting": 3
+  },
+  "src/runtime/data/execution-event.ts": {
+    "branches": 2,
+    "loc": 58,
+    "maxFunctionLoc": 46,
+    "maxNesting": 3
+  },
+  "src/runtime/data/executor.ts": {
+    "branches": 3,
+    "loc": 61,
+    "maxFunctionLoc": 42,
+    "maxNesting": 2
+  },
+  "src/runtime/data/gates.ts": {
+    "branches": 46,
+    "loc": 245,
+    "maxFunctionLoc": 70,
+    "maxNesting": 4
+  },
+  "src/runtime/data/http-profile.ts": {
+    "branches": 31,
+    "loc": 180,
+    "maxFunctionLoc": 69,
+    "maxNesting": 3
+  },
+  "src/runtime/data/index.ts": {
+    "branches": 0,
+    "loc": 92,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/lifecycle/assert.ts": {
+    "branches": 13,
+    "loc": 61,
+    "maxFunctionLoc": 20,
+    "maxNesting": 2
+  },
+  "src/runtime/data/lifecycle/compatibility.ts": {
+    "branches": 0,
+    "loc": 23,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/lifecycle/events.ts": {
+    "branches": 0,
+    "loc": 21,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/lifecycle/execute.ts": {
+    "branches": 0,
+    "loc": 20,
+    "maxFunctionLoc": 6,
+    "maxNesting": 1
+  },
+  "src/runtime/data/lifecycle/index.ts": {
+    "branches": 0,
+    "loc": 36,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/lifecycle/runner.ts": {
+    "branches": 0,
+    "loc": 17,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/runtime/data/lifecycle/scope.ts": {
+    "branches": 11,
+    "loc": 33,
+    "maxFunctionLoc": 22,
+    "maxNesting": 5
+  },
+  "src/runtime/data/lifecycle/types.ts": {
+    "branches": 0,
+    "loc": 43,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/limits.ts": {
+    "branches": 34,
+    "loc": 132,
+    "maxFunctionLoc": 22,
+    "maxNesting": 3
+  },
+  "src/runtime/data/model-registry.ts": {
+    "branches": 104,
+    "loc": 355,
+    "maxFunctionLoc": 59,
+    "maxNesting": 4
+  },
+  "src/runtime/data/normalize-transport-failure.ts": {
+    "branches": 22,
+    "loc": 126,
+    "maxFunctionLoc": 68,
+    "maxNesting": 2
+  },
+  "src/runtime/data/nucleus/catalog.ts": {
+    "branches": 0,
+    "loc": 10,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/nucleus/context.ts": {
+    "branches": 5,
+    "loc": 45,
+    "maxFunctionLoc": 21,
+    "maxNesting": 2
+  },
+  "src/runtime/data/nucleus/envelope.ts": {
+    "branches": 12,
+    "loc": 73,
+    "maxFunctionLoc": 16,
+    "maxNesting": 3
+  },
+  "src/runtime/data/nucleus/errors.ts": {
+    "branches": 2,
+    "loc": 18,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/runtime/data/nucleus/execute.ts": {
+    "branches": 34,
+    "loc": 406,
+    "maxFunctionLoc": 220,
+    "maxNesting": 3
+  },
+  "src/runtime/data/nucleus/hooks.ts": {
+    "branches": 31,
+    "loc": 166,
+    "maxFunctionLoc": 41,
+    "maxNesting": 4
+  },
+  "src/runtime/data/nucleus/prepare.ts": {
+    "branches": 45,
+    "loc": 189,
+    "maxFunctionLoc": 36,
+    "maxNesting": 3
+  },
+  "src/runtime/data/nucleus/result.ts": {
+    "branches": 2,
+    "loc": 27,
+    "maxFunctionLoc": 11,
+    "maxNesting": 1
+  },
+  "src/runtime/data/nucleus/sanitize.ts": {
+    "branches": 6,
+    "loc": 40,
+    "maxFunctionLoc": 16,
+    "maxNesting": 3
+  },
+  "src/runtime/data/nucleus/timing.ts": {
+    "branches": 9,
+    "loc": 59,
+    "maxFunctionLoc": 34,
+    "maxNesting": 2
+  },
+  "src/runtime/data/nucleus/transaction.ts": {
+    "branches": 1,
+    "loc": 21,
+    "maxFunctionLoc": 8,
+    "maxNesting": 2
+  },
+  "src/runtime/data/nucleus/types.ts": {
+    "branches": 9,
+    "loc": 123,
+    "maxFunctionLoc": 19,
+    "maxNesting": 3
+  },
+  "src/runtime/data/origin.ts": {
+    "branches": 15,
+    "loc": 82,
+    "maxFunctionLoc": 33,
+    "maxNesting": 3
+  },
+  "src/runtime/data/principal.ts": {
+    "branches": 12,
+    "loc": 253,
+    "maxFunctionLoc": 23,
+    "maxNesting": 3
+  },
+  "src/runtime/data/privileged-http-models.ts": {
+    "branches": 8,
+    "loc": 65,
+    "maxFunctionLoc": 24,
+    "maxNesting": 3
+  },
+  "src/runtime/data/redact.ts": {
+    "branches": 5,
+    "loc": 40,
+    "maxFunctionLoc": 11,
+    "maxNesting": 2
+  },
+  "src/runtime/data/resolve-principal.ts": {
+    "branches": 0,
+    "loc": 12,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/data/rights-diagnostics.ts": {
+    "branches": 2,
+    "loc": 48,
+    "maxFunctionLoc": 17,
+    "maxNesting": 2
+  },
+  "src/runtime/data/rights-resolution.ts": {
+    "branches": 65,
+    "loc": 481,
+    "maxFunctionLoc": 55,
+    "maxNesting": 5
+  },
+  "src/runtime/data/runtime.ts": {
+    "branches": 45,
+    "loc": 233,
+    "maxFunctionLoc": 120,
+    "maxNesting": 4
+  },
+  "src/runtime/data/types.ts": {
+    "branches": 0,
+    "loc": 223,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/classifier.ts": {
+    "branches": 50,
+    "loc": 203,
+    "maxFunctionLoc": 59,
+    "maxNesting": 2
+  },
+  "src/runtime/error/data.ts": {
+    "branches": 32,
+    "loc": 113,
+    "maxFunctionLoc": 67,
+    "maxNesting": 2
+  },
+  "src/runtime/error/failure.ts": {
+    "branches": 9,
+    "loc": 79,
+    "maxFunctionLoc": 19,
+    "maxNesting": 2
+  },
+  "src/runtime/error/generated/auth.ts": {
+    "branches": 0,
+    "loc": 349,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/billing.ts": {
+    "branches": 0,
+    "loc": 196,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/chat.ts": {
+    "branches": 0,
+    "loc": 79,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/data.ts": {
+    "branches": 0,
+    "loc": 106,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/gateway.ts": {
+    "branches": 0,
+    "loc": 493,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/internal.ts": {
+    "branches": 0,
+    "loc": 259,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/notifications.ts": {
+    "branches": 0,
+    "loc": 70,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/policy.ts": {
+    "branches": 0,
+    "loc": 196,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/storage.ts": {
+    "branches": 0,
+    "loc": 223,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/generated/webhook.ts": {
+    "branches": 0,
+    "loc": 34,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/index.ts": {
+    "branches": 0,
+    "loc": 31,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/instance.ts": {
+    "branches": 8,
+    "loc": 83,
+    "maxFunctionLoc": 23,
+    "maxNesting": 2
+  },
+  "src/runtime/error/ir.ts": {
+    "branches": 0,
+    "loc": 28,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/kinds.ts": {
+    "branches": 0,
+    "loc": 33,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/registry.ts": {
+    "branches": 3,
+    "loc": 88,
+    "maxFunctionLoc": 17,
+    "maxNesting": 2
+  },
+  "src/runtime/error/retry.ts": {
+    "branches": 0,
+    "loc": 19,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/error/wire.ts": {
+    "branches": 10,
+    "loc": 49,
+    "maxFunctionLoc": 19,
+    "maxNesting": 1
+  },
+  "src/runtime/events/catalog.ts": {
+    "branches": 0,
+    "loc": 17,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/events/causality.ts": {
+    "branches": 2,
+    "loc": 13,
+    "maxFunctionLoc": 9,
+    "maxNesting": 1
+  },
+  "src/runtime/events/hooks.ts": {
+    "branches": 4,
+    "loc": 36,
+    "maxFunctionLoc": 10,
+    "maxNesting": 3
+  },
+  "src/runtime/events/identity.ts": {
+    "branches": 0,
+    "loc": 7,
+    "maxFunctionLoc": 4,
+    "maxNesting": 1
+  },
+  "src/runtime/events/ir.ts": {
+    "branches": 0,
+    "loc": 36,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/events/outbox.ts": {
+    "branches": 0,
+    "loc": 20,
+    "maxFunctionLoc": 10,
+    "maxNesting": 1
+  },
+  "src/runtime/events/sql.ts": {
+    "branches": 5,
+    "loc": 70,
+    "maxFunctionLoc": 47,
+    "maxNesting": 3
+  },
+  "src/runtime/execution/http-executor.ts": {
+    "branches": 38,
+    "loc": 160,
+    "maxFunctionLoc": 93,
+    "maxNesting": 3
+  },
+  "src/runtime/finality/index.ts": {
+    "branches": 0,
+    "loc": 9,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/finality/matrix.ts": {
+    "branches": 0,
+    "loc": 104,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/index.ts": {
+    "branches": 0,
+    "loc": 37,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/ingress/compiler/http.ts": {
+    "branches": 6,
+    "loc": 56,
+    "maxFunctionLoc": 28,
+    "maxNesting": 1
+  },
+  "src/runtime/ingress/errors.ts": {
+    "branches": 13,
+    "loc": 91,
+    "maxFunctionLoc": 24,
+    "maxNesting": 2
+  },
+  "src/runtime/ingress/failure.ts": {
+    "branches": 37,
+    "loc": 155,
+    "maxFunctionLoc": 50,
+    "maxNesting": 2
+  },
+  "src/runtime/ingress/identity.ts": {
+    "branches": 1,
+    "loc": 19,
+    "maxFunctionLoc": 16,
+    "maxNesting": 1
+  },
+  "src/runtime/ingress/ir.ts": {
+    "branches": 0,
+    "loc": 27,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/ingress/memory.ts": {
+    "branches": 34,
+    "loc": 148,
+    "maxFunctionLoc": 86,
+    "maxNesting": 5
+  },
+  "src/runtime/ingress/persistence.ts": {
+    "branches": 0,
+    "loc": 70,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/ingress/postgres.ts": {
+    "branches": 3,
+    "loc": 81,
+    "maxFunctionLoc": 62,
+    "maxNesting": 4
+  },
+  "src/runtime/ingress/runtime.ts": {
+    "branches": 0,
+    "loc": 63,
+    "maxFunctionLoc": 14,
+    "maxNesting": 2
+  },
+  "src/runtime/ingress/sql.ts": {
+    "branches": 26,
+    "loc": 335,
+    "maxFunctionLoc": 127,
+    "maxNesting": 3
+  },
+  "src/runtime/ingress/status.ts": {
+    "branches": 0,
+    "loc": 6,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/materializers/auth.ts": {
+    "branches": 0,
+    "loc": 15,
+    "maxFunctionLoc": 6,
+    "maxNesting": 1
+  },
+  "src/runtime/materializers/billing.ts": {
+    "branches": 0,
+    "loc": 22,
+    "maxFunctionLoc": 9,
+    "maxNesting": 1
+  },
+  "src/runtime/materializers/chat.ts": {
+    "branches": 10,
+    "loc": 74,
+    "maxFunctionLoc": 44,
+    "maxNesting": 2
+  },
+  "src/runtime/materializers/database.ts": {
+    "branches": 25,
+    "loc": 163,
+    "maxFunctionLoc": 113,
+    "maxNesting": 3
+  },
+  "src/runtime/materializers/storage.ts": {
+    "branches": 17,
+    "loc": 152,
+    "maxFunctionLoc": 89,
+    "maxNesting": 3
+  },
+  "src/runtime/ownership.ts": {
+    "branches": 2,
+    "loc": 133,
+    "maxFunctionLoc": 19,
+    "maxNesting": 1
+  },
+  "src/runtime/parse.ts": {
+    "branches": 9,
+    "loc": 121,
+    "maxFunctionLoc": 36,
+    "maxNesting": 3
+  },
+  "src/runtime/plan/materialize.ts": {
+    "branches": 0,
+    "loc": 40,
+    "maxFunctionLoc": 19,
+    "maxNesting": 1
+  },
+  "src/runtime/plan/normalize.ts": {
+    "branches": 0,
+    "loc": 17,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/runtime/plan/resolve.ts": {
+    "branches": 12,
+    "loc": 58,
+    "maxFunctionLoc": 39,
+    "maxNesting": 1
+  },
+  "src/runtime/plan/types.ts": {
+    "branches": 0,
+    "loc": 58,
+    "maxFunctionLoc": 10,
+    "maxNesting": 1
+  },
+  "src/runtime/plan/validate.ts": {
+    "branches": 14,
+    "loc": 46,
+    "maxFunctionLoc": 38,
+    "maxNesting": 2
+  },
+  "src/runtime/readiness/index.ts": {
+    "branches": 3,
+    "loc": 69,
+    "maxFunctionLoc": 33,
+    "maxNesting": 3
+  },
+  "src/runtime/resolve.ts": {
+    "branches": 43,
+    "loc": 242,
+    "maxFunctionLoc": 80,
+    "maxNesting": 4
+  },
+  "src/runtime/schemas.ts": {
+    "branches": 0,
+    "loc": 126,
+    "maxFunctionLoc": 10,
+    "maxNesting": 1
+  },
+  "src/runtime/topology-matrix.ts": {
+    "branches": 0,
+    "loc": 187,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/compiler.ts": {
+    "branches": 22,
+    "loc": 90,
+    "maxFunctionLoc": 26,
+    "maxNesting": 2
+  },
+  "src/runtime/transport/direct/ir.ts": {
+    "branches": 0,
+    "loc": 14,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/domain.ts": {
+    "branches": 0,
+    "loc": 9,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/error-envelope.ts": {
+    "branches": 0,
+    "loc": 39,
+    "maxFunctionLoc": 10,
+    "maxNesting": 1
+  },
+  "src/runtime/transport/http.ts": {
+    "branches": 60,
+    "loc": 245,
+    "maxFunctionLoc": 46,
+    "maxNesting": 3
+  },
+  "src/runtime/transport/http/client.ts": {
+    "branches": 1,
+    "loc": 61,
+    "maxFunctionLoc": 28,
+    "maxNesting": 2
+  },
+  "src/runtime/transport/http/incoming.ts": {
+    "branches": 22,
+    "loc": 113,
+    "maxFunctionLoc": 44,
+    "maxNesting": 3
+  },
+  "src/runtime/transport/http/index.ts": {
+    "branches": 0,
+    "loc": 25,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/http/ir.ts": {
+    "branches": 0,
+    "loc": 32,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/http/request-compiler.ts": {
+    "branches": 1,
+    "loc": 38,
+    "maxFunctionLoc": 26,
+    "maxNesting": 1
+  },
+  "src/runtime/transport/http/response-parser.ts": {
+    "branches": 25,
+    "loc": 84,
+    "maxFunctionLoc": 54,
+    "maxNesting": 2
+  },
+  "src/runtime/transport/http/url.ts": {
+    "branches": 7,
+    "loc": 26,
+    "maxFunctionLoc": 25,
+    "maxNesting": 3
+  },
+  "src/runtime/transport/index.ts": {
+    "branches": 0,
+    "loc": 31,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/invocation.ts": {
+    "branches": 0,
+    "loc": 12,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/ir.ts": {
+    "branches": 0,
+    "loc": 5,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/runtime/transport/join-path.ts": {
+    "branches": 5,
+    "loc": 18,
+    "maxFunctionLoc": 17,
+    "maxNesting": 2
+  },
+  "src/runtime/transport/parser.ts": {
+    "branches": 18,
+    "loc": 68,
+    "maxFunctionLoc": 33,
+    "maxNesting": 2
+  },
+  "src/runtime/transport/topology.ts": {
+    "branches": 0,
+    "loc": 15,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  }
+}

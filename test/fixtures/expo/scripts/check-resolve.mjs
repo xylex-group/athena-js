@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 /**
  * Fixture gate without full Metro/Hermes runtime:
  * 1) package.json exports ./react-native
@@ -9,16 +10,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = join(__dirname, "..");
 const athenaRoot = join(fixtureRoot, "..", "..", "..");
 const athenaPkg = JSON.parse(
-  readFileSync(join(athenaRoot, "package.json"), "utf8"),
+  readFileSync(join(athenaRoot, "package.json"), "utf8")
 );
 const fixturePkg = JSON.parse(
-  readFileSync(join(fixtureRoot, "package.json"), "utf8"),
+  readFileSync(join(fixtureRoot, "package.json"), "utf8")
 );
 
 function fail(msg) {
@@ -27,7 +27,7 @@ function fail(msg) {
 }
 
 const exp = athenaPkg.exports?.["./react-native"];
-if (!exp?.import || !exp?.types) {
+if (!(exp?.import?.default && exp?.import?.types && exp?.require?.types)) {
   fail('missing @xylex-group/athena exports["./react-native"]');
 }
 
@@ -57,13 +57,15 @@ const banned = [
   /from\s+["']react-dom["']/,
 ];
 for (const re of banned) {
-  if (re.test(rnJs)) fail(`react-native dist matched banned pattern ${re}`);
+  if (re.test(rnJs)) {
+    fail(`react-native dist matched banned pattern ${re}`);
+  }
 }
 
 const audit = spawnSync(
   process.execPath,
   [join(athenaRoot, "scripts", "audit-rn-bundle-safety.mjs")],
-  { cwd: athenaRoot, encoding: "utf8" },
+  { cwd: athenaRoot, encoding: "utf8" }
 );
 if (audit.status !== 0) {
   console.error(audit.stdout || "");
@@ -74,8 +76,8 @@ if (audit.status !== 0) {
 console.log("[expo-fixture] OK: resolve + dist + audit + biome SSOT");
 console.log(
   "  import target: @xylex-group/athena/react-native →",
-  exp.import,
+  exp.import.default
 );
 console.log(
-  "  Note: full Metro/Hermes device bundle is optional CI; this gate is the required smoke.",
+  "  Note: full Metro/Hermes device bundle is optional CI; this gate is the required smoke."
 );

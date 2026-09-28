@@ -1,55 +1,50 @@
+import type { AthenaPrincipal } from "../../../../runtime/data/principal.ts";
 import type { BillingProviderConfigMap } from "../../../providers/types.ts";
 import type {
-	BillingGetInvoiceInput,
-	BillingInvoice,
-	BillingListInvoicesInput,
+  BillingGetInvoiceInput,
+  BillingInvoice,
+  BillingListInvoicesInput,
 } from "../../../types.ts";
 import type { BillingPage } from "../../types.ts";
 import type { BillingProviderRegistry } from "../providers/registry.ts";
-import {
-	rejectUnsupportedListOffset,
-	requireProviderPort,
-	resolveLocalBillingProviderExecution,
-} from "./shared.ts";
+import { executeLocalBillingOperation } from "./invoke.ts";
+import { rejectUnsupportedListOffset } from "./shared.ts";
 
 export async function executeLocalBillingInvoiceGet(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingGetInvoiceInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingGetInvoiceInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingInvoice> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "invoices.get",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const invoices = requireProviderPort(runtime.invoices, "invoices.get");
-	return invoices.get(context, { invoiceId: input.payload.invoiceId });
+  return executeLocalBillingOperation({
+    invoke: (invoices, context, payload) =>
+      invoices.get(context, { invoiceId: payload.invoiceId }),
+    operation: "invoices.get",
+    port: "invoices",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingInvoiceList(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingListInvoicesInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingListInvoicesInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPage<BillingInvoice>> {
-	rejectUnsupportedListOffset("invoices.list", input.payload.offset);
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "invoices.list",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const invoices = requireProviderPort(runtime.invoices, "invoices.list");
-	return invoices.list(context, {
-		cursor: input.payload.cursor,
-		limit: input.payload.limit,
-	});
+  return executeLocalBillingOperation({
+    before: (payload) =>
+      rejectUnsupportedListOffset("invoices.list", payload.offset),
+    invoke: (invoices, context, payload) =>
+      invoices.list(context, {
+        cursor: payload.cursor,
+        limit: payload.limit,
+      }),
+    operation: "invoices.list",
+    port: "invoices",
+    request: input,
+  });
 }

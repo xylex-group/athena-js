@@ -6,9 +6,9 @@ import {
 } from "../src/postgres/compile-ast.ts";
 import {
   AthenaQueryError,
+  type AthenaRelationCatalog,
   normalizeFindManyInput,
   resolveQueryPlan,
-  type AthenaRelationCatalog,
 } from "../src/query/engine/index.ts";
 
 const catalog: AthenaRelationCatalog = {
@@ -83,6 +83,16 @@ test("every compiles to NOT EXISTS of the negated predicate", () => {
   assert.deepEqual(compiled.values, [true]);
 });
 
+test("unconstrained every compiles as a tautology", () => {
+  const compiled = compile({
+    select: { id: true },
+    where: { posts: { every: {} } },
+  });
+  assert.doesNotMatch(compiled.text, /EXISTS/);
+  assert.match(compiled.text, /WHERE TRUE/);
+  assert.deepEqual(compiled.values, []);
+});
+
 test("null comparisons compile to IS NULL not = $1", () => {
   const eqNull = compile({
     select: { id: true },
@@ -99,7 +109,7 @@ test("null comparisons compile to IS NULL not = $1", () => {
   assert.match(eqNull.text, /"deleted_at" IS NULL/);
   assert.match(opNull.text, /"deleted_at" IS NULL/);
   assert.match(neqNull.text, /"deleted_at" IS NOT NULL/);
-  assert.doesNotMatch(eqNull.text, /= \$1/);
+  assert.doesNotMatch(eqNull.text, /[=] \$1/);
   assert.doesNotMatch(neqNull.text, /<> \$1/);
   assert.deepEqual(eqNull.values, []);
 });

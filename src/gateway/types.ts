@@ -12,6 +12,7 @@ export type AthenaGatewayEndpointPath =
   | "/gateway/delete"
   | "/gateway/rpc"
   | "/gateway/query"
+  | "/gateway/query/v1"
   | "/gateway/transaction"
   | `/rpc/${string}`
   | `/storage/${string}`
@@ -230,6 +231,13 @@ export interface AthenaGatewayBaseOptions {
   /** Direct PostgreSQL URI forwarded as `x-pg-uri` (OpenAPI preferred routing header). */
   pgUri?: string | null;
   publishEvent?: string;
+  /**
+   * Select the semantic query wire protocol for compatible AST reads.
+   *
+   * `auto` uses Query V1 when the endpoint advertises it and falls back to
+   * the legacy fetch route only when the V1 capability is unavailable.
+   */
+  queryProtocol?: "auto" | "legacy" | "v1";
   sessionToken?: string | null;
   userId?: string | null;
 }

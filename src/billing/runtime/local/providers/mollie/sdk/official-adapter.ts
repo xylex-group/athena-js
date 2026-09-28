@@ -1,13 +1,13 @@
-import type {
-	MollieSdkAdapterFactory,
-	MollieSdkClientOptions,
-	MollieSdkConstructor,
-} from "./contracts.ts";
 import { assertMollieSdkClient } from "./assertions.ts";
+import type {
+  MollieSdkAdapterFactory,
+  MollieSdkClientOptions,
+  MollieSdkConstructor,
+} from "./contracts.ts";
 
 export function createOfficialMollieAdapter(
-	Sdk: MollieSdkConstructor,
+  Sdk: MollieSdkConstructor
 ): MollieSdkAdapterFactory {
-	return (options?: MollieSdkClientOptions) =>
-		assertMollieSdkClient(new Sdk(options), "mollie.adapter.construct");
+  return (options?: MollieSdkClientOptions) =>
+    assertMollieSdkClient(new Sdk(options), "mollie.adapter.construct");
 }

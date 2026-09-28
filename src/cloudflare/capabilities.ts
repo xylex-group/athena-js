@@ -3,18 +3,37 @@ import {
   GATEWAY_POSTGRES_TRANSACTION_CAPABILITIES,
   POSTGRES_DIRECT_TRANSACTION_CAPABILITIES,
 } from "../db/transaction/types.ts";
+import { projectAthenaClientCapabilities } from "../capabilities/client-projection.ts";
+import { resolveAthenaClientCapabilitiesIr } from "../capabilities/assembly.ts";
+import {
+  D1_QUERY_CAPABILITIES,
+  GATEWAY_QUERY_CAPABILITIES,
+  POSTGRES_QUERY_CAPABILITIES,
+} from "../query/engine/capabilities.ts";
 import type { AthenaClientCapabilities } from "./types.ts";
+
+function projectCanonicalClientCapabilities(
+  base: AthenaClientCapabilities,
+  query = POSTGRES_QUERY_CAPABILITIES
+): AthenaClientCapabilities {
+  const ir = resolveAthenaClientCapabilitiesIr({ base, query });
+  return projectAthenaClientCapabilities(
+    ir,
+    base
+  );
+}
 
 export function createGatewayCapabilities(options?: {
   engine?: AthenaClientCapabilities["db"]["engine"];
   authRemote?: boolean;
   /** When false/undefined, storage flags match an unconfigured storage namespace. */
   storageConfigured?: boolean;
+  storageLocal?: boolean;
   storageCatalogs?: boolean;
   storageBackups?: boolean;
 }): AthenaClientCapabilities {
   const storageConfigured = options?.storageConfigured ?? true;
-  return {
+  return projectCanonicalClientCapabilities({
     auth: {
       remote: options?.authRemote ?? true,
     },
@@ -34,10 +53,10 @@ export function createGatewayCapabilities(options?: {
     storage: {
       backups: storageConfigured ? (options?.storageBackups ?? true) : false,
       catalogs: storageConfigured ? (options?.storageCatalogs ?? true) : false,
-      local: false,
+      local: options?.storageLocal ?? false,
       objects: storageConfigured,
     },
-  };
+  }, GATEWAY_QUERY_CAPABILITIES);
 }
 
 export function createCloudflareEdgeCapabilities(options: {
@@ -50,10 +69,21 @@ export function createCloudflareEdgeCapabilities(options: {
   query?: boolean;
   relations?: boolean;
   rpc?: boolean;
+  storageLocal?: boolean;
 }): AthenaClientCapabilities {
   const hasRemoteStorage = Boolean(options.hasRemoteStorage);
   const hasObjects = options.hasR2 || hasRemoteStorage;
-  return {
+  const query =
+    options.query === false
+      ? Object.fromEntries(
+          Object.keys(D1_QUERY_CAPABILITIES).map((key) => [key, false])
+        )
+      : {
+          ...D1_QUERY_CAPABILITIES,
+          findManyAst: options.findManyAst ?? true,
+          nestedRelations: options.relations ?? D1_QUERY_CAPABILITIES.nestedRelations,
+        };
+  return projectCanonicalClientCapabilities({
     auth: {
       remote: options.authRemote,
     },
@@ -75,11 +105,11 @@ export function createCloudflareEdgeCapabilities(options: {
       backups: hasRemoteStorage,
       catalogs: hasRemoteStorage,
       // Local objects only when an R2 binding is present.
-      local: options.hasR2,
+      local: options.storageLocal ?? options.hasR2,
       // Remote hybrid root can still expose storage.objects via the HTTP API.
       objects: hasObjects,
     },
-  };
+  }, query as typeof D1_QUERY_CAPABILITIES);
 }
 
 /**
@@ -94,9 +124,10 @@ export function createPostgresDirectCapabilities(options?: {
   query?: boolean;
   relations?: boolean;
   rpc?: boolean;
+  storageLocal?: boolean;
 }): AthenaClientCapabilities {
   const storageConfigured = options?.storageConfigured ?? false;
-  return {
+  return projectCanonicalClientCapabilities({
     auth: {
       remote: options?.authRemote ?? false,
     },
@@ -116,8 +147,8 @@ export function createPostgresDirectCapabilities(options?: {
     storage: {
       backups: storageConfigured,
       catalogs: storageConfigured,
-      local: false,
+      local: options?.storageLocal ?? false,
       objects: storageConfigured,
     },
-  };
+  }, POSTGRES_QUERY_CAPABILITIES);
 }

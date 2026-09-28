@@ -1,4 +1,4 @@
-import type { AthenaRequestContext } from "../v3-client-core.ts";
+import type { AthenaRequestContext } from "../client/contracts.ts";
 
 /**
  * Merge two request contexts with override precedence.
@@ -6,7 +6,7 @@ import type { AthenaRequestContext } from "../v3-client-core.ts";
  */
 export function mergeAthenaRequestContexts(
   base: AthenaRequestContext | undefined,
-  override: AthenaRequestContext | undefined,
+  override: AthenaRequestContext | undefined
 ): AthenaRequestContext | undefined {
   if (!(base || override)) {
     return;

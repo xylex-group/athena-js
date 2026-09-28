@@ -1,293 +1,110 @@
-# @xylex-group/athena
+# Athena
 
-current version: `5.3.0`
-Athena JS 5 is the TypeScript SDK for Athena database, authentication, storage, chat, and billing. Application code uses one constructor. Complexity stays inside Athena.
-
-## Install
+current version: `5.6.9`
+[![npm](https://img.shields.io/npm/v/@xylex-group/athena?label=%40xylex-group%2Fathena&logo=npm)](https://www.npmjs.com/package/@xylex-group/athena)
+[![npm downloads](https://img.shields.io/npm/dm/@xylex-group/athena?logo=npm)](https://www.npmjs.com/package/@xylex-group/athena)
 
 ```bash
 pnpm add @xylex-group/athena
 ```
 
-Release verification is local: `pnpm test:finality` (and `pnpm release:verify`). GitHub CI mirrors that command; it is not the source of truth. Contract: [docs/release-verification.md](./docs/release-verification.md) · [ADR 0019](../../docs/adr/technical/0019-athena-js-local-verification-ssot.md).
+`@xylex-group/athena` is both the TypeScript SDK for the Rust services and an embedded backend runtime.
 
-Local PostgreSQL is first-class: Athena depends on `pg`. If a bundler still cannot resolve it, install `pg` in the app (`pnpm add pg`) — Athena throws `ATHENA_POSTGRES_DRIVER_MISSING` instead of a raw "Can't resolve 'pg'".
-
-## Quick start
-
-Small Node applications can run database access and supported Auth directly against PostgreSQL. No Athena Gateway and no dedicated Rust Auth process are required.
+Dedicated Athena:
 
 ```ts
-import { createClient } from "@xylex-group/athena/server"
-
-export const athena = createClient({
-  databaseUrl: process.env.DATABASE_URL!,
-})
-```
-
-That single call:
-
-- opens a direct PostgreSQL transport
-- infers embedded Athena Auth against the same database (`auth.mode: "local"` is optional; `auth: false` / `auth.url` still win)
-- exposes `athena.db`, `athena.auth`, and the other namespaces
-
-If you do not want Auth at all, disable it explicitly. `auth: false` wins over environment inference.
-
-```ts
-export const athena = createClient({
-  databaseUrl: process.env.DATABASE_URL!,
-  auth: false,
-})
-```
-
-## Deployment modes
-
-Dedicated Athena services use the same SDK:
-
-```ts
-export const athena = createClient({
+const athena = createClient({
   url: process.env.ATHENA_URL!,
   key: process.env.ATHENA_API_KEY!,
-})
+});
 ```
 
-Mixed deployment — local database, remote Auth:
+Direct PostgreSQL + embedded Auth:
 
 ```ts
-export const athena = createClient({
+import { createClient } from "@xylex-group/athena/server";
+
+const athena = createClient({
   databaseUrl: process.env.DATABASE_URL!,
-  auth: {
-    url: process.env.ATHENA_AUTH_URL!,
-  },
-})
+});
 ```
 
-Application code still uses `athena.auth` in every topology.
-
-Use `@xylex-group/athena/server` for Node runtime ownership. The root `@xylex-group/athena` export is browser-conditional and must not own `DATABASE_URL` in a Next Client Component. Direct PostgreSQL and embedded Auth stay on trusted Node runtimes.
-
-## Database
+Database-only clients can disable Auth explicitly:
 
 ```ts
-const users = await athena
-  .from("users")
-  .eq("active", true)
-  .order("created_at", { ascending: false })
-  .select("id,email")
-
-const result = await athena.rpc("reserve_case_number", { organization_id: "org_1" })
-const raw = await athena.query("select now()")
-```
-
-Compare-and-swap is the same fluent `update` plus `requireAffected`. Do not call `request({ path: "/gateway/update" })` for ordinary table writes.
-
-```ts
-import { requireAffected } from "@xylex-group/athena"
-
-const swapped = await athena
-  .from("forms", { schema: "forms" })
-  .eq("id", formId)
-  .eq("schema_revision", expected)
-  .update({ schema_revision: expected + 1, schema: nextSchema })
-
-requireAffected(swapped, { min: 1 })
-```
-
-Canonical mutation row-count is numeric `result.count`, else `result.affectedRows`. Missing driver/Gateway meta is `null`, never `0`. `request()` stays HTTP-only.
-
-`databaseUrl` and `db.pgUri` are the same connection string. Use one. Browser and React Native clients must not receive a Postgres URL.
-
-## Auth
-
-`athena.auth` is the application namespace for embedded and remote Auth.
-
-Canonical session owner for one root client:
-
-```ts
-const session = athena.auth.session.get()
-const snapshot = athena.auth.session.getSnapshot()
-const stop = athena.auth.session.subscribe((next) => {
-  console.log(next.status)
-})
-await athena.auth.session.refresh()
-athena.auth.session.invalidate()
-```
-
-One browser root client owns one session. Server applications use a process-root client plus request-scoped views (`withContext` / `createAthenaServerClient({ client })`). They must not treat `athena.auth.session` as the currently authenticated user for the whole Node process.
-
-React `useSession(athena)` projects that owner. It is not a second store.
-
-Auth UI:
-
-```tsx
-<AthenaProviders client={athena}>{children}</AthenaProviders>
-```
-
-`authClient={...}` remains a compatibility / deprecated path and must delegate to the same root-client semantics.
-
-Administrative Auth is the same client — `athena.auth.admin.*` — against embedded or remote Auth. There is no `createAdminClient()`.
-
-```ts
-await athena.auth.admin.listUsers({ limit: 20 })
-await athena.auth.admin.banUser({ userId, banReason: "abuse" })
-await athena.auth.admin.impersonateUser({ userId })
-```
-
-## AthenaModels
-
-```ts
-import { createClient } from "@xylex-group/athena"
-import { registry } from "./src/lib/athena/generated/registry"
-
-const athena = createClient({
-  url,
-  key,
-  models: registry,
-})
-const users = registry.app.schemas.public.models.users
-await athena.from(users).select("id,email")
-```
-
-## Next.js
-
-Prefer one process-root `createClient` and request views:
-
-```ts
-// lib/athena/root.ts
-import "server-only"
-import { createClient } from "@xylex-group/athena/server"
-
-export const athena = createClient({
+const athenaDb = createClient({
   databaseUrl: process.env.DATABASE_URL!,
-  auth: { autoMigrate: true },
-})
+  auth: false,
+});
 ```
+
+Remote Auth can be selected with `ATHENA_AUTH_URL` when the Auth service is deployed separately.
+
+Application code uses the same surface in either topology:
 
 ```ts
-// lib/athena/server.ts — request view only
-import { createAthenaServerClient } from "@xylex-group/athena/next/server"
-import { athena } from "./root"
-
-export function createAthenaServer(options?: { session?: unknown; scope?: { userId?: string | null; organizationId?: string | null } }) {
-  return createAthenaServerClient({ client: athena, ...options })
-}
+athena.from("users");
+athena.rpc("my_function");
+athena.auth;
+athena.storage;
+athena.billing;
 ```
 
-Mount `/api/athena`, `/api/auth`, `/api/athena/storage`, and `/api/athena/billing` from that same root (do not pass a `withContext` view). Storage and billing handlers are present only when those runtimes exist:
+Athena JS contains its own query compilation and embedded runtime implementations with conformance and parity suites against the Rust Gateway and Rust Auth behavior.
 
-```ts
-import { createAthenaNextHandlers } from "@xylex-group/athena/next/server"
-import { athena } from "@/lib/athena/root"
+It supports Node.js, browsers, React, Next.js, React Native and Cloudflare Workers.
 
-export const { auth, billing, data, storage } = createAthenaNextHandlers({ client: athena })
-```
+## Deprecations
 
-Browser client (discovers `/api/athena` + `/api/auth`; attaches storage/billing when discovery advertises them; no `auth.routing`):
+See [the deprecations and 6.0.0 sunset list](docs/deprecations.md). In
+particular, `athena.query()` is deprecated in Athena 5.x and will be removed
+in Athena 6.0.0; use `athena.admin.query()` or `athena.db.query()` instead.
+The flat auth aliases `athena.auth.listAccounts()` and
+`athena.auth.unlinkAccount()` are also deprecated; use the nested
+`athena.auth.account` methods.
+The verbose passkey methods `athena.auth.passkey.listUserPasskeys()`,
+`athena.auth.passkey.updatePasskey()`, and
+`athena.auth.passkey.deletePasskey()` are also deprecated; use
+`athena.auth.passkey.listUser()`, `athena.auth.passkey.update()`, and
+`athena.auth.passkey.delete()`.
+The flat auth email and user-delete methods are also deprecated; use the
+grouped `athena.auth.verificationEmail`, `athena.auth.email`, and
+`athena.auth.user.delete` namespaces.
+The flat session aliases are also deprecated; use
+`athena.auth.session.list()`, `athena.auth.session.revoke()`, and
+`athena.auth.session.revokeOther()`.
 
-```ts
-"use client"
-import { createClient } from "@xylex-group/athena/next/client"
+## CLI logging
 
-export const athena = createClient({
-  topology: { discover: "next" },
-})
-```
+The `athena-js` CLI records a redacted, per-invocation JSONL trace by default:
 
-Full guide: [docs/next-js.md](./docs/next-js.md).
+- Windows: `%USERPROFILE%\.athena\logs\athena-js`
+- Linux/macOS: `~/.athena/logs/athena-js`
+- Override the home with `ATHENA_HOME`; relative overrides resolve from the current working directory.
+- Set `ATHENA_CLI_LOG=off|errors|all|debug` to change collection. `errors` keeps only a bounded in-memory buffer until a failure.
+- Retention defaults to 30 days and the total CLI log quota defaults to 100 MiB. Configure them with `ATHENA_CLI_LOG_RETENTION_DAYS` and `ATHENA_CLI_LOG_MAX_BYTES`.
 
-## Cloudflare
+Use `athena-js logs path|list|latest|show|export|prune` to inspect or create a support-safe export. `logs latest` and `doctor bundle --include-latest-log` select a prior completed invocation, not the command currently running. `--no-log` and `ATHENA_CLI_LOG=off` disable persistent logging, including pre-runtime fallback logging.
 
-```ts
-import { createAthenaFromWorkerEnv } from "@xylex-group/athena/cloudflare"
+Known credential flags use semantic flag/value redaction for both `--flag value` and `--flag=value`; authorization material, cookies, private keys, URL passwords and token-shaped values are also redacted as defense in depth. Heuristic redaction cannot identify arbitrary secrets supplied as unlabelled positional text, so do not use diagnostic logs as a secret store. Log, export, and bundle files are created with restrictive permissions where the platform supports them (0600 files and 0700 directories). Athena does not upload CLI logs automatically; provide a bundle only after reviewing it.
 
-const { mode, client: athena } = createAthenaFromWorkerEnv(env)
-await athena.query("SELECT 1 AS ok")
-```
+## Auth UI
 
-- Always edge: `createCloudflareClient({ d1 })`
-- When both D1 and URL exist: `ATHENA_EXECUTION_PREFER=edge|gateway` (default edge)
+[![npm](https://img.shields.io/npm/v/@xylex-group/athena-auth-ui?label=%40xylex-group%2Fathena-auth-ui&logo=npm)](https://www.npmjs.com/package/@xylex-group/athena-auth-ui)
+[![npm downloads](https://img.shields.io/npm/dm/@xylex-group/athena-auth-ui?logo=npm)](https://www.npmjs.com/package/@xylex-group/athena-auth-ui)
 
-## React
+`@xylex-group/athena-auth-ui` is the React UI layer for Athena Auth.
 
-```ts
-import { useSession } from "@xylex-group/athena/react"
+It provides authentication, account, organization, invitation and administration surfaces on top of the same `@xylex-group/athena` client.
 
-const { data, isPending, isAuthenticated, refetch } = useSession(athena)
-```
+## Other packages
 
-## React Native
+`athena-py` provides an asynchronous Python SDK for the Athena Gateway.
 
-Import `@xylex-group/athena/react-native`. That entry stays free of Node `pg` and the embedded Auth server.
+`@xylex-group/better-auth-athena` integrates Better Auth with Athena as its database adapter.
 
-## Storage / Billing / Policy
+`@xylex-group/athena-mcp` exposes Athena through the Model Context Protocol for AI agents and development tools.
 
-```ts
-athena.storage
-athena.billing
-```
+`@xylex-group/chat-adapter-athena` provides Athena persistence for the Vercel Chat SDK.
 
-Service-specific URLs override unified-root routing. An unconfigured namespace stays present and throws `AthenaConfigurationError` with `ATHENA_SERVICE_NOT_CONFIGURED` when invoked.
-
-Nested financial creates (`payments`, `customers`, `refunds`, `paymentLinks`, `subscriptions`) require a caller-owned `idempotencyKey`. Retry is operation-aware; ambiguous writes are never `retry: "safe"` without a replay guarantee. See [Financial operation safety](https://athena.xbp.app/docs/billing/safety) and [ADR 0048](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0048-athena-js-billing-financial-safety.md). Local nested ports also require dialect Athena Rights (`billing.payments.write`, …) after capability and before the provider — [ADR 0058](https://github.com/xylex-group/athena/blob/main/docs/adr/technical/0058-athena-js-billing-rights-adoption.md). Grant strings never authorize.
-
-Trusted Node can run a catalog-optional filesystem ObjectStore (no Athena HTTP storage, no `s3_id` / `connectionId`):
-
-```ts
-const athena = createClient({
-  storage: { provider: "local", root: "./.athena-storage" },
-})
-await athena.storage.file.upload({
-  files: bytes,
-  storage_key: "docs/notes.txt",
-})
-```
-
-Trusted Node can also inject an S3 (or S3-compatible) object client. Athena does not add `@aws-sdk` or read `AWS_*`:
-
-```ts
-const athena = createClient({
-  storage: {
-    provider: "s3",
-    bucket: "athena-objects",
-    prefix: "tenant-a",
-    s3: injectedS3Client,
-  },
-})
-```
-
-Browser / React Native reject `provider: "local"` (`ATHENA_STORAGE_LOCAL_NODE_REQUIRED`) and `provider: "s3"` (`ATHENA_STORAGE_S3_NODE_REQUIRED`). Presign, retention, and ACL on the local adapter throw `ATHENA_STORAGE_CAPABILITY_UNSUPPORTED`. See [storage/index.md](./docs/storage/index.md), [ADR 0027](./docs/adr/0027-embedded-storage-runtime.md), and [ADR 0057](../../docs/adr/technical/0057-athena-js-direct-s3-storage-provider.md).
-
-## Runtime diagnostics
-
-```ts
-athena.system?.runtime?.()
-athena.capabilities
-```
-
-## Package entrypoints
-
-| Import | Role |
-| --- | --- |
-| `@xylex-group/athena` | Root Node/server client |
-| `@xylex-group/athena/browser` | Browser-safe client |
-| `@xylex-group/athena/react` | React hooks (session projection) |
-| `@xylex-group/athena/react-native` | React Native entry |
-| `@xylex-group/athena/next/client` | Next browser façade |
-| `@xylex-group/athena/next/session` | Next RSC session lookup |
-| `@xylex-group/athena/next/server` | Next request-scoped façade |
-| `@xylex-group/athena/cloudflare` | Workers / D1 / R2 |
-| `@xylex-group/athena/auth/server` | Advanced embedded Auth server |
-
-## Documentation
-
-- Product site: https://athena.xbp.app
-- Platform docs: https://docs.athena-cluster.com
-- [Getting started](./docs/getting-started.md)
-- [Next.js](./docs/next-js.md)
-- [API reference](./docs/api-reference.md)
-
-## Migration notes
-
-Athena 5 has one normal constructor: `createClient()`. Specialized factories (`createAthenaBrowserClient`, `createAthenaServerClient`, Cloudflare helpers) remain advanced façades over that root. Do not introduce `createAuthClient()` / `createStorageClient()` / `createPolicyClient()` / `createEmbeddedClient()` as alternative application roots. Local ObjectStore (`storage.provider: "local"`) and Direct S3 (`storage.provider: "s3"`) cannot be combined with each other or with `storage.url` / `storage.r2` on the same client.
-
-Historical Athena JS 3 flags (`experimental`, `typecheckColumns`) are gone. Storage and error normalization do not require enable flags.
+`create-athena-app` initializes, upgrades, audits and scaffolds Athena integrations in new and existing applications.

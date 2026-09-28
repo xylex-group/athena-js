@@ -13,12 +13,14 @@ import {
   getAthenaAuthSchemaManifest,
   readAthenaAuthSchemaStatus,
 } from "../src/auth/local/schema.ts";
+import { ATHENA_NPX_MIGRATE_COMMAND } from "../src/migrations/commands.ts";
 
 function createLedgerDatabase(
   rows: Array<{ checksum?: string | null; name?: string; version: number }>
 ): AthenaAuthDatabase {
   return {
     async close() {},
+    inTransaction: false,
     async query(text) {
       if (/auth_schema_migrations/i.test(text)) {
         return { rowCount: rows.length, rows };
@@ -51,6 +53,7 @@ test("T-schema-history: missing-middle ledger is not compatible", async () => {
     (error: unknown) =>
       error instanceof AthenaAuthRuntimeError &&
       error.code === "ATHENA_AUTH_SCHEMA_DRIFT" &&
+      error.publicMessage.includes(ATHENA_NPX_MIGRATE_COMMAND) &&
       /004_create_api_key_table|missing/i.test(error.publicMessage)
   );
 });
@@ -133,7 +136,8 @@ test("T-schema-history: checksum mismatch is history-diverged", async () => {
     () => assertAthenaAuthSchemaCompatible(database),
     (error: unknown) =>
       error instanceof AthenaAuthRuntimeError &&
-      error.code === "ATHENA_AUTH_SCHEMA_DRIFT"
+      error.code === "ATHENA_AUTH_SCHEMA_DRIFT" &&
+      error.publicMessage.includes(ATHENA_NPX_MIGRATE_COMMAND)
   );
 });
 

@@ -1,0 +1,50 @@
+{
+  "src/auxiliaries.ts": {
+    "branches": 239,
+    "loc": 1107,
+    "maxFunctionLoc": 155,
+    "maxNesting": 4
+  },
+  "src/browser.ts": {
+    "branches": 0,
+    "loc": 981,
+    "maxFunctionLoc": 15,
+    "maxNesting": 1
+  },
+  "src/client-fluent.ts": {
+    "branches": 191,
+    "loc": 2478,
+    "maxFunctionLoc": 1171,
+    "maxNesting": 5
+  },
+  "src/client/context.ts": {
+    "branches": 57,
+    "loc": 802,
+    "maxFunctionLoc": 450,
+    "maxNesting": 4
+  },
+  "src/client/create-client.ts": {
+    "branches": 0,
+    "loc": 78,
+    "maxFunctionLoc": 17,
+    "maxNesting": 1
+  },
+  "src/client/request-context.ts": {
+    "branches": 0,
+    "loc": 19,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/v3-client-core.ts": {
+    "branches": 359,
+    "loc": 2366,
+    "maxFunctionLoc": 423,
+    "maxNesting": 4
+  },
+  "src/v3-client.ts": {
+    "branches": 45,
+    "loc": 472,
+    "maxFunctionLoc": 119,
+    "maxNesting": 3
+  }
+}

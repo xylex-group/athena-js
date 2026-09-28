@@ -1,0 +1,24 @@
+{
+  "name": "@xylex-group/athena-expo-rn53-fixture",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "check": "node ./scripts/check-resolve.mjs && pnpm typecheck && pnpm export:ios && pnpm export:android",
+    "export:android": "node ./scripts/check-export.mjs android",
+    "export:ios": "node ./scripts/check-export.mjs ios",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@xylex-group/athena": "file:../../..",
+    "expo": "~53.0.27",
+    "expo-secure-store": "~14.2.4",
+    "react": "19.0.0",
+    "react-native": "0.79.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.3"
+  }
+}

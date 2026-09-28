@@ -40,7 +40,7 @@ export function createExampleAuthSessionResponse(
     id: overrides.sessionId ?? "sess_1",
     token: overrides.token ?? "token_example",
   } as AthenaAuthSession;
-  return { session, user };
+  return { grants: [], rights: [], session, user };
 }
 
 /**

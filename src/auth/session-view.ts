@@ -7,9 +7,10 @@ import type {
 } from "./types.ts";
 
 export interface DerivedSessionView<
-  TData extends AthenaSessionData | AthenaAuthSessionResponse | null =
+  TData extends
     | AthenaSessionData
-    | null,
+    | AthenaAuthSessionResponse
+    | null = AthenaSessionData | null,
 > {
   data: TData;
   isAuthenticated: boolean;

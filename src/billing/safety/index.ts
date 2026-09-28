@@ -1,43 +1,49 @@
-export { hashBillingIdempotencyKey, hashIdempotencyKey } from "./correlation.ts";
 export {
-	assertBillingLiveCredentialSelection,
-	type BillingLiveCredentialSelection,
-	type BillingLiveSelectionInvariant,
-	resolveBillingEnvironment,
+  hashBillingIdempotencyKey,
+  hashIdempotencyKey,
+} from "./correlation.ts";
+export {
+  assertBillingLiveCredentialSelection,
+  type BillingLiveCredentialSelection,
+  type BillingLiveSelectionInvariant,
+  resolveBillingEnvironment,
 } from "./environment.ts";
 export {
-	type BillingExecutionFailure,
-	createBillingExecutionFailure,
+  type BillingExecutionFailure,
+  createBillingExecutionFailure,
 } from "./failure.ts";
 export { assertBillingIdempotencyKey } from "./idempotency.ts";
 export {
-	type MollieOperationSemantics,
-	MOLLIE_OPERATION_SEMANTICS,
+  MOLLIE_OPERATION_SEMANTICS,
+  type MollieOperationSemantics,
 } from "./mollie-semantics.ts";
 export {
-	assertBillingMoney,
-	normalizeBillingMoney,
-	parseBillingMoney,
+  addBillingMoney,
+  assertBillingMoney,
+  normalizeBillingMoney,
+  parseBillingMoney,
+  scaleBillingMoney,
 } from "./money.ts";
 export {
-	type BillingPreparedCommand,
-	type PrepareBillingCommandInput,
-	prepareBillingCommand,
+  type BillingPreparedCommand,
+  finalizeBillingCommand,
+  type PrepareBillingCommandInput,
+  prepareBillingCommand,
 } from "./prepare.ts";
 export { BILLING_OPERATION_SAFETY } from "./registry.ts";
 export {
-	billingExecutionCertainty,
-	billingRetryDisposition,
+  billingExecutionCertainty,
+  billingRetryDisposition,
 } from "./retry.ts";
 export type {
-	BillingAuthorityMode,
-	BillingExecutionCertainty,
-	BillingIdempotencyRequirement,
-	BillingMoneyRequirement,
-	BillingMutationClass,
-	BillingOperationSafetyProfile,
-	BillingReplayGuarantee,
-	BillingRequestDispatchState,
-	BillingRetryDispositionInput,
+  BillingAuthorityMode,
+  BillingExecutionCertainty,
+  BillingIdempotencyRequirement,
+  BillingMoneyRequirement,
+  BillingMutationClass,
+  BillingOperationSafetyProfile,
+  BillingReplayGuarantee,
+  BillingRequestDispatchState,
+  BillingRetryDispositionInput,
 } from "./types.ts";
 export { validateBillingOperationPayload } from "./validators.ts";

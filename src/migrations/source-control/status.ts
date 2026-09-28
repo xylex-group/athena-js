@@ -17,7 +17,9 @@ import type {
   MigrationWorktreeChangeKind,
 } from "./types.ts";
 
-function kindFromRecord(record: PorcelainV2Record): MigrationWorktreeChangeKind {
+function kindFromRecord(
+  record: PorcelainV2Record
+): MigrationWorktreeChangeKind {
   if (record.kind === "untracked") {
     return "untracked";
   }
@@ -55,7 +57,11 @@ function displayCode(kind: MigrationWorktreeChangeKind): string {
 
 export { displayCode };
 
-function relativeToCwd(cwd: string, repoPath: string, toplevel: string): string {
+function relativeToCwd(
+  cwd: string,
+  repoPath: string,
+  toplevel: string
+): string {
   const absolute = resolve(toplevel, repoPath);
   return toPosix(relative(cwd, absolute) || repoPath);
 }
@@ -66,11 +72,14 @@ function pathAffects(
   migrationsPrefix: string,
   configRelatives: readonly string[]
 ): boolean {
-  const candidates = [posixPath, origPath].filter(
-    (item): item is string => Boolean(item)
+  const candidates = [posixPath, origPath].filter((item): item is string =>
+    Boolean(item)
   );
   return candidates.some((path) => {
-    if (migrationsPrefix && (path === migrationsPrefix || path.startsWith(`${migrationsPrefix}/`))) {
+    if (
+      migrationsPrefix &&
+      (path === migrationsPrefix || path.startsWith(`${migrationsPrefix}/`))
+    ) {
       const base = path.split("/").pop() ?? "";
       // Scaffold keep-files are not migration SQL and must not block apply.
       if (base === ".gitkeep") {
@@ -94,7 +103,7 @@ export function inspectSourceControl(
     detached: false,
     migrationDirectory: toPosix(input.migrationsDirectory),
   };
-  if (!toplevel || !isPathInside(toplevel, cwd)) {
+  if (!(toplevel && isPathInside(toplevel, cwd))) {
     return empty;
   }
 

@@ -1,6 +1,6 @@
 import {
-	resolveBillingEnvironment as resolveRuntimeBillingEnvironment,
-	type BillingEnvironment,
+  type BillingEnvironment,
+  resolveBillingEnvironment as resolveRuntimeBillingEnvironment,
 } from "../runtime/environment.ts";
 
 /**
@@ -12,17 +12,17 @@ export type BillingLiveCredentialSelection = BillingEnvironment;
 export type BillingLiveSelectionInvariant = BillingLiveCredentialSelection;
 
 export function resolveBillingEnvironment(input?: {
-	credentials?: { live?: unknown; test?: unknown };
-	testMode?: boolean;
+  credentials?: { live?: unknown; test?: unknown };
+  testMode?: boolean;
 }): BillingLiveCredentialSelection {
-	return resolveRuntimeBillingEnvironment({
-		testMode: input?.testMode,
-	});
+  return resolveRuntimeBillingEnvironment({
+    testMode: input?.testMode,
+  });
 }
 
 export function assertBillingLiveCredentialSelection(input?: {
-	credentials?: { live?: unknown; test?: unknown };
-	testMode?: boolean;
+  credentials?: { live?: unknown; test?: unknown };
+  testMode?: boolean;
 }): BillingLiveCredentialSelection {
-	return resolveBillingEnvironment(input);
+  return resolveBillingEnvironment(input);
 }

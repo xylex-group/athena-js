@@ -6,7 +6,10 @@ export {
   parsePorcelainV2,
   runGit,
 } from "./git.ts";
-export { freezePreparedMigrations, preparedToMigrationFile } from "./provenance.ts";
+export {
+  freezePreparedMigrations,
+  preparedToMigrationFile,
+} from "./provenance.ts";
 export {
   applyWouldBeRefused,
   classifySourceSafety,

@@ -8,40 +8,40 @@
  * Aliases: gateway|server|remote  ·  edge|d1|cloudflare  ·  auto
  */
 import {
-	ATHENA_EXECUTION_MODE_ENV_KEY,
-	createAthenaRuntime,
-	resolveAthenaExecutionMode,
+  ATHENA_EXECUTION_MODE_ENV_KEY,
+  createAthenaRuntime,
+  resolveAthenaExecutionMode,
 } from "@xylex-group/athena/cloudflare";
 import type { ExampleEnv } from "./shared/env.ts";
 
 export default {
-	async fetch(_request: Request, env: ExampleEnv): Promise<Response> {
-		const envMap = {
-			[ATHENA_EXECUTION_MODE_ENV_KEY]: env.ATHENA_EXECUTION_MODE,
-			ATHENA_URL: env.ATHENA_URL,
-		};
+  async fetch(_request: Request, env: ExampleEnv): Promise<Response> {
+    const envMap = {
+      [ATHENA_EXECUTION_MODE_ENV_KEY]: env.ATHENA_EXECUTION_MODE,
+      ATHENA_URL: env.ATHENA_URL,
+    };
 
-		const resolved = resolveAthenaExecutionMode({
-			// omit mode → read ATHENA_EXECUTION_MODE, else auto
-			d1: env.DB,
-			env: envMap,
-			url: env.ATHENA_URL,
-		});
+    const resolved = resolveAthenaExecutionMode({
+      // omit mode → read ATHENA_EXECUTION_MODE, else auto
+      d1: env.DB,
+      env: envMap,
+      url: env.ATHENA_URL,
+    });
 
-		const { mode, client: athena } = createAthenaRuntime({
-			d1: env.DB,
-			env: envMap,
-			key: env.ATHENA_API_KEY,
-			// omit mode → reads ATHENA_EXECUTION_MODE from env
-			url: env.ATHENA_URL,
-		});
+    const { mode, client: athena } = createAthenaRuntime({
+      d1: env.DB,
+      env: envMap,
+      key: env.ATHENA_API_KEY,
+      // omit mode → reads ATHENA_EXECUTION_MODE from env
+      url: env.ATHENA_URL,
+    });
 
-		return Response.json({
-			capabilitiesMode: athena.capabilities.mode,
-			envValue: env.ATHENA_EXECUTION_MODE ?? null,
-			example: "04-mode-env-force",
-			mode,
-			resolvedBeforeCreate: resolved,
-		});
-	},
+    return Response.json({
+      capabilitiesMode: athena.capabilities.mode,
+      envValue: env.ATHENA_EXECUTION_MODE ?? null,
+      example: "04-mode-env-force",
+      mode,
+      resolvedBeforeCreate: resolved,
+    });
+  },
 };

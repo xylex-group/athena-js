@@ -360,7 +360,7 @@ steps:
     last_error: null
     details:
       release_id: 352687266
-      release_url: https://github.com/xylex-group/athena/releases/tag/v2.13.0%2Bnightly
+      release_url: https://github.com/xylex-group/athena-js/releases/tag/v2.13.0%2Bnightly
   publish_linear:
     status: Completed
     started_at: 2026-07-12T06:25:42.727179700Z

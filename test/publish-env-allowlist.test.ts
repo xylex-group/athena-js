@@ -16,18 +16,38 @@ test("publish.js allowlists NPM_TOKEN / NODE_AUTH_TOKEN only", () => {
   assert.match(source, /NPM_TOKEN/);
   assert.match(source, /NODE_AUTH_TOKEN/);
   assert.match(source, /loadPublishTokenFromEnvFile|PUBLISH_ENV_KEYS\.has/);
+  assert.match(source, /--userconfig/);
+  assert.match(source, /_authToken/);
+  assert.match(source, /npm-cli\.js/);
+  assert.match(source, /process\.execPath/);
+  assert.match(source, /whoami/);
+  assert.match(source, /delete npmEnv\.CI/);
+  assert.doesNotMatch(source, /always-auth/);
+  assert.match(source, /resolvePublishCredentials/);
+  assert.match(source, /--otp/);
+  assert.match(source, /looksLikeNpmAccessToken/);
+  assert.match(source, /finalityCommitCoversHead/);
+  assert.match(source, /generatedAt/);
   assert.doesNotMatch(
     source,
     /loadEnvFile\(resolve\(process\.cwd\(\),\s*fileName\)\)/
   );
 });
 
+test("development manifest keeps the pnpm pack-safe self link", () => {
+  const packageJson = JSON.parse(
+    readFileSync(join(process.cwd(), "package.json"), "utf8"),
+  ) as { dependencies?: Record<string, string> };
+
+  assert.equal(packageJson.dependencies?.["@xylex-group/athena"], "link:");
+});
+
 test("publish env loader ignores DATABASE_URL in .env.local", async () => {
   const root = mkdtempSync(join(tmpdir(), "athena-publish-env-"));
   const previous = {
     DATABASE_URL: process.env.DATABASE_URL,
-    NPM_TOKEN: process.env.NPM_TOKEN,
     NODE_AUTH_TOKEN: process.env.NODE_AUTH_TOKEN,
+    NPM_TOKEN: process.env.NPM_TOKEN,
   };
   delete process.env.DATABASE_URL;
   delete process.env.NPM_TOKEN;
@@ -49,12 +69,14 @@ test("publish env loader ignores DATABASE_URL in .env.local", async () => {
     const content = readFileSync(join(root, ".env.local"), "utf8");
     for (const line of content.split(/\r?\n/)) {
       const match = line.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-      if (!match) continue;
-      const [, key, rawValue] = match;
-      if (!PUBLISH_ENV_KEYS.has(key)) continue;
-      if (process.env[key] === undefined) {
-        process.env[key] = rawValue;
+      if (!match) {
+        continue;
       }
+      const [, key, rawValue] = match;
+      if (!PUBLISH_ENV_KEYS.has(key)) {
+        continue;
+      }
+      process.env[key] = rawValue;
     }
 
     assert.equal(process.env.NPM_TOKEN, "npm_test_token_value");

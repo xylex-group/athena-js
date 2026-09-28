@@ -34,7 +34,9 @@ class MemoryBackend implements MigrationBackend {
     );
     return emptyPhysicalCatalog();
   }
-  async applyMigration(migration: MigrationFile): Promise<AppliedMigrationResult> {
+  async applyMigration(
+    migration: MigrationFile
+  ): Promise<AppliedMigrationResult> {
     const row: AppliedMigrationResult = {
       appliedAt: new Date(),
       checksum: migration.checksum,

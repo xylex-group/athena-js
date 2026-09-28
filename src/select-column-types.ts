@@ -51,6 +51,39 @@ type HasComplexSelectTokenSyntax<TValue extends string> =
             ? true
             : false;
 
+type SelectTokenKey<Row, TToken extends string> =
+  Trim<TToken> extends infer TTrimmed extends string
+    ? TTrimmed extends "*"
+      ? "*"
+      : TTrimmed extends KnownSelectColumnKey<Row>
+        ? TTrimmed
+        : never
+    : never;
+
+type SelectKeysFromString<Row, TValue extends string> =
+  HasComplexSelectTokenSyntax<TValue> extends true
+    ? never
+    : TValue extends `${infer THead},${infer TTail}`
+      ? SelectTokenKey<Row, THead> extends infer THeadKey
+        ? [THeadKey] extends [never]
+            ? never
+            : SelectKeysFromString<Row, TTail> extends infer TTailKeys
+              ? [TTailKeys] extends [never]
+                ? never
+                : THeadKey | TTailKeys
+              : never
+        : never
+      : SelectTokenKey<Row, TValue>;
+
+type SelectKeysFromArray<Row, TValue extends readonly string[]> =
+  number extends TValue["length"]
+    ? never
+    : [TValue[number]] extends [never]
+      ? never
+      : Exclude<TValue[number], KnownSelectColumnKey<Row> | "*"> extends never
+        ? TValue[number]
+        : never;
+
 type ValidateAliasedBase<Row, TOriginal extends string, TBase extends string> =
   HasComplexSelectTokenSyntax<Trim<TBase>> extends true
     ? TOriginal
@@ -112,6 +145,66 @@ export type AthenaSelectInputHints<Row> =
   | (string & {});
 
 export type AthenaSelectInput = string | string[] | readonly string[];
+
+/** Result shape used when a projection cannot be represented by known row keys. */
+export type AthenaOpaqueSelectRow = Record<string, unknown>;
+
+/**
+ * Infers the row returned by a literal select projection.
+ *
+ * Selectors that can change the result keys at runtime (aliases, expressions,
+ * relations, and dynamic values) intentionally use an opaque row shape rather
+ * than incorrectly claiming the complete source row shape.
+ */
+export type AthenaSelectProjection<
+  Row,
+  TValue extends AthenaSelectInput,
+> = HasKnownSelectColumns<Row> extends true
+  ? TValue extends readonly string[]
+    ? number extends TValue["length"]
+      ? AthenaOpaqueSelectRow
+      : SelectKeysFromArray<Row, TValue> extends infer TKeys
+        ? [TKeys] extends [never]
+          ? AthenaOpaqueSelectRow
+          : "*" extends TKeys
+            ? Row
+            : Pick<
+                NonNullable<Row>,
+                Extract<TKeys, keyof NonNullable<Row>>
+              >
+        : AthenaOpaqueSelectRow
+    : TValue extends string
+      ? string extends TValue
+        ? AthenaOpaqueSelectRow
+        : SelectKeysFromString<Row, TValue> extends infer TKeys
+          ? [TKeys] extends [never]
+            ? AthenaOpaqueSelectRow
+            : "*" extends TKeys
+              ? Row
+              : Pick<
+                  NonNullable<Row>,
+                  Extract<TKeys, keyof NonNullable<Row>>
+                >
+          : AthenaOpaqueSelectRow
+      : AthenaOpaqueSelectRow
+  : Row;
+
+/** Preserve explicit custom result generics while inferring omitted ones. */
+export type AthenaSelectResult<
+  Row,
+  TOverride,
+  TValue extends AthenaSelectInput,
+> = [TOverride] extends [never]
+  ? AthenaSelectProjection<Row, TValue>
+  : TOverride;
+
+/** Apply a selected row shape without changing mutation cardinality. */
+export type AthenaProjectedMutationResult<Result, SelectedRow> =
+  Result extends readonly unknown[]
+    ? SelectedRow[]
+    : Result extends null
+      ? SelectedRow | null
+      : SelectedRow;
 
 /**
  * Compile-time validation for `select` / `single` / `maybeSingle` when

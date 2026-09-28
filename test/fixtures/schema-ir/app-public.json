@@ -5,22 +5,46 @@
     {
       "id": "db_app",
       "identity": {
-        "logical": { "database": "appdb", "namespace": "public", "name": "appdb" },
-        "physical": { "database": "appdb", "namespace": "public", "name": "appdb" }
+        "logical": {
+          "database": "appdb",
+          "namespace": "public",
+          "name": "appdb"
+        },
+        "physical": {
+          "database": "appdb",
+          "namespace": "public",
+          "name": "appdb"
+        }
       },
       "namespaces": [
         {
           "id": "ns_public",
           "identity": {
-            "logical": { "database": "appdb", "namespace": "public", "name": "public" },
-            "physical": { "database": "appdb", "namespace": "public", "name": "public" }
+            "logical": {
+              "database": "appdb",
+              "namespace": "public",
+              "name": "public"
+            },
+            "physical": {
+              "database": "appdb",
+              "namespace": "public",
+              "name": "public"
+            }
           },
           "enums": [
             {
               "id": "enum_mood",
               "identity": {
-                "logical": { "database": "appdb", "namespace": "public", "name": "mood" },
-                "physical": { "database": "appdb", "namespace": "public", "name": "mood" }
+                "logical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "mood"
+                },
+                "physical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "mood"
+                }
               },
               "labels": ["happy", "sad"]
             }
@@ -29,26 +53,50 @@
             {
               "id": "tbl_users",
               "identity": {
-                "logical": { "database": "appdb", "namespace": "public", "name": "users" },
-                "physical": { "database": "appdb", "namespace": "public", "name": "users" }
+                "logical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "users"
+                },
+                "physical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "users"
+                }
               },
               "columns": [
                 {
                   "id": "col_users_id",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "id" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "id" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "id"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "id"
+                    }
                   },
                   "type": {
                     "kind": "scalar",
                     "semantic": "uuid",
-                    "native": { "backend": "postgresql", "name": "uuid", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "uuid",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 }
               ],
               "constraints": [
-                { "id": "cst_users_pk", "kind": "primary_key", "columns": ["id"] }
+                {
+                  "id": "cst_users_pk",
+                  "kind": "primary_key",
+                  "columns": ["id"]
+                }
               ],
               "relations": [],
               "indexes": []
@@ -56,52 +104,100 @@
             {
               "id": "tbl_posts",
               "identity": {
-                "logical": { "database": "appdb", "namespace": "public", "name": "posts" },
-                "physical": { "database": "appdb", "namespace": "public", "name": "posts" }
+                "logical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "posts"
+                },
+                "physical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "posts"
+                }
               },
               "columns": [
                 {
                   "id": "col_posts_id",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "id" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "id" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "id"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "id"
+                    }
                   },
                   "type": {
                     "kind": "scalar",
                     "semantic": "uuid",
-                    "native": { "backend": "postgresql", "name": "uuid", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "uuid",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 },
                 {
                   "id": "col_posts_author_id",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "author_id" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "author_id" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "author_id"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "author_id"
+                    }
                   },
                   "type": {
                     "kind": "scalar",
                     "semantic": "uuid",
-                    "native": { "backend": "postgresql", "name": "uuid", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "uuid",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 },
                 {
                   "id": "col_posts_mood",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "mood" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "mood" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "mood"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "mood"
+                    }
                   },
                   "type": {
                     "kind": "enum",
                     "enumId": "enum_mood",
-                    "native": { "backend": "postgresql", "name": "mood", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "mood",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 }
               ],
               "constraints": [
-                { "id": "cst_posts_pk", "kind": "primary_key", "columns": ["id"] },
+                {
+                  "id": "cst_posts_pk",
+                  "kind": "primary_key",
+                  "columns": ["id"]
+                },
                 {
                   "id": "cst_posts_author_fk",
                   "kind": "foreign_key",
@@ -143,26 +239,50 @@
             {
               "id": "tbl_tags",
               "identity": {
-                "logical": { "database": "appdb", "namespace": "public", "name": "tags" },
-                "physical": { "database": "appdb", "namespace": "public", "name": "tags" }
+                "logical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "tags"
+                },
+                "physical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "tags"
+                }
               },
               "columns": [
                 {
                   "id": "col_tags_id",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "id" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "id" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "id"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "id"
+                    }
                   },
                   "type": {
                     "kind": "scalar",
                     "semantic": "uuid",
-                    "native": { "backend": "postgresql", "name": "uuid", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "uuid",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 }
               ],
               "constraints": [
-                { "id": "cst_tags_pk", "kind": "primary_key", "columns": ["id"] }
+                {
+                  "id": "cst_tags_pk",
+                  "kind": "primary_key",
+                  "columns": ["id"]
+                }
               ],
               "relations": [],
               "indexes": []
@@ -170,33 +290,65 @@
             {
               "id": "tbl_post_tags",
               "identity": {
-                "logical": { "database": "appdb", "namespace": "public", "name": "post_tags" },
-                "physical": { "database": "appdb", "namespace": "public", "name": "post_tags" }
+                "logical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "post_tags"
+                },
+                "physical": {
+                  "database": "appdb",
+                  "namespace": "public",
+                  "name": "post_tags"
+                }
               },
               "columns": [
                 {
                   "id": "col_post_tags_post_id",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "post_id" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "post_id" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "post_id"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "post_id"
+                    }
                   },
                   "type": {
                     "kind": "scalar",
                     "semantic": "uuid",
-                    "native": { "backend": "postgresql", "name": "uuid", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "uuid",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 },
                 {
                   "id": "col_post_tags_tag_id",
                   "identity": {
-                    "logical": { "database": "appdb", "namespace": "public", "name": "tag_id" },
-                    "physical": { "database": "appdb", "namespace": "public", "name": "tag_id" }
+                    "logical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "tag_id"
+                    },
+                    "physical": {
+                      "database": "appdb",
+                      "namespace": "public",
+                      "name": "tag_id"
+                    }
                   },
                   "type": {
                     "kind": "scalar",
                     "semantic": "uuid",
-                    "native": { "backend": "postgresql", "name": "uuid", "arrayDimensions": 0 }
+                    "native": {
+                      "backend": "postgresql",
+                      "name": "uuid",
+                      "arrayDimensions": 0
+                    }
                   },
                   "nullable": false
                 }

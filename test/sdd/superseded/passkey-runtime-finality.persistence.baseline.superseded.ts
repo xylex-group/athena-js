@@ -22,18 +22,18 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/passkey-runtime-finality.persistence.target.test.ts";
+  "test/sdd/passkey-runtime-finality.persistence.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-PERS-JS-NO-UPDATED",
-	"B-PERS-JS-GEN-21",
-	"B-PERS-JS-NO-022",
-	"B-PERS-JS-MANIFEST-V5",
-	"B-PERS-RS-EXPECTED-NO-UPDATED",
-	"B-PERS-RS-META-NO-UPDATED",
-	"B-PERS-RS-TYPE-NO-UPDATED",
-	"B-PERS-RS-PROVISION-NO-UPDATED",
-	"B-PERS-RS-NO-021-MIG",
-	"B-PERS-JS-005-UNIQUE",
-	"B-PERS-DOMAIN-UPDATEDAT",
+  "B-PERS-JS-NO-UPDATED",
+  "B-PERS-JS-GEN-21",
+  "B-PERS-JS-NO-022",
+  "B-PERS-JS-MANIFEST-V5",
+  "B-PERS-RS-EXPECTED-NO-UPDATED",
+  "B-PERS-RS-META-NO-UPDATED",
+  "B-PERS-RS-TYPE-NO-UPDATED",
+  "B-PERS-RS-PROVISION-NO-UPDATED",
+  "B-PERS-RS-NO-021-MIG",
+  "B-PERS-JS-005-UNIQUE",
+  "B-PERS-DOMAIN-UPDATEDAT",
 ] as const;

@@ -1,0 +1,67 @@
+{
+  "schema": "athena/relations-fixture/v1",
+  "tables": [
+    { "schema": "public", "table": "posts", "primaryKey": ["id"] },
+    { "schema": "public", "table": "users", "primaryKey": ["id"] }
+  ],
+  "relations": [
+    {
+      "id": "public.posts.posts_author_id_fkey",
+      "name": "users",
+      "cardinality": "many-to-one",
+      "from": {
+        "schema": "public",
+        "table": "posts",
+        "columns": ["author_id"]
+      },
+      "to": {
+        "schema": "public",
+        "table": "users",
+        "columns": ["id"]
+      }
+    },
+    {
+      "id": "public.posts.posts_editor_id_fkey",
+      "name": "users",
+      "cardinality": "many-to-one",
+      "from": {
+        "schema": "public",
+        "table": "posts",
+        "columns": ["editor_id"]
+      },
+      "to": {
+        "schema": "public",
+        "table": "users",
+        "columns": ["id"]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "ambiguous alternate foreign keys",
+      "request": {
+        "source": { "schema": "public", "table": "posts" },
+        "relation": "users"
+      },
+      "expected": {
+        "outcome": "error",
+        "code": "ATHENA_QUERY_AMBIGUOUS_RELATION"
+      }
+    },
+    {
+      "name": "explicit alternate foreign-key selector",
+      "request": {
+        "source": { "schema": "public", "table": "posts" },
+        "relation": "users",
+        "via": "posts_editor_id_fkey"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "many-to-one",
+        "fromColumns": ["editor_id"],
+        "toColumns": ["id"]
+      }
+    }
+  ]
+}

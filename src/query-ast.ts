@@ -19,6 +19,7 @@ import type {
   AthenaColumnKey,
   HasKnownSelectColumns,
 } from "./select-column-types.ts";
+import { AthenaQueryError } from "./query/engine/errors.ts";
 
 type AthenaRowShape = Record<string, AthenaJsonValue | undefined>;
 type FilterColumnKey<Row> = Extract<keyof NonNullable<Row>, string>;
@@ -71,6 +72,7 @@ export type AthenaRelationWhereInput<Row = AthenaRowShape> = {
   isNot?: AthenaWhere<Row> | null;
   none?: AthenaWhere<Row>;
   some?: AthenaWhere<Row>;
+  via?: string;
 };
 
 type AthenaWhereColumnInput<Row = AthenaRowShape> = Partial<
@@ -126,15 +128,20 @@ export type AthenaWhere<Row = AthenaRowShape> = AthenaWhereColumnInput<Row> & {
   not?: AthenaWhereNotOperand<Row>;
 };
 
+export type AthenaRelationSelection = "natural" | "first";
+
 export interface AthenaRelationSelectNode<
   TSelect extends AthenaSelectShape = AthenaSelectShape,
 > {
   as?: string;
+  constraint?: string;
+  join?: "inner";
   limit?: number;
   offset?: number;
-  orderBy?: AthenaOrderBy;
+  orderBy?: AthenaRelationOrderBy;
   schema?: string;
   select: TSelect;
+  selection?: "first";
   via?: string;
   where?: AthenaWhere;
 }
@@ -147,12 +154,15 @@ export type AthenaSelectShape = Record<
 type AthenaAllowedRelationSelectNodeKey =
   | "select"
   | "as"
+  | "constraint"
+  | "join"
   | "via"
   | "schema"
   | "where"
   | "orderBy"
   | "limit"
-  | "offset";
+  | "offset"
+  | "selection";
 
 /**
  * Structural validation only (relation node shape). Nested relation target rows
@@ -168,7 +178,7 @@ type AthenaValidatedRelationSelectNode<TNode> = TNode extends {
   select: infer TChild;
 }
   ? Exclude<keyof TNode, AthenaAllowedRelationSelectNodeKey> extends never
-    ? TNode extends { schema: string; via: string }
+    ? TNode extends { schema: string; via: string } | { schema: string; constraint: string }
       ? never
       : TChild extends Record<string, unknown>
         ? {
@@ -224,6 +234,10 @@ export type AthenaOrderBy<Row = AthenaRowShape> =
       ascending?: boolean;
     }
   | Partial<Record<ResolvedFilterColumnKey<Row>, AthenaOrderByDirectionInput>>;
+
+export type AthenaRelationOrderBy<Row = AthenaRowShape> =
+  | AthenaOrderBy<Row>
+  | readonly AthenaOrderBy<Row>[];
 
 export interface AthenaFindManyOptions<
   Row = AthenaRowShape,
@@ -321,11 +335,18 @@ type RelationByKey<
   ? ModelRelationsOf<TContext>[TKey]
   : never;
 
+type RelationKeyMatchesVia<TKey extends string, TVia extends string> =
+  TKey extends TVia | `${TVia}_${string}` ? true : false;
+
 type RelationByVia<TContext, TVia extends string> = {
   [TKey in keyof ModelRelationsOf<TContext>]: ModelRelationsOf<TContext>[TKey] extends infer TRelation
     ? TRelation extends ModelRelationMetadata
-      ? TVia extends TRelation["sourceColumns"][number]
-        ? TRelation
+      ? TKey extends string
+        ? RelationKeyMatchesVia<TKey, TVia> extends true
+          ? TRelation
+          : TVia extends TRelation["sourceColumns"][number]
+            ? TRelation
+            : never
         : never
       : never
     : never;
@@ -333,9 +354,11 @@ type RelationByVia<TContext, TVia extends string> = {
 
 type ResolvedRelation<TContext, TKey extends string, TValue> =
   RelationByKey<TContext, TKey> extends never
-    ? TValue extends { via: infer TVia extends string }
-      ? RelationByVia<TContext, TVia>
-      : never
+    ? TValue extends { constraint: infer TConstraint extends string }
+      ? RelationByVia<TContext, TConstraint>
+      : TValue extends { via: infer TVia extends string }
+        ? RelationByVia<TContext, TVia>
+        : never
     : RelationByKey<TContext, TKey>;
 
 type TargetDatabaseName<
@@ -377,7 +400,7 @@ type RelationResultValue<
   TValue extends AthenaRelationSelectNode<infer TChildSelect>
     ? ResolveTargetModel<TContext, TRelation> extends infer TTargetModel
       ? TTargetModel extends AnyModelDef
-        ? TRelation["kind"] extends "one-to-many" | "many-to-many"
+        ? TValue extends { selection: "first" }
           ? AthenaFindManyResult<
               RowOf<TTargetModel>,
               TChildSelect,
@@ -387,17 +410,28 @@ type RelationResultValue<
                 TRelation["targetSchema"],
                 TTargetModel
               >
-            >[]
-          : AthenaFindManyResult<
-              RowOf<TTargetModel>,
-              TChildSelect,
-              AthenaModelContext<
-                ContextRegistry<TContext>,
-                TargetDatabaseName<TContext, TRelation>,
-                TRelation["targetSchema"],
-                TTargetModel
-              >
             > | null
+          : TRelation["kind"] extends "one-to-many" | "many-to-many"
+            ? AthenaFindManyResult<
+                RowOf<TTargetModel>,
+                TChildSelect,
+                AthenaModelContext<
+                  ContextRegistry<TContext>,
+                  TargetDatabaseName<TContext, TRelation>,
+                  TRelation["targetSchema"],
+                  TTargetModel
+                >
+              >[]
+            : AthenaFindManyResult<
+                RowOf<TTargetModel>,
+                TChildSelect,
+                AthenaModelContext<
+                  ContextRegistry<TContext>,
+                  TargetDatabaseName<TContext, TRelation>,
+                  TRelation["targetSchema"],
+                  TTargetModel
+                >
+              > | null
         : unknown
       : unknown
     : never;
@@ -523,21 +557,52 @@ function buildGatewayCondition(
 
 function compileRelationToken(
   key: string,
-  node: AthenaRelationSelectNode
+  node: AthenaRelationSelectNode & {
+    constraintHint?: string;
+    legacyVia?: string;
+    relation?: string;
+  }
 ): string {
   const nested = compileSelectShape(node.select);
   const propertyKey = normalizeIdentifier(key, "select relation key");
-  if (node.schema && node.via) {
+  if (node.schema && (node.via || node.constraint)) {
     throw new Error(
-      `findMany relation "${propertyKey}" cannot combine schema and via yet; use schema with the relation key, or use via without schema`
+      `findMany relation "${propertyKey}" cannot combine schema and via yet; constraint is also not allowed on the same relation; use schema with the relation key, or a selector without schema`
     );
   }
 
-  const relationTokenBase = normalizeIdentifier(
-    node.via ?? propertyKey,
-    "select relation token"
-  );
-  if (node.schema && relationTokenBase.includes(".")) {
+  if (node.selection === "first") {
+    throw new AthenaQueryError(
+      "ATHENA_QUERY_UNSUPPORTED_CAPABILITY",
+      `Gateway cannot represent relation "${propertyKey}" first selection`
+    );
+  }
+  const constraintHint = (node.constraintHint ?? node.constraint)?.trim();
+  const semanticRelation = node.relation?.trim();
+  if (
+    node.join === "inner" &&
+    (constraintHint || node.via || node.legacyVia)
+  ) {
+    throw new AthenaQueryError(
+      "ATHENA_QUERY_UNSUPPORTED_CAPABILITY",
+      `Gateway cannot represent relation "${propertyKey}" with both a relation selector and !inner`
+    );
+  }
+  const relationTokenBase =
+    node.legacyVia
+      ? normalizeIdentifier(node.legacyVia, "select relation token")
+      : constraintHint
+      ? `${normalizeIdentifier(
+          semanticRelation ?? propertyKey,
+          "select relation"
+        )}!${normalizeIdentifier(constraintHint, "relation constraint")}`
+      : node.join === "inner"
+        ? `${normalizeIdentifier(
+            semanticRelation ?? propertyKey,
+            "select relation"
+          )}!inner`
+        : normalizeIdentifier(node.via ?? propertyKey, "select relation token");
+  if (node.schema && !constraintHint && relationTokenBase.includes(".")) {
     throw new Error(
       `findMany relation "${propertyKey}" already resolves to a qualified relation token; do not also set schema`
     );
@@ -548,7 +613,14 @@ function compileRelationToken(
     ? `${normalizeIdentifier(relationSchema, "select relation schema")}.${relationTokenBase}`
     : relationTokenBase;
   const alias =
-    node.as?.trim() || (relationToken === propertyKey ? "" : propertyKey);
+    node.as?.trim() ||
+    (constraintHint || node.join === "inner"
+      ? semanticRelation === propertyKey
+        ? ""
+        : propertyKey
+      : relationToken === propertyKey
+        ? ""
+        : propertyKey);
   const prefix = alias ? `${alias}:` : "";
   return `${prefix}${relationToken}(${nested})`;
 }
@@ -606,6 +678,26 @@ export function selectShapeUsesRelationSchema(
       return true;
     }
     if (selectShapeUsesRelationSchema(rawValue.select)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function selectShapeHasFirstSelection(select: AthenaSelectShape): boolean {
+  if (!isRecord(select)) {
+    return false;
+  }
+
+  for (const rawValue of Object.values(select)) {
+    if (!isRelationSelectNode(rawValue)) {
+      continue;
+    }
+    if (rawValue.selection === "first") {
+      return true;
+    }
+    if (selectShapeHasFirstSelection(rawValue.select)) {
       return true;
     }
   }

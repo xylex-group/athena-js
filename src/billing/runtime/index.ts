@@ -1,32 +1,45 @@
 export {
-	assertBillingOperationAvailable,
-	type BillingCapabilities,
-	type BillingOperation,
-	type BillingOperationCapability,
-	type BillingOperationCapabilityReason,
-	type BillingPortName,
+  assertBillingOperationAvailable,
+  type BillingAdminOperation,
+  type BillingCapabilities,
+  type BillingOperation,
+  type BillingOperationCapability,
+  type BillingOperationCapabilityReason,
+  type BillingOperationSafety,
+  type BillingPortName,
 } from "./capabilities.ts";
-export { BillingSecret, resolveBillingCredential } from "./credentials.ts";
 export type { AthenaBillingRuntimeDispatch } from "./dispatch.ts";
 export {
-	billingEnvironmentName,
-	resolveBillingEnvironment,
+  billingEnvironmentName,
+  resolveBillingEnvironment,
 } from "./environment.ts";
-export { createLocalBillingRuntime } from "./local/runtime.ts";
 export { createRemoteBillingRuntime } from "./remote/runtime.ts";
 export {
-	assertLocalBillingRuntimeEnvironment,
-	resolveBillingRuntimeMode,
+  assertLocalBillingRuntimeEnvironment,
+  resolveBillingRuntimeMode,
 } from "./resolve-mode.ts";
 export type {
-	AthenaBillingRuntime,
-	BillingConnectionRef,
-	BillingCustomerPort,
-	BillingInvoicePort,
-	BillingPage,
-	BillingPaymentLinkPort,
-	BillingPaymentPort,
-	BillingRefundPort,
-	BillingSubscriptionPort,
-	BillingWebhookPort,
+  AthenaBillingRuntime,
+  BillingAdminConflictResolveResult,
+  BillingAdminConnectionMaterializeResult,
+  BillingAdminIngestionHealth,
+  BillingAdminPort,
+  BillingAdminWebhookStatus,
+  BillingCatalogPort,
+  BillingCheckoutPort,
+  BillingConnectionRef,
+  BillingCustomerPort,
+  BillingInvoicePort,
+  BillingPage,
+  BillingPaymentLinkPort,
+  BillingPaymentPort,
+  BillingPricePort,
+  BillingProductPort,
+  BillingRefundPort,
+  BillingSelfCheckoutCreateInput,
+  BillingSelfPort,
+  BillingSelfSubscriptionEnrollInput,
+  BillingSelfSubscriptionEnrollResult,
+  BillingSubscriptionPort,
+  BillingWebhookPort,
 } from "./types.ts";

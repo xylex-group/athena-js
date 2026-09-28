@@ -1,24 +1,28 @@
 import type { AthenaGatewayClient } from "../../gateway/client.ts";
-import { ATHENA_PG_DIRECT_BASE_URL } from "../../postgres/constants.ts";
-import { createPostgresDirectTransport } from "../../postgres/transport.ts";
-import { catalogFromModels } from "../../query/engine/index.ts";
-import { executeAthenaRequest } from "./executor.ts";
-import { runtimeConfigError } from "./errors.ts";
-import {
-  buildAthenaRuntimeModelIndex,
-  resolveModelEnforcement,
-} from "./model-registry.ts";
 import type { AthenaPolicyMode } from "../../policy/decision.ts";
 import {
   createPolicyRegistry,
   normalizePolicyDefinitions,
 } from "../../policy/registry.ts";
 import { AthenaPolicyConfigError } from "../../policy/validate-ir.ts";
-import { assertBrowserPolicyProfile, resolveAthenaRuntimeHttpProfile } from "./http-profile.ts";
+import { ATHENA_PG_DIRECT_BASE_URL } from "../../postgres/constants.ts";
+import { createPostgresDirectTransport } from "../../postgres/transport.ts";
+import { catalogFromModels } from "../../query/engine/index.ts";
 import {
   authModeFromMaterial,
   normalizeAthenaRuntimeAuth,
 } from "../authority/index.ts";
+import { runtimeConfigError } from "./errors.ts";
+import { executeAthenaRequest } from "./executor.ts";
+import {
+  assertBrowserPolicyProfile,
+  resolveAthenaRuntimeHttpProfile,
+} from "./http-profile.ts";
+import {
+  buildAthenaRuntimeModelIndex,
+  resolveModelEnforcement,
+} from "./model-registry.ts";
+import { filterPrivilegedHttpModelIndex } from "./privileged-http-models.ts";
 import type {
   AthenaRuntimeCapabilities,
   AthenaRuntimeRequest,
@@ -26,8 +30,11 @@ import type {
   AthenaServerRuntime,
   CreateAthenaServerRuntimeConfig,
 } from "./types.ts";
+import { canonicalizeAthenaCapabilitiesIr } from "../../capabilities/ir/canonicalize.ts";
 
-function normalizeOptional(value: string | null | undefined): string | undefined {
+function normalizeOptional(
+  value: string | null | undefined
+): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 }
@@ -82,7 +89,6 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
   }
-  return undefined;
 }
 
 function buildDevtoolsProduceInput(
@@ -116,7 +122,7 @@ export function createAthenaServerRuntime(
 
   const injected = config.transport;
   const databaseUrl = resolveDatabaseUrl(config);
-  if (!injected && !databaseUrl) {
+  if (!(injected || databaseUrl)) {
     throw runtimeConfigError(
       "createAthenaServerRuntime requires databaseUrl or an injected transport."
     );
@@ -137,10 +143,12 @@ export function createAthenaServerRuntime(
       ? config.rpc.expose
       : []
   );
+  const httpEnabled = config.http === true;
   const hasModels = config.models !== undefined && config.models !== null;
   const modelEnforcement = resolveModelEnforcement({
     explicit: config.modelEnforcement,
     hasModels,
+    http: httpEnabled,
     securityMode: config.security.mode,
   });
   if (
@@ -151,9 +159,13 @@ export function createAthenaServerRuntime(
       "ATHENA_MODEL_INVALID_REGISTRY: modelEnforcement requires models."
     );
   }
-  const modelIndex = hasModels
+  const builtIndex = hasModels
     ? buildAthenaRuntimeModelIndex(config.models, modelEnforcement)
     : undefined;
+  const modelIndex =
+    builtIndex && httpEnabled
+      ? filterPrivilegedHttpModelIndex(builtIndex)
+      : builtIndex;
   const authMaterial = normalizeAthenaRuntimeAuth(
     config.auth,
     config.security.mode,
@@ -189,16 +201,30 @@ export function createAthenaServerRuntime(
   const allowsUnauthenticatedHttp = config.unsafeAllowUnauthenticated === true;
   const httpProfile = resolveAthenaRuntimeHttpProfile(config);
 
+  const capabilitiesIr =
+    config.capabilitiesIr === undefined
+      ? undefined
+      : canonicalizeAthenaCapabilitiesIr(config.capabilitiesIr);
   const runtime: AthenaServerRuntime = {
     allowsUnauthenticatedHttp,
     authMaterial,
+    ...(config.authorizationConfig
+      ? { authorizationConfig: config.authorizationConfig }
+      : {}),
+    ...(config.authorizationModelIndex
+      ? { authorizationModelIndex: config.authorizationModelIndex }
+      : {}),
     capabilities,
+    ...(capabilitiesIr ? { capabilitiesIr } : {}),
     ...(config.discoveryDocument
       ? { discoveryDocument: config.discoveryDocument }
       : {}),
     httpProfile,
     ...(policyRegistry ? { policyRegistry } : {}),
-    execute(request: AthenaRuntimeRequest, context?: AthenaRuntimeRequestContext) {
+    execute(
+      request: AthenaRuntimeRequest,
+      context?: AthenaRuntimeRequestContext
+    ) {
       return executeAthenaRequest(runtime, request, context);
     },
     modelIndex,
@@ -206,9 +232,15 @@ export function createAthenaServerRuntime(
     ...(config.onExecutionEvent
       ? { onExecutionEvent: config.onExecutionEvent }
       : {}),
+    ...(config.oauth?.scopePolicy
+      ? { oauthScopePolicy: config.oauth.scopePolicy }
+      : {}),
+    devtoolsProduceInput: buildDevtoolsProduceInput(config),
     rpcExpose,
     transport,
-    devtoolsProduceInput: buildDevtoolsProduceInput(config),
+    ...(config.devtoolsClientInternals
+      ? { devtoolsClientInternals: config.devtoolsClientInternals }
+      : {}),
   };
 
   return runtime;

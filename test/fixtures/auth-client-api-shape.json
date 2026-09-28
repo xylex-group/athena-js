@@ -1,0 +1,3390 @@
+{
+  "authKeys": [
+    "account",
+    "admin",
+    "apiKey",
+    "authorization",
+    "callback",
+    "capabilities",
+    "changeEmail",
+    "changeEmailVerify",
+    "changePassword",
+    "deleteUser",
+    "deleteUserVerify",
+    "email",
+    "error",
+    "forgetPassword",
+    "getAccessToken",
+    "getSession",
+    "getToken",
+    "getUser",
+    "health",
+    "linkSocial",
+    "listAccounts",
+    "listSessions",
+    "ok",
+    "organization",
+    "passkey",
+    "refreshToken",
+    "requireSession",
+    "resetPassword",
+    "revokeOtherSessions",
+    "revokeSession",
+    "sendVerificationEmail",
+    "session",
+    "setPassword",
+    "signIn",
+    "signOut",
+    "signUp",
+    "social",
+    "tokenProvider",
+    "twoFactor",
+    "unlinkAccount",
+    "updateUser",
+    "user",
+    "verificationEmail",
+    "verifyEmail"
+  ],
+  "moduleKeys": [
+    "auth",
+    "authorization",
+    "baseUrl",
+    "changeEmail",
+    "changePassword",
+    "clearOtherSessions",
+    "clearSession",
+    "clearSessions",
+    "deleteUser",
+    "deleteUserCallback",
+    "forgetPassword",
+    "getAccessToken",
+    "getSession",
+    "getToken",
+    "getUser",
+    "linkSocial",
+    "listAccounts",
+    "listSessions",
+    "logout",
+    "organization",
+    "refreshToken",
+    "request",
+    "requireSession",
+    "resetPassword",
+    "resolveResetPasswordToken",
+    "revokeOtherSessions",
+    "revokeSession",
+    "revokeSessions",
+    "sendVerificationEmail",
+    "signIn",
+    "signOut",
+    "signUp",
+    "tokenProvider",
+    "unlinkAccount",
+    "updateUser",
+    "verifyEmail"
+  ],
+  "auth": {
+    "keys": [
+      "account",
+      "admin",
+      "apiKey",
+      "authorization",
+      "callback",
+      "capabilities",
+      "changeEmail",
+      "changeEmailVerify",
+      "changePassword",
+      "deleteUser",
+      "deleteUserVerify",
+      "email",
+      "error",
+      "forgetPassword",
+      "getAccessToken",
+      "getSession",
+      "getToken",
+      "getUser",
+      "health",
+      "linkSocial",
+      "listAccounts",
+      "listSessions",
+      "ok",
+      "organization",
+      "passkey",
+      "refreshToken",
+      "requireSession",
+      "resetPassword",
+      "revokeOtherSessions",
+      "revokeSession",
+      "sendVerificationEmail",
+      "session",
+      "setPassword",
+      "signIn",
+      "signOut",
+      "signUp",
+      "social",
+      "tokenProvider",
+      "twoFactor",
+      "unlinkAccount",
+      "updateUser",
+      "user",
+      "verificationEmail",
+      "verifyEmail"
+    ],
+    "kind": "object",
+    "members": {
+      "account": {
+        "keys": [
+          "list",
+          "unlink"
+        ],
+        "kind": "object",
+        "members": {
+          "list": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "list"
+          },
+          "unlink": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "unlink"
+          }
+        }
+      },
+      "admin": {
+        "keys": [
+          "apiKey",
+          "athenaClient",
+          "auditLog",
+          "banUser",
+          "createUser",
+          "email",
+          "emailEventType",
+          "emailTemplate",
+          "getUser",
+          "hasPermission",
+          "impersonateUser",
+          "listUsers",
+          "removeUser",
+          "requirePermission",
+          "revokeUserSessions",
+          "role",
+          "setRole",
+          "stopImpersonating",
+          "unbanUser",
+          "updateUser",
+          "user"
+        ],
+        "kind": "object",
+        "members": {
+          "apiKey": {
+            "keys": [
+              "create"
+            ],
+            "kind": "object",
+            "members": {
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              }
+            }
+          },
+          "athenaClient": {
+            "keys": [
+              "create",
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
+          },
+          "auditLog": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
+          },
+          "banUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "banUser"
+          },
+          "createUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "createUser"
+          },
+          "email": {
+            "keys": [
+              "create",
+              "delete",
+              "eventType",
+              "failure",
+              "get",
+              "list",
+              "template",
+              "update"
+            ],
+            "kind": "object",
+            "members": {
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "delete": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "delete"
+              },
+              "eventType": {
+                "keys": [
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  }
+                }
+              },
+              "failure": {
+                "keys": [
+                  "create",
+                  "delete",
+                  "get",
+                  "list",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "delete": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "delete"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "template": {
+                "keys": [
+                  "create",
+                  "delete",
+                  "get",
+                  "list",
+                  "send",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "delete": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "delete"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "send": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "send"
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              }
+            }
+          },
+          "emailEventType": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
+          },
+          "emailTemplate": {
+            "keys": [
+              "create",
+              "delete",
+              "get",
+              "list",
+              "send",
+              "update"
+            ],
+            "kind": "object",
+            "members": {
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "delete": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "delete"
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "send": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "send"
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              }
+            }
+          },
+          "getUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getUser"
+          },
+          "hasPermission": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "hasPermission"
+          },
+          "impersonateUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "impersonateUser"
+          },
+          "listUsers": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listUsers"
+          },
+          "removeUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "removeUser"
+          },
+          "requirePermission": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "requirePermission"
+          },
+          "revokeUserSessions": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "adminUserSessionRevokeBinding"
+          },
+          "role": {
+            "keys": [
+              "set"
+            ],
+            "kind": "object",
+            "members": {
+              "set": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "set"
+              }
+            }
+          },
+          "setRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "setRole"
+          },
+          "stopImpersonating": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "stopImpersonating"
+          },
+          "unbanUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "unbanUser"
+          },
+          "updateUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "updateUser"
+          },
+          "user": {
+            "keys": [
+              "ban",
+              "create",
+              "get",
+              "impersonate",
+              "list",
+              "remove",
+              "session",
+              "setPassword",
+              "stopImpersonating",
+              "unban",
+              "update"
+            ],
+            "kind": "object",
+            "members": {
+              "ban": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "ban"
+              },
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "impersonate": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "impersonate"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "remove": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "remove"
+              },
+              "session": {
+                "keys": [
+                  "list",
+                  "revoke"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "revoke": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "adminUserSessionRevokeBinding"
+                  }
+                }
+              },
+              "setPassword": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "setPassword"
+              },
+              "stopImpersonating": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "stopImpersonating"
+              },
+              "unban": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "unban"
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              }
+            }
+          }
+        }
+      },
+      "apiKey": {
+        "keys": [
+          "create",
+          "delete",
+          "deleteAllExpired",
+          "get",
+          "list",
+          "update",
+          "verify"
+        ],
+        "kind": "object",
+        "members": {
+          "create": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "create"
+          },
+          "delete": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "delete"
+          },
+          "deleteAllExpired": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deleteAllExpired"
+          },
+          "get": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "get"
+          },
+          "list": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "list"
+          },
+          "update": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "update"
+          },
+          "verify": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verify"
+          }
+        }
+      },
+      "authorization": {
+        "keys": [
+          "cloneRole",
+          "createRole",
+          "deleteRole",
+          "getRole",
+          "getSnapshot",
+          "listAudit",
+          "listMemberAssignments",
+          "listRights",
+          "listRoles",
+          "listUserAssignments",
+          "replaceMemberRoleAssignments",
+          "replaceRoleRights",
+          "replaceUserRoleAssignments",
+          "updateRole"
+        ],
+        "kind": "object",
+        "members": {
+          "cloneRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "cloneRole"
+          },
+          "createRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "createRole"
+          },
+          "deleteRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deleteRole"
+          },
+          "getRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getRole"
+          },
+          "getSnapshot": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getSnapshot"
+          },
+          "listAudit": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listAudit"
+          },
+          "listMemberAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listMemberAssignments"
+          },
+          "listRights": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listRights"
+          },
+          "listRoles": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listRoles"
+          },
+          "listUserAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listUserAssignments"
+          },
+          "replaceMemberRoleAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "replaceMemberRoleAssignments"
+          },
+          "replaceRoleRights": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "replaceRoleRights"
+          },
+          "replaceUserRoleAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "replaceUserRoleAssignments"
+          },
+          "updateRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "updateRole"
+          }
+        }
+      },
+      "callback": {
+        "keys": [
+          "provider"
+        ],
+        "kind": "object",
+        "members": {
+          "provider": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "callbackProvider"
+          }
+        }
+      },
+      "capabilities": {
+        "keys": [
+          "get",
+          "getSnapshot",
+          "markUnknown",
+          "merge",
+          "set",
+          "subscribe"
+        ],
+        "kind": "object",
+        "members": {
+          "get": {
+            "arity": 0,
+            "kind": "fn",
+            "name": "get"
+          },
+          "getSnapshot": {
+            "arity": 0,
+            "kind": "fn",
+            "name": "get"
+          },
+          "markUnknown": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "markUnknown"
+          },
+          "merge": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "merge"
+          },
+          "set": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "set"
+          },
+          "subscribe": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "subscribe"
+          }
+        }
+      },
+      "changeEmail": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "changeEmail"
+      },
+      "changeEmailVerify": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "changeEmailVerify"
+      },
+      "changePassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "changePassword"
+      },
+      "deleteUser": {
+        "keys": [
+          "callback"
+        ],
+        "kind": "object",
+        "members": {
+          "callback": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deleteUserCallback"
+          }
+        }
+      },
+      "deleteUserVerify": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "deleteUserVerify"
+      },
+      "email": {
+        "keys": [
+          "change"
+        ],
+        "kind": "object",
+        "members": {
+          "change": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "changeEmail"
+          }
+        }
+      },
+      "error": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "error"
+      },
+      "forgetPassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "forgetPassword"
+      },
+      "getAccessToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getAccessToken"
+      },
+      "getSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getSession"
+      },
+      "getToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getToken"
+      },
+      "getUser": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getUser"
+      },
+      "health": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "health"
+      },
+      "linkSocial": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "link"
+      },
+      "listAccounts": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "list"
+      },
+      "listSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "listSessions"
+      },
+      "ok": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "ok"
+      },
+      "organization": {
+        "keys": [
+          "checkSlug",
+          "create",
+          "delete",
+          "getFull",
+          "hasPermission",
+          "invitation",
+          "leave",
+          "list",
+          "listUserInvitations",
+          "member",
+          "requirePermission",
+          "setActive",
+          "update"
+        ],
+        "kind": "object",
+        "members": {
+          "checkSlug": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "checkSlug"
+          },
+          "create": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "create"
+          },
+          "delete": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "delete"
+          },
+          "getFull": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getFull"
+          },
+          "hasPermission": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "hasPermission"
+          },
+          "invitation": {
+            "keys": [
+              "accept",
+              "cancel",
+              "get",
+              "list",
+              "reject"
+            ],
+            "kind": "object",
+            "members": {
+              "accept": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "accept"
+              },
+              "cancel": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "cancel"
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "reject": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "reject"
+              }
+            }
+          },
+          "leave": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "leave"
+          },
+          "list": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "list"
+          },
+          "listUserInvitations": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listUserInvitations"
+          },
+          "member": {
+            "keys": [
+              "getActive",
+              "invite",
+              "list",
+              "remove",
+              "updateRole"
+            ],
+            "kind": "object",
+            "members": {
+              "getActive": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getActive"
+              },
+              "invite": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "invite"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "remove": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "remove"
+              },
+              "updateRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "updateRole"
+              }
+            }
+          },
+          "requirePermission": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "requirePermission"
+          },
+          "setActive": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "setActive"
+          },
+          "update": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "update"
+          }
+        }
+      },
+      "passkey": {
+        "keys": [
+          "delete",
+          "generateAuthenticateOptions",
+          "generateRegisterOptions",
+          "getRelatedOrigins",
+          "listUser",
+          "register",
+          "signIn",
+          "update",
+          "verifyAuthentication",
+          "verifyRegistration"
+        ],
+        "kind": "object",
+        "members": {
+          "delete": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deletePasskey"
+          },
+          "generateAuthenticateOptions": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "generateAuthenticateOptions"
+          },
+          "generateRegisterOptions": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "generateRegisterOptions"
+          },
+          "getRelatedOrigins": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getRelatedOrigins"
+          },
+          "listUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listUser"
+          },
+          "register": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "register"
+          },
+          "signIn": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signIn"
+          },
+          "update": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "update"
+          },
+          "verifyAuthentication": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyAuthentication"
+          },
+          "verifyRegistration": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyRegistration"
+          }
+        }
+      },
+      "refreshToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "refreshToken"
+      },
+      "requireSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "requireSession"
+      },
+      "resetPassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "resetPasswordPost"
+      },
+      "revokeOtherSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "revokeOtherSessions"
+      },
+      "revokeSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "sessionRevokeBinding"
+      },
+      "sendVerificationEmail": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "sendVerificationEmail"
+      },
+      "session": {
+        "keys": [
+          "get",
+          "getSnapshot",
+          "hydrate",
+          "invalidate",
+          "list",
+          "refresh",
+          "revoke",
+          "revokeOther",
+          "setSession",
+          "subscribe"
+        ],
+        "kind": "object",
+        "members": {
+          "get": {
+            "arity": 0,
+            "kind": "fn",
+            "name": "get"
+          },
+          "getSnapshot": {
+            "arity": 0,
+            "kind": "fn",
+            "name": "getSnapshot"
+          },
+          "hydrate": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "hydrate"
+          },
+          "invalidate": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "invalidate"
+          },
+          "list": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listSessions"
+          },
+          "refresh": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "refreshSessionStore"
+          },
+          "revoke": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "sessionRevokeBinding"
+          },
+          "revokeOther": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "revokeOtherSessions"
+          },
+          "setSession": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "setSession"
+          },
+          "subscribe": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "subscribe"
+          }
+        }
+      },
+      "setPassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "setPassword"
+      },
+      "signIn": {
+        "keys": [
+          "email",
+          "social",
+          "username"
+        ],
+        "kind": "object",
+        "members": {
+          "email": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signInEmail"
+          },
+          "social": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signIn"
+          },
+          "username": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signInUsername"
+          }
+        }
+      },
+      "signOut": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "signOut"
+      },
+      "signUp": {
+        "keys": [
+          "email"
+        ],
+        "kind": "object",
+        "members": {
+          "email": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signUpEmail"
+          }
+        }
+      },
+      "social": {
+        "keys": [
+          "link",
+          "signIn"
+        ],
+        "kind": "object",
+        "members": {
+          "link": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "link"
+          },
+          "signIn": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signIn"
+          }
+        }
+      },
+      "tokenProvider": {
+        "arity": 1,
+        "kind": "fn",
+        "name": "tokenProvider"
+      },
+      "twoFactor": {
+        "keys": [
+          "disable",
+          "enable",
+          "generateBackupCodes",
+          "getTotpUri",
+          "sendOtp",
+          "verifyBackupCode",
+          "verifyOtp",
+          "verifyTotp"
+        ],
+        "kind": "object",
+        "members": {
+          "disable": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "disable"
+          },
+          "enable": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "enable"
+          },
+          "generateBackupCodes": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "generateBackupCodes"
+          },
+          "getTotpUri": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getTotpUri"
+          },
+          "sendOtp": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "sendOtp"
+          },
+          "verifyBackupCode": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyBackupCode"
+          },
+          "verifyOtp": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyOtp"
+          },
+          "verifyTotp": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyTotp"
+          }
+        }
+      },
+      "unlinkAccount": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "unlink"
+      },
+      "updateUser": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "updateUser"
+      },
+      "user": {
+        "keys": [
+          "delete",
+          "email",
+          "update"
+        ],
+        "kind": "object",
+        "members": {
+          "delete": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deleteUser"
+          },
+          "email": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listUserEmails"
+              }
+            }
+          },
+          "update": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "updateUser"
+          }
+        }
+      },
+      "verificationEmail": {
+        "keys": [
+          "send",
+          "verify"
+        ],
+        "kind": "object",
+        "members": {
+          "send": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "sendVerificationEmail"
+          },
+          "verify": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyEmail"
+          }
+        }
+      },
+      "verifyEmail": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "verifyEmail"
+      }
+    }
+  },
+  "module": {
+    "keys": [
+      "auth",
+      "authorization",
+      "baseUrl",
+      "changeEmail",
+      "changePassword",
+      "clearOtherSessions",
+      "clearSession",
+      "clearSessions",
+      "deleteUser",
+      "deleteUserCallback",
+      "forgetPassword",
+      "getAccessToken",
+      "getSession",
+      "getToken",
+      "getUser",
+      "linkSocial",
+      "listAccounts",
+      "listSessions",
+      "logout",
+      "organization",
+      "refreshToken",
+      "request",
+      "requireSession",
+      "resetPassword",
+      "resolveResetPasswordToken",
+      "revokeOtherSessions",
+      "revokeSession",
+      "revokeSessions",
+      "sendVerificationEmail",
+      "signIn",
+      "signOut",
+      "signUp",
+      "tokenProvider",
+      "unlinkAccount",
+      "updateUser",
+      "verifyEmail"
+    ],
+    "kind": "object",
+    "members": {
+      "auth": {
+        "keys": [
+          "account",
+          "admin",
+          "apiKey",
+          "authorization",
+          "callback",
+          "capabilities",
+          "changeEmail",
+          "changeEmailVerify",
+          "changePassword",
+          "deleteUser",
+          "deleteUserVerify",
+          "email",
+          "error",
+          "forgetPassword",
+          "getAccessToken",
+          "getSession",
+          "getToken",
+          "getUser",
+          "health",
+          "linkSocial",
+          "listAccounts",
+          "listSessions",
+          "ok",
+          "organization",
+          "passkey",
+          "refreshToken",
+          "requireSession",
+          "resetPassword",
+          "revokeOtherSessions",
+          "revokeSession",
+          "sendVerificationEmail",
+          "session",
+          "setPassword",
+          "signIn",
+          "signOut",
+          "signUp",
+          "social",
+          "tokenProvider",
+          "twoFactor",
+          "unlinkAccount",
+          "updateUser",
+          "user",
+          "verificationEmail",
+          "verifyEmail"
+        ],
+        "kind": "object",
+        "members": {
+          "account": {
+            "keys": [
+              "list",
+              "unlink"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "unlink": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "unlink"
+              }
+            }
+          },
+          "admin": {
+            "keys": [
+              "apiKey",
+              "athenaClient",
+              "auditLog",
+              "banUser",
+              "createUser",
+              "email",
+              "emailEventType",
+              "emailTemplate",
+              "getUser",
+              "hasPermission",
+              "impersonateUser",
+              "listUsers",
+              "removeUser",
+              "requirePermission",
+              "revokeUserSessions",
+              "role",
+              "setRole",
+              "stopImpersonating",
+              "unbanUser",
+              "updateUser",
+              "user"
+            ],
+            "kind": "object",
+            "members": {
+              "apiKey": {
+                "keys": [
+                  "create"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  }
+                }
+              },
+              "athenaClient": {
+                "keys": [
+                  "create",
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  }
+                }
+              },
+              "auditLog": {
+                "keys": [
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  }
+                }
+              },
+              "banUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "banUser"
+              },
+              "createUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "createUser"
+              },
+              "email": {
+                "keys": [
+                  "create",
+                  "delete",
+                  "eventType",
+                  "failure",
+                  "get",
+                  "list",
+                  "template",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "delete": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "delete"
+                  },
+                  "eventType": {
+                    "keys": [
+                      "list"
+                    ],
+                    "kind": "object",
+                    "members": {
+                      "list": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "list"
+                      }
+                    }
+                  },
+                  "failure": {
+                    "keys": [
+                      "create",
+                      "delete",
+                      "get",
+                      "list",
+                      "update"
+                    ],
+                    "kind": "object",
+                    "members": {
+                      "create": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "create"
+                      },
+                      "delete": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "delete"
+                      },
+                      "get": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "get"
+                      },
+                      "list": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "list"
+                      },
+                      "update": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "update"
+                      }
+                    }
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "template": {
+                    "keys": [
+                      "create",
+                      "delete",
+                      "get",
+                      "list",
+                      "send",
+                      "update"
+                    ],
+                    "kind": "object",
+                    "members": {
+                      "create": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "create"
+                      },
+                      "delete": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "delete"
+                      },
+                      "get": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "get"
+                      },
+                      "list": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "list"
+                      },
+                      "send": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "send"
+                      },
+                      "update": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "update"
+                      }
+                    }
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
+              },
+              "emailEventType": {
+                "keys": [
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  }
+                }
+              },
+              "emailTemplate": {
+                "keys": [
+                  "create",
+                  "delete",
+                  "get",
+                  "list",
+                  "send",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "delete": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "delete"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "send": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "send"
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
+              },
+              "getUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getUser"
+              },
+              "hasPermission": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "hasPermission"
+              },
+              "impersonateUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "impersonateUser"
+              },
+              "listUsers": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listUsers"
+              },
+              "removeUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "removeUser"
+              },
+              "requirePermission": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "requirePermission"
+              },
+              "revokeUserSessions": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "adminUserSessionRevokeBinding"
+              },
+              "role": {
+                "keys": [
+                  "set"
+                ],
+                "kind": "object",
+                "members": {
+                  "set": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "set"
+                  }
+                }
+              },
+              "setRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "setRole"
+              },
+              "stopImpersonating": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "stopImpersonating"
+              },
+              "unbanUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "unbanUser"
+              },
+              "updateUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "updateUser"
+              },
+              "user": {
+                "keys": [
+                  "ban",
+                  "create",
+                  "get",
+                  "impersonate",
+                  "list",
+                  "remove",
+                  "session",
+                  "setPassword",
+                  "stopImpersonating",
+                  "unban",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "ban": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "ban"
+                  },
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "impersonate": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "impersonate"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "remove": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "remove"
+                  },
+                  "session": {
+                    "keys": [
+                      "list",
+                      "revoke"
+                    ],
+                    "kind": "object",
+                    "members": {
+                      "list": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "list"
+                      },
+                      "revoke": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "adminUserSessionRevokeBinding"
+                      }
+                    }
+                  },
+                  "setPassword": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "setPassword"
+                  },
+                  "stopImpersonating": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "stopImpersonating"
+                  },
+                  "unban": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "unban"
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
+              }
+            }
+          },
+          "apiKey": {
+            "keys": [
+              "create",
+              "delete",
+              "deleteAllExpired",
+              "get",
+              "list",
+              "update",
+              "verify"
+            ],
+            "kind": "object",
+            "members": {
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "delete": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "delete"
+              },
+              "deleteAllExpired": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "deleteAllExpired"
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              },
+              "verify": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verify"
+              }
+            }
+          },
+          "authorization": {
+            "keys": [
+              "cloneRole",
+              "createRole",
+              "deleteRole",
+              "getRole",
+              "getSnapshot",
+              "listAudit",
+              "listMemberAssignments",
+              "listRights",
+              "listRoles",
+              "listUserAssignments",
+              "replaceMemberRoleAssignments",
+              "replaceRoleRights",
+              "replaceUserRoleAssignments",
+              "updateRole"
+            ],
+            "kind": "object",
+            "members": {
+              "cloneRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "cloneRole"
+              },
+              "createRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "createRole"
+              },
+              "deleteRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "deleteRole"
+              },
+              "getRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getRole"
+              },
+              "getSnapshot": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getSnapshot"
+              },
+              "listAudit": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listAudit"
+              },
+              "listMemberAssignments": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listMemberAssignments"
+              },
+              "listRights": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listRights"
+              },
+              "listRoles": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listRoles"
+              },
+              "listUserAssignments": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listUserAssignments"
+              },
+              "replaceMemberRoleAssignments": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "replaceMemberRoleAssignments"
+              },
+              "replaceRoleRights": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "replaceRoleRights"
+              },
+              "replaceUserRoleAssignments": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "replaceUserRoleAssignments"
+              },
+              "updateRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "updateRole"
+              }
+            }
+          },
+          "callback": {
+            "keys": [
+              "provider"
+            ],
+            "kind": "object",
+            "members": {
+              "provider": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "callbackProvider"
+              }
+            }
+          },
+          "capabilities": {
+            "keys": [
+              "get",
+              "getSnapshot",
+              "markUnknown",
+              "merge",
+              "set",
+              "subscribe"
+            ],
+            "kind": "object",
+            "members": {
+              "get": {
+                "arity": 0,
+                "kind": "fn",
+                "name": "get"
+              },
+              "getSnapshot": {
+                "arity": 0,
+                "kind": "fn",
+                "name": "get"
+              },
+              "markUnknown": {
+                "arity": 1,
+                "kind": "fn",
+                "name": "markUnknown"
+              },
+              "merge": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "merge"
+              },
+              "set": {
+                "arity": 1,
+                "kind": "fn",
+                "name": "set"
+              },
+              "subscribe": {
+                "arity": 1,
+                "kind": "fn",
+                "name": "subscribe"
+              }
+            }
+          },
+          "changeEmail": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "changeEmail"
+          },
+          "changeEmailVerify": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "changeEmailVerify"
+          },
+          "changePassword": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "changePassword"
+          },
+          "deleteUser": {
+            "keys": [
+              "callback"
+            ],
+            "kind": "object",
+            "members": {
+              "callback": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "deleteUserCallback"
+              }
+            }
+          },
+          "deleteUserVerify": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deleteUserVerify"
+          },
+          "email": {
+            "keys": [
+              "change"
+            ],
+            "kind": "object",
+            "members": {
+              "change": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "changeEmail"
+              }
+            }
+          },
+          "error": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "error"
+          },
+          "forgetPassword": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "forgetPassword"
+          },
+          "getAccessToken": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getAccessToken"
+          },
+          "getSession": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getSession"
+          },
+          "getToken": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getToken"
+          },
+          "getUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getUser"
+          },
+          "health": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "health"
+          },
+          "linkSocial": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "link"
+          },
+          "listAccounts": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "list"
+          },
+          "listSessions": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listSessions"
+          },
+          "ok": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "ok"
+          },
+          "organization": {
+            "keys": [
+              "checkSlug",
+              "create",
+              "delete",
+              "getFull",
+              "hasPermission",
+              "invitation",
+              "leave",
+              "list",
+              "listUserInvitations",
+              "member",
+              "requirePermission",
+              "setActive",
+              "update"
+            ],
+            "kind": "object",
+            "members": {
+              "checkSlug": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "checkSlug"
+              },
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "delete": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "delete"
+              },
+              "getFull": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getFull"
+              },
+              "hasPermission": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "hasPermission"
+              },
+              "invitation": {
+                "keys": [
+                  "accept",
+                  "cancel",
+                  "get",
+                  "list",
+                  "reject"
+                ],
+                "kind": "object",
+                "members": {
+                  "accept": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "accept"
+                  },
+                  "cancel": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "cancel"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "reject": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "reject"
+                  }
+                }
+              },
+              "leave": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "leave"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "listUserInvitations": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listUserInvitations"
+              },
+              "member": {
+                "keys": [
+                  "getActive",
+                  "invite",
+                  "list",
+                  "remove",
+                  "updateRole"
+                ],
+                "kind": "object",
+                "members": {
+                  "getActive": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "getActive"
+                  },
+                  "invite": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "invite"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "remove": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "remove"
+                  },
+                  "updateRole": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "updateRole"
+                  }
+                }
+              },
+              "requirePermission": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "requirePermission"
+              },
+              "setActive": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "setActive"
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              }
+            }
+          },
+          "passkey": {
+            "keys": [
+              "delete",
+              "generateAuthenticateOptions",
+              "generateRegisterOptions",
+              "getRelatedOrigins",
+              "listUser",
+              "register",
+              "signIn",
+              "update",
+              "verifyAuthentication",
+              "verifyRegistration"
+            ],
+            "kind": "object",
+            "members": {
+              "delete": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "deletePasskey"
+              },
+              "generateAuthenticateOptions": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "generateAuthenticateOptions"
+              },
+              "generateRegisterOptions": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "generateRegisterOptions"
+              },
+              "getRelatedOrigins": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getRelatedOrigins"
+              },
+              "listUser": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listUser"
+              },
+              "register": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "register"
+              },
+              "signIn": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "signIn"
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              },
+              "verifyAuthentication": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verifyAuthentication"
+              },
+              "verifyRegistration": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verifyRegistration"
+              }
+            }
+          },
+          "refreshToken": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "refreshToken"
+          },
+          "requireSession": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "requireSession"
+          },
+          "resetPassword": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "resetPasswordPost"
+          },
+          "revokeOtherSessions": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "revokeOtherSessions"
+          },
+          "revokeSession": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "sessionRevokeBinding"
+          },
+          "sendVerificationEmail": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "sendVerificationEmail"
+          },
+          "session": {
+            "keys": [
+              "get",
+              "getSnapshot",
+              "hydrate",
+              "invalidate",
+              "list",
+              "refresh",
+              "revoke",
+              "revokeOther",
+              "setSession",
+              "subscribe"
+            ],
+            "kind": "object",
+            "members": {
+              "get": {
+                "arity": 0,
+                "kind": "fn",
+                "name": "get"
+              },
+              "getSnapshot": {
+                "arity": 0,
+                "kind": "fn",
+                "name": "getSnapshot"
+              },
+              "hydrate": {
+                "arity": 1,
+                "kind": "fn",
+                "name": "hydrate"
+              },
+              "invalidate": {
+                "arity": 1,
+                "kind": "fn",
+                "name": "invalidate"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "listSessions"
+              },
+              "refresh": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "refreshSessionStore"
+              },
+              "revoke": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "sessionRevokeBinding"
+              },
+              "revokeOther": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "revokeOtherSessions"
+              },
+              "setSession": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "setSession"
+              },
+              "subscribe": {
+                "arity": 1,
+                "kind": "fn",
+                "name": "subscribe"
+              }
+            }
+          },
+          "setPassword": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "setPassword"
+          },
+          "signIn": {
+            "keys": [
+              "email",
+              "social",
+              "username"
+            ],
+            "kind": "object",
+            "members": {
+              "email": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "signInEmail"
+              },
+              "social": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "signIn"
+              },
+              "username": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "signInUsername"
+              }
+            }
+          },
+          "signOut": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signOut"
+          },
+          "signUp": {
+            "keys": [
+              "email"
+            ],
+            "kind": "object",
+            "members": {
+              "email": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "signUpEmail"
+              }
+            }
+          },
+          "social": {
+            "keys": [
+              "link",
+              "signIn"
+            ],
+            "kind": "object",
+            "members": {
+              "link": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "link"
+              },
+              "signIn": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "signIn"
+              }
+            }
+          },
+          "tokenProvider": {
+            "arity": 1,
+            "kind": "fn",
+            "name": "tokenProvider"
+          },
+          "twoFactor": {
+            "keys": [
+              "disable",
+              "enable",
+              "generateBackupCodes",
+              "getTotpUri",
+              "sendOtp",
+              "verifyBackupCode",
+              "verifyOtp",
+              "verifyTotp"
+            ],
+            "kind": "object",
+            "members": {
+              "disable": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "disable"
+              },
+              "enable": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "enable"
+              },
+              "generateBackupCodes": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "generateBackupCodes"
+              },
+              "getTotpUri": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getTotpUri"
+              },
+              "sendOtp": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "sendOtp"
+              },
+              "verifyBackupCode": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verifyBackupCode"
+              },
+              "verifyOtp": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verifyOtp"
+              },
+              "verifyTotp": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verifyTotp"
+              }
+            }
+          },
+          "unlinkAccount": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "unlink"
+          },
+          "updateUser": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "updateUser"
+          },
+          "user": {
+            "keys": [
+              "delete",
+              "email",
+              "update"
+            ],
+            "kind": "object",
+            "members": {
+              "delete": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "deleteUser"
+              },
+              "email": {
+                "keys": [
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "listUserEmails"
+                  }
+                }
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "updateUser"
+              }
+            }
+          },
+          "verificationEmail": {
+            "keys": [
+              "send",
+              "verify"
+            ],
+            "kind": "object",
+            "members": {
+              "send": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "sendVerificationEmail"
+              },
+              "verify": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "verifyEmail"
+              }
+            }
+          },
+          "verifyEmail": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "verifyEmail"
+          }
+        }
+      },
+      "authorization": {
+        "keys": [
+          "cloneRole",
+          "createRole",
+          "deleteRole",
+          "getRole",
+          "getSnapshot",
+          "listAudit",
+          "listMemberAssignments",
+          "listRights",
+          "listRoles",
+          "listUserAssignments",
+          "replaceMemberRoleAssignments",
+          "replaceRoleRights",
+          "replaceUserRoleAssignments",
+          "updateRole"
+        ],
+        "kind": "object",
+        "members": {
+          "cloneRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "cloneRole"
+          },
+          "createRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "createRole"
+          },
+          "deleteRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "deleteRole"
+          },
+          "getRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getRole"
+          },
+          "getSnapshot": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getSnapshot"
+          },
+          "listAudit": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listAudit"
+          },
+          "listMemberAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listMemberAssignments"
+          },
+          "listRights": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listRights"
+          },
+          "listRoles": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listRoles"
+          },
+          "listUserAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listUserAssignments"
+          },
+          "replaceMemberRoleAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "replaceMemberRoleAssignments"
+          },
+          "replaceRoleRights": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "replaceRoleRights"
+          },
+          "replaceUserRoleAssignments": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "replaceUserRoleAssignments"
+          },
+          "updateRole": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "updateRole"
+          }
+        }
+      },
+      "baseUrl": {
+        "kind": "string"
+      },
+      "changeEmail": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "changeEmail"
+      },
+      "changePassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "changePassword"
+      },
+      "clearOtherSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "revokeOtherSessions"
+      },
+      "clearSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "revokeSession"
+      },
+      "clearSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "revokeSessions"
+      },
+      "deleteUser": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "deleteUser"
+      },
+      "deleteUserCallback": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "deleteUserCallback"
+      },
+      "forgetPassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "forgetPassword"
+      },
+      "getAccessToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getAccessToken"
+      },
+      "getSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getSession"
+      },
+      "getToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getToken"
+      },
+      "getUser": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "getUser"
+      },
+      "linkSocial": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "link"
+      },
+      "listAccounts": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "list"
+      },
+      "listSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "listSessions"
+      },
+      "logout": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "signOut"
+      },
+      "organization": {
+        "keys": [
+          "checkSlug",
+          "create",
+          "delete",
+          "getFull",
+          "hasPermission",
+          "invitation",
+          "leave",
+          "list",
+          "listUserInvitations",
+          "member",
+          "requirePermission",
+          "setActive",
+          "update"
+        ],
+        "kind": "object",
+        "members": {
+          "checkSlug": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "checkSlug"
+          },
+          "create": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "create"
+          },
+          "delete": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "delete"
+          },
+          "getFull": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getFull"
+          },
+          "hasPermission": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "hasPermission"
+          },
+          "invitation": {
+            "keys": [
+              "accept",
+              "cancel",
+              "get",
+              "list",
+              "reject"
+            ],
+            "kind": "object",
+            "members": {
+              "accept": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "accept"
+              },
+              "cancel": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "cancel"
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "reject": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "reject"
+              }
+            }
+          },
+          "leave": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "leave"
+          },
+          "list": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "list"
+          },
+          "listUserInvitations": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "listUserInvitations"
+          },
+          "member": {
+            "keys": [
+              "getActive",
+              "invite",
+              "list",
+              "remove",
+              "updateRole"
+            ],
+            "kind": "object",
+            "members": {
+              "getActive": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getActive"
+              },
+              "invite": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "invite"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "remove": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "remove"
+              },
+              "updateRole": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "updateRole"
+              }
+            }
+          },
+          "requirePermission": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "requirePermission"
+          },
+          "setActive": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "setActive"
+          },
+          "update": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "update"
+          }
+        }
+      },
+      "refreshToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "refreshToken"
+      },
+      "request": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "request"
+      },
+      "requireSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "requireSession"
+      },
+      "resetPassword": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "resetPasswordPost"
+      },
+      "resolveResetPasswordToken": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "resolveResetPasswordToken"
+      },
+      "revokeOtherSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "revokeOtherSessions"
+      },
+      "revokeSession": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "sessionRevokeBinding"
+      },
+      "revokeSessions": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "revokeSessions"
+      },
+      "sendVerificationEmail": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "sendVerificationEmail"
+      },
+      "signIn": {
+        "keys": [
+          "email",
+          "social",
+          "username"
+        ],
+        "kind": "object",
+        "members": {
+          "email": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signInEmail"
+          },
+          "social": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signIn"
+          },
+          "username": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signInUsername"
+          }
+        }
+      },
+      "signOut": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "signOut"
+      },
+      "signUp": {
+        "keys": [
+          "email"
+        ],
+        "kind": "object",
+        "members": {
+          "email": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "signUpEmail"
+          }
+        }
+      },
+      "tokenProvider": {
+        "arity": 1,
+        "kind": "fn",
+        "name": "tokenProvider"
+      },
+      "unlinkAccount": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "unlink"
+      },
+      "updateUser": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "updateUser"
+      },
+      "verifyEmail": {
+        "arity": 2,
+        "kind": "fn",
+        "name": "verifyEmail"
+      }
+    }
+  },
+  "declarationExports": [
+    "ATHENA_AUTHORIZATION_SNAPSHOT_INVALID",
+    "ATHENA_AUTH_ADMIN_LIMITS",
+    "ATHENA_AUTH_BASE_ERROR_CODES",
+    "ATHENA_AUTH_DOMAIN_EVENTS",
+    "ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT",
+    "ATHENA_AUTH_IMPLEMENTED_DOMAIN_EVENTS",
+    "ATHENA_AUTH_MAX_ADMIN_JSON_BYTES",
+    "ATHENA_AUTH_MAX_ADMIN_JSON_DEPTH",
+    "ATHENA_AUTH_MAX_TEMPLATE_VARIABLES",
+    "ATHENA_AUTH_MAX_TEMPLATE_VARIABLE_LENGTH",
+    "ATHENA_AUTH_RESERVED_DOMAIN_EVENTS",
+    "AUTH_EMAIL_EVENT_CATALOG",
+    "AthenaAdminEmailCreateRequest",
+    "AthenaAdminEmailDeleteRequest",
+    "AthenaAdminEmailEventTypeListResponse",
+    "AthenaAdminEmailEventTypeRecord",
+    "AthenaAdminEmailFailureCreateRequest",
+    "AthenaAdminEmailFailureDeleteRequest",
+    "AthenaAdminEmailFailureGetQuery",
+    "AthenaAdminEmailFailureGetResponse",
+    "AthenaAdminEmailFailureListQuery",
+    "AthenaAdminEmailFailureListResponse",
+    "AthenaAdminEmailFailureUpdateRequest",
+    "AthenaAdminEmailFailureUpdateResponse",
+    "AthenaAdminEmailGetQuery",
+    "AthenaAdminEmailGetResponse",
+    "AthenaAdminEmailListQuery",
+    "AthenaAdminEmailListResponse",
+    "AthenaAdminEmailTemplateCreateRequest",
+    "AthenaAdminEmailTemplateDeleteRequest",
+    "AthenaAdminEmailTemplateGetQuery",
+    "AthenaAdminEmailTemplateGetResponse",
+    "AthenaAdminEmailTemplateListQuery",
+    "AthenaAdminEmailTemplateListResponse",
+    "AthenaAdminEmailTemplateRecord",
+    "AthenaAdminEmailTemplateSendRequest",
+    "AthenaAdminEmailTemplateSendResponse",
+    "AthenaAdminEmailTemplateUpdateRequest",
+    "AthenaAdminEmailUpdateRequest",
+    "AthenaAdminEmailUpdateResponse",
+    "AthenaAdminListUsersFilterOperator",
+    "AthenaAdminListUsersQuery",
+    "AthenaAdminListUsersSearchOperator",
+    "AthenaApiKeyRecord",
+    "AthenaAuthAdminLimits",
+    "AthenaAuthAdminUserSessionRevokeBinding",
+    "AthenaAuthAfterHookPayload",
+    "AthenaAuthBaseURLConfig",
+    "AthenaAuthBeforeHookPayload",
+    "AthenaAuthBindings",
+    "AthenaAuthCallOptions",
+    "AthenaAuthCapabilitiesFeatures",
+    "AthenaAuthCapabilitiesResult",
+    "AthenaAuthCapabilitiesSource",
+    "AthenaAuthCapabilitiesStatus",
+    "AthenaAuthCapabilitiesStore",
+    "AthenaAuthClientConfig",
+    "AthenaAuthCloneRoleRequest",
+    "AthenaAuthConfigurationError",
+    "AthenaAuthContext",
+    "AthenaAuthCookieRuntimeInput",
+    "AthenaAuthCreateRoleRequest",
+    "AthenaAuthCredentials",
+    "AthenaAuthDatabaseFactory",
+    "AthenaAuthDeleteRoleRequest",
+    "AthenaAuthDomainEvent",
+    "AthenaAuthEmailChangeResponse",
+    "AthenaAuthEmailTemplateAttachment",
+    "AthenaAuthEmailTemplateBuilder",
+    "AthenaAuthEmailTemplateCreateFromDefinitionInput",
+    "AthenaAuthEmailTemplateDefinition",
+    "AthenaAuthEmailTemplateReactOverrides",
+    "AthenaAuthEmailTemplateUpdateFromDefinitionInput",
+    "AthenaAuthEmailTemplateVariableBinding",
+    "AthenaAuthEndpointPath",
+    "AthenaAuthErrorCode",
+    "AthenaAuthErrorDetails",
+    "AthenaAuthFilterOperator",
+    "AthenaAuthGenericInput",
+    "AthenaAuthGenericQueryInput",
+    "AthenaAuthGetRoleRequest",
+    "AthenaAuthGetTokenInput",
+    "AthenaAuthGetTokenRequest",
+    "AthenaAuthGetUserResponse",
+    "AthenaAuthGuardFailure",
+    "AthenaAuthGuardReason",
+    "AthenaAuthGuardResult",
+    "AthenaAuthGuardSuccess",
+    "AthenaAuthHandlerResult",
+    "AthenaAuthHookActor",
+    "AthenaAuthHookContext",
+    "AthenaAuthHookErrorInput",
+    "AthenaAuthHooks",
+    "AthenaAuthHttpHandlers",
+    "AthenaAuthImplementedDomainEvent",
+    "AthenaAuthLinkedAccount",
+    "AthenaAuthMethod",
+    "AthenaAuthOperationError",
+    "AthenaAuthOrganization",
+    "AthenaAuthOrganizationBindings",
+    "AthenaAuthOrganizationInvitation",
+    "AthenaAuthOrganizationMember",
+    "AthenaAuthPasskeyCapabilityDetail",
+    "AthenaAuthPlugin",
+    "AthenaAuthPluginContext",
+    "AthenaAuthPluginHandlerContext",
+    "AthenaAuthProtocolError",
+    "AthenaAuthQueryPrimitive",
+    "AthenaAuthQueryValue",
+    "AthenaAuthReactEmailComponent",
+    "AthenaAuthReactEmailConfig",
+    "AthenaAuthReactEmailEventPhase",
+    "AthenaAuthReactEmailProps",
+    "AthenaAuthReactEmailRenderEvent",
+    "AthenaAuthReactEmailRenderInput",
+    "AthenaAuthReactEmailRenderOptions",
+    "AthenaAuthReplaceRoleRightsRequest",
+    "AthenaAuthRequestContext",
+    "AthenaAuthRequestInput",
+    "AthenaAuthReservedDomainEvent",
+    "AthenaAuthResetPasswordBinding",
+    "AthenaAuthResult",
+    "AthenaAuthRevokeSessionRequest",
+    "AthenaAuthSearchOperator",
+    "AthenaAuthServer",
+    "AthenaAuthServerApi",
+    "AthenaAuthServerBindings",
+    "AthenaAuthServerConfig",
+    "AthenaAuthServerRuntimeOptions",
+    "AthenaAuthSession",
+    "AthenaAuthSessionController",
+    "AthenaAuthSessionListener",
+    "AthenaAuthSessionResponse",
+    "AthenaAuthSessionRevokeBinding",
+    "AthenaAuthSessionSnapshot",
+    "AthenaAuthSessionStatus",
+    "AthenaAuthSessionStore",
+    "AthenaAuthSignInResponse",
+    "AthenaAuthSignOutResponse",
+    "AthenaAuthSocialProviderConfig",
+    "AthenaAuthSocialProviderExtensions",
+    "AthenaAuthSocialRedirectResponse",
+    "AthenaAuthStatusResponse",
+    "AthenaAuthToken",
+    "AthenaAuthTokenProvider",
+    "AthenaAuthTokenProviderOptions",
+    "AthenaAuthTrustedOrigins",
+    "AthenaAuthTrustedProviders",
+    "AthenaAuthUpdateRoleRequest",
+    "AthenaAuthUpstreamError",
+    "AthenaAuthUser",
+    "AthenaAuthorizationAssignmentConflictError",
+    "AthenaAuthorizationRightDefinition",
+    "AthenaAuthorizationRoleDetail",
+    "AthenaChangeEmailRequest",
+    "AthenaChangePasswordRequest",
+    "AthenaDeleteUserCallbackRequest",
+    "AthenaDeleteUserRequest",
+    "AthenaDeleteUserResponse",
+    "AthenaEmailSignInRequest",
+    "AthenaEmailSignUpRequest",
+    "AthenaForgetPasswordRequest",
+    "AthenaInitialAuthState",
+    "AthenaLinkSocialRequest",
+    "AthenaOAuthAccountTokenRequest",
+    "AthenaOAuthTokenBundle",
+    "AthenaPasskeyRecord",
+    "AthenaResetPasswordRequest",
+    "AthenaSendVerificationEmailRequest",
+    "AthenaSessionData",
+    "AthenaSessionError",
+    "AthenaSessionErrorCode",
+    "AthenaSessionErrorContext",
+    "AthenaSessionOrganizationError",
+    "AthenaSocialSignInRequest",
+    "AthenaUnauthenticatedError",
+    "AthenaUnlinkAccountRequest",
+    "AthenaUpdateUserRequest",
+    "AthenaUsernameSignInRequest",
+    "AthenaVerifyEmailRequest",
+    "AuthBindings",
+    "AuthOAuthProvider",
+    "AuthSocialProvider",
+    "AuthSocialProviderBuiltin",
+    "AuthorizationCapabilities",
+    "AuthorizationSnapshot",
+    "AuthorizationSnapshotInvalidError",
+    "BetterAuthCompatibilityAdapter",
+    "DerivedSessionView",
+    "RoleDescriptor",
+    "SESSION_INVARIANTS",
+    "SessionInvariantId",
+    "ToAthenaSessionErrorKind",
+    "ToSessionDataOptions",
+    "athenaAuth",
+    "authEmailEvents",
+    "authorizationAffordancesFromRights",
+    "capabilitiesFromRights",
+    "createAthenaAuthCapabilitiesStore",
+    "createAthenaAuthSessionController",
+    "createAthenaAuthSessionStore",
+    "createAthenaAuthTokenProvider",
+    "createAuthReactEmailInput",
+    "createBetterAuthCompatibilityAdapter",
+    "createEmbeddedCapabilitySnapshot",
+    "decodeJwtExpSeconds",
+    "defineAthenaAuthConfig",
+    "defineAthenaAuthHooks",
+    "defineAuthEmailTemplate",
+    "deriveSessionView",
+    "flattenAuthEmailEvents",
+    "isAbortError",
+    "isAuthorizationAssignmentConflict",
+    "isCapabilityEnabled",
+    "isPasskeyOnboardingEnabled",
+    "isSocialCapabilityEnabled",
+    "normalizeTokenAudiences",
+    "parseAuthorizationSnapshot",
+    "renderAthenaReactEmail",
+    "renderAuthEmailFragment",
+    "requireAthenaAuthResult",
+    "resolveSocialProvidersForUi",
+    "sessionInvariantMessage",
+    "toAthenaSessionError",
+    "toSessionData",
+    "tokenNeedsRefresh"
+  ]
+}

@@ -1,13 +1,13 @@
+import { strict as assert } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 const fixtureRoot = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
-  "next-local-runtime",
+  "next-local-runtime"
 );
 
 function readFixture(relativePath: string): string {

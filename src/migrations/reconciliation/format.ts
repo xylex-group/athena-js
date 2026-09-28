@@ -17,6 +17,11 @@ export function formatVersionReconciliation(
     ledger
       ? `  ${ledger.name}\n  checksum ${ledger.checksum.slice(0, 12)}...`
       : "  (missing)",
+    repo && ledger
+      ? diagnosis.evidence.executionMatchesLedger
+        ? "  execution provenance matches repository"
+        : "  execution provenance does not match repository"
+      : "  execution provenance unavailable",
     "",
     "Physical schema:",
     diagnosis.evidence.physicalMatchesRepository
@@ -30,6 +35,11 @@ export function formatVersionReconciliation(
     diagnosis.archive
       ? `  archived checksum ${diagnosis.archive.checksum.slice(0, 12)}...`
       : "  migration source archive unavailable",
+    diagnosis.archive && ledger
+      ? diagnosis.evidence.archiveExecutionMatchesLedger
+        ? "  archived execution provenance matches ledger"
+        : "  archived execution provenance does not match ledger"
+      : "  archived execution provenance unavailable",
     diagnosis.evidence.laterDependenciesSatisfied
       ? "  later migration dependencies are satisfied"
       : "  later migration dependencies are not satisfied",
@@ -43,23 +53,23 @@ export function formatVersionReconciliation(
     "Recommended repair:",
     `  ${formatAction(diagnosis)}`,
     "",
-    diagnosis.confidence === "AMBIGUOUS"
-      ? "Automatic repair is unsafe.\n"
-      : "",
+    diagnosis.confidence === "AMBIGUOUS" ? "Automatic repair is unsafe.\n" : "",
     "Migration SQL will NOT be executed.",
   ].filter((line) => line !== "");
   return lines.join("\n");
 }
 
-export function serializeReconciliationReport(report: ReconciliationReport): string {
+export function serializeReconciliationReport(
+  report: ReconciliationReport
+): string {
   return JSON.stringify(report, null, 2);
 }
 
 function formatAction(diagnosis: VersionReconciliation): string {
   const action = diagnosis.action;
   switch (action.kind) {
-    case "repair-ledger":
-      return `Update ledger checksum for version ${action.version}:\n    ${action.fromChecksum.slice(0, 12)}... → ${action.toChecksum.slice(0, 12)}...`;
+    case "record-ledger-drift":
+      return `Record ledger drift for version ${action.version}; historical receipt remains immutable.\n    ${action.fromChecksum.slice(0, 12)}... → ${action.toChecksum.slice(0, 12)}...`;
     case "restore-local-source":
       return `Restore local source for version ${action.version} from ${action.source}.`;
     case "create-forward-repair":
@@ -78,7 +88,9 @@ export function formatReconciliationReport(
     .filter((item) => item.classification !== "CONSISTENT")
     .map((item) => formatVersionReconciliation(item))
     .join(`\n\n${"─".repeat(40)}\n\n`);
-  return ["Athena migration reconciliation", "", body || "No divergences detected."].join(
-    "\n"
-  );
+  return [
+    "Athena migration reconciliation",
+    "",
+    body || "No divergences detected.",
+  ].join("\n");
 }

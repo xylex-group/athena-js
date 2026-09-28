@@ -7,6 +7,8 @@
  * and keeps the raw payload under `raw` for provider-specific fields.
  *
  * @param data - Parsed token response object
+ *
+ * @returns OAuth 2.0 tokens
  */
 export function getOAuth2Tokens(data: object): OAuth2Tokens {
   const getDate = (seconds: number) => {
@@ -52,6 +54,10 @@ export function getOAuth2Tokens(data: object): OAuth2Tokens {
 
 /**
  * Fill in `accessTokenExpiresAt` when the token response omitted `expires_in`.
+ *
+ * @param tokens - OAuth 2.0 tokens
+ * @param accessTokenExpiresIn - OAuth 2.0 access token expires in
+ * @returns OAuth 2.0 tokens
  */
 export function applyDefaultAccessTokenExpiry(
   tokens: OAuth2Tokens,

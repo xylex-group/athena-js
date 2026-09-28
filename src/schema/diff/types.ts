@@ -6,110 +6,116 @@
  * Diff compares IR (v1 snapshots are lifted at the boundary).
  */
 
+import type { SchemaColumnGenerationStrategy } from "../ir/column.ts";
 import type { AthenaSchemaIr } from "../ir/document.ts";
+import type { PostgresIntervalQualifier } from "../ir/type.ts";
+
+export type { SchemaColumnGenerationStrategy } from "../ir/column.ts";
 
 /** Snapshot IR version. Bump only on breaking shape changes. */
 export const ATHENA_SCHEMA_SNAPSHOT_VERSION = 1 as const;
 
 /** Schema-qualified table identity (never table-name alone). */
 export interface SchemaTableIdentity {
-	readonly schema: string;
-	readonly name: string;
-	/** Database axis when the IR is multi-database. */
-	readonly database?: string;
+  /** Database axis when the IR is multi-database. */
+  readonly database?: string;
+  readonly name: string;
+  readonly schema: string;
 }
 
 /** Canonical column type after normalization. */
 export interface SchemaColumnType {
-	/**
-	 * Normalized base type name (e.g. `integer`, `bigint`, `text`, `varchar`).
-	 * Postgres aliases are folded in {@link normalizeSchemaSnapshot}.
-	 */
-	readonly name: string;
-	/** Character length for `varchar`/`char` when known. */
-	readonly length?: number | null;
-	/** Numeric precision when known. */
-	readonly precision?: number | null;
-	/** Numeric scale when known. */
-	readonly scale?: number | null;
-	/** Array dimensions (`0` = scalar). */
-	readonly arrayDimensions: number;
-	/** Enum labels when type is a managed enum. */
-	readonly enumValues?: readonly string[] | null;
+  /** Array dimensions (`0` = scalar). */
+  readonly arrayDimensions: number;
+  /** Enum labels when type is a managed enum. */
+  readonly enumValues?: readonly string[] | null;
+  /** PostgreSQL interval field qualifier when the native type is qualified. */
+  readonly intervalQualifier?: PostgresIntervalQualifier;
+  /** Character length for `varchar`/`char` when known. */
+  readonly length?: number | null;
+  /**
+   * Normalized base type name (e.g. `integer`, `bigint`, `text`, `varchar`).
+   * Postgres aliases are folded in {@link normalizeSchemaSnapshot}.
+   */
+  readonly name: string;
+  /** Numeric precision when known. */
+  readonly precision?: number | null;
+  /** Numeric scale when known. */
+  readonly scale?: number | null;
 }
 
 /** Canonical column definition. */
 export interface SchemaColumn {
-	readonly name: string;
-	readonly type: SchemaColumnType;
-	readonly nullable: boolean;
-	/**
-	 * Normalized default expression, or `null` when absent.
-	 * Prefer `null` over `undefined` for stable serialization.
-	 */
-	readonly default: string | null;
-	readonly isGenerated: boolean;
+  /**
+   * Normalized default expression, or `null` when absent.
+   * Prefer `null` over `undefined` for stable serialization.
+   */
+  readonly default: string | null;
+  readonly isGenerated: boolean;
+  readonly name: string;
+  readonly nullable: boolean;
+  readonly type: SchemaColumnType;
 }
 
 export interface SchemaPrimaryKey {
-	/** Physical name when known; structural identity is `columns` order. */
-	readonly name?: string | null;
-	readonly columns: readonly string[];
+  readonly columns: readonly string[];
+  /** Physical name when known; structural identity is `columns` order. */
+  readonly name?: string | null;
 }
 
 export interface SchemaUniqueConstraint {
-	readonly name?: string | null;
-	readonly columns: readonly string[];
+  readonly columns: readonly string[];
+  readonly name?: string | null;
 }
 
 export type SchemaReferentialAction =
-	| "no_action"
-	| "restrict"
-	| "cascade"
-	| "set_null"
-	| "set_default";
+  | "no_action"
+  | "restrict"
+  | "cascade"
+  | "set_null"
+  | "set_default";
 
 export interface SchemaForeignKey {
-	readonly name?: string | null;
-	readonly columns: readonly string[];
-	readonly target: SchemaTableIdentity;
-	readonly targetColumns: readonly string[];
-	readonly onDelete: SchemaReferentialAction;
-	readonly onUpdate: SchemaReferentialAction;
+  readonly columns: readonly string[];
+  readonly name?: string | null;
+  readonly onDelete: SchemaReferentialAction;
+  readonly onUpdate: SchemaReferentialAction;
+  readonly target: SchemaTableIdentity;
+  readonly targetColumns: readonly string[];
 }
 
 export interface SchemaIndexColumn {
-	readonly name: string;
-	/** `asc` | `desc`; default treated as `asc` after normalize. */
-	readonly direction?: "asc" | "desc" | null;
+  /** `asc` | `desc`; default treated as `asc` after normalize. */
+  readonly direction?: "asc" | "desc" | null;
+  readonly name: string;
 }
 
 export interface SchemaIndex {
-	readonly name?: string | null;
-	readonly columns: readonly SchemaIndexColumn[];
-	readonly unique: boolean;
-	/** Partial index predicate when modeled; otherwise null. */
-	readonly predicate?: string | null;
-	/** Index method (`btree`, …) when known. */
-	readonly method?: string | null;
+  readonly columns: readonly SchemaIndexColumn[];
+  /** Index method (`btree`, …) when known. */
+  readonly method?: string | null;
+  readonly name?: string | null;
+  /** Partial index predicate when modeled; otherwise null. */
+  readonly predicate?: string | null;
+  readonly unique: boolean;
 }
 
 export interface SchemaTable {
-	readonly schema: string;
-	readonly name: string;
-	readonly database?: string;
-	readonly columns: readonly SchemaColumn[];
-	readonly primaryKey: SchemaPrimaryKey | null;
-	readonly uniqueConstraints: readonly SchemaUniqueConstraint[];
-	readonly foreignKeys: readonly SchemaForeignKey[];
-	readonly indexes: readonly SchemaIndex[];
+  readonly columns: readonly SchemaColumn[];
+  readonly database?: string;
+  readonly foreignKeys: readonly SchemaForeignKey[];
+  readonly indexes: readonly SchemaIndex[];
+  readonly name: string;
+  readonly primaryKey: SchemaPrimaryKey | null;
+  readonly schema: string;
+  readonly uniqueConstraints: readonly SchemaUniqueConstraint[];
 }
 
 export interface SchemaNamespace {
-	readonly name: string;
-	readonly tables: readonly SchemaTable[];
-	/** Database axis when the IR is multi-database; omitted for single-db v1. */
-	readonly database?: string;
+  /** Database axis when the IR is multi-database; omitted for single-db v1. */
+  readonly database?: string;
+  readonly name: string;
+  readonly tables: readonly SchemaTable[];
 }
 
 /**
@@ -117,97 +123,98 @@ export interface SchemaNamespace {
  * Unmodeled DB objects (views, functions, triggers, extensions, RLS) are out of scope.
  */
 export interface AthenaSchemaSnapshot {
-	readonly version: typeof ATHENA_SCHEMA_SNAPSHOT_VERSION;
-	/** Optional backend hint (`postgresql`, `d1`, …). */
-	readonly backend?: string | null;
-	readonly schemas: readonly SchemaNamespace[];
+  /** Optional backend hint (`postgresql`, `d1`, …). */
+  readonly backend?: string | null;
+  readonly schemas: readonly SchemaNamespace[];
+  readonly version: typeof ATHENA_SCHEMA_SNAPSHOT_VERSION;
 }
 
 export type SchemaDiffOperationKind =
-	| "create_schema"
-	| "drop_schema"
-	| "create_table"
-	| "drop_table"
-	| "rename_table"
-	| "add_column"
-	| "drop_column"
-	| "rename_column"
-	| "alter_column"
-	| "add_primary_key"
-	| "drop_primary_key"
-	| "add_unique_constraint"
-	| "drop_unique_constraint"
-	| "add_foreign_key"
-	| "drop_foreign_key"
-	| "alter_foreign_key"
-	| "add_index"
-	| "drop_index";
+  | "create_schema"
+  | "drop_schema"
+  | "create_table"
+  | "drop_table"
+  | "rename_table"
+  | "add_column"
+  | "drop_column"
+  | "rename_column"
+  | "alter_column"
+  | "add_primary_key"
+  | "drop_primary_key"
+  | "add_unique_constraint"
+  | "drop_unique_constraint"
+  | "add_foreign_key"
+  | "drop_foreign_key"
+  | "alter_foreign_key"
+  | "add_index"
+  | "drop_index";
 
 export interface SchemaDiffBase {
-	readonly kind: SchemaDiffOperationKind;
+  readonly kind: SchemaDiffOperationKind;
 }
 
 export interface CreateSchemaOperation extends SchemaDiffBase {
-	readonly kind: "create_schema";
-	readonly schema: string;
-	/** Database axis when the IR is multi-database. */
-	readonly database?: string;
+  /** Database axis when the IR is multi-database. */
+  readonly database?: string;
+  readonly kind: "create_schema";
+  readonly schema: string;
 }
 
 export interface DropSchemaOperation extends SchemaDiffBase {
-	readonly kind: "drop_schema";
-	readonly schema: string;
-	/** Database axis when the IR is multi-database. */
-	readonly database?: string;
+  /** Database axis when the IR is multi-database. */
+  readonly database?: string;
+  readonly kind: "drop_schema";
+  readonly schema: string;
 }
 
 export interface CreateTableOperation extends SchemaDiffBase {
-	readonly kind: "create_table";
-	readonly table: SchemaTable;
+  readonly kind: "create_table";
+  readonly table: SchemaTable;
 }
 
 export interface DropTableOperation extends SchemaDiffBase {
-	readonly kind: "drop_table";
-	readonly table: SchemaTableIdentity;
-	/** Full prior definition when known (for later analysis). */
-	readonly previous?: SchemaTable | null;
+  readonly kind: "drop_table";
+  /** Full prior definition when known (for later analysis). */
+  readonly previous?: SchemaTable | null;
+  readonly table: SchemaTableIdentity;
 }
 
 export interface RenameTableOperation extends SchemaDiffBase {
-	readonly kind: "rename_table";
-	readonly from: SchemaTableIdentity;
-	readonly to: SchemaTableIdentity;
+  readonly from: SchemaTableIdentity;
+  readonly kind: "rename_table";
+  readonly to: SchemaTableIdentity;
 }
 
 export interface AddColumnOperation extends SchemaDiffBase {
-	readonly kind: "add_column";
-	readonly table: SchemaTableIdentity;
-	readonly column: SchemaColumn;
+  readonly column: SchemaColumn;
+  readonly kind: "add_column";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface DropColumnOperation extends SchemaDiffBase {
-	readonly kind: "drop_column";
-	readonly table: SchemaTableIdentity;
-	readonly column: SchemaColumn;
+  readonly column: SchemaColumn;
+  readonly kind: "drop_column";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface RenameColumnOperation extends SchemaDiffBase {
-	readonly kind: "rename_column";
-	readonly table: SchemaTableIdentity;
-	readonly from: string;
-	readonly to: string;
+  readonly from: string;
+  readonly kind: "rename_column";
+  readonly table: SchemaTableIdentity;
+  readonly to: string;
 }
 
 export interface SchemaColumnChange<T> {
-	readonly from: T;
-	readonly to: T;
+  readonly from: T;
+  readonly to: T;
 }
 
 export interface SchemaColumnChanges {
-	readonly type?: SchemaColumnChange<SchemaColumnType>;
-	readonly nullable?: SchemaColumnChange<boolean>;
-	readonly default?: SchemaColumnChange<string | null>;
-	readonly isGenerated?: SchemaColumnChange<boolean>;
+  readonly default?: SchemaColumnChange<string | null>;
+  readonly generationStrategy?: SchemaColumnChange<SchemaColumnGenerationStrategy>;
+  readonly isGenerated?: SchemaColumnChange<boolean>;
+  readonly nullable?: SchemaColumnChange<boolean>;
+  readonly type?: SchemaColumnChange<SchemaColumnType>;
 }
 
 /**
@@ -215,115 +222,115 @@ export interface SchemaColumnChanges {
  * Multiple property changes on the same column stay a single operation (planning-safe).
  */
 export interface AlterColumnOperation extends SchemaDiffBase {
-	readonly kind: "alter_column";
-	readonly table: SchemaTableIdentity;
-	readonly column: string;
-	readonly before: SchemaColumn;
-	readonly after: SchemaColumn;
-	readonly changes: SchemaColumnChanges;
+  readonly after: SchemaColumn;
+  readonly before: SchemaColumn;
+  readonly changes: SchemaColumnChanges;
+  readonly column: string;
+  readonly kind: "alter_column";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface AddPrimaryKeyOperation extends SchemaDiffBase {
-	readonly kind: "add_primary_key";
-	readonly table: SchemaTableIdentity;
-	readonly primaryKey: SchemaPrimaryKey;
+  readonly kind: "add_primary_key";
+  readonly primaryKey: SchemaPrimaryKey;
+  readonly table: SchemaTableIdentity;
 }
 
 export interface DropPrimaryKeyOperation extends SchemaDiffBase {
-	readonly kind: "drop_primary_key";
-	readonly table: SchemaTableIdentity;
-	readonly primaryKey: SchemaPrimaryKey;
+  readonly kind: "drop_primary_key";
+  readonly primaryKey: SchemaPrimaryKey;
+  readonly table: SchemaTableIdentity;
 }
 
 export interface AddUniqueConstraintOperation extends SchemaDiffBase {
-	readonly kind: "add_unique_constraint";
-	readonly table: SchemaTableIdentity;
-	readonly unique: SchemaUniqueConstraint;
+  readonly kind: "add_unique_constraint";
+  readonly table: SchemaTableIdentity;
+  readonly unique: SchemaUniqueConstraint;
 }
 
 export interface DropUniqueConstraintOperation extends SchemaDiffBase {
-	readonly kind: "drop_unique_constraint";
-	readonly table: SchemaTableIdentity;
-	readonly unique: SchemaUniqueConstraint;
+  readonly kind: "drop_unique_constraint";
+  readonly table: SchemaTableIdentity;
+  readonly unique: SchemaUniqueConstraint;
 }
 
 export interface AddForeignKeyOperation extends SchemaDiffBase {
-	readonly kind: "add_foreign_key";
-	readonly table: SchemaTableIdentity;
-	readonly foreignKey: SchemaForeignKey;
+  readonly foreignKey: SchemaForeignKey;
+  readonly kind: "add_foreign_key";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface DropForeignKeyOperation extends SchemaDiffBase {
-	readonly kind: "drop_foreign_key";
-	readonly table: SchemaTableIdentity;
-	readonly foreignKey: SchemaForeignKey;
+  readonly foreignKey: SchemaForeignKey;
+  readonly kind: "drop_foreign_key";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface AlterForeignKeyOperation extends SchemaDiffBase {
-	readonly kind: "alter_foreign_key";
-	readonly table: SchemaTableIdentity;
-	readonly before: SchemaForeignKey;
-	readonly after: SchemaForeignKey;
+  readonly after: SchemaForeignKey;
+  readonly before: SchemaForeignKey;
+  readonly kind: "alter_foreign_key";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface AddIndexOperation extends SchemaDiffBase {
-	readonly kind: "add_index";
-	readonly table: SchemaTableIdentity;
-	readonly index: SchemaIndex;
+  readonly index: SchemaIndex;
+  readonly kind: "add_index";
+  readonly table: SchemaTableIdentity;
 }
 
 export interface DropIndexOperation extends SchemaDiffBase {
-	readonly kind: "drop_index";
-	readonly table: SchemaTableIdentity;
-	readonly index: SchemaIndex;
+  readonly index: SchemaIndex;
+  readonly kind: "drop_index";
+  readonly table: SchemaTableIdentity;
 }
 
 export type SchemaDiffOperation =
-	| CreateSchemaOperation
-	| DropSchemaOperation
-	| CreateTableOperation
-	| DropTableOperation
-	| RenameTableOperation
-	| AddColumnOperation
-	| DropColumnOperation
-	| RenameColumnOperation
-	| AlterColumnOperation
-	| AddPrimaryKeyOperation
-	| DropPrimaryKeyOperation
-	| AddUniqueConstraintOperation
-	| DropUniqueConstraintOperation
-	| AddForeignKeyOperation
-	| DropForeignKeyOperation
-	| AlterForeignKeyOperation
-	| AddIndexOperation
-	| DropIndexOperation;
+  | CreateSchemaOperation
+  | DropSchemaOperation
+  | CreateTableOperation
+  | DropTableOperation
+  | RenameTableOperation
+  | AddColumnOperation
+  | DropColumnOperation
+  | RenameColumnOperation
+  | AlterColumnOperation
+  | AddPrimaryKeyOperation
+  | DropPrimaryKeyOperation
+  | AddUniqueConstraintOperation
+  | DropUniqueConstraintOperation
+  | AddForeignKeyOperation
+  | DropForeignKeyOperation
+  | AlterForeignKeyOperation
+  | AddIndexOperation
+  | DropIndexOperation;
 
 export interface SchemaDiffSummary {
-	readonly schemasAdded: number;
-	readonly schemasRemoved: number;
-	readonly tablesAdded: number;
-	readonly tablesRemoved: number;
-	readonly tablesRenamed: number;
-	readonly columnsAdded: number;
-	readonly columnsRemoved: number;
-	readonly columnsRenamed: number;
-	readonly columnsChanged: number;
-	readonly primaryKeysAdded: number;
-	readonly primaryKeysRemoved: number;
-	readonly uniquesAdded: number;
-	readonly uniquesRemoved: number;
-	readonly foreignKeysAdded: number;
-	readonly foreignKeysRemoved: number;
-	readonly foreignKeysChanged: number;
-	readonly indexesAdded: number;
-	readonly indexesRemoved: number;
-	readonly totalOperations: number;
+  readonly columnsAdded: number;
+  readonly columnsChanged: number;
+  readonly columnsRemoved: number;
+  readonly columnsRenamed: number;
+  readonly foreignKeysAdded: number;
+  readonly foreignKeysChanged: number;
+  readonly foreignKeysRemoved: number;
+  readonly indexesAdded: number;
+  readonly indexesRemoved: number;
+  readonly primaryKeysAdded: number;
+  readonly primaryKeysRemoved: number;
+  readonly schemasAdded: number;
+  readonly schemasRemoved: number;
+  readonly tablesAdded: number;
+  readonly tablesRemoved: number;
+  readonly tablesRenamed: number;
+  readonly totalOperations: number;
+  readonly uniquesAdded: number;
+  readonly uniquesRemoved: number;
 }
 
 export interface SchemaDiff {
-	readonly operations: readonly SchemaDiffOperation[];
-	readonly summary: SchemaDiffSummary;
-	readonly isEmpty: boolean;
+  readonly isEmpty: boolean;
+  readonly operations: readonly SchemaDiffOperation[];
+  readonly summary: SchemaDiffSummary;
 }
 
 /**
@@ -331,13 +338,13 @@ export interface SchemaDiff {
  * `add_column` means the column exists in `to` but not in `from`.
  */
 export interface DiffSchemasInput {
-	readonly from: AthenaSchemaSnapshot | AthenaSchemaIr;
-	readonly to: AthenaSchemaSnapshot | AthenaSchemaIr;
+  readonly from: AthenaSchemaSnapshot | AthenaSchemaIr;
+  readonly to: AthenaSchemaSnapshot | AthenaSchemaIr;
 }
 
 export interface DiffSchemasOptions {
-	/**
-	 * When true (default), validate both snapshots before comparing.
-	 */
-	readonly validate?: boolean;
+  /**
+   * When true (default), validate both snapshots before comparing.
+   */
+  readonly validate?: boolean;
 }

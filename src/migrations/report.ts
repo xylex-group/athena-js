@@ -1,160 +1,162 @@
 import type {
-	AthenaAuthMigrationPlan,
-	AthenaAuthMigrationPlanEntry,
+  AthenaAuthMigrationPlan,
+  AthenaAuthMigrationPlanEntry,
 } from "../auth/local/schema.ts";
 import type {
-	MigrationDisplayStatus,
-	MigrationReportView,
-	MigrationRowView,
+  MigrationDisplayStatus,
+  MigrationReportView,
+  MigrationRowView,
 } from "../cli/ui/types.ts";
 import type { MigrationPlan, MigrationRunSummary } from "./types.ts";
 
 function authEntryStatus(
-	entry: AthenaAuthMigrationPlanEntry,
+  entry: AthenaAuthMigrationPlanEntry
 ): MigrationDisplayStatus {
-	if (entry.schemaState === "drift") {
-		return "drift";
-	}
-	if (entry.ledgerState === "checksum-mismatch") {
-		return "checksum-mismatch";
-	}
-	if (entry.ledgerState === "unknown") {
-		return "unknown";
-	}
-	if (entry.ledgerState === "absent") {
-		return "pending";
-	}
-	return "applied";
+  if (entry.schemaState === "drift") {
+    return "drift";
+  }
+  if (entry.ledgerState === "checksum-mismatch") {
+    return "checksum-mismatch";
+  }
+  if (entry.ledgerState === "unknown") {
+    return "unknown";
+  }
+  if (entry.ledgerState === "absent") {
+    return "pending";
+  }
+  return "applied";
 }
 
 function authEntryDetail(
-	entry: AthenaAuthMigrationPlanEntry,
+  entry: AthenaAuthMigrationPlanEntry
 ): string | undefined {
-	if (entry.ledgerState === "unknown") {
-		return `Database has this generation, but this CLI does not. Upgrade or rebuild @xylex-group/athena (workspace: pnpm build in packages/athena-js).`;
-	}
-	if (!entry.drift || entry.drift.length === 0) {
-		return undefined;
-	}
-	return entry.drift
-		.map(
-			(item) => `Missing ${item.kind.replace("missing-", "")}: ${item.object}`,
-		)
-		.join("\n");
+  if (entry.ledgerState === "unknown") {
+    return "Database has this generation, but this CLI does not. Upgrade or rebuild @xylex-group/athena (workspace: pnpm build in packages/athena-js).";
+  }
+  if (!entry.drift || entry.drift.length === 0) {
+    return;
+  }
+  return entry.drift
+    .map(
+      (item) => `Missing ${item.kind.replace("missing-", "")}: ${item.object}`
+    )
+    .join("\n");
 }
 
 export function applicationRowsFromPlan(
-	plan: MigrationPlan,
+  plan: MigrationPlan
 ): MigrationRowView[] {
-	const rows: MigrationRowView[] = [];
-	for (const entry of plan.applied) {
-		rows.push({ name: entry.migration.filename, status: "applied" });
-	}
-	for (const conflict of plan.conflicts) {
-		if (conflict.kind === "checksum-mismatch") {
-			rows.push({
-				name:
-					conflict.local?.filename ??
-					`${String(conflict.version).padStart(4, "0")}_*.sql`,
-				status: "checksum-mismatch",
-			});
-		} else if (conflict.kind === "name-mismatch") {
-			rows.push({
-				name: conflict.local?.filename ?? String(conflict.version),
-				status: "name-mismatch",
-			});
-		} else if (conflict.kind === "historical-insertion") {
-			rows.push({
-				name: conflict.local?.filename ?? String(conflict.version),
-				status: "historical-insertion",
-			});
-		} else {
-			rows.push({
-				name: conflict.applied
-					? `${String(conflict.version).padStart(4, "0")}_${conflict.applied.name}`
-					: String(conflict.version),
-				status: "missing-local",
-			});
-		}
-	}
-	for (const entry of plan.pending) {
-		rows.push({ name: entry.migration.filename, status: "pending" });
-	}
-	return rows;
+  const rows: MigrationRowView[] = [];
+  for (const entry of plan.applied) {
+    rows.push({ name: entry.migration.filename, status: "applied" });
+  }
+  for (const conflict of plan.conflicts) {
+    if (conflict.kind === "checksum-mismatch") {
+      rows.push({
+        name:
+          conflict.local?.filename ??
+          `${String(conflict.version).padStart(4, "0")}_*.sql`,
+        status: "checksum-mismatch",
+      });
+    } else if (conflict.kind === "name-mismatch") {
+      rows.push({
+        name: conflict.local?.filename ?? String(conflict.version),
+        status: "name-mismatch",
+      });
+    } else if (conflict.kind === "historical-insertion") {
+      rows.push({
+        name: conflict.local?.filename ?? String(conflict.version),
+        status: "historical-insertion",
+      });
+    } else {
+      rows.push({
+        name: conflict.applied
+          ? `${String(conflict.version).padStart(4, "0")}_${conflict.applied.name}`
+          : String(conflict.version),
+        status: "missing-local",
+      });
+    }
+  }
+  for (const entry of plan.pending) {
+    rows.push({ name: entry.migration.filename, status: "pending" });
+  }
+  return rows;
 }
 
 export function authRowsFromPlan(
-	plan: AthenaAuthMigrationPlan,
+  plan: AthenaAuthMigrationPlan
 ): MigrationRowView[] {
-	return plan.entries.map((entry) => ({
-		name: entry.name,
-		status: authEntryStatus(entry),
-		detail: authEntryDetail(entry),
-	}));
+  return plan.entries.map((entry) => ({
+    detail: authEntryDetail(entry),
+    name: entry.name,
+    status: authEntryStatus(entry),
+  }));
 }
 
 export function buildMigrationReportView(input: {
-	summary: Pick<
-		MigrationRunSummary,
-		"providerLabel" | "databaseLabel" | "directory" | "plan" | "mode"
-	>;
-	authPlan?: AthenaAuthMigrationPlan;
-	outcome: string;
-	logPath?: string;
-	diagnostics?: MigrationReportView["diagnostics"];
+  summary: Pick<
+    MigrationRunSummary,
+    "providerLabel" | "databaseLabel" | "directory" | "plan" | "mode"
+  >;
+  authPlan?: AthenaAuthMigrationPlan;
+  modules?: MigrationReportView["modules"];
+  outcome: string;
+  logPath?: string;
+  diagnostics?: MigrationReportView["diagnostics"];
 }): MigrationReportView {
-	const applicationRows = applicationRowsFromPlan(input.summary.plan);
-	const authRows = input.authPlan ? authRowsFromPlan(input.authPlan) : [];
+  const applicationRows = applicationRowsFromPlan(input.summary.plan);
+  const authRows = input.authPlan ? authRowsFromPlan(input.authPlan) : [];
 
-	const appApplied = applicationRows.filter(
-		(r) => r.status === "applied",
-	).length;
-	const appPending = applicationRows.filter(
-		(r) => r.status === "pending",
-	).length;
-	const appConflicts = applicationRows.filter(
-		(r) =>
-			r.status === "checksum-mismatch" ||
-			r.status === "missing-local" ||
-			r.status === "name-mismatch" ||
-			r.status === "historical-insertion" ||
-			r.status === "drift" ||
-			r.status === "failed" ||
-			r.status === "unknown",
-	).length;
+  const appApplied = applicationRows.filter(
+    (r) => r.status === "applied"
+  ).length;
+  const appPending = applicationRows.filter(
+    (r) => r.status === "pending"
+  ).length;
+  const appConflicts = applicationRows.filter(
+    (r) =>
+      r.status === "checksum-mismatch" ||
+      r.status === "missing-local" ||
+      r.status === "name-mismatch" ||
+      r.status === "historical-insertion" ||
+      r.status === "drift" ||
+      r.status === "failed" ||
+      r.status === "unknown"
+  ).length;
 
-	const authApplied = authRows.filter((r) => r.status === "applied").length;
-	const authPending = authRows.filter((r) => r.status === "pending").length;
-	const authConflicts = authRows.filter(
-		(r) =>
-			r.status === "drift" ||
-			r.status === "checksum-mismatch" ||
-			r.status === "failed" ||
-			r.status === "unknown",
-	).length;
+  const authApplied = authRows.filter((r) => r.status === "applied").length;
+  const authPending = authRows.filter((r) => r.status === "pending").length;
+  const authConflicts = authRows.filter(
+    (r) =>
+      r.status === "drift" ||
+      r.status === "checksum-mismatch" ||
+      r.status === "failed" ||
+      r.status === "unknown"
+  ).length;
 
-	return {
-		title: "Athena JS · migrations",
-		target: {
-			provider: input.summary.providerLabel,
-			database: input.summary.databaseLabel,
-			directory: input.summary.directory,
-		},
-		application: {
-			title: "Application",
-			rows: applicationRows,
-			summary: `${appApplied} applied · ${appPending} pending · ${appConflicts} conflicts`,
-		},
-		auth: {
-			title: "Embedded Auth",
-			rows: authRows,
-			summary:
-				authRows.length === 0
-					? undefined
-					: `${authApplied} applied · ${authPending} pending · ${authConflicts} conflicts`,
-		},
-		outcome: input.outcome,
-		diagnostics: input.diagnostics ?? [],
-		logPath: input.logPath,
-	};
+  return {
+    application: {
+      rows: applicationRows,
+      summary: `${appApplied} applied · ${appPending} pending · ${appConflicts} conflicts`,
+      title: "Application",
+    },
+    auth: {
+      rows: authRows,
+      summary:
+        authRows.length === 0
+          ? undefined
+          : `${authApplied} applied · ${authPending} pending · ${authConflicts} conflicts`,
+      title: "Embedded Auth",
+    },
+    diagnostics: input.diagnostics ?? [],
+    logPath: input.logPath,
+    modules: input.modules,
+    outcome: input.outcome,
+    target: {
+      database: input.summary.databaseLabel,
+      directory: input.summary.directory,
+      provider: input.summary.providerLabel,
+    },
+    title: "Athena JS · migrations",
+  };
 }

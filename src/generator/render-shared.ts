@@ -1,128 +1,149 @@
 import { posix } from "node:path";
 import type {
-	IntrospectionRelation,
-	IntrospectionSnapshot,
-	IntrospectionTable,
+  IntrospectionRelation,
+  IntrospectionSnapshot,
+  IntrospectionTable,
 } from "../schema/types.ts";
+import { sha256HexUtf8 } from "../node-crypto.ts";
+import { PACKAGE_VERSION } from "../sdk-version.ts";
 import {
-	ATHENA_GENERATED_FILE_PREFIX,
-	GENERATED_FILE_BANNER,
-	isAthenaGeneratedSource,
-	renderGeneratedFileHeader,
-	stripGeneratedFileHeader,
-	withGeneratedFileBanner,
-	type RenderGeneratedFileHeaderOptions,
+  ATHENA_GENERATED_FILE_PREFIX,
+  GENERATED_FILE_BANNER,
+  isAthenaGeneratedSource,
+  type RenderGeneratedFileHeaderOptions,
+  renderGeneratedFileHeader,
+  stripGeneratedFileHeader,
+  withGeneratedFileBanner,
 } from "./generated-file-header.ts";
 import {
-	applyNamingStyle,
-	escapeStringLiteral,
-	escapeTypePropertyName,
-	toSafeIdentifier,
+  applyNamingStyle,
+  escapeStringLiteral,
+  escapeTypePropertyName,
+  toSafeIdentifier,
 } from "./naming.ts";
 import { renderOutputPath } from "./placeholders.ts";
 import type {
-	GeneratedArtifact,
-	GeneratedArtifacts,
-	NormalizedAthenaGeneratorConfig,
+  GeneratedArtifact,
+  GeneratedArtifacts,
+  NormalizedAthenaGeneratorConfig,
 } from "./types.ts";
 
-export {
-	ATHENA_GENERATED_FILE_PREFIX,
-	GENERATED_FILE_BANNER,
-	isAthenaGeneratedSource,
-	renderGeneratedFileHeader,
-	stripGeneratedFileHeader,
-	withGeneratedFileBanner,
-};
 export type { RenderGeneratedFileHeaderOptions };
+export {
+  ATHENA_GENERATED_FILE_PREFIX,
+  GENERATED_FILE_BANNER,
+  isAthenaGeneratedSource,
+  renderGeneratedFileHeader,
+  stripGeneratedFileHeader,
+  withGeneratedFileBanner,
+};
 
 type OutputPathKind = "model" | "schema" | "database" | "registry";
 
+function sortForFingerprint(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortForFingerprint);
+  }
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.keys(object)
+        .sort()
+        .map((key) => [key, sortForFingerprint(object[key])])
+    );
+  }
+  return value;
+}
+
+function schemaFingerprint(snapshot: Pick<IntrospectionSnapshot, "schemas">): string {
+  return sha256HexUtf8(JSON.stringify(sortForFingerprint(snapshot.schemas)));
+}
+
 interface OutputPathTokens {
-	database: string;
-	kind: OutputPathKind;
-	model: string;
-	provider: string;
-	schema: string;
+  database: string;
+  kind: OutputPathKind;
+  model: string;
+  provider: string;
+  schema: string;
 }
 
 interface SchemaScopedPathDescriptor {
-	filePath: string;
-	schemaName: string;
+  filePath: string;
+  schemaName: string;
 }
 
 interface DatabaseArtifactDescriptor<
-	TSchema extends SchemaArtifactDescriptor = SchemaArtifactDescriptor,
+  TSchema extends SchemaArtifactDescriptor = SchemaArtifactDescriptor,
 > {
-	databaseConstName: string;
-	filePath: string;
-	schemas: TSchema[];
+  databaseConstName: string;
+  filePath: string;
+  schemas: TSchema[];
 }
 
 interface ComposeGeneratorArtifactsInput<
-	TModel extends ModelArtifactDescriptorBase,
+  TModel extends ModelArtifactDescriptorBase,
 > {
-	config: NormalizedAthenaGeneratorConfig;
-	createModelDescriptor: (input: {
-		providerName: string;
-		databaseName: string;
-		schemaName: string;
-		tableName: string;
-		table: IntrospectionTable;
-	}) => TModel;
-	renderModelArtifact: (descriptor: TModel) => GeneratedArtifact;
-	snapshot: IntrospectionSnapshot;
+  config: NormalizedAthenaGeneratorConfig;
+  createModelDescriptor: (input: {
+    providerName: string;
+    databaseName: string;
+    schemaName: string;
+    tableName: string;
+    table: IntrospectionTable;
+  }) => TModel;
+  renderModelArtifact: (descriptor: TModel) => GeneratedArtifact;
+  snapshot: IntrospectionSnapshot;
 }
 
 export interface ModelArtifactDescriptorBase
-	extends SchemaScopedPathDescriptor {
-	exportConstName: string;
-	table: IntrospectionTable;
-	tableName: string;
+  extends SchemaScopedPathDescriptor {
+  exportConstName: string;
+  table: IntrospectionTable;
+  tableName: string;
 }
 
 export interface SchemaArtifactDescriptor<
-	TModel extends ModelArtifactDescriptorBase = ModelArtifactDescriptorBase,
+  TModel extends ModelArtifactDescriptorBase = ModelArtifactDescriptorBase,
 > extends SchemaScopedPathDescriptor {
-	models: TModel[];
-	schemaConstName: string;
+  models: TModel[];
+  schemaConstName: string;
 }
 
 export function normalizePath(pathValue: string): string {
-	return pathValue.replace(/\\/g, "/");
+  return pathValue.replace(/\\/g, "/");
 }
 
 function withoutTypeScriptExtension(pathValue: string): string {
-	return pathValue.replace(/\.tsx?$/i, "");
+  return pathValue.replace(/\.tsx?$/i, "");
 }
 
 export function toModuleImportPath(
-	fromFile: string,
-	targetFile: string,
+  fromFile: string,
+  targetFile: string
 ): string {
-	const relativePath = withoutTypeScriptExtension(
-		normalizePath(posix.relative(posix.dirname(fromFile), targetFile)),
-	);
-	return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
+  const relativePath = withoutTypeScriptExtension(
+    normalizePath(posix.relative(posix.dirname(fromFile), targetFile))
+  );
+  return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
 }
 
 export function resolveOutputPath(
-	target: string,
-	tokens: OutputPathTokens,
-	config: NormalizedAthenaGeneratorConfig,
+  target: string,
+  tokens: OutputPathTokens,
+  config: NormalizedAthenaGeneratorConfig
 ): string {
-	return normalizePath(renderOutputPath(target, tokens, config.output));
+  return normalizePath(renderOutputPath(target, tokens, config.output));
 }
 
 const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 export function renderObjectKey(key: string): string {
-	return escapeTypePropertyName(key);
+  return escapeTypePropertyName(key);
 }
 
 export interface RenderObjectPropertyOptions {
-	/** Indentation prefix. Defaults to two spaces. */
-	indent?: string;
+  /** Indentation prefix. Defaults to two spaces. */
+  indent?: string;
 }
 
 /**
@@ -131,57 +152,57 @@ export interface RenderObjectPropertyOptions {
  * `accounts` instead of `accounts: accounts`.
  */
 export function renderObjectProperty(
-	key: string,
-	value: string,
-	options: RenderObjectPropertyOptions = {},
+  key: string,
+  value: string,
+  options: RenderObjectPropertyOptions = {}
 ): string {
-	const indent = options.indent ?? "  ";
-	const renderedKey = renderObjectKey(key);
-	const trimmedValue = value.trim();
-	const canShorthand =
-		IDENTIFIER_NAME_PATTERN.test(key) &&
-		renderedKey === key &&
-		trimmedValue === key;
-	return `${indent}${canShorthand ? renderedKey : `${renderedKey}: ${trimmedValue}`}`;
+  const indent = options.indent ?? "  ";
+  const renderedKey = renderObjectKey(key);
+  const trimmedValue = value.trim();
+  const canShorthand =
+    IDENTIFIER_NAME_PATTERN.test(key) &&
+    renderedKey === key &&
+    trimmedValue === key;
+  return `${indent}${canShorthand ? renderedKey : `${renderedKey}: ${trimmedValue}`}`;
 }
 
 export interface RenderObjectLiteralOptions
-	extends RenderObjectPropertyOptions {
-	/**
-	 * When true (default), every property line ends with a trailing comma —
-	 * including the last entry — matching Athena generated TS style.
-	 */
-	trailingCommas?: boolean;
+  extends RenderObjectPropertyOptions {
+  /**
+   * When true (default), every property line ends with a trailing comma —
+   * including the last entry — matching Athena generated TS style.
+   */
+  trailingCommas?: boolean;
 }
 
 /**
  * Render a multi-line object-literal body (one property per line).
  */
 export function renderObjectLiteral(
-	entries: ReadonlyArray<{ key: string; value: string }>,
-	options: RenderObjectLiteralOptions = {},
+  entries: ReadonlyArray<{ key: string; value: string }>,
+  options: RenderObjectLiteralOptions = {}
 ): string {
-	const trailingCommas = options.trailingCommas !== false;
-	return entries
-		.map((entry) => {
-			const property = renderObjectProperty(entry.key, entry.value, options);
-			return trailingCommas ? `${property},` : property;
-		})
-		.join("\n");
+  const trailingCommas = options.trailingCommas !== false;
+  return entries
+    .map((entry) => {
+      const property = renderObjectProperty(entry.key, entry.value, options);
+      return trailingCommas ? `${property},` : property;
+    })
+    .join("\n");
 }
 
 export function renderRelationLiteral(relation: IntrospectionRelation): string {
-	const through = relation.through
-		? `,
+  const through = relation.through
+    ? `,
       through: {
         schema: ${escapeStringLiteral(relation.through.schema)},
         model: ${escapeStringLiteral(relation.through.model)},
         sourceColumns: [${relation.through.sourceColumns.map((value) => escapeStringLiteral(value)).join(", ")}],
         targetColumns: [${relation.through.targetColumns.map((value) => escapeStringLiteral(value)).join(", ")}],
       }`
-		: "";
+    : "";
 
-	return `{
+  return `{
       kind: ${escapeStringLiteral(relation.kind)},
       sourceColumns: [${relation.sourceColumns.map((value) => escapeStringLiteral(value)).join(", ")}],
       targetSchema: ${escapeStringLiteral(relation.targetSchema)},
@@ -191,91 +212,94 @@ export function renderRelationLiteral(relation: IntrospectionRelation): string {
 }
 
 export function renderSchemaArtifact<
-	TModel extends ModelArtifactDescriptorBase,
+  TModel extends ModelArtifactDescriptorBase,
 >(descriptor: SchemaArtifactDescriptor<TModel>): GeneratedArtifact {
-	const importLines = descriptor.models
-		.map((modelDescriptor) => {
-			const importPath = toModuleImportPath(
-				descriptor.filePath,
-				modelDescriptor.filePath,
-			);
-			return `import { ${modelDescriptor.exportConstName} } from '${importPath}'`;
-		})
-		.join("\n");
+  const importLines = descriptor.models
+    .map((modelDescriptor) => {
+      const importPath = toModuleImportPath(
+        descriptor.filePath,
+        modelDescriptor.filePath
+      );
+      return `import { ${modelDescriptor.exportConstName} } from '${importPath}'`;
+    })
+    .join("\n");
 
-	const modelEntries = renderObjectLiteral(
-		descriptor.models.map((modelDescriptor) => ({
-			key: modelDescriptor.tableName,
-			value: modelDescriptor.exportConstName,
-		})),
-	);
+  const modelEntries = renderObjectLiteral(
+    descriptor.models.map((modelDescriptor) => ({
+      key: modelDescriptor.tableName,
+      value: modelDescriptor.exportConstName,
+    }))
+  );
 
-	const content = `import { defineSchema } from '@xylex-group/athena'
+  const content = `import { defineSchema } from '@xylex-group/athena'
 ${importLines ? `\n${importLines}\n` : "\n"}
 export const ${descriptor.schemaConstName} = defineSchema({
 ${modelEntries}
 })
 `;
 
-	return {
-		content,
-		kind: "schema",
-		path: descriptor.filePath,
-	};
+  return {
+    content,
+    kind: "schema",
+    path: descriptor.filePath,
+  };
 }
 
 export function renderDatabaseArtifact<
-	TSchema extends SchemaArtifactDescriptor,
+  TSchema extends SchemaArtifactDescriptor,
 >(descriptor: DatabaseArtifactDescriptor<TSchema>): GeneratedArtifact {
-	const importLines = descriptor.schemas
-		.map((schemaDescriptor) => {
-			const importPath = toModuleImportPath(
-				descriptor.filePath,
-				schemaDescriptor.filePath,
-			);
-			return `import { ${schemaDescriptor.schemaConstName} } from '${importPath}'`;
-		})
-		.join("\n");
+  const importLines = descriptor.schemas
+    .map((schemaDescriptor) => {
+      const importPath = toModuleImportPath(
+        descriptor.filePath,
+        schemaDescriptor.filePath
+      );
+      return `import { ${schemaDescriptor.schemaConstName} } from '${importPath}'`;
+    })
+    .join("\n");
 
-	const schemaEntries = renderObjectLiteral(
-		descriptor.schemas.map((schemaDescriptor) => ({
-			key: schemaDescriptor.schemaName,
-			value: schemaDescriptor.schemaConstName,
-		})),
-	);
+  const schemaEntries = renderObjectLiteral(
+    descriptor.schemas.map((schemaDescriptor) => ({
+      key: schemaDescriptor.schemaName,
+      value: schemaDescriptor.schemaConstName,
+    }))
+  );
 
-	const content = `import { defineDatabase } from '@xylex-group/athena'
+  const content = `import { defineDatabase } from '@xylex-group/athena'
 ${importLines ? `\n${importLines}\n` : "\n"}
 export const ${descriptor.databaseConstName} = defineDatabase({
 ${schemaEntries}
 })
 `;
 
-	return {
-		content,
-		kind: "database",
-		path: descriptor.filePath,
-	};
+  return {
+    content,
+    kind: "database",
+    path: descriptor.filePath,
+  };
 }
 
 export function renderRegistryArtifact(
-	registryPath: string,
-	databasePath: string,
-	databaseConstName: string,
-	registryConstName: string,
-	databaseName: string,
-	generatedAt: string,
-	outputPreset: NormalizedAthenaGeneratorConfig["output"]["preset"],
-	outputFormat: NormalizedAthenaGeneratorConfig["output"]["format"],
-	schemaVersion: number,
+  registryPath: string,
+  databasePath: string,
+  databaseConstName: string,
+  registryConstName: string,
+  databaseName: string,
+  snapshot: Pick<IntrospectionSnapshot, "schemas">,
+  outputPreset: NormalizedAthenaGeneratorConfig["output"]["preset"],
+  outputFormat: NormalizedAthenaGeneratorConfig["output"]["format"],
+  schemaVersion: number
 ): GeneratedArtifact {
-	const databaseImportPath = toModuleImportPath(registryPath, databasePath);
-	const content = `import { defineRegistry } from '@xylex-group/athena'
+  const databaseImportPath = toModuleImportPath(registryPath, databasePath);
+  const content = `import { defineRegistry } from '@xylex-group/athena'
 import { ${databaseConstName} } from '${databaseImportPath}'
 
 export const __athena_schema_meta = {
   schemaVersion: ${schemaVersion},
-  generatedAt: ${escapeStringLiteral(generatedAt)},
+  schemaFingerprint: ${escapeStringLiteral(schemaFingerprint(snapshot))},
+  schemaSource: ${escapeStringLiteral(`postgres:${databaseName}`)},
+  generatorVersion: ${escapeStringLiteral(PACKAGE_VERSION)},
+  generationFormatVersion: ${escapeStringLiteral(`${outputPreset}/${outputFormat}/1`)},
   database: ${escapeStringLiteral(databaseName)},
   outputPreset: ${escapeStringLiteral(outputPreset)},
   outputFormat: ${escapeStringLiteral(outputFormat)},
@@ -286,226 +310,226 @@ ${renderObjectProperty(databaseName, databaseConstName)}
 })
 `;
 
-	return {
-		content,
-		kind: "registry",
-		path: registryPath,
-	};
+  return {
+    content,
+    kind: "registry",
+    path: registryPath,
+  };
 }
 
 function assertNoDuplicatePaths(files: GeneratedArtifact[]) {
-	const seen = new Map<string, GeneratedArtifact>();
-	for (const file of files) {
-		const existing = seen.get(file.path);
-		if (existing) {
-			throw new Error(
-				[
-					`Generator output collision detected for path: ${file.path}`,
-					`Collision: ${existing.kind} and ${file.kind}.`,
-					"Use explicit placeholders such as {model}, {model_kebab}, {schema}, or {schema_kebab} in output targets so each artifact resolves to a unique path.",
-				].join(" "),
-			);
-		}
-		seen.set(file.path, file);
-	}
+  const seen = new Map<string, GeneratedArtifact>();
+  for (const file of files) {
+    const existing = seen.get(file.path);
+    if (existing) {
+      throw new Error(
+        [
+          `Generator output collision detected for path: ${file.path}`,
+          `Collision: ${existing.kind} and ${file.kind}.`,
+          "Use explicit placeholders such as {model}, {model_kebab}, {schema}, or {schema_kebab} in output targets so each artifact resolves to a unique path.",
+        ].join(" ")
+      );
+    }
+    seen.set(file.path, file);
+  }
 }
 
 function addSchemaSegmentToPath(pathValue: string, schemaName: string): string {
-	const normalizedPath = normalizePath(pathValue);
-	const parsedPath = posix.parse(normalizedPath);
-	const schemaSegment = applyNamingStyle(schemaName, "kebab");
-	if (!schemaSegment) {
-		return normalizedPath;
-	}
+  const normalizedPath = normalizePath(pathValue);
+  const parsedPath = posix.parse(normalizedPath);
+  const schemaSegment = applyNamingStyle(schemaName, "kebab");
+  if (!schemaSegment) {
+    return normalizedPath;
+  }
 
-	const dir =
-		parsedPath.dir.length > 0
-			? `${parsedPath.dir}/${schemaSegment}`
-			: schemaSegment;
-	return normalizePath(posix.join(dir, parsedPath.base));
+  const dir =
+    parsedPath.dir.length > 0
+      ? `${parsedPath.dir}/${schemaSegment}`
+      : schemaSegment;
+  return normalizePath(posix.join(dir, parsedPath.base));
 }
 
 function scopeDuplicateDescriptorPathsBySchema<
-	TDescriptor extends SchemaScopedPathDescriptor,
+  TDescriptor extends SchemaScopedPathDescriptor,
 >(descriptors: TDescriptor[]): TDescriptor[] {
-	const nextDescriptors = descriptors.map((descriptor) => ({ ...descriptor }));
-	const duplicates = new Map<string, number[]>();
+  const nextDescriptors = descriptors.map((descriptor) => ({ ...descriptor }));
+  const duplicates = new Map<string, number[]>();
 
-	for (let index = 0; index < nextDescriptors.length; index += 1) {
-		const descriptor = nextDescriptors[index];
-		const indexes = duplicates.get(descriptor.filePath) ?? [];
-		indexes.push(index);
-		duplicates.set(descriptor.filePath, indexes);
-	}
+  for (let index = 0; index < nextDescriptors.length; index += 1) {
+    const descriptor = nextDescriptors[index];
+    const indexes = duplicates.get(descriptor.filePath) ?? [];
+    indexes.push(index);
+    duplicates.set(descriptor.filePath, indexes);
+  }
 
-	let appliedSchemaScoping = false;
-	for (const indexes of duplicates.values()) {
-		if (indexes.length <= 1) {
-			continue;
-		}
+  let appliedSchemaScoping = false;
+  for (const indexes of duplicates.values()) {
+    if (indexes.length <= 1) {
+      continue;
+    }
 
-		const schemaNames = new Set(
-			indexes.map((index) => nextDescriptors[index].schemaName),
-		);
-		if (schemaNames.size <= 1) {
-			continue;
-		}
+    const schemaNames = new Set(
+      indexes.map((index) => nextDescriptors[index].schemaName)
+    );
+    if (schemaNames.size <= 1) {
+      continue;
+    }
 
-		for (const index of indexes) {
-			const descriptor = nextDescriptors[index];
-			descriptor.filePath = addSchemaSegmentToPath(
-				descriptor.filePath,
-				descriptor.schemaName,
-			);
-		}
-		appliedSchemaScoping = true;
-	}
+    for (const index of indexes) {
+      const descriptor = nextDescriptors[index];
+      descriptor.filePath = addSchemaSegmentToPath(
+        descriptor.filePath,
+        descriptor.schemaName
+      );
+    }
+    appliedSchemaScoping = true;
+  }
 
-	if (!appliedSchemaScoping) {
-		return nextDescriptors;
-	}
+  if (!appliedSchemaScoping) {
+    return nextDescriptors;
+  }
 
-	const normalizedPaths = new Set<string>();
-	for (const descriptor of nextDescriptors) {
-		if (normalizedPaths.has(descriptor.filePath)) {
-			throw new Error(
-				[
-					`Generator output collision detected for path: ${descriptor.filePath}`,
-					"Automatic schema path scoping was applied but collisions remain.",
-					"Add explicit placeholders such as {model}, {model_kebab}, {schema}, or {schema_kebab} to your output targets.",
-				].join(" "),
-			);
-		}
-		normalizedPaths.add(descriptor.filePath);
-	}
+  const normalizedPaths = new Set<string>();
+  for (const descriptor of nextDescriptors) {
+    if (normalizedPaths.has(descriptor.filePath)) {
+      throw new Error(
+        [
+          `Generator output collision detected for path: ${descriptor.filePath}`,
+          "Automatic schema path scoping was applied but collisions remain.",
+          "Add explicit placeholders such as {model}, {model_kebab}, {schema}, or {schema_kebab} to your output targets.",
+        ].join(" ")
+      );
+    }
+    normalizedPaths.add(descriptor.filePath);
+  }
 
-	return nextDescriptors;
+  return nextDescriptors;
 }
 
 export function composeGeneratorArtifacts<
-	TModel extends ModelArtifactDescriptorBase,
+  TModel extends ModelArtifactDescriptorBase,
 >(input: ComposeGeneratorArtifactsInput<TModel>): GeneratedArtifacts {
-	const { snapshot, config, createModelDescriptor, renderModelArtifact } =
-		input;
-	const providerName = snapshot.backend;
-	const databaseName = snapshot.database;
-	const modelDescriptors: TModel[] = [];
+  const { snapshot, config, createModelDescriptor, renderModelArtifact } =
+    input;
+  const providerName = snapshot.backend;
+  const databaseName = snapshot.database;
+  const modelDescriptors: TModel[] = [];
 
-	for (const schemaName of Object.keys(snapshot.schemas).sort()) {
-		const schema = snapshot.schemas[schemaName];
-		for (const tableName of Object.keys(schema.tables).sort()) {
-			modelDescriptors.push(
-				createModelDescriptor({
-					databaseName,
-					providerName,
-					schemaName,
-					table: schema.tables[tableName],
-					tableName,
-				}),
-			);
-		}
-	}
+  for (const schemaName of Object.keys(snapshot.schemas).sort()) {
+    const schema = snapshot.schemas[schemaName];
+    for (const tableName of Object.keys(schema.tables).sort()) {
+      modelDescriptors.push(
+        createModelDescriptor({
+          databaseName,
+          providerName,
+          schemaName,
+          table: schema.tables[tableName],
+          tableName,
+        })
+      );
+    }
+  }
 
-	const scopedModelDescriptors =
-		scopeDuplicateDescriptorPathsBySchema(modelDescriptors);
+  const scopedModelDescriptors =
+    scopeDuplicateDescriptorPathsBySchema(modelDescriptors);
 
-	let schemaDescriptors: SchemaArtifactDescriptor<TModel>[] = Object.keys(
-		snapshot.schemas,
-	)
-		.sort()
-		.map((schemaName) => ({
-			filePath: resolveOutputPath(
-				config.output.targets.schema,
-				{
-					database: databaseName,
-					kind: "schema",
-					model: "index",
-					provider: providerName,
-					schema: schemaName,
-				},
-				config,
-			),
-			models: scopedModelDescriptors.filter(
-				(model) => model.schemaName === schemaName,
-			),
-			schemaConstName: toSafeIdentifier(
-				`${schemaName} schema`,
-				config.naming.schemaConst,
-				"schema",
-			),
-			schemaName,
-		}));
+  let schemaDescriptors: SchemaArtifactDescriptor<TModel>[] = Object.keys(
+    snapshot.schemas
+  )
+    .sort()
+    .map((schemaName) => ({
+      filePath: resolveOutputPath(
+        config.output.targets.schema,
+        {
+          database: databaseName,
+          kind: "schema",
+          model: "index",
+          provider: providerName,
+          schema: schemaName,
+        },
+        config
+      ),
+      models: scopedModelDescriptors.filter(
+        (model) => model.schemaName === schemaName
+      ),
+      schemaConstName: toSafeIdentifier(
+        `${schemaName} schema`,
+        config.naming.schemaConst,
+        "schema"
+      ),
+      schemaName,
+    }));
 
-	schemaDescriptors = scopeDuplicateDescriptorPathsBySchema(schemaDescriptors);
+  schemaDescriptors = scopeDuplicateDescriptorPathsBySchema(schemaDescriptors);
 
-	const databaseDescriptor: DatabaseArtifactDescriptor<
-		SchemaArtifactDescriptor<TModel>
-	> = {
-		databaseConstName: toSafeIdentifier(
-			`${databaseName} database`,
-			config.naming.databaseConst,
-			"database",
-		),
-		filePath: resolveOutputPath(
-			config.output.targets.database,
-			{
-				database: databaseName,
-				kind: "database",
-				model: "index",
-				provider: providerName,
-				schema: "index",
-			},
-			config,
-		),
-		schemas: schemaDescriptors,
-	};
+  const databaseDescriptor: DatabaseArtifactDescriptor<
+    SchemaArtifactDescriptor<TModel>
+  > = {
+    databaseConstName: toSafeIdentifier(
+      `${databaseName} database`,
+      config.naming.databaseConst,
+      "database"
+    ),
+    filePath: resolveOutputPath(
+      config.output.targets.database,
+      {
+        database: databaseName,
+        kind: "database",
+        model: "index",
+        provider: providerName,
+        schema: "index",
+      },
+      config
+    ),
+    schemas: schemaDescriptors,
+  };
 
-	const files: GeneratedArtifact[] = [];
+  const files: GeneratedArtifact[] = [];
 
-	for (const modelDescriptor of scopedModelDescriptors) {
-		files.push(renderModelArtifact(modelDescriptor));
-	}
+  for (const modelDescriptor of scopedModelDescriptors) {
+    files.push(renderModelArtifact(modelDescriptor));
+  }
 
-	for (const schemaDescriptor of schemaDescriptors) {
-		files.push(renderSchemaArtifact(schemaDescriptor));
-	}
+  for (const schemaDescriptor of schemaDescriptors) {
+    files.push(renderSchemaArtifact(schemaDescriptor));
+  }
 
-	files.push(renderDatabaseArtifact(databaseDescriptor));
+  files.push(renderDatabaseArtifact(databaseDescriptor));
 
-	if (config.features.emitRegistry) {
-		const registryPath = resolveOutputPath(
-			config.output.targets.registry,
-			{
-				database: databaseName,
-				kind: "registry",
-				model: "index",
-				provider: providerName,
-				schema: "index",
-			},
-			config,
-		);
-		files.push(
-			renderRegistryArtifact(
-				registryPath,
-				databaseDescriptor.filePath,
-				databaseDescriptor.databaseConstName,
-				toSafeIdentifier("registry", config.naming.registryConst, "registry"),
-				databaseName,
-				snapshot.generatedAt,
-				config.output.preset,
-				config.output.format,
-				config.internal.schemaVersion,
-			),
-		);
-	}
+  if (config.features.emitRegistry) {
+    const registryPath = resolveOutputPath(
+      config.output.targets.registry,
+      {
+        database: databaseName,
+        kind: "registry",
+        model: "index",
+        provider: providerName,
+        schema: "index",
+      },
+      config
+    );
+    files.push(
+      renderRegistryArtifact(
+        registryPath,
+        databaseDescriptor.filePath,
+        databaseDescriptor.databaseConstName,
+        toSafeIdentifier("registry", config.naming.registryConst, "registry"),
+        databaseName,
+        snapshot,
+        config.output.preset,
+        config.output.format,
+        config.internal.schemaVersion
+      )
+    );
+  }
 
-	assertNoDuplicatePaths(files);
+  assertNoDuplicatePaths(files);
 
-	return {
-		files: files.map((file) => ({
-			...file,
-			content: withGeneratedFileBanner(file.content),
-		})),
-		snapshot,
-	};
+  return {
+    files: files.map((file) => ({
+      ...file,
+      content: withGeneratedFileBanner(file.content),
+    })),
+    snapshot,
+  };
 }

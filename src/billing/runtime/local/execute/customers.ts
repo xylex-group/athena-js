@@ -1,138 +1,115 @@
+import type { AthenaPrincipal } from "../../../../runtime/data/principal.ts";
 import type { BillingProviderConfigMap } from "../../../providers/types.ts";
-import { prepareBillingCommand } from "../../../safety/prepare.ts";
 import type {
-	BillingCreateCustomerInput,
-	BillingCustomer,
-	BillingDeleteCustomerInput,
-	BillingGetCustomerInput,
-	BillingListCustomersInput,
-	BillingUpdateCustomerInput,
+  BillingCreateCustomerInput,
+  BillingCustomer,
+  BillingDeleteCustomerInput,
+  BillingGetCustomerInput,
+  BillingListCustomersInput,
+  BillingUpdateCustomerInput,
 } from "../../../types.ts";
 import type { BillingPage } from "../../types.ts";
 import type { BillingProviderRegistry } from "../providers/registry.ts";
-import {
-	rejectUnsupportedListOffset,
-	requireProviderPort,
-	resolveLocalBillingProviderExecution,
-} from "./shared.ts";
+import { executeLocalBillingOperation } from "./invoke.ts";
+import { rejectUnsupportedListOffset } from "./shared.ts";
 
 export async function executeLocalBillingCustomerCreate(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingCreateCustomerInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingCreateCustomerInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingCustomer> {
-	const prepared = prepareBillingCommand({
-		idempotency: "defer",
-		operation: "customers.create",
-		payload: input.payload,
-		testMode: input.testMode,
-	});
-	const payload = prepared.payload as unknown as BillingCreateCustomerInput;
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		idempotencyKey: payload.idempotencyKey,
-		operation: "customers.create",
-		principal: input.principal,
-		registry: input.registry,
-		target: payload,
-		testMode: input.testMode,
-	});
-	prepareBillingCommand({
-		operation: "customers.create",
-		payload,
-		testMode: input.testMode,
-	});
-	const customers = requireProviderPort(runtime.customers, "customers.create");
-	return customers.create(context, {
-		email: payload.email,
-		idempotencyKey: payload.idempotencyKey,
-		metadata: payload.metadata,
-		name: payload.name,
-	});
+  return executeLocalBillingOperation({
+    invoke: (customers, context, payload) =>
+      customers.create(context, {
+        ...(payload.email == null ? {} : { email: payload.email }),
+        idempotencyKey: payload.idempotencyKey,
+        metadata: payload.metadata,
+        name: payload.name,
+      }),
+    operation: "customers.create",
+    port: "customers",
+    request: input,
+    safety: "defer-then-finalize",
+  });
 }
 
 export async function executeLocalBillingCustomerGet(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingGetCustomerInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingGetCustomerInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingCustomer> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "customers.get",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const customers = requireProviderPort(runtime.customers, "customers.get");
-	return customers.get(context, { id: input.payload.id });
+  return executeLocalBillingOperation({
+    invoke: (customers, context, payload) =>
+      customers.get(context, { id: payload.id }),
+    operation: "customers.get",
+    port: "customers",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingCustomerList(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingListCustomersInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingListCustomersInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPage<BillingCustomer>> {
-	rejectUnsupportedListOffset("customers.list", input.payload.offset);
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "customers.list",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const customers = requireProviderPort(runtime.customers, "customers.list");
-	return customers.list(context, {
-		cursor: input.payload.cursor,
-		limit: input.payload.limit,
-	});
+  return executeLocalBillingOperation({
+    before: (payload) =>
+      rejectUnsupportedListOffset("customers.list", payload.offset),
+    invoke: (customers, context, payload) =>
+      customers.list(context, {
+        cursor: payload.cursor,
+        limit: payload.limit,
+      }),
+    operation: "customers.list",
+    port: "customers",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingCustomerUpdate(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingUpdateCustomerInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingUpdateCustomerInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingCustomer> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "customers.update",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const customers = requireProviderPort(runtime.customers, "customers.update");
-	return customers.update(context, {
-		email: input.payload.email,
-		id: input.payload.id,
-		name: input.payload.name,
-	});
+  return executeLocalBillingOperation({
+    invoke: (customers, context, payload) =>
+      customers.update(context, {
+        email: payload.email,
+        id: payload.id,
+        name: payload.name,
+      }),
+    operation: "customers.update",
+    port: "customers",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingCustomerDelete(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingDeleteCustomerInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingDeleteCustomerInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<void> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "customers.delete",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const customers = requireProviderPort(runtime.customers, "customers.delete");
-	await customers.delete(context, { id: input.payload.id });
+  return executeLocalBillingOperation({
+    invoke: async (customers, context, payload) => {
+      await customers.delete(context, { id: payload.id });
+    },
+    operation: "customers.delete",
+    port: "customers",
+    request: input,
+  });
 }

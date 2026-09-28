@@ -18,18 +18,22 @@ export function resolveAthenaRuntimeLimits(
   input?: AthenaRuntimeLimits
 ): ResolvedAthenaRuntimeLimits {
   return {
-    maxBodyBytes: input?.maxBodyBytes ?? DEFAULT_ATHENA_RUNTIME_LIMITS.maxBodyBytes,
+    maxBodyBytes:
+      input?.maxBodyBytes ?? DEFAULT_ATHENA_RUNTIME_LIMITS.maxBodyBytes,
     maxInItems: input?.maxInItems ?? DEFAULT_ATHENA_RUNTIME_LIMITS.maxInItems,
     maxInsertRows:
       input?.maxInsertRows ?? DEFAULT_ATHENA_RUNTIME_LIMITS.maxInsertRows,
-    maxPageSize: input?.maxPageSize ?? DEFAULT_ATHENA_RUNTIME_LIMITS.maxPageSize,
-    ...(input?.maxNestedDepth != null
-      ? { maxNestedDepth: input.maxNestedDepth }
-      : {}),
-    ...(input?.maxQueryComplexity != null
-      ? { maxQueryComplexity: input.maxQueryComplexity }
-      : {}),
-    ...(input?.maxRelations != null ? { maxRelations: input.maxRelations } : {}),
+    maxPageSize:
+      input?.maxPageSize ?? DEFAULT_ATHENA_RUNTIME_LIMITS.maxPageSize,
+    ...(input?.maxNestedDepth == null
+      ? {}
+      : { maxNestedDepth: input.maxNestedDepth }),
+    ...(input?.maxQueryComplexity == null
+      ? {}
+      : { maxQueryComplexity: input.maxQueryComplexity }),
+    ...(input?.maxRelations == null
+      ? {}
+      : { maxRelations: input.maxRelations }),
   };
 }
 
@@ -124,5 +128,4 @@ export function inspectPayloadLimits(
   if (page > limits.maxPageSize) {
     return { count: page, kind: "page", limit: limits.maxPageSize };
   }
-  return undefined;
 }

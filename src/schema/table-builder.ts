@@ -1,6 +1,5 @@
-import { defineModel } from "./definitions.ts";
-import type { AthenaSchemaIr } from "./ir/document.ts";
 import { schemaIrFromModels } from "./ir/compatibility.ts";
+import type { AthenaSchemaIr } from "./ir/document.ts";
 import type { ModelFormNullishMode, ModelFormValues } from "./model-form.ts";
 import {
   type AnyColumnBuilder,
@@ -45,6 +44,14 @@ type ColumnGenerated<TColumn extends AnyColumnBuilder> =
   }
     ? TGenerated
     : never;
+type ColumnIdentity<TColumn extends AnyColumnBuilder> =
+  ExtractColumnConfig<TColumn> extends {
+    identity?: infer TIdentity;
+  }
+    ? TIdentity
+    : never;
+type ColumnIsAlwaysIdentity<TColumn extends AnyColumnBuilder> =
+  ColumnIdentity<TColumn> extends "always" ? true : false;
 
 type RowFieldType<TColumn extends AnyColumnBuilder> =
   ColumnNullable<TColumn> extends true
@@ -56,6 +63,8 @@ type WritableColumnKeys<TColumns extends Record<string, AnyColumnBuilder>> =
     {
       [K in keyof TColumns]-?: ColumnGenerated<TColumns[K]> extends true
         ? never
+        : ColumnIsAlwaysIdentity<TColumns[K]> extends true
+        ? never
         : K;
     }[keyof TColumns],
     string
@@ -66,6 +75,8 @@ type InsertRequiredKeys<TColumns extends Record<string, AnyColumnBuilder>> =
     {
       [K in keyof TColumns]-?: ColumnGenerated<TColumns[K]> extends true
         ? never
+        : ColumnIdentity<TColumns[K]> extends "always"
+          ? never
         : ColumnHasDefault<TColumns[K]> extends true
           ? never
           : ColumnNullable<TColumns[K]> extends true
@@ -155,6 +166,8 @@ export interface AthenaTableDef<
     ModelMetadata<RowFromColumns<TColumns>>
   > {
   readonly columns: Readonly<TColumns>;
+  /** Canonical Schema IR v2 document derived from this table. */
+  readonly ir: AthenaSchemaIr;
   readonly kind: "table";
   readonly mappedName: TMappedName;
   readonly name: TName;
@@ -166,8 +179,6 @@ export interface AthenaTableDef<
     UpdateFromColumns<TColumns>
   >;
   readonly tableName: ResolvedTableName<TName, TMappedName>;
-  /** Canonical Schema IR v2 document derived from this table. */
-  readonly ir: AthenaSchemaIr;
 }
 
 interface AthenaTableBuilder<
@@ -306,10 +317,16 @@ function toColumnMetadata(column: AnyColumnBuilder): ModelColumnMetadata {
   const config = getColumnConfig(column);
   return {
     columnName: config.columnName,
+    ...(config.default === undefined ? {} : { default: config.default }),
     enumValues: config.enumValues,
+    generationStrategy: config.generationStrategy,
     hasDefault: config.hasDefault,
+    ...(config.identity === undefined ? {} : { identity: config.identity }),
     isGenerated: config.isGenerated,
     kind: config.kind,
+    ...(config.nativeType === undefined
+      ? {}
+      : { nativeType: config.nativeType }),
     nullable: config.nullable,
     ...(config.precision === undefined ? {} : { precision: config.precision }),
     ...(config.scale === undefined ? {} : { scale: config.scale }),
@@ -351,28 +368,28 @@ function finalizeTable<
   primaryKey: readonly Extract<keyof TColumns, string>[]
 ): AthenaTableDef<TColumns, TName, TMappedName, TSchemaName> {
   const target = resolveTableTarget(name, mappedName, schemaName);
-  const authored = defineModel<
+  const authored: ModelDef<
     RowFromColumns<TColumns>,
     InsertFromColumns<TColumns>,
     UpdateFromColumns<TColumns>
-  >({
+  > = {
     meta: {
       columns: buildColumnMetadataMap(columns),
       model: name,
       nullable: buildNullableMap(columns),
       primaryKey: [...primaryKey],
       schema: target.schema,
-      ...(target.model !== name ? { tableName: target.model } : {}),
+      ...(target.model === name ? {} : { tableName: target.model }),
     },
-  });
+  };
   const ir = schemaIrFromModels([authored]);
   const irTable = ir.databases[0]?.namespaces[0]?.tables[0];
   const logical = irTable?.identity.logical;
-  const model = defineModel<
+  const model: ModelDef<
     RowFromColumns<TColumns>,
     InsertFromColumns<TColumns>,
     UpdateFromColumns<TColumns>
-  >({
+  > = {
     meta: {
       columns: authored.meta.columns,
       model: logical?.name ?? target.model,
@@ -386,7 +403,7 @@ function finalizeTable<
         ? { tableName: authored.meta.tableName }
         : {}),
     },
-  });
+  };
 
   const schemas = buildTableSchemaBundle<
     RowFromColumns<TColumns>,
@@ -396,8 +413,8 @@ function finalizeTable<
 
   return Object.assign(model, {
     columns,
-    kind: "table" as const,
     ir,
+    kind: "table" as const,
     mappedName,
     name,
     qualifiedName: target.qualifiedName,

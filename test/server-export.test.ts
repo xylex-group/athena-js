@@ -1,27 +1,33 @@
+import { strict as assert } from "node:assert/strict";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { AthenaConfigurationError } from "../src/config/errors.ts";
+import type { AthenaGatewayClient } from "../src/gateway/client.ts";
+import {
+  createAthenaDataHandlers,
+  createAthenaNextHandlers,
+} from "../src/next/data-handlers.ts";
 import {
   AthenaRuntimeOwnershipError,
   getAthenaClientInternals,
   getAthenaRuntimeDiagnostics,
 } from "../src/runtime/client-internals.ts";
 import { createClient } from "../src/v3-client.ts";
-import {
-  createAthenaDataHandlers,
-  createAthenaNextHandlers,
-} from "../src/next/data-handlers.ts";
-import type { AthenaGatewayClient } from "../src/gateway/client.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
 const require = createRequire(import.meta.url);
 const pkg = require(join(pkgRoot, "package.json")) as {
-  exports: Record<string, { import?: string; types?: string }>;
+  exports: Record<
+    string,
+    {
+      import?: { default?: string; types?: string };
+      require?: { default?: string; types?: string };
+    }
+  >;
   typesVersions: { "*": Record<string, string[]> };
 };
 
@@ -59,8 +65,10 @@ function mockTransport(): AthenaGatewayClient {
 test("@xylex-group/athena/server is a published unconditional export", () => {
   const exp = pkg.exports["./server"];
   assert.ok(exp, "package.json exports must include ./server");
-  assert.equal(exp.types, "./dist/server.d.ts");
-  assert.equal(exp.import, "./dist/server.js");
+  assert.equal(exp.import?.types, "./dist/server.d.ts");
+  assert.equal(exp.import?.default, "./dist/server.js");
+  assert.equal(exp.require?.types, "./dist/server.d.cts");
+  assert.equal(exp.require?.default, "./dist/server.cjs");
   assert.deepEqual(pkg.typesVersions["*"].server, ["dist/server.d.ts"]);
 });
 
@@ -106,7 +114,7 @@ test("request views keep source=request and cannot own handlers", () => {
       assert.ok(error instanceof AthenaRuntimeOwnershipError);
       assert.equal(error.code, "ATHENA_RUNTIME_OWNERSHIP_INVALID");
       return true;
-    },
+    }
   );
   assert.throws(
     () =>
@@ -120,6 +128,6 @@ test("request views keep source=request and cannot own handlers", () => {
       assert.equal(error.received, "request-view");
       assert.equal(error.expected, "root");
       return true;
-    },
+    }
   );
 });

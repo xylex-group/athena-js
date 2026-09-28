@@ -1,8 +1,11 @@
 export {
+  buildPostgresBeginStatement,
+  nextInternalSavepointName,
+} from "./begin-sql.ts";
+export {
   getTransactionCacheObserver,
   registerTransactionCacheObserver,
 } from "./cache.ts";
-export { buildPostgresBeginStatement, nextInternalSavepointName } from "./begin-sql.ts";
 export {
   attachTransactionCompiler,
   compileTransactionOperation,
@@ -14,13 +17,13 @@ export {
   executeAtomicTransaction,
   finishInteractiveSession,
   getTransactionTransport,
-  pinTransactionCallOptions,
   type InteractiveTransactionSession,
+  pinTransactionCallOptions,
 } from "./coordinator.ts";
 export {
   AthenaTransactionError,
-  isAthenaTransactionError,
   type AthenaTransactionErrorCode,
+  isAthenaTransactionError,
 } from "./errors.ts";
 export { resolveTransactionOptions } from "./options.ts";
 export type {
@@ -44,5 +47,6 @@ export {
   GATEWAY_D1_TRANSACTION_CAPABILITIES,
   GATEWAY_POSTGRES_TRANSACTION_CAPABILITIES,
   POSTGRES_DIRECT_TRANSACTION_CAPABILITIES,
+  SQLITE_LOCAL_TRANSACTION_CAPABILITIES,
   UNSUPPORTED_TRANSACTION_CAPABILITIES,
 } from "./types.ts";

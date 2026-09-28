@@ -10,7 +10,9 @@
         "noExcessiveCognitiveComplexity": "off",
         "noForEach": "off",
         // Fire-and-forget CLI entrypoints and intentional discard of promises.
-        "noVoid": "off"
+        "noVoid": "off",
+        // Formatted code uses implicit undefined instead of `return undefined`.
+        "noUselessUndefined": "off"
       },
       "performance": {
         // Package public surface is intentional barrels (export * / re-exports).
@@ -19,7 +21,9 @@
         "noJsxPropsBind": "off",
         "noNamespaceImport": "off",
         // Regex literals in one-shot parsers/scripts; hoist cost >> benefit here.
-        "useTopLevelRegex": "off"
+        "useTopLevelRegex": "off",
+        // Record/map key deletion is required for AST/shape rewrites.
+        "noDelete": "off"
       },
       "style": {
         "noIncrementDecrement": "off",
@@ -29,7 +33,18 @@
         // Public API re-exports: import then export for local use + surface.
         "noExportedImports": "off",
         "useConsistentMethodSignatures": "off",
-        "useDestructuring": "off"
+        "useDestructuring": "off",
+        // Public surface mixes `interface` (declaration merging / extends) and `type`.
+        "useConsistentTypeDefinitions": "off",
+        // Domain errors remap parse/provider failures; custom constructors are not
+        // `new Error(msg, { cause })` so this rule is mostly false-positive.
+        "useErrorCause": "off",
+        "useAtIndex": "off",
+        "useConsistentArrayType": "off",
+        "useReadonlyClassProperties": "off",
+        "useTemplate": "off",
+        // Exhaustive unions use `never` in default, not a runtime default clause.
+        "useDefaultSwitchClause": "off"
       },
       "suspicious": {
         "noEmptyBlockStatements": "off",
@@ -40,8 +55,27 @@
         "noUnnecessaryConditions": "off",
         // Cloudflare Worker handlers and test fetch mocks are async by contract
         // even when the body is sync.
-        "useAwait": "off"
+        "useAwait": "off",
+        // `== null` is the package nullish idiom (null | undefined).
+        "noEqualsToNull": "off",
+        "useArraySortCompare": "off",
+        "noEvolvingTypes": "off",
+        // CLI `run` returns void or CommandResult; `undefined` is not equivalent.
+        "noConfusingVoidType": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["package.json"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            // `pg` is a runtime dependency and an optional peer for consumers.
+            "noDuplicateDependencies": "off"
+          }
+        }
+      }
+    }
+  ]
 }

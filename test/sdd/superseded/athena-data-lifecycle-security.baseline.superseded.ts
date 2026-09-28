@@ -19,14 +19,14 @@
  * (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/athena-data-lifecycle-security.target.test.ts";
+  "test/sdd/athena-data-lifecycle-security.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-DLS-COMBINED-AFTER-AUTHZ: P?: runPrepareAndBefore runs after model/policy/HTTP limits",
-	"B-DLS-PREPARE-MUTATES-BODY: P?: prepare* writes insert_body/update_body after authorization",
-	"B-DLS-PREPARE-DELETE-DEAD: P?: prepareDelete is present but cannot alter the request",
-	"B-DLS-BEFORE-MUTATES-TRANSPORT: P?: before* sees and can mutate the transport-bound request",
-	"B-DLS-INJECT-AFTER-AUTHORIZE: P?: prepareInsert can inject a field after policy validation",
-	"B-DLS-LIMITS-PRE-PREPARE: P?: inspectPayloadLimits never re-runs after prepare",
-	"B-DLS-MAX-BODY-UNUSED: P?: maxBodyBytes is typed but unused on the hot path",
+  "B-DLS-COMBINED-AFTER-AUTHZ: P?: runPrepareAndBefore runs after model/policy/HTTP limits",
+  "B-DLS-PREPARE-MUTATES-BODY: P?: prepare* writes insert_body/update_body after authorization",
+  "B-DLS-PREPARE-DELETE-DEAD: P?: prepareDelete is present but cannot alter the request",
+  "B-DLS-BEFORE-MUTATES-TRANSPORT: P?: before* sees and can mutate the transport-bound request",
+  "B-DLS-INJECT-AFTER-AUTHORIZE: P?: prepareInsert can inject a field after policy validation",
+  "B-DLS-LIMITS-PRE-PREPARE: P?: inspectPayloadLimits never re-runs after prepare",
+  "B-DLS-MAX-BODY-UNUSED: P?: maxBodyBytes is typed but unused on the hot path",
 ] as const;

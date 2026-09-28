@@ -2,21 +2,28 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { ATHENA_AUTH_TABLES } from "../../src/auth/contract/index.ts";
-import { ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS } from "../../src/auth/local/email/schema-sql.ts";
-import { PostgresAuthEmailStore } from "../../src/auth/local/email/postgres-store.ts";
 import type { AthenaAuthDatabase } from "../../src/auth/local/database.ts";
+import { PostgresAuthEmailStore } from "../../src/auth/local/email/postgres-store.ts";
+import { ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS } from "../../src/auth/local/email/schema-sql.ts";
 
 test("embedded email schema reuses Rust athena.email_* table names", () => {
   assert.equal(ATHENA_AUTH_TABLES.emails, "athena.emails");
-  assert.equal(ATHENA_AUTH_TABLES.emailSendFailures, "athena.email_send_failures");
+  assert.equal(
+    ATHENA_AUTH_TABLES.emailSendFailures,
+    "athena.email_send_failures"
+  );
   assert.equal(ATHENA_AUTH_TABLES.emailEventTypes, "athena.email_event_types");
   assert.equal(ATHENA_AUTH_TABLES.emailTemplates, "athena.email_templates");
 });
 
 test("embedded migrator applies Rust email generations 006 007 011 012 014 015", () => {
-  const versions = ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS.map((statement) => statement.version);
+  const versions = ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS.map(
+    (statement) => statement.version
+  );
   assert.deepEqual(versions, [6, 7, 11, 12, 14, 15]);
-  const sql = ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS.map((statement) => statement.sql).join("\n");
+  const sql = ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS.map(
+    (statement) => statement.sql
+  ).join("\n");
   for (const fragment of [
     "athena.email_send_failures",
     "athena.emails",
@@ -36,6 +43,7 @@ test("embedded migrator applies Rust email generations 006 007 011 012 014 015",
 test("Postgres email store writes the Rust template column set", async () => {
   const statements: string[] = [];
   const db: AthenaAuthDatabase = {
+    inTransaction: false,
     async query(text) {
       statements.push(text);
       return {

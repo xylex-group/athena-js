@@ -8,19 +8,19 @@ import { ATHENA_SCHEMA_IR_KIND, ATHENA_SCHEMA_IR_VERSION } from "./version.ts";
  * Everything that describes database structure normalizes into this shape.
  */
 export interface AthenaSchemaIr {
-	readonly kind: "athena.schema";
-	readonly irVersion: AthenaSchemaIrVersion;
-	readonly databases: readonly SchemaDatabase[];
-	readonly metadata: SchemaMetadata;
+  readonly databases: readonly SchemaDatabase[];
+  readonly irVersion: AthenaSchemaIrVersion;
+  readonly kind: "athena.schema";
+  readonly metadata: SchemaMetadata;
 }
 
 export function emptyAthenaSchemaIr(
-	metadata: SchemaMetadata = {},
+  metadata: SchemaMetadata = {}
 ): AthenaSchemaIr {
-	return {
-		kind: ATHENA_SCHEMA_IR_KIND,
-		irVersion: ATHENA_SCHEMA_IR_VERSION,
-		databases: [],
-		metadata,
-	};
+  return {
+    databases: [],
+    irVersion: ATHENA_SCHEMA_IR_VERSION,
+    kind: ATHENA_SCHEMA_IR_KIND,
+    metadata,
+  };
 }

@@ -1,5 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-
 export type AuthTimingSpan =
   | "parse"
   | "session_lookup"
@@ -24,6 +22,9 @@ export interface AuthRequestTimingSnapshot {
   sqlAcquireMs: number;
   sqlCount: number;
   sqlExecMs: number;
+  sqlPoolIdle: number;
+  sqlPoolTotal: number;
+  sqlPoolWaiting: number;
   userLookupMs: number;
   usersBatchMs: number;
 }
@@ -42,6 +43,8 @@ const SPAN_KEYS: Record<AuthTimingSpan, keyof AuthRequestTimingSnapshot> = {
 };
 
 export class AuthRequestTiming {
+  private requestTraceId: string | null = null;
+
   private readonly snapshot: AuthRequestTimingSnapshot = {
     authzMs: 0,
     avatarMs: 0,
@@ -54,9 +57,21 @@ export class AuthRequestTiming {
     sqlAcquireMs: 0,
     sqlCount: 0,
     sqlExecMs: 0,
+    sqlPoolIdle: 0,
+    sqlPoolTotal: 0,
+    sqlPoolWaiting: 0,
     userLookupMs: 0,
     usersBatchMs: 0,
   };
+
+  setTraceId(traceId: string): void {
+    const trimmed = traceId.trim();
+    this.requestTraceId = trimmed.length > 0 ? trimmed : null;
+  }
+
+  traceId(): string | null {
+    return this.requestTraceId;
+  }
 
   addSpan(span: AuthTimingSpan, durationMs: number): void {
     const key = SPAN_KEYS[span];
@@ -75,6 +90,16 @@ export class AuthRequestTiming {
     this.snapshot.sqlCount += count;
   }
 
+  setSqlPool(stats: {
+    idleCount: number;
+    totalCount: number;
+    waitingCount: number;
+  }): void {
+    this.snapshot.sqlPoolIdle = stats.idleCount;
+    this.snapshot.sqlPoolTotal = stats.totalCount;
+    this.snapshot.sqlPoolWaiting = stats.waitingCount;
+  }
+
   copy(): AuthRequestTimingSnapshot {
     return { ...this.snapshot };
   }
@@ -88,6 +113,7 @@ export class AuthRequestTiming {
       `org_lookup;dur=${Math.round(snap.orgLookupMs)}`,
       `sql_acquire;dur=${Math.round(snap.sqlAcquireMs)}`,
       `sql_exec;dur=${Math.round(snap.sqlExecMs)}`,
+      `sql_pool;desc="total=${snap.sqlPoolTotal} idle=${snap.sqlPoolIdle} waiting=${snap.sqlPoolWaiting}"`,
       `serialize;dur=${Math.round(snap.serializeMs)}`,
       `total;dur=${Math.round(totalMs)}`,
       `sql_count;desc="${snap.sqlCount}"`,
@@ -111,16 +137,58 @@ export class AuthRequestTiming {
   }
 }
 
-const storage = new AsyncLocalStorage<AuthRequestTiming>();
-
-export function currentAuthRequestTiming(): AuthRequestTiming | undefined {
-  return storage.getStore();
+interface AuthRequestTimingStore {
+  getStore(): AuthRequestTiming | undefined;
+  run<T>(store: AuthRequestTiming, fn: () => T): T;
 }
 
-export function runWithAuthRequestTiming<T>(
-  fn: () => Promise<T>
-): Promise<T> {
-  return storage.run(new AuthRequestTiming(), fn);
+function createFallbackAuthRequestTimingStore(): AuthRequestTimingStore {
+  let current: AuthRequestTiming | undefined;
+  return {
+    getStore() {
+      return current;
+    },
+    run(store, fn) {
+      const previous = current;
+      current = store;
+      try {
+        const result = fn();
+        const then =
+          result != null && typeof result === "object"
+            ? Reflect.get(result, "then")
+            : undefined;
+        if (typeof then === "function") {
+          void Promise.resolve(result).finally(() => {
+            current = previous;
+          });
+          return result;
+        }
+        current = previous;
+        return result;
+      } catch (error) {
+        current = previous;
+        throw error;
+      }
+    },
+  };
+}
+
+let timingStore: AuthRequestTimingStore =
+  createFallbackAuthRequestTimingStore();
+
+/** Node Auth HTTP binds `AsyncLocalStorage` here so this module stays browser-safe. */
+export function bindAuthRequestTimingStore(
+  store: AuthRequestTimingStore
+): void {
+  timingStore = store;
+}
+
+export function currentAuthRequestTiming(): AuthRequestTiming | undefined {
+  return timingStore.getStore();
+}
+
+export function runWithAuthRequestTiming<T>(fn: () => Promise<T>): Promise<T> {
+  return timingStore.run(new AuthRequestTiming(), fn);
 }
 
 export async function timeAuthSpan<T>(

@@ -77,6 +77,7 @@ interface AthenaClient<TModels> {
 
   from(...): TableQueryBuilder
   rpc(...): RpcQueryBuilder
+  /** @deprecated Will be removed in Athena 6.0.0. Use admin.query() or db.query(). */
   query(...): Promise<AthenaResult>
   request(...): Promise<AthenaRequestResponse>
   verifyConnection(...): Promise<AthenaGatewayConnectionResult>
@@ -322,6 +323,7 @@ remain separate.
 | `@xylex-group/athena/utils` | Shared utils (headers, auth URLs, …) |
 | `@xylex-group/athena/social-providers` | Social provider registry |
 | `@xylex-group/athena/cloudflare` | Worker-only D1/R2 edge-local client (`createCloudflareClient`) |
+| `@xylex-group/athena/capabilities` | Canonical runtime capability IR v1: validate, canonicalize, fingerprint, and branded keys |
 | `@xylex-group/athena/schema` | Schema IR v2 + authoring (`table`, canonicalize / validate / fingerprint) |
 | `@xylex-group/athena/devtools` | DevTools protocol types + sanitizers (ADR 0051). No ring buffer, no secrets. Event channel is Node/local via `/api/athena/devtools/v1/events` |
 | `@xylex-group/athena/rights` | Branded `AthenaRightKey` parse/match (ADR 0054). Nine-symbol budget. Browser-safe. Native catalog stays in `crates/athena-rights` |
@@ -344,6 +346,7 @@ remain separate.
 | Maintainer architecture | [client-internal-architecture.md](./client-internal-architecture.md) |
 | Mutation row-count / fluent CAS | [ADR 0018](../../../docs/adr/technical/0018-athena-js-canonical-mutation-row-count.md) |
 | Schema IR v2 | [schema-ir.md](./schema-ir.md) · [ADR 0038](../../../docs/adr/technical/0038-athena-schema-ir-v2.md) |
+| Capabilities IR v1 | [`docs/sdd/xylex/athena-js-capabilities-ir/SPEC.md`](../../../docs/sdd/xylex/athena-js-capabilities-ir/SPEC.md) |
 | DevTools protocol | [ADR 0051](../../../docs/adr/technical/0051-athena-devtools-runtime-inspector-protocol.md) · spec [`docs/sdd/xylex/athena-devtools-runtime-inspector/SPEC.md`](../../../docs/sdd/xylex/athena-devtools-runtime-inspector/SPEC.md) |
 | Rights IR | [ADR 0054](../../../docs/adr/technical/0054-athena-js-rights-ir.md) · spec [`docs/sdd/xylex/athena-js-rights-ir/SPEC.md`](../../../docs/sdd/xylex/athena-js-rights-ir/SPEC.md) |
 | Notifications | [ADR 0055](../../../docs/adr/technical/0055-athena-js-notifications-capability.md) · spec [`docs/sdd/xylex/athena-notifications-and-auth-ui-domains/SPEC.md`](../../../docs/sdd/xylex/athena-notifications-and-auth-ui-domains/SPEC.md) |

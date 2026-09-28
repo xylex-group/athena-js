@@ -109,7 +109,10 @@ export interface R2BucketLike {
   ) => Promise<unknown>;
 }
 
-export type AthenaClientCapabilitiesMode = "gateway" | "cloudflare-edge";
+export type AthenaClientCapabilitiesMode =
+  | "gateway"
+  | "cloudflare-edge"
+  | "sqlite-local";
 
 export interface AthenaDbLayerCapabilities {
   findManyAst: boolean;
@@ -120,7 +123,7 @@ export interface AthenaDbLayerCapabilities {
 }
 
 export interface AthenaDbCapabilities {
-  engine: "postgresql" | "cloudflare-d1" | "unknown";
+  engine: "postgresql" | "cloudflare-d1" | "sqlite" | "unknown";
   layers: AthenaDbLayerCapabilities;
   local: boolean;
   transactions: AthenaTransactionCapabilities;

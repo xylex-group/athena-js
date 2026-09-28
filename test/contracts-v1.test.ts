@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -338,21 +339,22 @@ test("P2: Export the advertised v1 contract subpath", () => {
   );
 
   const v1Export = pkg.exports?.["./contracts/v1"] as {
-    import?: string;
-    types?: string;
+    import?: { default?: string; types?: string };
+    require?: { default?: string; types?: string };
   };
   assert.equal(
-    typeof v1Export?.import === "string" &&
-      v1Export.import.includes("contracts/v1"),
+    typeof v1Export?.import?.default === "string" &&
+      v1Export.import.default.includes("contracts/v1"),
     true,
     "contracts/v1 import path must resolve under dist/contracts/v1"
   );
   assert.equal(
-    typeof v1Export?.types === "string" &&
-      v1Export.types.includes("contracts/v1"),
+    typeof v1Export?.import?.types === "string" &&
+      v1Export.import.types.includes("contracts/v1"),
     true,
     "contracts/v1 types path must resolve under dist/contracts/v1"
   );
+  assert.equal(v1Export?.require?.types, "./dist/contracts/v1.d.cts");
 
   assert.match(
     tsupSource,
@@ -385,7 +387,10 @@ test("P1: Move default after require in contract exports", () => {
   const pkg = JSON.parse(
     readFileSync(join(packageRoot, "package.json"), "utf8")
   ) as {
-    exports?: Record<string, Record<string, string>>;
+    exports?: Record<
+      string,
+      Record<string, string | { default?: string; types?: string }>
+    >;
   };
 
   for (const subpath of ["./contracts", "./contracts/v1"] as const) {
@@ -404,9 +409,14 @@ test("P1: Move default after require in contract exports", () => {
       `exports["${subpath}"]: default (index ${defaultIdx}) must come after require (index ${requireIdx}) so Node 18 require() resolves to .cjs, not ESM (ERR_REQUIRE_ESM). Keys: ${keys.join(", ")}`
     );
     assert.match(
-      entry.require,
+      (entry.require as { default?: string }).default ?? "",
       /\.cjs$/,
       `exports["${subpath}"].require must point at .cjs`
+    );
+    assert.match(
+      (entry.require as { types?: string }).types ?? "",
+      /\.d\.cts$/,
+      `exports["${subpath}"].require types must point at .d.cts`
     );
   }
 });
@@ -1138,11 +1148,14 @@ test("P2: Preserve JsonValue inference in the recursive schema", () => {
 
   // Type-level contract: inference must match public DTOs (no cast required).
   // Runtime tests cannot see TS assignability; focused tsc fixture encodes it.
+  const tsc = createRequire(join(packageRoot, "package.json")).resolve(
+    "typescript/bin/tsc"
+  );
   const result = spawnSync(
-    process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    process.execPath,
     [
-      "exec",
-      "tsc",
+      "--no-warnings",
+      tsc,
       "-p",
       "test/tsconfig.json-value-infer.json",
       "--pretty",
@@ -1151,7 +1164,7 @@ test("P2: Preserve JsonValue inference in the recursive schema", () => {
     {
       cwd: packageRoot,
       encoding: "utf8",
-      shell: process.platform === "win32",
+      env: { ...process.env, CI: "true" },
     }
   );
   assert.equal(

@@ -10,9 +10,7 @@
     "types": [],
     "jsx": "react-jsx",
     "paths": {
-      "@xylex-group/athena/react-native": [
-        "../../../dist/react-native.d.ts"
-      ],
+      "@xylex-group/athena/react-native": ["../../../dist/react-native.d.ts"],
       "@xylex-group/athena": ["../../../dist/index.d.ts"]
     }
   },

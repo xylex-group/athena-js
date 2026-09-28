@@ -28,17 +28,16 @@ function readRowField(row: Record<string, unknown>, column: string): unknown {
   if (column in row) {
     return row[column];
   }
-  return;
 }
 
 export function modelIdentity(
   model: AthenaModelTarget,
-  row: unknown,
+  row: unknown
 ): AthenaPrimaryKey {
   const columns = model.meta.primaryKey;
   if (!columns.length) {
     throw new Error(
-      "modelIdentity: model has no primary key. Full-row normalization requires meta.primaryKey.",
+      "modelIdentity: model has no primary key. Full-row normalization requires meta.primaryKey."
     );
   }
   if (!isRecord(row)) {
@@ -58,15 +57,15 @@ export function modelIdentity(
 export function createAthenaEntityKey(
   model: AthenaModelTarget,
   row: unknown,
-  context?: AthenaCacheScope,
+  context?: AthenaCacheScope
 ): AthenaEntityKey {
   const target = resolveAthenaQueryTarget(
     model.meta.tableName ?? model.meta.model ?? "",
-    model,
+    model
   );
   if (!target.table) {
     throw new Error(
-      "createAthenaEntityKey: model is missing table identity (meta.tableName or meta.model).",
+      "createAthenaEntityKey: model is missing table identity (meta.tableName or meta.model)."
     );
   }
   return {
@@ -106,12 +105,12 @@ function stablePrimitive(value: unknown): string {
 export function entityKeyFromSinglePrimary(
   model: AthenaModelTarget,
   id: unknown,
-  context?: AthenaCacheScope,
+  context?: AthenaCacheScope
 ): AthenaEntityKey {
   const columns = model.meta.primaryKey;
   if (columns.length !== 1) {
     throw new Error(
-      "entityKeyFromSinglePrimary: model does not have a single-column primary key.",
+      "entityKeyFromSinglePrimary: model does not have a single-column primary key."
     );
   }
   return createAthenaEntityKey(model, { [columns[0] as string]: id }, context);

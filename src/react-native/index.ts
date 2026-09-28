@@ -46,8 +46,13 @@ export {
   type AthenaTokenStore,
   createMemoryTokenStore,
 } from "./token-store.ts";
+export { AthenaAuthSessionPersistenceError } from "../auth/client/session-persistence.ts";
 export type {
   AthenaLifecycleState,
   AthenaReactNativeFetch,
 } from "./types.ts";
 export { resolveReactNativeWebSocketFactory } from "./websocket.ts";
+export {
+  createReactNativeSqliteLocalExecutor,
+  type ReactNativeSqliteLocalHost,
+} from "./sqlite-local.ts";

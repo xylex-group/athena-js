@@ -1,0 +1,89 @@
+{
+  "source": "packages/athena-auth-ui/examples/next-minimal/src/lib/athena/root.ts",
+  "assessedAgainstMain": "8c83a40bf0740236bd04b833d94dfb87872c039b",
+  "mode": "role",
+  "defaultRole": "customer",
+  "rightsByRole": {
+    "admin": [
+      "admin.conflicts.resolve",
+      "admin.connections.materialize",
+      "admin.ingestion.health",
+      "admin.reconciliation.retry",
+      "admin.reconciliation.run",
+      "admin.webhooks.reconcile",
+      "admin.webhooks.status",
+      "admin.webhooks.verify",
+      "payments.list",
+      "payments.get",
+      "webhooks.list",
+      "webhooks.test",
+      "webhooks.update",
+      "self.payments.get",
+      "self.payments.list",
+      "self.subscription.cancel"
+    ],
+    "customer": [
+      "storage.get",
+      "storage.head",
+      "storage.list",
+      "billing.catalog.read",
+      "billing.self.invoices.read",
+      "billing.self.payments.read",
+      "billing.self.subscription.read",
+      "billing.self.subscription.write",
+      "billing.self.checkout.write",
+      "billing.customers.create",
+      "customers.create"
+    ],
+    "unauthorized": []
+  },
+  "operationNamesInAdminMap": [
+    "payments.list",
+    "payments.get",
+    "webhooks.list",
+    "webhooks.test",
+    "webhooks.update",
+    "self.payments.get",
+    "self.payments.list",
+    "self.subscription.cancel"
+  ],
+  "canonicalSelfPaymentRight": "billing.self.payments.read",
+  "personas": [
+    {
+      "id": "next-minimal-admin",
+      "userRole": "admin",
+      "ok": true,
+      "source": "role",
+      "selectedRole": "admin"
+    },
+    {
+      "id": "next-minimal-customer",
+      "userRole": "customer",
+      "ok": true,
+      "source": "role",
+      "selectedRole": "customer"
+    },
+    {
+      "id": "next-minimal-unauthorized",
+      "userRole": "unauthorized",
+      "ok": true,
+      "source": "role",
+      "selectedRole": "unauthorized"
+    },
+    {
+      "id": "null-role-uses-default",
+      "userRole": null,
+      "ok": true,
+      "source": "default-role",
+      "selectedRole": "customer"
+    },
+    {
+      "id": "org-owner-string-as-platform-role",
+      "userRole": "owner",
+      "ok": false,
+      "source": "none",
+      "selectedRole": "owner",
+      "reason": "role_not_mapped"
+    }
+  ]
+}

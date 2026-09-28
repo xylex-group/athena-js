@@ -13,7 +13,7 @@
 export const SUPERSEDED_BY = "test/sdd/athena-js-local-billing.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-BIL-NO-RUNTIME: P?: billing has no AthenaBillingRuntime port file",
-	"B-BIL-NO-CAPABILITIES: P?: billing has no BillingCapabilities file",
-	"B-BIL-NO-PAGE: P?: billing has no BillingPage list contract",
+  "B-BIL-NO-RUNTIME: P?: billing has no AthenaBillingRuntime port file",
+  "B-BIL-NO-CAPABILITIES: P?: billing has no BillingCapabilities file",
+  "B-BIL-NO-PAGE: P?: billing has no BillingPage list contract",
 ];

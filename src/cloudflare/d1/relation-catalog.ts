@@ -1,4 +1,8 @@
-import type { AthenaRelationCatalog, AthenaRelationDescriptor } from "../../query/engine/index.ts";
+import type {
+  AthenaRelationCatalog,
+  AthenaRelationDescriptor,
+} from "../../query/engine/index.ts";
+import { canonicalIdentity } from "../../query/engine/index.ts";
 import type { D1DatabaseLike } from "../types.ts";
 import { executeD1Query } from "./runner.ts";
 
@@ -35,7 +39,20 @@ export async function loadD1RelationCatalog(
     const grouped = new Map<string, AthenaRelationDescriptor>();
     for (const raw of result.rows as ForeignKeyPragmaRow[]) {
       const constraintId = String(raw.id ?? 0);
-      const id = `d1.${table}.${constraintId}`;
+      const id = canonicalIdentity(
+        "relation",
+        "d1",
+        undefined,
+        table,
+        constraintId
+      );
+      const constraint = canonicalIdentity(
+        "constraint",
+        "d1",
+        undefined,
+        table,
+        constraintId
+      );
       const existing = grouped.get(id);
       const fromCol = String(raw.from ?? "");
       const toCol = String(raw.to ?? "");
@@ -50,9 +67,12 @@ export async function loadD1RelationCatalog(
       }
       grouped.set(id, {
         cardinality: "many-to-one",
+        constraint,
+        constraintAliases: [constraintId],
         from: { columns: [fromCol], table },
         id,
         name: toTable,
+        source: "provider-discovery",
         to: { columns: [toCol], table: toTable },
       });
     }

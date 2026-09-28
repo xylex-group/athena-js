@@ -22,18 +22,18 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/athena-native-passkey-lifecycle.target.test.ts";
+  "test/sdd/athena-native-passkey-lifecycle.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-NPK-UPD-RESERVED",
-	"B-NPK-DEL-RESERVED",
-	"B-NPK-NO-DEF-UPD",
-	"B-NPK-NO-DEF-DEL",
-	"B-NPK-MANAGE-NO-MUTATE",
-	"B-NPK-MANAGE-CTX-STORES",
-	"B-NPK-REG-MUTATE",
-	"B-NPK-NO-CLIENT",
-	"B-NPK-PAYLOADS",
-	"B-NPK-COMPANION",
-	"B-NPK-SCHEMA-24",
+  "B-NPK-UPD-RESERVED",
+  "B-NPK-DEL-RESERVED",
+  "B-NPK-NO-DEF-UPD",
+  "B-NPK-NO-DEF-DEL",
+  "B-NPK-MANAGE-NO-MUTATE",
+  "B-NPK-MANAGE-CTX-STORES",
+  "B-NPK-REG-MUTATE",
+  "B-NPK-NO-CLIENT",
+  "B-NPK-PAYLOADS",
+  "B-NPK-COMPANION",
+  "B-NPK-SCHEMA-24",
 ] as const;

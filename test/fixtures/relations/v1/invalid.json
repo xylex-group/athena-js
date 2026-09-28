@@ -1,0 +1,29 @@
+{
+  "schema": "athena/relations-fixture/v1",
+  "tables": [
+    { "table": "left_records", "primaryKey": ["a", "b"] },
+    { "table": "right_records", "primaryKey": ["id"] }
+  ],
+  "relations": [
+    {
+      "id": "public.left_records.right_records",
+      "name": "right_records",
+      "cardinality": "one-to-many",
+      "from": { "table": "left_records", "columns": ["a", "b"] },
+      "to": { "table": "right_records", "columns": ["id"] }
+    }
+  ],
+  "cases": [
+    {
+      "name": "invalid direct key widths",
+      "request": {
+        "source": { "table": "left_records" },
+        "relation": "right_records"
+      },
+      "expected": {
+        "outcome": "error",
+        "code": "ATHENA_QUERY_RELATION_METADATA_CONFLICT"
+      }
+    }
+  ]
+}

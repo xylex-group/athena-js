@@ -5,1480 +5,1633 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { generateApiKey } from "../src/cli/api-key.ts";
 import {
-	CLI_COMMAND_CATALOG,
-	type CliRuntime,
-	catalogOptionFlags,
-	catalogOptionHelpHint,
-	catalogRootCommands,
-	catalogSubcommands,
-	formatExpectedCommandsLine,
-	parseCommand,
-	runCLI,
-	usage,
+  CLI_COMMAND_CATALOG,
+  type CliRuntime,
+  catalogOptionFlags,
+  catalogOptionHelpHint,
+  catalogRootCommands,
+  catalogSubcommands,
+  formatExpectedCommandsLine,
+  parseCommand,
+  runCLI,
+  usage,
 } from "../src/cli/index.ts";
 import {
-	formatEnvCheckReport,
-	validateProjectEnv,
+  formatEnvCheckReport,
+  validateProjectEnv,
 } from "../src/cli/project-env.ts";
 import type { NormalizedAthenaGeneratorConfig } from "../src/generator/index.ts";
 import { PACKAGE_VERSION } from "../src/sdk-version.ts";
 
 function createNormalizedGeneratorConfig(
-	format: "define-model" | "table-builder",
-	modelTarget = "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
-	registryTarget = "src/lib/athena/generated/registry.ts",
-	preset: "legacy" | "athena-direct" = registryTarget.startsWith("athena/")
-		? "legacy"
-		: "athena-direct",
+  format: "define-model" | "table-builder",
+  modelTarget = "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
+  registryTarget = "src/lib/athena/generated/registry.ts",
+  preset: "legacy" | "athena-direct" = registryTarget.startsWith("athena/")
+    ? "legacy"
+    : "athena-direct"
 ): NormalizedAthenaGeneratorConfig {
-	const isLegacy = preset === "legacy";
-	return {
-		experimental: {
-			postgresGatewayIntrospection: false,
-			scyllaProviderContracts: true,
-		},
-		features: {
-			emitRegistry: true,
-			emitRelations: true,
-		},
-		filter: {
-			excludeTables: [],
-			includeTables: [],
-		},
-		internal: {
-			schemaVersion: 1,
-		},
-		migrations: {
-			directory: "athena/migrations",
-		},
-		naming: {
-			databaseConst: "camel",
-			modelConst: "camel",
-			modelType: "pascal",
-			registryConst: "camel",
-			schemaConst: "camel",
-		},
-		output: {
-			artifactWrite: {
-				database: "merge",
-				registry: "merge",
-			},
-			format,
-			placeholderMap: {},
-			preset,
-			targets: {
-				database: isLegacy
-					? "athena/relations.ts"
-					: "src/lib/athena/generated/relations.ts",
-				model: modelTarget,
-				registry: registryTarget,
-				schema: isLegacy
-					? "athena/schemas/{schema_kebab}.ts"
-					: "src/lib/athena/generated/schema/{schema_kebab}.ts",
-			},
-		},
-		provider: {
-			connectionString: "postgres://postgres:postgres@127.0.0.1:5432/app_db",
-			database: "app_db",
-			kind: "postgres",
-			mode: "direct",
-			schemas: ["public"],
-		},
-	};
+  const isLegacy = preset === "legacy";
+  return {
+    experimental: {
+      postgresGatewayIntrospection: false,
+      scyllaProviderContracts: true,
+    },
+    features: {
+      emitRegistry: true,
+      emitRelations: true,
+    },
+    filter: {
+      excludeTables: [],
+      includeTables: [],
+    },
+    internal: {
+      schemaVersion: 1,
+    },
+    migrations: {
+      directory: "athena/migrations",
+    },
+    naming: {
+      databaseConst: "camel",
+      modelConst: "camel",
+      modelType: "pascal",
+      registryConst: "camel",
+      schemaConst: "camel",
+    },
+    output: {
+      artifactWrite: {
+        database: "merge",
+        registry: "merge",
+      },
+      format,
+      placeholderMap: {},
+      preset,
+      targets: {
+        database: isLegacy
+          ? "athena/relations.ts"
+          : "src/lib/athena/generated/relations.ts",
+        model: modelTarget,
+        registry: registryTarget,
+        schema: isLegacy
+          ? "athena/schemas/{schema_kebab}.ts"
+          : "src/lib/athena/generated/schema/{schema_kebab}.ts",
+      },
+    },
+    provider: {
+      connectionString: "postgres://postgres:postgres@127.0.0.1:5432/app_db",
+      database: "app_db",
+      kind: "postgres",
+      mode: "direct",
+      schemas: ["public"],
+    },
+  };
 }
 
 test("parseCommand supports generate subcommand help flag", () => {
-	const parsed = parseCommand(["generate", "--help"]);
-	assert.deepEqual(parsed, { command: "help", topic: "generate" });
+  const parsed = parseCommand(["generate", "--help"]);
+  assert.deepEqual(parsed, { command: "help", topic: "generate" });
 });
 
 test("parseCommand supports help generate alias", () => {
-	const parsed = parseCommand(["help", "generate"]);
-	assert.deepEqual(parsed, { command: "help", topic: "generate" });
+  const parsed = parseCommand(["help", "generate"]);
+  assert.deepEqual(parsed, { command: "help", topic: "generate" });
 });
 
 test("help topics come from the command catalog", () => {
-	assert.deepEqual(parseCommand(["help", "key"]), {
-		command: "help",
-		topic: "api-key",
-	});
-	assert.deepEqual(parseCommand(["help", "migrate", "status"]), {
-		command: "help",
-		topic: "migrate-status",
-	});
-	assert.deepEqual(parseCommand(["--help", "--commands"]), {
-		command: "help",
-		topic: "commands",
-	});
-	assert.deepEqual(parseCommand(["--help", "-v"]), {
-		command: "help",
-		topic: "version",
-	});
+  assert.deepEqual(parseCommand(["help", "key"]), {
+    command: "help",
+    topic: "api-key",
+  });
+  assert.deepEqual(parseCommand(["help", "migrate", "status"]), {
+    command: "help",
+    topic: "migrate-status",
+  });
+  assert.deepEqual(parseCommand(["--help", "--commands"]), {
+    command: "help",
+    topic: "commands",
+  });
+  assert.deepEqual(parseCommand(["--help", "-v"]), {
+    command: "help",
+    topic: "version",
+  });
 });
 
 test("parseCommand supports generate write/discover flags", () => {
-	assert.deepEqual(parseCommand(["generate", "--dry-run"]), {
-		command: "generate",
-		configPath: undefined,
-		discoverSchemas: true,
-		dryRun: true,
-		writeConfig: true,
-	});
-	assert.deepEqual(
-		parseCommand(["generate", "--no-write-config", "--no-discover-schemas"]),
-		{
-			command: "generate",
-			configPath: undefined,
-			discoverSchemas: false,
-			dryRun: false,
-			writeConfig: false,
-		},
-	);
+  assert.deepEqual(parseCommand(["generate", "--dry-run"]), {
+    command: "generate",
+    check: false,
+    configPath: undefined,
+    discoverSchemas: true,
+    dryRun: true,
+    strict: false,
+    writeConfig: true,
+  });
+  assert.deepEqual(
+    parseCommand(["generate", "--no-write-config", "--no-discover-schemas"]),
+    {
+      command: "generate",
+      check: false,
+      configPath: undefined,
+      discoverSchemas: false,
+      dryRun: false,
+      strict: false,
+      writeConfig: false,
+    }
+  );
 });
 
 test("parseCommand expands --flag=value and ignores global color flags", () => {
-	assert.deepEqual(
-		parseCommand(["generate", "--config=./athena.config.ts", "--dry-run"]),
-		{
-			command: "generate",
-			configPath: "./athena.config.ts",
-			discoverSchemas: true,
-			dryRun: true,
-			writeConfig: true,
-		},
-	);
-	assert.deepEqual(parseCommand(["generate", "--no-color", "--dry-run"]), {
-		command: "generate",
-		configPath: undefined,
-		discoverSchemas: true,
-		dryRun: true,
-		writeConfig: true,
-	});
-	assert.deepEqual(parseCommand(["--help", "generate"]), {
-		command: "help",
-		topic: "generate",
-	});
+  assert.deepEqual(
+    parseCommand(["generate", "--config=./athena.config.ts", "--dry-run"]),
+    {
+      command: "generate",
+      check: false,
+      configPath: "./athena.config.ts",
+      discoverSchemas: true,
+      dryRun: true,
+      strict: false,
+      writeConfig: true,
+    }
+  );
+  assert.deepEqual(parseCommand(["generate", "--no-color", "--dry-run"]), {
+    command: "generate",
+    check: false,
+    configPath: undefined,
+    discoverSchemas: true,
+    dryRun: true,
+    strict: false,
+    writeConfig: true,
+  });
+
+  assert.deepEqual(parseCommand(["--help", "generate"]), {
+    command: "help",
+    topic: "generate",
+  });
+});
+
+test("parseCommand supports generator check and strict diagnostics", () => {
+  assert.deepEqual(parseCommand(["generate", "--check", "--strict"]), {
+    check: true,
+    command: "generate",
+    configPath: undefined,
+    discoverSchemas: true,
+    dryRun: false,
+    strict: true,
+    writeConfig: true,
+  });
 });
 
 test("parseCommand suggests nearby commands and flags", () => {
-	assert.throws(() => parseCommand(["generat"]), /Did you mean generate/);
-	assert.throws(
-		() => parseCommand(["generate", "--dryrun"]),
-		/Did you mean --dry-run/,
-	);
+  assert.throws(() => parseCommand(["generat"]), /Did you mean generate/);
+  assert.throws(
+    () => parseCommand(["generate", "--dryrun"]),
+    /Did you mean --dry-run/
+  );
 });
 
 test("unknown command Expected line comes from the command catalog", () => {
-	const expected = formatExpectedCommandsLine(catalogRootCommands());
-	assert.match(expected, /"generate"/);
-	assert.match(expected, /"api-key"/);
-	try {
-		parseCommand(["not-a-real-command"]);
-		assert.fail("expected throw");
-	} catch (error) {
-		if (!(error instanceof Error)) {
-			throw error;
-		}
-		assert.equal(error.message.includes(expected), true);
-	}
-	const apiKeyExpected = formatExpectedCommandsLine(
-		catalogSubcommands("api-key"),
-	);
-	try {
-		parseCommand(["api-key", "nope"]);
-		assert.fail("expected throw");
-	} catch (error) {
-		if (!(error instanceof Error)) {
-			throw error;
-		}
-		assert.equal(error.message.includes(apiKeyExpected), true);
-	}
+  const expected = formatExpectedCommandsLine(catalogRootCommands());
+  assert.match(expected, /"generate"/);
+  assert.match(expected, /"api-key"/);
+  try {
+    parseCommand(["not-a-real-command"]);
+    assert.fail("expected throw");
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    assert.equal(error.message.includes(expected), true);
+  }
+  const apiKeyExpected = formatExpectedCommandsLine(
+    catalogSubcommands("api-key")
+  );
+  try {
+    parseCommand(["api-key", "nope"]);
+    assert.fail("expected throw");
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    assert.equal(error.message.includes(apiKeyExpected), true);
+  }
 });
 
 test("unknown option Expected line comes from the command catalog", () => {
-	const expected = formatExpectedCommandsLine(catalogOptionFlags("generate"));
-	assert.match(expected, /"--dry-run"/);
-	assert.match(expected, /"--help"/);
-	try {
-		parseCommand(["generate", "--dryrun"]);
-		assert.fail("expected throw");
-	} catch (error) {
-		if (!(error instanceof Error)) {
-			throw error;
-		}
-		assert.equal(error.message.includes(expected), true);
-		assert.equal(
-			error.message.includes(catalogOptionHelpHint("generate")),
-			true,
-		);
-	}
+  const expected = formatExpectedCommandsLine(catalogOptionFlags("generate"));
+  assert.match(expected, /"--dry-run"/);
+  assert.match(expected, /"--help"/);
+  try {
+    parseCommand(["generate", "--dryrun"]);
+    assert.fail("expected throw");
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    assert.equal(error.message.includes(expected), true);
+    assert.equal(
+      error.message.includes(catalogOptionHelpHint("generate")),
+      true
+    );
+  }
 });
 
 test("parseCommand supports init command options", () => {
-	assert.deepEqual(
-		parseCommand(["init", "--mode", "gateway", "--force", "--dry-run"]),
-		{
-			command: "init",
-			configPath: undefined,
-			discoverSchemas: true,
-			dryRun: true,
-			force: true,
-			mode: "gateway",
-		},
-	);
-	assert.deepEqual(parseCommand(["help", "init"]), {
-		command: "help",
-		topic: "init",
-	});
+  assert.deepEqual(
+    parseCommand(["init", "--mode", "gateway", "--force", "--dry-run"]),
+    {
+      command: "init",
+      configPath: undefined,
+      discoverSchemas: true,
+      dryRun: true,
+      force: true,
+      mode: "gateway",
+    }
+  );
+  assert.deepEqual(parseCommand(["help", "init"]), {
+    command: "help",
+    topic: "init",
+  });
 });
 
 test("usage returns generate help text for topic generate", () => {
-	const text = usage("generate");
-	assert.equal(text.includes("athena-js generate"), true);
-	assert.equal(text.includes("-h, --help"), true);
-	assert.equal(text.includes("--no-write-config"), true);
-	assert.equal(
-		text.includes(
-			"DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db",
-		),
-		true,
-	);
-	assert.equal(
-		text.includes(
-			"env-only gateway mode when ATHENA_URL + ATHENA_API_KEY are present",
-		),
-		true,
-	);
+  const text = usage("generate");
+  assert.equal(text.includes("athena-js generate"), true);
+  assert.equal(text.includes("-h, --help"), true);
+  assert.equal(text.includes("--no-write-config"), true);
+  assert.equal(
+    text.includes(
+      "DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/app_db"
+    ),
+    true
+  );
+  assert.equal(
+    text.includes(
+      "env-only gateway mode when ATHENA_URL + ATHENA_API_KEY are present"
+    ),
+    true
+  );
 });
 
 test("usage returns init help text for topic init", () => {
-	const text = usage("init");
-	assert.equal(text.includes("athena-js init"), true);
-	assert.equal(text.includes("--mode direct|gateway|auto"), true);
-	assert.equal(text.includes("--force"), true);
+  const text = usage("init");
+  assert.equal(text.includes("athena-js init"), true);
+  assert.equal(text.includes("--mode direct|gateway|auto"), true);
+  assert.equal(text.includes("--force"), true);
 });
 
 test("runCLI prints generate help output", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate", "--help"], {
-		log: (message) => {
-			logs.push(message);
-		},
-	});
+  const logs: string[] = [];
+  await runCLI(["generate", "--help"], {
+    log: (message) => {
+      logs.push(message);
+    },
+  });
 
-	assert.equal(logs.length, 1);
-	assert.equal(logs[0].includes("athena-js generate"), true);
-	assert.equal(logs[0].includes("--config"), true);
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].includes("athena-js generate"), true);
+  assert.equal(logs[0].includes("--config"), true);
 });
 
 test("runCLI init prints ensure result without writing when dry-run", async () => {
-	const logs: string[] = [];
-	await runCLI(
-		["init", "--dry-run", "--mode", "direct", "--no-discover-schemas"],
-		{
-			ensureConfig: async () => ({
-				absolutePath: "C:/tmp/athena.config.ts",
-				action: "created",
-				changes: ["created-modern-config"],
-				content: "export default {}\n",
-				mode: "direct",
-				path: "athena.config.ts",
-				reason: "config file missing",
-				schemaProvenance: "fallback" as const,
-				schemas: ["public"],
-			}),
-			log: (message) => {
-				logs.push(message);
-			},
-		},
-	);
+  const logs: string[] = [];
+  await runCLI(
+    ["init", "--dry-run", "--mode", "direct", "--no-discover-schemas"],
+    {
+      ensureConfig: async () => ({
+        absolutePath: "C:/tmp/athena.config.ts",
+        action: "created",
+        changes: ["created-modern-config"],
+        content: "export default {}\n",
+        mode: "direct",
+        path: "athena.config.ts",
+        reason: "config file missing",
+        schemaProvenance: "fallback" as const,
+        schemas: ["public"],
+      }),
+      log: (message) => {
+        logs.push(message);
+      },
+    }
+  );
 
-	assert.equal(
-		logs.join("\n").includes("[dry-run] Config created:"),
-		true,
-	);
-	assert.equal(logs[0].includes("mode=direct"), true);
-	assert.equal(
-		logs.some((line) => line.includes("created-modern-config")),
-		true,
-	);
+  assert.equal(logs.join("\n").includes("[dry-run] Config created:"), true);
+  assert.equal(logs[0].includes("mode=direct"), true);
+  assert.equal(
+    logs.some((line) => line.includes("created-modern-config")),
+    true
+  );
 });
 
 test("runCLI prints dry-run output for define-model artifacts (athena-direct)", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate", "--dry-run"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig("define-model"),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [
-				{
-					content: "",
-					kind: "model",
-					path: "src/lib/athena/generated/models/public/users.model.ts",
-				},
-			],
-			skippedFiles: [],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [],
-			writtenFiles: [],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate", "--dry-run"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig("define-model"),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [
+        {
+          content: "",
+          kind: "model",
+          path: "src/lib/athena/generated/models/public/users.model.ts",
+        },
+      ],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
 
-	assert.equal(logs.join("\n").includes("[dry-run] Generated 1 files"), true);
-	assert.equal(
-		logs[1],
-		"[mode] preset=athena-direct format=define-model modelTarget=src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
-	);
-	assert.equal(
-		logs[2],
-		"[provider] kind=postgres mode=direct database=app_db schemas=public",
-	);
-	assert.equal(
-		logs[3],
-		"[targets] schema=src/lib/athena/generated/schema/{schema_kebab}.ts database=src/lib/athena/generated/relations.ts registry=src/lib/athena/generated/registry.ts",
-	);
-	assert.equal(
-		logs[4].includes("Legacy define-model compatibility output is active"),
-		true,
-	);
-	assert.equal(
-		logs[5].includes(
-			"Default generator mode is preset=athena-direct + format=table-builder",
-		),
-		true,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("Legacy (N-1) preset is active")),
-		false,
-	);
-	assert.equal(
-		logs.some((line) =>
-			line.includes(
-				"Registry target is a legacy N-1 path (flat athena/*)",
-			),
-		),
-		false,
-	);
-	assert.equal(
-		logs[6],
-		" - src/lib/athena/generated/models/public/users.model.ts",
-	);
+  assert.equal(logs.join("\n").includes("[dry-run] Generated 1 files"), true);
+  assert.equal(
+    logs[1],
+    "[mode] preset=athena-direct format=define-model modelTarget=src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts"
+  );
+  assert.equal(
+    logs[2],
+    "[provider] kind=postgres mode=direct database=app_db schemas=public"
+  );
+  assert.equal(
+    logs[3],
+    "[targets] schema=src/lib/athena/generated/schema/{schema_kebab}.ts database=src/lib/athena/generated/relations.ts registry=src/lib/athena/generated/registry.ts"
+  );
+  assert.equal(
+    logs[4].includes("Legacy define-model compatibility output is active"),
+    true
+  );
+  assert.equal(
+    logs[5].includes(
+      "Default generator mode is preset=athena-direct + format=table-builder"
+    ),
+    true
+  );
+  assert.equal(
+    logs.some((line) => line.includes("Legacy (N-1) preset is active")),
+    false
+  );
+  assert.equal(
+    logs.some((line) =>
+      line.includes("Registry target is a legacy N-1 path (flat athena/*)")
+    ),
+    false
+  );
+  assert.equal(
+    logs[6],
+    " - src/lib/athena/generated/models/public/users.model.ts"
+  );
 });
 
 test("runCLI prints dry-run output for table-builder artifacts (athena-direct)", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate", "--dry-run"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig("table-builder"),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [
-				{
-					content: "",
-					kind: "model",
-					path: "src/lib/athena/generated/models/public/users.ts",
-				},
-			],
-			skippedFiles: [],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [],
-			writtenFiles: [],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate", "--dry-run"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig("table-builder"),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [
+        {
+          content: "",
+          kind: "model",
+          path: "src/lib/athena/generated/models/public/users.ts",
+        },
+      ],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
 
-	assert.equal(logs.join("\n").includes("[dry-run] Generated 1 files"), true);
-	assert.equal(
-		logs[1],
-		"[mode] preset=athena-direct format=table-builder modelTarget=src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
-	);
-	assert.equal(
-		logs[2],
-		"[provider] kind=postgres mode=direct database=app_db schemas=public",
-	);
-	assert.equal(
-		logs[3],
-		"[targets] schema=src/lib/athena/generated/schema/{schema_kebab}.ts database=src/lib/athena/generated/relations.ts registry=src/lib/athena/generated/registry.ts",
-	);
-	assert.equal(
-		logs[4].includes(
-			"Default generator mode is preset=athena-direct + format=table-builder",
-		),
-		true,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("Legacy (N-1) preset is active")),
-		false,
-	);
-	assert.equal(logs[5], " - src/lib/athena/generated/models/public/users.ts");
+  assert.equal(logs.join("\n").includes("[dry-run] Generated 1 files"), true);
+  assert.equal(
+    logs[1],
+    "[mode] preset=athena-direct format=table-builder modelTarget=src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts"
+  );
+  assert.equal(
+    logs[2],
+    "[provider] kind=postgres mode=direct database=app_db schemas=public"
+  );
+  assert.equal(
+    logs[3],
+    "[targets] schema=src/lib/athena/generated/schema/{schema_kebab}.ts database=src/lib/athena/generated/relations.ts registry=src/lib/athena/generated/registry.ts"
+  );
+  assert.equal(
+    logs[4].includes(
+      "Default generator mode is preset=athena-direct + format=table-builder"
+    ),
+    true
+  );
+  assert.equal(
+    logs.some((line) => line.includes("Legacy (N-1) preset is active")),
+    false
+  );
+  assert.equal(logs[5], " - src/lib/athena/generated/models/public/users.ts");
+});
+
+test("runCLI forwards generator check and strict flags and reports stale check status", async () => {
+  const previous = process.exitCode;
+  process.exitCode = undefined;
+  const logs: string[] = [];
+  let received: { check?: boolean; strict?: boolean } | undefined;
+  try {
+    const summary = await runCLI(["generate", "--check", "--strict"], {
+      log: (message) => {
+        logs.push(message);
+      },
+      runGenerator: async (options) => {
+        received = {
+          check: options.check,
+          strict: options.strict,
+        };
+        return {
+          config: createNormalizedGeneratorConfig("table-builder"),
+          configPath: "C:/tmp/athena.config.ts",
+          convergence: "stale",
+          diagnostics: [],
+          files: [],
+          generatedManifest: {
+            config: "athena.config.ts",
+            generatorVersion: "4.0.0",
+            outputs: [],
+          },
+          generatedManifestPath: ".athena/generated-manifest.json",
+          ownershipViolations: [],
+          skippedFiles: [],
+          snapshot: {
+            backend: "postgresql",
+            database: "app_db",
+            generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+            schemas: {},
+          },
+          writtenDetails: [],
+          writtenFiles: [],
+        };
+      },
+    });
+
+    assert.deepEqual(received, { check: true, strict: true });
+    assert.equal(summary.exitCode, 1);
+    assert.equal(logs[0], "[check] Generated 0 files from C:/tmp/athena.config.ts");
+  } finally {
+    process.exitCode = previous;
+  }
+});
+
+test("runCLI emits generator diagnostics once in check mode", async () => {
+  const logs: string[] = [];
+  await runCLI(["generate", "--check"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig("table-builder"),
+      configPath: "C:/tmp/athena.config.ts",
+      convergence: "stale",
+      diagnostics: [
+        {
+          code: "ATHENA_GENERATOR_DUPLICATE_TABLE_SELECTOR",
+          message: 'includeTables contains duplicate table selector "users".',
+          severity: "warning" as const,
+        },
+      ],
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      ownershipViolations: [],
+      skippedFiles: [],
+      writtenDetails: [
+        {
+          kind: "model" as const,
+          path: "src/generated/users.ts",
+          reason: "overwritten" as const,
+        },
+      ],
+      writtenFiles: ["src/generated/users.ts"],
+    }),
+  });
+
+  assert.equal(
+    logs.filter((line) =>
+      line.includes("ATHENA_GENERATOR_DUPLICATE_TABLE_SELECTOR")
+    ).length,
+    1
+  );
 });
 
 test("runCLI warns on N-1 legacy preset dry-run", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate", "--dry-run"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig(
-				"table-builder",
-				"athena/models/{schema_kebab}/{model_kebab}.ts",
-				"athena/registry.generated.ts",
-				"legacy",
-			),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [
-				{
-					content: "",
-					kind: "registry",
-					path: "athena/registry.generated.ts",
-				},
-			],
-			skippedFiles: [],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [],
-			writtenFiles: [],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate", "--dry-run"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig(
+        "table-builder",
+        "athena/models/{schema_kebab}/{model_kebab}.ts",
+        "athena/registry.generated.ts",
+        "legacy"
+      ),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [
+        {
+          content: "",
+          kind: "registry",
+          path: "athena/registry.generated.ts",
+        },
+      ],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
 
-	assert.equal(
-		logs.some((line) => line.includes("preset=legacy")),
-		true,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("Legacy (N-1) preset is active")),
-		true,
-	);
-	assert.equal(
-		logs.some((line) =>
-			line.includes(
-				"Registry target is a legacy N-1 path (flat athena/*)",
-			),
-		),
-		true,
-	);
+  assert.equal(
+    logs.some((line) => line.includes("preset=legacy")),
+    true
+  );
+  assert.equal(
+    logs.some((line) => line.includes("Legacy (N-1) preset is active")),
+    true
+  );
+  assert.equal(
+    logs.some((line) =>
+      line.includes("Registry target is a legacy N-1 path (flat athena/*)")
+    ),
+    true
+  );
 });
 
 test("runCLI prints safer direct registry targets without handwritten-seam warning", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate", "--dry-run"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig(
-				"table-builder",
-				"src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
-				"src/lib/athena/generated/registry.ts",
-			),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [],
-			skippedFiles: [],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [],
-			writtenFiles: [],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate", "--dry-run"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig(
+        "table-builder",
+        "src/lib/athena/generated/models/{schema_kebab}/{model_kebab}.ts",
+        "src/lib/athena/generated/registry.ts"
+      ),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
 
-	assert.equal(
-		logs.some((line) =>
-			line.includes("Registry target points at athena/config.ts"),
-		),
-		false,
-	);
-	assert.equal(
-		logs.some((line) =>
-			line.includes("Registry target is a legacy N-1 path (flat athena/*)"),
-		),
-		false,
-	);
+  assert.equal(
+    logs.some((line) =>
+      line.includes("Registry target points at athena/config.ts")
+    ),
+    false
+  );
+  assert.equal(
+    logs.some((line) =>
+      line.includes("Registry target is a legacy N-1 path (flat athena/*)")
+    ),
+    false
+  );
 });
 
 test("runCLI does not warn N-1 for project athena/generated registry", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate", "--dry-run"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig(
-				"table-builder",
-				"athena/generated/models/{schema_kebab}/{model_kebab}.ts",
-				"athena/generated/registry.ts",
-			),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [],
-			skippedFiles: [],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [],
-			writtenFiles: [],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate", "--dry-run"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig(
+        "table-builder",
+        "athena/generated/models/{schema_kebab}/{model_kebab}.ts",
+        "athena/generated/registry.ts"
+      ),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
 
-	assert.equal(
-		logs.some((line) =>
-			line.includes("Registry target is a legacy N-1 path (flat athena/*)"),
-		),
-		false,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("athena/generated/")),
-		true,
-	);
+  assert.equal(
+    logs.some((line) =>
+      line.includes("Registry target is a legacy N-1 path (flat athena/*)")
+    ),
+    false
+  );
+  assert.equal(
+    logs.some((line) => line.includes("athena/generated/")),
+    true
+  );
 });
 
 test("runCLI prints filter summary when table filters are active", async () => {
-	const logs: string[] = [];
-	const config = createNormalizedGeneratorConfig("table-builder");
-	config.filter = {
-		excludeTables: ["public.audit_logs"],
-		includeTables: ["users", "public.notifications"],
-	};
+  const logs: string[] = [];
+  const config = createNormalizedGeneratorConfig("table-builder");
+  config.filter = {
+    excludeTables: ["public.audit_logs"],
+    includeTables: ["users", "public.notifications"],
+  };
 
-	await runCLI(["generate", "--dry-run"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config,
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [],
-			skippedFiles: [],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [],
-			writtenFiles: [],
-		}),
-	});
+  await runCLI(["generate", "--dry-run"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config,
+      configPath: "C:/tmp/athena.config.ts",
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
 
-	assert.equal(
-		logs.some(
-			(line) =>
-				line ===
-				"[filter] include=users,public.notifications exclude=public.audit_logs",
-		),
-		true,
-	);
+  assert.equal(
+    logs.some(
+      (line) =>
+        line ===
+        "[filter] include=users,public.notifications exclude=public.audit_logs"
+    ),
+    true
+  );
 });
 
 test("runCLI prints protected skip lines for registry/database artifacts", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig("table-builder"),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [],
-			skippedFiles: [
-				{
-					kind: "registry",
-					path: "src/lib/athena/generated/registry.ts",
-					reason: "protected-existing-file",
-				},
-			],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [
-				{
-					kind: "model",
-					path: "src/lib/athena/generated/models/public/users.ts",
-					reason: "created",
-				},
-			],
-			writtenFiles: ["src/lib/athena/generated/models/public/users.ts"],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig("table-builder"),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [
+        {
+          kind: "registry",
+          path: "src/lib/athena/generated/registry.ts",
+          reason: "protected-existing-file",
+        },
+      ],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [
+        {
+          kind: "model",
+          path: "src/lib/athena/generated/models/public/users.ts",
+          reason: "created",
+        },
+      ],
+      writtenFiles: ["src/lib/athena/generated/models/public/users.ts"],
+    }),
+  });
 
-	assert.equal(
-		logs.some((line) =>
-			line.includes("[skip] src/lib/athena/generated/registry.ts"),
-		),
-		true,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("protected from overwrite")),
-		true,
-	);
+  assert.equal(
+    logs.some((line) =>
+      line.includes("[skip] src/lib/athena/generated/registry.ts")
+    ),
+    true
+  );
+  assert.equal(
+    logs.some((line) => line.includes("protected from overwrite")),
+    true
+  );
 });
 
 test("runCLI prints merge lines for database/registry artifacts", async () => {
-	const logs: string[] = [];
-	await runCLI(["generate"], {
-		log: (message) => {
-			logs.push(message);
-		},
-		runGenerator: async () => ({
-			config: createNormalizedGeneratorConfig("table-builder"),
-			configPath: "C:/tmp/athena.config.ts",
-			generatedManifest: {
-				config: "athena.config.ts",
-				generatorVersion: "4.0.0",
-				outputs: [],
-			},
-			generatedManifestPath: ".athena/generated-manifest.json",
-			files: [],
-			skippedFiles: [
-				{
-					kind: "registry",
-					path: "src/lib/athena/generated/registry.ts",
-					preservedCustom: ["export const extra"],
-					reason: "already-current",
-				},
-			],
-			snapshot: {
-				backend: "postgresql",
-				database: "app_db",
-				generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
-				schemas: {},
-			},
-			writtenDetails: [
-				{
-					added: ["import billingSchema", "database entry: billing"],
-					kind: "database",
-					path: "src/lib/athena/generated/relations.ts",
-					preservedCustom: ["export const handWired"],
-					reason: "merged",
-				},
-			],
-			writtenFiles: ["src/lib/athena/generated/relations.ts"],
-		}),
-	});
+  const logs: string[] = [];
+  await runCLI(["generate"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig("table-builder"),
+      configPath: "C:/tmp/athena.config.ts",
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [
+        {
+          kind: "registry",
+          path: "src/lib/athena/generated/registry.ts",
+          preservedCustom: ["export const extra"],
+          reason: "already-current",
+        },
+      ],
+      snapshot: {
+        backend: "postgresql",
+        database: "app_db",
+        generatedAt: new Date("2026-06-16T00:00:00.000Z").toISOString(),
+        schemas: {},
+      },
+      writtenDetails: [
+        {
+          added: ["import billingSchema", "database entry: billing"],
+          kind: "database",
+          path: "src/lib/athena/generated/relations.ts",
+          preservedCustom: ["export const handWired"],
+          reason: "merged",
+        },
+      ],
+      writtenFiles: ["src/lib/athena/generated/relations.ts"],
+    }),
+  });
 
-	assert.equal(
-		logs.some((line) =>
-			line.includes("[merge] src/lib/athena/generated/relations.ts"),
-		),
-		true,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("billingSchema")),
-		true,
-	);
-	assert.equal(
-		logs.some((line) =>
-			line.includes("[ok] src/lib/athena/generated/registry.ts"),
-		),
-		true,
-	);
-	assert.equal(
-		logs.some((line) => line.includes("non-generated unit")),
-		true,
-	);
+  assert.equal(
+    logs.some((line) =>
+      line.includes("[merge] src/lib/athena/generated/relations.ts")
+    ),
+    true
+  );
+  assert.equal(
+    logs.some((line) => line.includes("billingSchema")),
+    true
+  );
+  assert.equal(
+    logs.some((line) =>
+      line.includes("[ok] src/lib/athena/generated/registry.ts")
+    ),
+    true
+  );
+  assert.equal(
+    logs.some((line) => line.includes("non-generated unit")),
+    true
+  );
+});
+
+test("runCLI reports deleted files in normal generation output", async () => {
+  const logs: string[] = [];
+  await runCLI(["generate"], {
+    log: (message) => {
+      logs.push(message);
+    },
+    runGenerator: async () => ({
+      config: createNormalizedGeneratorConfig("table-builder"),
+      configPath: "C:/tmp/athena.config.ts",
+      deletedFiles: ["src/lib/athena/generated/models/public/removed.ts"],
+      files: [],
+      generatedManifest: {
+        config: "athena.config.ts",
+        generatorVersion: "4.0.0",
+        outputs: [],
+      },
+      generatedManifestPath: ".athena/generated-manifest.json",
+      skippedFiles: [],
+      writtenDetails: [],
+      writtenFiles: [],
+    }),
+  });
+
+  assert.equal(
+    logs.includes(
+      " - src/lib/athena/generated/models/public/removed.ts (deleted)"
+    ),
+    true
+  );
 });
 
 test("runCLI normalizes postgres missing database errors with actionable guidance", async () => {
-	const errors: string[] = [];
-	const previousExitCode = process.exitCode;
-	const failingGenerator = async () => {
-		const error = new Error('database "app_db" does not exist') as Error & {
-			code: string;
-		};
-		error.code = "3D000";
-		throw error;
-	};
+  const errors: string[] = [];
+  const previousExitCode = process.exitCode;
+  const failingGenerator = async () => {
+    const error = new Error('database "app_db" does not exist') as Error & {
+      code: string;
+    };
+    error.code = "3D000";
+    throw error;
+  };
 
-	try {
-		await runCLI(["generate", "--config", "./athena.config.ts", "--dry-run"], {
-			errorLog: (message) => errors.push(message),
-			runGenerator: failingGenerator as NonNullable<CliRuntime["runGenerator"]>,
-		});
+  try {
+    await runCLI(["generate", "--config", "./athena.config.ts", "--dry-run"], {
+      errorLog: (message) => errors.push(message),
+      runGenerator: failingGenerator as NonNullable<CliRuntime["runGenerator"]>,
+    });
 
-		assert.equal(process.exitCode, 3);
-		assert.equal(
-			errors.some((message) =>
-				message.includes('PostgreSQL database "app_db" does not exist'),
-			),
-			true,
-		);
-		assert.equal(
-			errors.some((message) => message.includes("provider.connectionString")),
-			true,
-		);
-	} finally {
-		process.exitCode = previousExitCode;
-	}
+    assert.equal(process.exitCode, 3);
+    assert.equal(
+      errors.some((message) =>
+        message.includes('PostgreSQL database "app_db" does not exist')
+      ),
+      true
+    );
+    assert.equal(
+      errors.some((message) => message.includes("provider.connectionString")),
+      true
+    );
+  } finally {
+    process.exitCode = previousExitCode;
+  }
 });
 
 test("parseCommand supports version flags and aliases", () => {
-	assert.deepEqual(parseCommand(["--version"]), {
-		command: "version",
-		short: false,
-	});
-	assert.deepEqual(parseCommand(["-v"]), {
-		command: "version",
-		short: false,
-	});
-	assert.deepEqual(parseCommand(["version"]), {
-		command: "version",
-		short: false,
-	});
-	assert.deepEqual(parseCommand(["v"]), {
-		command: "version",
-		short: false,
-	});
-	assert.deepEqual(parseCommand(["version", "--short"]), {
-		command: "version",
-		short: true,
-	});
-	assert.deepEqual(parseCommand(["help", "version"]), {
-		command: "help",
-		topic: "version",
-	});
+  assert.deepEqual(parseCommand(["--version"]), {
+    command: "version",
+    short: false,
+  });
+  assert.deepEqual(parseCommand(["-v"]), {
+    command: "version",
+    short: false,
+  });
+  assert.deepEqual(parseCommand(["version"]), {
+    command: "version",
+    short: false,
+  });
+  assert.deepEqual(parseCommand(["v"]), {
+    command: "version",
+    short: false,
+  });
+  assert.deepEqual(parseCommand(["version", "--short"]), {
+    command: "version",
+    short: true,
+  });
+  assert.deepEqual(parseCommand(["help", "version"]), {
+    command: "help",
+    topic: "version",
+  });
 });
 
 test("parseCommand supports --commands inventory aliases", () => {
-	assert.deepEqual(parseCommand(["--commands"]), {
-		command: "commands",
-		format: "full",
-	});
-	assert.deepEqual(parseCommand(["-C"]), {
-		command: "commands",
-		format: "full",
-	});
-	assert.deepEqual(parseCommand(["commands", "--json"]), {
-		command: "commands",
-		format: "json",
-	});
-	assert.deepEqual(parseCommand(["list-commands", "--plain"]), {
-		command: "commands",
-		format: "plain",
-	});
-	assert.deepEqual(parseCommand(["cmds", "--groups"]), {
-		command: "commands",
-		format: "groups",
-	});
-	assert.deepEqual(parseCommand(["--list-commands"]), {
-		command: "commands",
-		format: "full",
-	});
-	assert.deepEqual(parseCommand(["help", "commands"]), {
-		command: "help",
-		topic: "commands",
-	});
-	assert.deepEqual(parseCommand(["commands", "--help"]), {
-		command: "help",
-		topic: "commands",
-	});
+  assert.deepEqual(parseCommand(["--commands"]), {
+    command: "commands",
+    format: "full",
+  });
+  assert.deepEqual(parseCommand(["-C"]), {
+    command: "commands",
+    format: "full",
+  });
+  assert.deepEqual(parseCommand(["commands", "--json"]), {
+    command: "commands",
+    format: "json",
+  });
+  assert.deepEqual(parseCommand(["list-commands", "--plain"]), {
+    command: "commands",
+    format: "plain",
+  });
+  assert.deepEqual(parseCommand(["cmds", "--groups"]), {
+    command: "commands",
+    format: "groups",
+  });
+  assert.deepEqual(parseCommand(["--list-commands"]), {
+    command: "commands",
+    format: "full",
+  });
+  assert.deepEqual(parseCommand(["help", "commands"]), {
+    command: "help",
+    topic: "commands",
+  });
+  assert.deepEqual(parseCommand(["commands", "--help"]), {
+    command: "help",
+    topic: "commands",
+  });
 });
 
 test("parseCommand supports env check options", () => {
-	assert.deepEqual(parseCommand(["env"]), {
-		command: "env",
-		files: [],
-		json: false,
-		mode: "auto",
-		strict: false,
-	});
-	assert.deepEqual(
-		parseCommand([
-			"env",
-			"validate",
-			"--file",
-			".env.local",
-			"--mode",
-			"gateway",
-			"--strict",
-			"--json",
-		]),
-		{
-			command: "env",
-			files: [".env.local"],
-			json: true,
-			mode: "gateway",
-			strict: true,
-		},
-	);
-	assert.deepEqual(parseCommand(["help", "env"]), {
-		command: "help",
-		topic: "env",
-	});
+  assert.deepEqual(parseCommand(["env"]), {
+    command: "env",
+    files: [],
+    json: false,
+    mode: "auto",
+    strict: false,
+  });
+  assert.deepEqual(
+    parseCommand([
+      "env",
+      "validate",
+      "--file",
+      ".env.local",
+      "--mode",
+      "gateway",
+      "--strict",
+      "--json",
+    ]),
+    {
+      command: "env",
+      files: [".env.local"],
+      json: true,
+      mode: "gateway",
+      strict: true,
+    }
+  );
+  assert.deepEqual(parseCommand(["help", "env"]), {
+    command: "help",
+    topic: "env",
+  });
 });
 
 test("parseCommand supports api-key generate options", () => {
-	assert.deepEqual(parseCommand(["api-key", "generate"]), {
-		command: "api-key-generate",
-		bytes: 32,
-		envFile: undefined,
-		envKey: "ATHENA_KEY_12",
-		force: false,
-		prefix: "",
-		write: false,
-	});
-	assert.deepEqual(
-		parseCommand([
-			"key",
-			"generate",
-			"--write",
-			"--env-file",
-			".env.local",
-			"--bytes",
-			"24",
-			"--force",
-		]),
-		{
-			command: "api-key-generate",
-			bytes: 24,
-			envFile: ".env.local",
-			envKey: "ATHENA_KEY_12",
-			force: true,
-			prefix: "",
-			write: true,
-		},
-	);
-	assert.deepEqual(parseCommand(["api-key"]), {
-		command: "help",
-		topic: "api-key",
-	});
+  assert.deepEqual(parseCommand(["api-key", "generate"]), {
+    bytes: 32,
+    command: "api-key-generate",
+    envFile: undefined,
+    envKey: "ATHENA_KEY_12",
+    force: false,
+    prefix: "",
+    write: false,
+  });
+  assert.deepEqual(
+    parseCommand([
+      "key",
+      "generate",
+      "--write",
+      "--env-file",
+      ".env.local",
+      "--bytes",
+      "24",
+      "--force",
+    ]),
+    {
+      bytes: 24,
+      command: "api-key-generate",
+      envFile: ".env.local",
+      envKey: "ATHENA_KEY_12",
+      force: true,
+      prefix: "",
+      write: true,
+    }
+  );
+  assert.deepEqual(parseCommand(["api-key"]), {
+    command: "help",
+    topic: "api-key",
+  });
 });
 
 test("parseCommand supports api-key create/list and rights commands", () => {
-	assert.deepEqual(
-		parseCommand([
-			"api-key",
-			"create",
-			"--name",
-			"analytics",
-			"--rights",
-			"gateway.query,gateway.read",
-			"--client-name",
-			"analytics",
-			"--write",
-		]),
-		{
-			command: "api-key-create",
-			adminKey: undefined,
-			clientName: "analytics",
-			description: undefined,
-			envFile: undefined,
-			envKey: "ATHENA_API_KEY",
-			expiresAt: undefined,
-			force: false,
-			json: false,
-			name: "analytics",
-			rights: ["gateway.query", "gateway.read"],
-			url: undefined,
-			write: true,
-		},
-	);
-	assert.deepEqual(parseCommand(["api-key", "list", "--json"]), {
-		command: "api-key-list",
-		adminKey: undefined,
-		json: true,
-		url: undefined,
-	});
-	assert.deepEqual(parseCommand(["rights", "catalog"]), {
-		command: "rights-catalog",
-		adminKey: undefined,
-		json: false,
-		url: undefined,
-	});
-	assert.deepEqual(
-		parseCommand([
-			"rights",
-			"create",
-			"--name",
-			"gateway.query",
-			"--description",
-			"Run query",
-		]),
-		{
-			command: "rights-create",
-			adminKey: undefined,
-			description: "Run query",
-			json: false,
-			name: "gateway.query",
-			url: undefined,
-		},
-	);
-	assert.deepEqual(parseCommand(["help", "rights"]), {
-		command: "help",
-		topic: "rights",
-	});
+  assert.deepEqual(
+    parseCommand([
+      "api-key",
+      "create",
+      "--name",
+      "analytics",
+      "--rights",
+      "gateway.query,gateway.read",
+      "--client-name",
+      "analytics",
+      "--write",
+    ]),
+    {
+      adminKey: undefined,
+      clientName: "analytics",
+      command: "api-key-create",
+      description: undefined,
+      envFile: undefined,
+      envKey: "ATHENA_API_KEY",
+      expiresAt: undefined,
+      force: false,
+      json: false,
+      name: "analytics",
+      rights: ["gateway.query", "gateway.read"],
+      url: undefined,
+      write: true,
+    }
+  );
+  assert.deepEqual(parseCommand(["api-key", "list", "--json"]), {
+    adminKey: undefined,
+    command: "api-key-list",
+    json: true,
+    url: undefined,
+  });
+  assert.deepEqual(parseCommand(["rights", "catalog"]), {
+    adminKey: undefined,
+    command: "rights-catalog",
+    json: false,
+    url: undefined,
+  });
+  assert.deepEqual(
+    parseCommand([
+      "rights",
+      "create",
+      "--name",
+      "gateway.query",
+      "--description",
+      "Run query",
+    ]),
+    {
+      adminKey: undefined,
+      command: "rights-create",
+      description: "Run query",
+      json: false,
+      name: "gateway.query",
+      url: undefined,
+    }
+  );
+  assert.deepEqual(parseCommand(["help", "rights"]), {
+    command: "help",
+    topic: "rights",
+  });
 });
 
 test("usage documents version, env, api-key, rights, and commands surfaces", () => {
-	const root = usage("root");
-	assert.equal(root.includes("-v, --version"), true);
-	assert.equal(root.includes("-C, --commands"), true);
-	assert.equal(root.includes("athena-js env check"), true);
-	assert.equal(root.includes("athena-js api-key"), true);
-	assert.equal(root.includes("athena-js rights"), true);
-	assert.equal(usage("env").includes("--mode auto|direct|gateway"), true);
-	assert.equal(usage("api-key").includes("create"), true);
-	assert.equal(usage("api-key").includes("/admin/api-keys"), true);
-	assert.equal(usage("rights").includes("/admin/rights/catalog"), true);
-	assert.equal(usage("version").includes("--version"), true);
-	assert.equal(usage("commands").includes("--json"), true);
-	assert.equal(usage("commands").includes("--plain"), true);
+  const root = usage("root");
+  assert.equal(root.includes("-v, --version"), true);
+  assert.equal(root.includes("-C, --commands"), true);
+  assert.equal(root.includes("athena-js env check"), true);
+  assert.equal(root.includes("athena-js api-key"), true);
+  assert.equal(root.includes("athena-js rights"), true);
+  assert.equal(usage("env").includes("--mode auto|direct|gateway"), true);
+  assert.equal(usage("api-key").includes("create"), true);
+  assert.equal(usage("api-key").includes("/admin/api-keys"), true);
+  assert.equal(usage("rights").includes("/admin/rights/catalog"), true);
+  assert.equal(usage("version").includes("--version"), true);
+  assert.equal(usage("commands").includes("--json"), true);
+  assert.equal(usage("commands").includes("--plain"), true);
+  const db = usage("db");
+  assert.equal(db.includes("athena-js db start"), true);
+  assert.equal(db.includes("athena-js db --config"), false);
 });
 
 test("root help groups usage, commands, and examples by command family", () => {
-	const root = usage("root");
-	const usageStart = root.indexOf("\nUsage:\n");
-	const commandsStart = root.indexOf("\nCommands:\n");
-	const examplesStart = root.indexOf("\nExamples:\n");
-	assert.equal(usageStart >= 0, true);
-	assert.equal(commandsStart > usageStart, true);
-	assert.equal(examplesStart > commandsStart, true);
+  const root = usage("root");
+  const usageStart = root.indexOf("\nUsage:\n");
+  const commandsStart = root.indexOf("\nCommands:\n");
+  const examplesStart = root.indexOf("\nExamples:\n");
+  assert.equal(usageStart >= 0, true);
+  assert.equal(commandsStart > usageStart, true);
+  assert.equal(examplesStart > commandsStart, true);
 
-	const usageBlock = root.slice(usageStart, commandsStart);
-	const commandsBlock = root.slice(commandsStart, examplesStart);
-	const examplesBlock = root.slice(examplesStart);
+  const usageBlock = root.slice(usageStart, commandsStart);
+  const commandsBlock = root.slice(commandsStart, examplesStart);
+  const examplesBlock = root.slice(examplesStart);
 
-	for (const heading of [
-		"Schema:",
-		"Policy:",
-		"Migrations:",
-		"Auth:",
-		"Gateway admin (ATHENA_KEY_12):",
-	]) {
-		assert.equal(usageBlock.includes(`\n${heading}\n`), true, heading);
-		assert.equal(commandsBlock.includes(`\n${heading}\n`), true, heading);
-		assert.equal(examplesBlock.includes(`\n${heading}\n`), true, heading);
-	}
+  for (const heading of [
+    "Schema:",
+    "Policy:",
+    "Migrations:",
+    "Auth:",
+    "Gateway admin (ATHENA_KEY_12):",
+  ]) {
+    assert.equal(usageBlock.includes(`\n${heading}\n`), true, heading);
+    assert.equal(commandsBlock.includes(`\n${heading}\n`), true, heading);
+    assert.equal(examplesBlock.includes(`\n${heading}\n`), true, heading);
+  }
 
-	const schemaUsage = usageBlock.indexOf("\nSchema:\n");
-	const policyUsage = usageBlock.indexOf("\nPolicy:\n");
-	const schemaDiff = usageBlock.indexOf("athena-js schema diff");
-	const policyList = usageBlock.indexOf("athena-js policy list");
-	assert.equal(schemaUsage >= 0 && schemaDiff > schemaUsage, true);
-	assert.equal(policyUsage > schemaDiff, true);
-	assert.equal(policyList > policyUsage, true);
-	assert.equal(schemaDiff < policyUsage, true);
+  const schemaUsage = usageBlock.indexOf("\nSchema:\n");
+  const policyUsage = usageBlock.indexOf("\nPolicy:\n");
+  const schemaDiff = usageBlock.indexOf("athena-js schema diff");
+  const policyList = usageBlock.indexOf("athena-js policy list");
+  assert.equal(schemaUsage >= 0 && schemaDiff > schemaUsage, true);
+  assert.equal(policyUsage > schemaDiff, true);
+  assert.equal(policyList > policyUsage, true);
+  assert.equal(schemaDiff < policyUsage, true);
 });
 
 test("runCLI prints package version", async () => {
-	const logs: string[] = [];
-	await runCLI(["--version"], {
-		log: (message) => {
-			logs.push(message);
-		},
-	});
-	assert.deepEqual(logs, [`@xylex-group/athena ${PACKAGE_VERSION}`]);
+  const logs: string[] = [];
+  await runCLI(["--version"], {
+    log: (message) => {
+      logs.push(message);
+    },
+  });
+  assert.match(
+    logs.join("\n"),
+    new RegExp(`CLI version\\s+${PACKAGE_VERSION}`)
+  );
+  assert.match(logs.join("\n"), /CLI source/);
+  assert.match(logs.join("\n"), /CLI package/);
+  assert.match(logs.join("\n"), /Modules:/);
 
-	const shortLogs: string[] = [];
-	await runCLI(["version", "--short"], {
-		log: (message) => {
-			shortLogs.push(message);
-		},
-	});
-	assert.deepEqual(shortLogs, [PACKAGE_VERSION]);
+  const shortLogs: string[] = [];
+  await runCLI(["version", "--short"], {
+    log: (message) => {
+      shortLogs.push(message);
+    },
+  });
+  assert.deepEqual(shortLogs, [PACKAGE_VERSION]);
 });
 
 test("runCLI prints full command catalog", async () => {
-	const logs: string[] = [];
-	await runCLI(["--commands"], {
-		log: (message) => {
-			logs.push(message);
-		},
-	});
-	assert.equal(logs.length, 1);
-	const catalog = logs[0] ?? "";
-	assert.equal(catalog.includes("athena-js command catalog"), true);
-	assert.equal(catalog.includes("api-key create"), true);
-	assert.equal(catalog.includes("rights catalog"), true);
-	assert.equal(catalog.includes("env check"), true);
-	assert.equal(CLI_COMMAND_CATALOG.length > 10, true);
+  const logs: string[] = [];
+  await runCLI(["--commands"], {
+    log: (message) => {
+      logs.push(message);
+    },
+  });
+  assert.equal(logs.length, 1);
+  const catalog = logs[0] ?? "";
+  assert.equal(catalog.includes("athena-js command catalog"), true);
+  assert.equal(catalog.includes("api-key create"), true);
+  assert.equal(catalog.includes("rights catalog"), true);
+  assert.equal(catalog.includes("env check"), true);
+  assert.equal(CLI_COMMAND_CATALOG.length > 10, true);
 
-	const jsonLogs: string[] = [];
-	await runCLI(["commands", "--json"], {
-		log: (message) => {
-			jsonLogs.push(message);
-		},
-	});
-	const parsed = JSON.parse(jsonLogs[0] ?? "{}") as {
-		count: number;
-		commands: Array<{ command: string }>;
-	};
-	assert.equal(parsed.count, CLI_COMMAND_CATALOG.length);
-	assert.equal(
-		parsed.commands.some((entry) => entry.command === "generate"),
-		true,
-	);
+  const jsonLogs: string[] = [];
+  await runCLI(["commands", "--json"], {
+    log: (message) => {
+      jsonLogs.push(message);
+    },
+  });
+  const parsed = JSON.parse(jsonLogs[0] ?? "{}") as {
+    count: number;
+    commands: Array<{ command: string }>;
+  };
+  assert.equal(parsed.count, CLI_COMMAND_CATALOG.length);
+  assert.equal(
+    parsed.commands.some((entry) => entry.command === "generate"),
+    true
+  );
 
-	const plainLogs: string[] = [];
-	await runCLI(["cmds", "--plain"], {
-		log: (message) => {
-			plainLogs.push(message);
-		},
-	});
-	const plain = plainLogs[0] ?? "";
-	assert.equal(plain.includes("generate"), true);
-	assert.equal(plain.includes("api-key create"), true);
-	assert.equal(plain.includes("migrate status"), true);
+  const plainLogs: string[] = [];
+  await runCLI(["cmds", "--plain"], {
+    log: (message) => {
+      plainLogs.push(message);
+    },
+  });
+  const plain = plainLogs[0] ?? "";
+  assert.equal(plain.includes("generate"), true);
+  assert.equal(plain.includes("api-key create"), true);
+  assert.equal(plain.includes("migrate status"), true);
 });
 
 test("generateApiKey returns high-entropy secret without ath_ prefix", () => {
-	const first = generateApiKey();
-	const second = generateApiKey({ prefix: "ath_", bytes: 16 });
-	assert.equal(first.key.startsWith("ath_"), false);
-	assert.equal(first.key.length > 20, true);
-	assert.equal(second.key.startsWith("ath_"), true);
-	assert.notEqual(first.key, second.key);
+  const first = generateApiKey();
+  const second = generateApiKey({ bytes: 16, prefix: "ath_" });
+  assert.equal(first.key.startsWith("ath_"), false);
+  assert.equal(first.key.length > 20, true);
+  assert.equal(second.key.startsWith("ath_"), true);
+  assert.notEqual(first.key, second.key);
 });
 
 test("validateProjectEnv accepts gateway keys from env map", () => {
-	const result = validateProjectEnv({
-		cwd: tmpdir(),
-		files: [],
-		mode: "gateway",
-		processEnv: {
-			ATHENA_API_KEY: "ath_test_secret_value_001",
-			ATHENA_URL: "https://athena.example.com",
-		},
-	});
-	assert.equal(result.resolvedMode, "gateway");
-	assert.equal(result.errorCount, 0);
-	assert.equal(
-		result.checks.some(
-			(check) => check.field === "gatewayUrl" && check.severity === "ok",
-		),
-		true,
-	);
-	assert.equal(formatEnvCheckReport(result).includes("result: OK"), true);
+  const result = validateProjectEnv({
+    cwd: tmpdir(),
+    files: [],
+    mode: "gateway",
+    processEnv: {
+      ATHENA_API_KEY: "ath_test_secret_value_001",
+      ATHENA_URL: "https://athena.example.com",
+    },
+  });
+  assert.equal(result.resolvedMode, "gateway");
+  assert.equal(result.errorCount, 0);
+  assert.equal(
+    result.checks.some(
+      (check) => check.field === "gatewayUrl" && check.severity === "ok"
+    ),
+    true
+  );
+  assert.equal(formatEnvCheckReport(result).includes("result: OK"), true);
 });
 
 test("validateProjectEnv rejects placeholder URLs and missing direct DB", () => {
-	const result = validateProjectEnv({
-		cwd: tmpdir(),
-		files: [],
-		mode: "direct",
-		processEnv: {
-			ATHENA_URL: `\${ATHENA_URL}`,
-			DATABASE_URL: "",
-		},
-	});
-	assert.equal(result.errorCount > 0, true);
-	assert.equal(
-		result.checks.some(
-			(check) => check.field === "databaseUrl" && check.severity === "error",
-		),
-		true,
-	);
+  const result = validateProjectEnv({
+    cwd: tmpdir(),
+    files: [],
+    mode: "direct",
+    processEnv: {
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: env placeholder token
+      ATHENA_URL: "${ATHENA_URL}",
+      DATABASE_URL: "",
+    },
+  });
+  assert.equal(result.errorCount > 0, true);
+  assert.equal(
+    result.checks.some(
+      (check) => check.field === "databaseUrl" && check.severity === "error"
+    ),
+    true
+  );
 });
 
 test("runCLI env check validates .env.local and sets exit code", async () => {
-	const dir = mkdtempSync(join(tmpdir(), "athena-cli-env-"));
-	const previousExitCode = process.exitCode;
-	try {
-		writeFileSync(
-			join(dir, ".env.local"),
-			[
-				"ATHENA_URL=https://gateway.example.com",
-				"ATHENA_API_KEY=ath_local_dev_key_123456",
-			].join("\n"),
-			"utf8",
-		);
+  const dir = mkdtempSync(join(tmpdir(), "athena-cli-env-"));
+  const previousExitCode = process.exitCode;
+  try {
+    writeFileSync(
+      join(dir, ".env.local"),
+      [
+        "ATHENA_URL=https://gateway.example.com",
+        "ATHENA_API_KEY=ath_local_dev_key_123456",
+      ].join("\n"),
+      "utf8"
+    );
 
-		const logs: string[] = [];
-		process.exitCode = undefined;
-		await runCLI(
-			["env", "check", "--file", ".env.local", "--mode", "gateway"],
-			{
-				cwd: dir,
-				log: (message) => {
-					logs.push(message);
-				},
-			},
-		);
+    const logs: string[] = [];
+    process.exitCode = undefined;
+    await runCLI(
+      ["env", "check", "--file", ".env.local", "--mode", "gateway"],
+      {
+        cwd: dir,
+        log: (message) => {
+          logs.push(message);
+        },
+      }
+    );
 
-		assert.equal(
-			logs.some((line) => line.includes("result: OK")),
-			true,
-		);
-		assert.equal(
-			process.exitCode === undefined || process.exitCode === 0,
-			true,
-		);
+    assert.equal(
+      logs.some((line) => line.includes("result: OK")),
+      true
+    );
+    assert.equal(
+      process.exitCode === undefined || process.exitCode === 0,
+      true
+    );
 
-		process.exitCode = undefined;
-		const failLogs: string[] = [];
-		writeFileSync(join(dir, ".env.bad"), "ATHENA_URL=not-a-url\n", "utf8");
-		await runCLI(["env", "check", "--file", ".env.bad", "--mode", "gateway"], {
-			cwd: dir,
-			log: (message) => {
-				failLogs.push(message);
-			},
-		});
-		assert.equal(process.exitCode, 5);
-		assert.equal(
-			failLogs.some((line) => line.includes("result: FAILED")),
-			true,
-		);
-	} finally {
-		process.exitCode = previousExitCode;
-		rmSync(dir, { force: true, recursive: true });
-	}
+    process.exitCode = undefined;
+    const failLogs: string[] = [];
+    writeFileSync(join(dir, ".env.bad"), "ATHENA_URL=not-a-url\n", "utf8");
+    await runCLI(["env", "check", "--file", ".env.bad", "--mode", "gateway"], {
+      cwd: dir,
+      log: (message) => {
+        failLogs.push(message);
+      },
+    });
+    assert.equal(process.exitCode, 5);
+    assert.equal(
+      failLogs.some((line) => line.includes("result: FAILED")),
+      true
+    );
+  } finally {
+    process.exitCode = previousExitCode;
+    rmSync(dir, { force: true, recursive: true });
+  }
 });
 
 test("runCLI api-key generate --write upserts ATHENA_KEY_12", async () => {
-	const dir = mkdtempSync(join(tmpdir(), "athena-cli-key-"));
-	try {
-		writeFileSync(
-			join(dir, ".env.local"),
-			"ATHENA_URL=https://example.com\n",
-			"utf8",
-		);
-		const logs: string[] = [];
-		await runCLI(
-			["api-key", "generate", "--write", "--env-file", ".env.local"],
-			{
-				cwd: dir,
-				log: (message) => {
-					logs.push(message);
-				},
-			},
-		);
+  const dir = mkdtempSync(join(tmpdir(), "athena-cli-key-"));
+  try {
+    writeFileSync(
+      join(dir, ".env.local"),
+      "ATHENA_URL=https://example.com\n",
+      "utf8"
+    );
+    const logs: string[] = [];
+    await runCLI(
+      ["api-key", "generate", "--write", "--env-file", ".env.local"],
+      {
+        cwd: dir,
+        log: (message) => {
+          logs.push(message);
+        },
+      }
+    );
 
-		const content = readFileSync(join(dir, ".env.local"), "utf8");
-		assert.equal(content.includes("ATHENA_URL=https://example.com"), true);
-		assert.equal(/ATHENA_KEY_12=/.test(content), true);
-		assert.equal(/ATHENA_API_KEY=/.test(content), false);
-		assert.equal(
-			logs.some((line) => line.includes("updated")),
-			true,
-		);
-	} finally {
-		rmSync(dir, { force: true, recursive: true });
-	}
+    const content = readFileSync(join(dir, ".env.local"), "utf8");
+    assert.equal(content.includes("ATHENA_URL=https://example.com"), true);
+    assert.equal(/ATHENA_KEY_12=/.test(content), true);
+    assert.equal(/ATHENA_API_KEY=/.test(content), false);
+    assert.equal(
+      logs.some((line) => line.includes("updated")),
+      true
+    );
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
 });
 
 test("runCLI api-key generate --write refuses ATHENA_API_KEY", async () => {
-	const dir = mkdtempSync(join(tmpdir(), "athena-cli-key-refuse-"));
-	const previousExitCode = process.exitCode;
-	try {
-		writeFileSync(join(dir, ".env.local"), "ATHENA_URL=https://example.com\n", "utf8");
-		const errors: string[] = [];
-		process.exitCode = undefined;
-		await runCLI(
-			[
-				"api-key",
-				"generate",
-				"--write",
-				"--env-file",
-				".env.local",
-				"--env-key",
-				"ATHENA_API_KEY",
-			],
-			{
-				cwd: dir,
-				errorLog: (message) => {
-					errors.push(message);
-				},
-			},
-		);
+  const dir = mkdtempSync(join(tmpdir(), "athena-cli-key-refuse-"));
+  const previousExitCode = process.exitCode;
+  try {
+    writeFileSync(
+      join(dir, ".env.local"),
+      "ATHENA_URL=https://example.com\n",
+      "utf8"
+    );
+    const errors: string[] = [];
+    process.exitCode = undefined;
+    await runCLI(
+      [
+        "api-key",
+        "generate",
+        "--write",
+        "--env-file",
+        ".env.local",
+        "--env-key",
+        "ATHENA_API_KEY",
+      ],
+      {
+        cwd: dir,
+        errorLog: (message) => {
+          errors.push(message);
+        },
+      }
+    );
 
-		const content = readFileSync(join(dir, ".env.local"), "utf8");
-		assert.equal(/ATHENA_API_KEY=/.test(content), false);
-		assert.equal(process.exitCode, 1);
-		assert.equal(
-			errors.some((line) => line.includes("cannot write ATHENA_API_KEY")),
-			true,
-		);
-		assert.equal(
-			errors.some((line) => line.includes("api-key create")),
-			true,
-		);
-	} finally {
-		process.exitCode = previousExitCode;
-		rmSync(dir, { force: true, recursive: true });
-	}
+    const content = readFileSync(join(dir, ".env.local"), "utf8");
+    assert.equal(/ATHENA_API_KEY=/.test(content), false);
+    assert.equal(process.exitCode, 1);
+    assert.equal(
+      errors.some((line) => line.includes("cannot write ATHENA_API_KEY")),
+      true
+    );
+    assert.equal(
+      errors.some((line) => line.includes("api-key create")),
+      true
+    );
+  } finally {
+    process.exitCode = previousExitCode;
+    rmSync(dir, { force: true, recursive: true });
+  }
 });
 
 test("runCLI rights catalog and api-key create use gateway admin routes", async () => {
-	const calls: Array<{ method: string; url: string; body?: unknown }> = [];
-	const fetchImpl: typeof fetch = async (input, init) => {
-		const url = String(input);
-		const method = (init?.method ?? "GET").toUpperCase();
-		let body: unknown;
-		if (typeof init?.body === "string" && init.body) {
-			body = JSON.parse(init.body);
-		}
-		calls.push({ body, method, url });
+  const calls: Array<{ method: string; url: string; body?: unknown }> = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = String(input);
+    const method = (init?.method ?? "GET").toUpperCase();
+    let body: unknown;
+    if (typeof init?.body === "string" && init.body) {
+      body = JSON.parse(init.body);
+    }
+    calls.push({ body, method, url });
 
-		if (url.endsWith("/admin/rights/catalog")) {
-			return new Response(
-				JSON.stringify({
-					data: {
-						apiKeyRightsStatus: "ok",
-						counts: { dynamicApiKeyRights: 1, native: 1, total: 2 },
-						dynamicApiKeyRights: [
-							{
-								key: "gateway.query",
-								kind: "dynamic",
-								source: "api_key_store",
-							},
-						],
-						nativeRights: [
-							{
-								description: "Any gateway right",
-								isPattern: true,
-								key: "gateway.*",
-								kind: "pattern",
-								source: "gateway",
-							},
-						],
-					},
-					message: "Listed Athena rights catalog",
-					success: true,
-				}),
-				{ status: 200 },
-			);
-		}
+    if (url.endsWith("/admin/rights/catalog")) {
+      return new Response(
+        JSON.stringify({
+          data: {
+            apiKeyRightsStatus: "ok",
+            counts: { dynamicApiKeyRights: 1, native: 1, total: 2 },
+            dynamicApiKeyRights: [
+              {
+                key: "gateway.query",
+                kind: "dynamic",
+                source: "api_key_store",
+              },
+            ],
+            nativeRights: [
+              {
+                description: "Any gateway right",
+                isPattern: true,
+                key: "gateway.*",
+                kind: "pattern",
+                source: "gateway",
+              },
+            ],
+          },
+          message: "Listed Athena rights catalog",
+          success: true,
+        }),
+        { status: 200 }
+      );
+    }
 
-		if (url.endsWith("/admin/api-key-rights") && method === "GET") {
-			return new Response(
-				JSON.stringify({
-					rights: [
-						{
-							description: "Run /gateway/query",
-							id: "r1",
-							name: "gateway.query",
-						},
-					],
-				}),
-				{ status: 200 },
-			);
-		}
+    if (url.endsWith("/admin/api-key-rights") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          rights: [
+            {
+              description: "Run /gateway/query",
+              id: "r1",
+              name: "gateway.query",
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    }
 
-		if (url.endsWith("/admin/api-keys") && method === "POST") {
-			return new Response(
-				JSON.stringify({
-					data: {
-						api_key: "ath_publicid12345678.secretvalue",
-						record: {
-							client_name: "analytics",
-							id: "k1",
-							is_active: true,
-							name: "analytics",
-							public_id: "publicid12345678",
-							rights: ["gateway.query"],
-						},
-					},
-					message: "Created API key",
-					status: "success",
-				}),
-				{ status: 201 },
-			);
-		}
+    if (url.endsWith("/admin/api-keys") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            api_key: "ath_publicid12345678.secretvalue",
+            record: {
+              client_name: "analytics",
+              id: "k1",
+              is_active: true,
+              name: "analytics",
+              public_id: "publicid12345678",
+              rights: ["gateway.query"],
+            },
+          },
+          message: "Created API key",
+          status: "success",
+        }),
+        { status: 201 }
+      );
+    }
 
-		if (url.endsWith("/admin/api-keys") && method === "GET") {
-			return new Response(
-				JSON.stringify({
-					api_keys: [
-						{
-							client_name: "analytics",
-							is_active: true,
-							name: "analytics",
-							public_id: "publicid12345678",
-							rights: ["gateway.query"],
-						},
-					],
-				}),
-				{ status: 200 },
-			);
-		}
+    if (url.endsWith("/admin/api-keys") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          api_keys: [
+            {
+              client_name: "analytics",
+              is_active: true,
+              name: "analytics",
+              public_id: "publicid12345678",
+              rights: ["gateway.query"],
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    }
 
-		return new Response(
-			JSON.stringify({ message: `unexpected ${method} ${url}` }),
-			{
-				status: 500,
-			},
-		);
-	};
+    return new Response(
+      JSON.stringify({ message: `unexpected ${method} ${url}` }),
+      {
+        status: 500,
+      }
+    );
+  };
 
-	const dir = mkdtempSync(join(tmpdir(), "athena-cli-gw-"));
-	const previousExitCode = process.exitCode;
-	try {
-		writeFileSync(
-			join(dir, ".env.local"),
-			[
-				"ATHENA_URL=https://gateway.example.com",
-				"ATHENA_KEY_12=static-admin-secret",
-			].join("\n"),
-			"utf8",
-		);
+  const dir = mkdtempSync(join(tmpdir(), "athena-cli-gw-"));
+  const previousExitCode = process.exitCode;
+  try {
+    writeFileSync(
+      join(dir, ".env.local"),
+      [
+        "ATHENA_URL=https://gateway.example.com",
+        "ATHENA_KEY_12=static-admin-secret",
+      ].join("\n"),
+      "utf8"
+    );
 
-		const catalogLogs: string[] = [];
-		process.exitCode = undefined;
-		await runCLI(["rights", "catalog"], {
-			cwd: dir,
-			fetchImpl,
-			log: (message) => {
-				catalogLogs.push(message);
-			},
-		});
-		assert.equal(
-			catalogLogs.some((line) => line.includes("gateway.*")),
-			true,
-		);
-		assert.equal(
-			catalogLogs.some((line) => line.includes("gateway.query")),
-			true,
-		);
+    const catalogLogs: string[] = [];
+    process.exitCode = undefined;
+    await runCLI(["rights", "catalog"], {
+      cwd: dir,
+      fetchImpl,
+      log: (message) => {
+        catalogLogs.push(message);
+      },
+    });
+    assert.equal(
+      catalogLogs.some((line) => line.includes("gateway.*")),
+      true
+    );
+    assert.equal(
+      catalogLogs.some((line) => line.includes("gateway.query")),
+      true
+    );
 
-		const listLogs: string[] = [];
-		await runCLI(["rights", "list"], {
-			cwd: dir,
-			fetchImpl,
-			log: (message) => {
-				listLogs.push(message);
-			},
-		});
-		assert.equal(
-			listLogs.some((line) => line.includes("gateway.query")),
-			true,
-		);
+    const listLogs: string[] = [];
+    await runCLI(["rights", "list"], {
+      cwd: dir,
+      fetchImpl,
+      log: (message) => {
+        listLogs.push(message);
+      },
+    });
+    assert.equal(
+      listLogs.some((line) => line.includes("gateway.query")),
+      true
+    );
 
-		const createLogs: string[] = [];
-		await runCLI(
-			[
-				"api-key",
-				"create",
-				"--name",
-				"analytics",
-				"--rights",
-				"gateway.query",
-				"--client-name",
-				"analytics",
-				"--write",
-				"--env-file",
-				".env.local",
-				"--force",
-			],
-			{
-				cwd: dir,
-				fetchImpl,
-				log: (message) => {
-					createLogs.push(message);
-				},
-			},
-		);
-		assert.equal(
-			createLogs.some((line) =>
-				line.includes("ath_publicid12345678.secretvalue"),
-			),
-			true,
-		);
-		const envContent = readFileSync(join(dir, ".env.local"), "utf8");
-		assert.equal(
-			envContent.includes("ATHENA_API_KEY=ath_publicid12345678.secretvalue"),
-			true,
-		);
+    const createLogs: string[] = [];
+    await runCLI(
+      [
+        "api-key",
+        "create",
+        "--name",
+        "analytics",
+        "--rights",
+        "gateway.query",
+        "--client-name",
+        "analytics",
+        "--write",
+        "--env-file",
+        ".env.local",
+        "--force",
+      ],
+      {
+        cwd: dir,
+        fetchImpl,
+        log: (message) => {
+          createLogs.push(message);
+        },
+      }
+    );
+    assert.equal(
+      createLogs.some((line) =>
+        line.includes("ath_publicid12345678.secretvalue")
+      ),
+      true
+    );
+    const envContent = readFileSync(join(dir, ".env.local"), "utf8");
+    assert.equal(
+      envContent.includes("ATHENA_API_KEY=ath_publicid12345678.secretvalue"),
+      true
+    );
 
-		const keyListLogs: string[] = [];
-		await runCLI(["api-key", "list", "--json"], {
-			cwd: dir,
-			fetchImpl,
-			log: (message) => {
-				keyListLogs.push(message);
-			},
-		});
-		assert.equal(keyListLogs[0]?.includes("publicid12345678"), true);
+    const keyListLogs: string[] = [];
+    await runCLI(["api-key", "list", "--json"], {
+      cwd: dir,
+      fetchImpl,
+      log: (message) => {
+        keyListLogs.push(message);
+      },
+    });
+    assert.equal(keyListLogs[0]?.includes("publicid12345678"), true);
 
-		assert.equal(
-			calls.some(
-				(call) =>
-					call.method === "GET" && call.url.endsWith("/admin/rights/catalog"),
-			),
-			true,
-		);
-		assert.equal(
-			calls.some(
-				(call) =>
-					call.method === "POST" &&
-					call.url.endsWith("/admin/api-keys") &&
-					(call.body as { name?: string })?.name === "analytics",
-			),
-			true,
-		);
-		assert.equal(
-			process.exitCode === undefined || process.exitCode === 0,
-			true,
-		);
-	} finally {
-		process.exitCode = previousExitCode;
-		rmSync(dir, { force: true, recursive: true });
-	}
+    assert.equal(
+      calls.some(
+        (call) =>
+          call.method === "GET" && call.url.endsWith("/admin/rights/catalog")
+      ),
+      true
+    );
+    assert.equal(
+      calls.some(
+        (call) =>
+          call.method === "POST" &&
+          call.url.endsWith("/admin/api-keys") &&
+          (call.body as { name?: string })?.name === "analytics"
+      ),
+      true
+    );
+    assert.equal(
+      process.exitCode === undefined || process.exitCode === 0,
+      true
+    );
+  } finally {
+    process.exitCode = previousExitCode;
+    rmSync(dir, { force: true, recursive: true });
+  }
 });

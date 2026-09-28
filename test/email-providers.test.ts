@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-
+import { consoleEmailProvider } from "../src/email/public.ts";
 import {
   ATHENA_EMAIL_PROVIDER_UNSUPPORTED_RUNTIME,
   assertAthenaEmailProviderRuntime,
@@ -9,7 +9,6 @@ import {
   httpEmailProvider,
   resend,
 } from "../src/index.ts";
-import { consoleEmailProvider } from "../src/email/public.ts";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -24,7 +23,11 @@ test("consoleEmailProvider requires explicit construction", async () => {
   const lines: string[] = [];
   const provider = consoleEmailProvider({ log: (line) => lines.push(line) });
   assert.equal(provider.id, "console");
-  assert.deepEqual(provider.capabilities?.runtimes, ["node", "browser", "edge"]);
+  assert.deepEqual(provider.capabilities?.runtimes, [
+    "node",
+    "browser",
+    "edge",
+  ]);
 
   const client = createClient({
     email: {

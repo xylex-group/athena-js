@@ -52,7 +52,22 @@ organization: {
 
 - No silent `setActive` without `ensureActive` / injectables.
 - `onEmpty: "error"` → `ATHENA_SESSION_NO_ACCESSIBLE_ORGANIZATION`.
-- Upstream call budget hard max **3**: 0..1 session fetch, 0..1 organization list, 0..1 setActive.
+- Resolver-managed upstream call budget hard max **3**: 0..1 session fetch,
+  0..1 organization list, 0..1 setActive. A refresh nested inside `setActive`
+  is a client mutation side effect and is not included in this metadata.
+
+### Request credential continuity
+
+`createServerSessionResolver` resolves one request authentication context per
+session resolution. Client-backed organization repair forwards that context to
+`organization.list` and `organization.setActive`. The `setActive` session
+refresh receives the same call options. Cookies and bearer tokens are
+forwarded, while session identity data and identity headers never become
+authentication credentials.
+
+The resolver does not mutate a root client. Request options stay local to the
+resolution, which keeps concurrent repairs isolated. User-provided
+`ensureActiveOrganization` callbacks remain unchanged.
 
 ### Errors
 

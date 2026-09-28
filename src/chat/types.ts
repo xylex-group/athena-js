@@ -9,6 +9,39 @@ export interface AthenaChatAttachmentInput {
   ordinal: number;
 }
 
+export type AthenaChatRealtimeSessionState =
+  | "closed"
+  | "connected"
+  | "connecting"
+  | "idle"
+  | "reconnecting";
+
+export interface AthenaChatRealtimeSessionOptions {
+  onEvent?: (event: AthenaChatRealtimeEvent) => void;
+  onStateChange?: (state: AthenaChatRealtimeSessionState) => void;
+  onSyncRequired?: (input: {
+    expectedFromSeq?: number;
+    reason: string;
+    roomId?: string;
+  }) => void;
+  reconnect?: {
+    baseDelayMs?: number;
+    jitter?: number | ((attempt: number) => number);
+    maxDelayMs?: number;
+  };
+}
+
+export interface AthenaChatRealtimeSession {
+  readonly state: AthenaChatRealtimeSessionState;
+  start: () => void;
+  stop: () => void;
+  subscribe: (
+    roomId: string,
+    options?: { afterSeq?: number | null }
+  ) => Promise<void>;
+  unsubscribe: (roomId: string) => void;
+}
+
 export interface AthenaChatAttachmentView extends AthenaChatAttachmentInput {
   authorized_url_path: string;
   bucket?: string | null;
@@ -56,6 +89,7 @@ export interface AthenaChatMessage {
 
 export interface AthenaChatMessagePage {
   items: AthenaChatMessage[];
+  next_after_seq?: number | null;
   next_before_seq?: number | null;
 }
 
@@ -114,6 +148,7 @@ export interface AthenaChatSearchHit {
 
 export interface AthenaChatSearchPage {
   items: AthenaChatSearchHit[];
+  next_cursor?: string | null;
 }
 
 export interface AthenaChatCreateRoomRequest {
@@ -155,11 +190,16 @@ export interface AthenaChatAddMembersRequest {
   user_ids: string[];
 }
 
+export interface AthenaChatUpdateMemberRoleRequest {
+  role: AthenaChatMemberRole;
+}
+
 export interface AthenaChatAddReactionRequest {
   emoji: string;
 }
 
 export interface AthenaChatSearchMessagesRequest {
+  cursor?: string | null;
   limit?: number | null;
   query: string;
   room_id?: string | null;
@@ -285,8 +325,12 @@ export interface AthenaChatWsSubscribedEvent {
 }
 
 export interface AthenaChatWsRoomEventBase {
+  event_id?: string;
+  occurred_at?: string;
   room: AthenaChatRoom;
   room_id: string;
+  room_seq?: number | null;
+  trace_id?: string;
 }
 
 export interface AthenaChatWsRoomCreatedEvent
@@ -305,8 +349,13 @@ export interface AthenaChatWsRoomArchivedEvent
 }
 
 export interface AthenaChatWsMessageEventBase {
+  event_id?: string;
+  occurred_at?: string;
   message: AthenaChatMessage;
   room_id: string;
+  room_seq?: number | null;
+  seq?: number | null;
+  trace_id?: string;
 }
 
 export interface AthenaChatWsMessageCreatedEvent
@@ -320,22 +369,39 @@ export interface AthenaChatWsMessageUpdatedEvent
 }
 
 export interface AthenaChatWsMessageDeletedEvent {
+  event_id?: string;
+  occurred_at?: string;
   message_id: string;
   room_id: string;
-  room_seq: number;
+  room_seq?: number | null;
+  seq?: number | null;
+  trace_id?: string;
   type: "chat.message.deleted";
 }
 
 export interface AthenaChatWsReadUpdatedEvent {
-  read_cursor: AthenaChatReadCursor;
+  event_id?: string;
+  occurred_at?: string;
+  read_cursor?: AthenaChatReadCursor;
+  read_seq: number;
   room_id: string;
+  room_seq?: number | null;
+  seq?: number | null;
+  trace_id?: string;
   type: "chat.read.updated";
+  user_id: string;
 }
 
 export interface AthenaChatWsMembersUpdatedEvent {
-  members: AthenaChatMember[];
+  event_id?: string;
+  occurred_at?: string;
+  members?: AthenaChatMember[];
   room_id: string;
+  room_seq?: number | null;
+  seq?: number | null;
+  trace_id?: string;
   type: "chat.members.updated";
+  version?: number;
 }
 
 export interface AthenaChatWsTypingUpdatedEvent {
@@ -351,14 +417,20 @@ export interface AthenaChatWsPresenceUpdatedEvent {
 }
 
 export interface AthenaChatWsSyncRequiredEvent {
+  expected_from_seq?: number | null;
   reason?: string | null;
   room_id?: string | null;
   type: "chat.sync.required";
 }
 
 export interface AthenaChatWsReactionUpdatedEvent {
+  event_id?: string;
+  occurred_at?: string;
   room_id: string;
+  room_seq?: number | null;
+  seq?: number | null;
   summary: AthenaChatReactionSummary;
+  trace_id?: string;
   type: "chat.reaction.updated";
 }
 
@@ -391,6 +463,10 @@ export type AthenaChatWsServerEvent =
   | AthenaChatWsPongEvent
   | AthenaChatWsErrorEvent;
 
+export type AthenaChatRealtimeEvent =
+  | AthenaChatWsServerEvent
+  | Record<string, unknown>;
+
 export type AthenaChatCallOptions = Pick<
   AthenaGatewayBaseOptions,
   | "headers"
@@ -400,8 +476,13 @@ export type AthenaChatCallOptions = Pick<
   | "cookie"
   | "sessionToken"
   | "forceNoCache"
+  | "organizationId"
+  | "userId"
 > & {
+  correlationId?: string;
+  requestId?: string;
   signal?: AbortSignal;
+  traceId?: string;
 };
 
 export interface AthenaChatWebSocketLike {
@@ -448,6 +529,15 @@ export interface AthenaChatConfig
    */
   mode?: AthenaChatMode;
   /**
+   * Coarse canonical Rights enforcement. The 5.x default is `compatibility`
+   * (empty Rights on a trusted custom principal still reach room/member
+   * checks). Set `enforce` once Chat Rights are assigned. Athena 6 /
+   * Hummingbird should default to `enforce`.
+   */
+  authorization?: {
+    mode?: "compatibility" | "enforce";
+  };
+  /**
    * Root principal resolver consumed by Local Chat (INV-CHAT-011).
    * User-supplied Chat payload fields never override actor identity.
    */
@@ -485,8 +575,8 @@ export interface AthenaChatRealtimeConnection {
 
 export interface AthenaChatRealtimeCapabilities {
   crossProcess: boolean;
-  messages: boolean;
   messageDeletes: boolean;
+  messages: boolean;
   messageUpdates: boolean;
   presence: boolean;
   reactions: boolean;
@@ -507,6 +597,10 @@ export interface AthenaChatCapabilities {
 
 export interface AthenaChatRealtimeModule {
   connect: (options?: AthenaChatConnectOptions) => AthenaChatRealtimeConnection;
+  /** Transport-neutral lifecycle; owns reconnect/resume without exposing sockets. */
+  createSession: (
+    options?: AthenaChatRealtimeSessionOptions
+  ) => AthenaChatRealtimeSession;
   info: (
     options?: AthenaChatCallOptions
   ) => Promise<AthenaChatRealtimeInfoResponse>;
@@ -581,6 +675,12 @@ export interface AthenaChatModule {
         userId: string,
         options?: AthenaChatCallOptions
       ) => Promise<AthenaChatRemoveResult>;
+      updateRole: (
+        roomId: string,
+        userId: string,
+        role: AthenaChatMemberRole,
+        options?: AthenaChatCallOptions
+      ) => Promise<AthenaChatMember[]>;
     };
     message: {
       list: (

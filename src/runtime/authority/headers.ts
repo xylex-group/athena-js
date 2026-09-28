@@ -49,9 +49,17 @@ export function readOrganizationHint(headers: Headers): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-export function readPresentedSessionToken(headers: Headers): string | undefined {
+export function readPresentedSessionToken(
+  headers: Headers
+): string | undefined {
   return (
-    readBearerToken(headers.get("authorization")) ??
+    readPresentedBearerToken(headers) ??
     readSessionTokenFromCookies(headers.get("cookie"))
   );
+}
+
+export function readPresentedBearerToken(
+  headers: Headers
+): string | undefined {
+  return readBearerToken(headers.get("authorization"));
 }

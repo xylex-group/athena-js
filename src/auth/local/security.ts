@@ -1,4 +1,5 @@
 import { AthenaAuthRuntimeError } from "./errors.ts";
+import type { AthenaAuthStores } from "./memory-stores.ts";
 
 export interface RateLimitBucket {
   count: number;
@@ -20,11 +21,62 @@ export class MemoryRateLimiter {
       this.buckets.set(key, { count: 1, resetAt: now + this.windowMs });
       return true;
     }
+
     if (existing.count >= this.limit) {
       return false;
     }
     existing.count += 1;
     return true;
+  }
+
+  clear(key: string): void {
+    this.buckets.delete(key);
+  }
+
+  isLimited(key: string): boolean {
+    const existing = this.buckets.get(key);
+    return existing !== undefined && existing.resetAt > Date.now() && existing.count >= this.limit;
+  }
+}
+
+export interface OtpRateLimiter {
+  clear(key: string): Promise<void>;
+  consume(key: string): Promise<boolean>;
+  isLimited(key: string): Promise<boolean>;
+}
+
+export class StoreRateLimiter implements OtpRateLimiter {
+  private readonly fallback: MemoryRateLimiter;
+
+  constructor(
+    private readonly resolveStores: () => AthenaAuthStores | undefined,
+    private readonly limit: number,
+    private readonly windowMs: number
+  ) {
+    this.fallback = new MemoryRateLimiter(limit, windowMs);
+  }
+
+  async consume(key: string): Promise<boolean> {
+    const stores = this.resolveStores();
+    return stores
+      ? stores.consumeRateLimit(key, this.limit, this.windowMs)
+      : this.fallback.consume(key);
+  }
+
+  async clear(key: string): Promise<void> {
+    const stores = this.resolveStores();
+    if (stores) {
+      await stores.clearRateLimit(key);
+      return;
+    }
+    this.fallback.clear(key);
+  }
+
+  async isLimited(key: string): Promise<boolean> {
+    const stores = this.resolveStores();
+    return stores
+      ? stores.isRateLimited(key, this.limit)
+      : this.fallback.isLimited(key);
   }
 }
 
@@ -42,7 +94,6 @@ export function requestClientIp(
       return realIp;
     }
   }
-  return undefined;
 }
 
 export function requestOrigin(request: Request): string | undefined {
@@ -52,13 +103,13 @@ export function requestOrigin(request: Request): string | undefined {
   }
   const referer = request.headers.get("referer")?.trim();
   if (!referer) {
-    return undefined;
+    return;
   }
   try {
     const url = new URL(referer);
     return `${url.protocol}//${url.host}`;
   } catch {
-    return undefined;
+    /* invalid Referer */
   }
 }
 
@@ -91,6 +142,57 @@ export function enforceOrigin(
   }
 }
 
+export function resolveTrustedCallbackUrl(input: {
+  callbackUrl?: string | null;
+  requestUrl: string | URL;
+  trustedOrigins: readonly string[];
+  fallbackPath?: string;
+}): string {
+  const trustedOrigins = input.trustedOrigins.map((origin) =>
+    new URL(origin).origin
+  );
+  const trusted = new Set<string>(trustedOrigins);
+  const requestOrigin = new URL(input.requestUrl).origin;
+  const requestOriginIsTrusted = trusted.has(requestOrigin);
+  const canonicalOrigin = trustedOrigins[0] ?? requestOrigin;
+  const raw = input.callbackUrl?.trim();
+  const fallback = input.fallbackPath ?? "/";
+  const baseOrigin = requestOriginIsTrusted ? requestOrigin : canonicalOrigin;
+  const candidate = raw
+    ? parseCallbackUrl(raw, new URL(baseOrigin))
+    : new URL(fallback, new URL(baseOrigin));
+  if (
+    candidate.protocol !== "http:" &&
+    candidate.protocol !== "https:"
+  ) {
+    throw AthenaAuthRuntimeError.badRequest("callbackURL is not trusted");
+  }
+  if (candidate.username || candidate.password) {
+    throw AthenaAuthRuntimeError.badRequest("callbackURL is not trusted");
+  }
+  const noConfiguredOriginCompatibility =
+    trustedOrigins.length === 0 &&
+    candidate.origin === requestOrigin;
+  if (!trusted.has(candidate.origin) && !noConfiguredOriginCompatibility) {
+    throw AthenaAuthRuntimeError.badRequest("callbackURL is not trusted");
+  }
+  return candidate.toString();
+}
+
+function parseCallbackUrl(raw: string, base: URL): URL {
+  if (
+    raw.startsWith("//") ||
+    !(raw.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(raw))
+  ) {
+    throw AthenaAuthRuntimeError.badRequest("callbackURL is not trusted");
+  }
+  try {
+    return new URL(raw, base);
+  } catch {
+    throw AthenaAuthRuntimeError.badRequest("callbackURL is not trusted");
+  }
+}
+
 export async function readJsonBody(
   request: Request,
   limitBytes: number
@@ -118,6 +220,37 @@ export async function readJsonBody(
     }
     throw AthenaAuthRuntimeError.badRequest("Invalid JSON body");
   }
+}
+
+export async function readFormBody(
+  request: Request,
+  limitBytes: number
+): Promise<Record<string, string>> {
+  const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim();
+  if (contentType !== "application/x-www-form-urlencoded") {
+    throw AthenaAuthRuntimeError.badRequest(
+      "OAuth protocol requests must use application/x-www-form-urlencoded"
+    );
+  }
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && Number.parseInt(contentLength, 10) > limitBytes) {
+    throw AthenaAuthRuntimeError.payloadTooLarge();
+  }
+  const text = await request.text();
+  if (new TextEncoder().encode(text).length > limitBytes) {
+    throw AthenaAuthRuntimeError.payloadTooLarge();
+  }
+  const parsed = new URLSearchParams(text);
+  const body: Record<string, string> = {};
+  for (const [key, value] of parsed.entries()) {
+    if (Object.hasOwn(body, key)) {
+      throw AthenaAuthRuntimeError.badRequest(
+        `OAuth parameter "${key}" must be supplied once`
+      );
+    }
+    body[key] = value;
+  }
+  return body;
 }
 
 export function asStringField(

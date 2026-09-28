@@ -85,6 +85,7 @@ const COUNTERS = Symbol.for("@xylex-group/athena.runtimeCounters");
 export interface AthenaRuntimeCounters {
   authRuntimesCreated: number;
   postgresPoolsCreated: number;
+  runtimePlansMaterialized: number;
 }
 
 export function athenaRuntimeCounters(): AthenaRuntimeCounters {
@@ -94,6 +95,7 @@ export function athenaRuntimeCounters(): AthenaRuntimeCounters {
   holder[COUNTERS] ??= {
     authRuntimesCreated: 0,
     postgresPoolsCreated: 0,
+    runtimePlansMaterialized: 0,
   };
   return holder[COUNTERS];
 }
@@ -104,6 +106,10 @@ export function recordPostgresPoolCreated(): void {
 
 export function recordAuthRuntimeCreated(): void {
   athenaRuntimeCounters().authRuntimesCreated += 1;
+}
+
+export function recordRuntimePlanMaterialized(): void {
+  athenaRuntimeCounters().runtimePlansMaterialized += 1;
 }
 
 export function formatRuntimeId(runtimeId: symbol): string {

@@ -4594,7 +4594,7 @@ steps:
     last_error: null
     details:
       release_id: 356201964
-      release_url: https://github.com/xylex-group/athena/releases/tag/v3.1.0
+      release_url: https://github.com/xylex-group/athena-js/releases/tag/v3.1.0
   publish_linear:
     status: Completed
     started_at: 2026-07-18T21:57:06.184662400Z

@@ -16,85 +16,96 @@ export { parseMigrateFlags } from "./flags.ts";
 export const names: readonly string[] = ["migrate"];
 
 const MIGRATE_SUBCOMMANDS = new Set<MigrateMode>([
-	"status",
-	"plan",
-	"repair",
-	"check",
-	"graph",
-	"explain",
-	"drift",
-	"reconcile",
-	"verify",
+  "status",
+  "plan",
+  "repair",
+  "check",
+  "graph",
+  "explain",
+  "drift",
+  "reconcile",
+  "verify",
 ]);
 
 export function parse(rest: string[]): CliCommand {
-	const head = rest[0];
-	if (head === "auth") {
-		const flags =
-			rest[1] === "sync" || rest[1] === "materialize"
-				? rest.slice(2)
-				: rest.slice(1);
-		return parseMigrateAuthSyncFlags(flags);
-	}
-	if (head && MIGRATE_SUBCOMMANDS.has(head as MigrateMode)) {
-		return parseMigrateFlags(rest.slice(1), head as MigrateMode);
-	}
-	return parseMigrateFlags(rest, "apply");
+  const head = rest[0];
+  if (head === "auth") {
+    const flags =
+      rest[1] === "sync" || rest[1] === "materialize"
+        ? rest.slice(2)
+        : rest.slice(1);
+    return parseMigrateAuthSyncFlags(flags);
+  }
+  if (head && MIGRATE_SUBCOMMANDS.has(head as MigrateMode)) {
+    return parseMigrateFlags(rest.slice(1), head as MigrateMode);
+  }
+  return parseMigrateFlags(rest, "apply");
 }
 
 export function usage(): string {
-	return formatCatalogTopicUsage("migrate");
+  return formatCatalogTopicUsage("migrate");
 }
 
 export function migrateStatusUsage(): string {
-	return formatCatalogTopicUsage("migrate-status");
+  return formatCatalogTopicUsage("migrate-status");
 }
 
-export function sessionTitle(_parsed: MigrateCommand): undefined {
-	return undefined;
-}
+export function sessionTitle(_parsed: MigrateCommand): undefined {}
 
 export async function run(
-	ctx: CommandContext,
-	parsed: MigrateCommand,
+  ctx: CommandContext,
+  parsed: MigrateCommand
 ): Promise<void> {
-	const { capabilities, errorLog, log, presentation, runtime } = ctx;
-	if (parsed.mode === "verify") {
-		const { runMigrateVerify } = await import("./verify.ts");
-		await runMigrateVerify(ctx, parsed);
-		return;
-	}
-	const runMigrate = runtime.runMigrations ?? runMigrations;
-	try {
-		if (isDebugEnabled()) {
-			errorLog(
-				`[athena-js] migrate starting (mode=${parsed.mode} dryRun=${parsed.dryRun}${parsed.configPath ? ` config=${parsed.configPath}` : ""})`,
-			);
-		}
-		await runMigrate({
-			configPath: parsed.configPath,
-			allowDirty: parsed.allowDirty,
-			allowDirtyMigrations: parsed.allowDirty,
-			applyReconcile: parsed.applyReconcile,
-			dryRun: parsed.dryRun || parsed.mode === "dry-run",
-			explainTarget: parsed.explainTarget,
-			json: parsed.json,
-			log,
-			mode: parsed.mode,
-			plain: parsed.plain || presentation.noColor === true,
-			strict: parsed.strict,
-			yes: parsed.yes,
-		});
-	} catch (error) {
-		if (error instanceof MigrationError) {
-			logCliError(error, errorLog, capabilities);
-		} else {
-			logCliError(
-				formatGeneratorError(error, parsed.configPath),
-				errorLog,
-				capabilities,
-			);
-		}
-		setCliExitCode(exitCodeForError(error));
-	}
+  const { capabilities, errorLog, log, presentation, runtime } = ctx;
+  if (parsed.mode === "verify") {
+    const { runMigrateVerify } = await import("./verify.ts");
+    await runMigrateVerify(ctx, parsed);
+    return;
+  }
+  const runMigrate = runtime.runMigrations ?? runMigrations;
+  try {
+    if (isDebugEnabled()) {
+      errorLog(
+        `[athena-js] migrate starting (mode=${parsed.mode} dryRun=${parsed.dryRun}${parsed.configPath ? ` config=${parsed.configPath}` : ""})`
+      );
+    }
+    await ctx.trace.span(
+      `migrations.${parsed.mode}`,
+      {
+        configPath: parsed.configPath,
+        dryRun: parsed.dryRun || parsed.mode === "dry-run",
+        explainTarget: parsed.explainTarget,
+      },
+      () =>
+        runMigrate({
+          allowDirty: parsed.allowDirty,
+          allowDirtyMigrations: parsed.allowDirty,
+          applyReconcile: parsed.applyReconcile,
+          configPath: parsed.configPath,
+          dryRun: parsed.dryRun || parsed.mode === "dry-run",
+          explainTarget: parsed.explainTarget,
+          json: parsed.json,
+          log,
+          mode: parsed.mode,
+          plain: parsed.plain || presentation.noColor === true,
+          strict: parsed.strict,
+          yes: parsed.yes,
+        })
+    );
+  } catch (error) {
+    ctx.reportError(error, {
+      commandId: parsed.command,
+      phase: "command",
+    });
+    if (error instanceof MigrationError) {
+      logCliError(error, errorLog, capabilities);
+    } else {
+      logCliError(
+        formatGeneratorError(error, parsed.configPath),
+        errorLog,
+        capabilities
+      );
+    }
+    setCliExitCode(exitCodeForError(error));
+  }
 }

@@ -8,20 +8,18 @@ export type AthenaLifecycleState = "active" | "background" | "inactive";
 /** Secure token persistence — Expo SecureStore / MMKV / Keychain adapters implement this. */
 export interface AthenaTokenStore {
   getAccessToken(): Promise<string | null>;
-  setAccessToken(token: string | null): Promise<void>;
   getSessionToken(): Promise<string | null>;
+  setAccessToken(token: string | null): Promise<void>;
   setSessionToken(token: string | null): Promise<void>;
 }
 
 export interface AthenaLinkingAdapter {
-  openUrl(url: string): Promise<void>;
   getInitialUrl(): Promise<string | null>;
+  openUrl(url: string): Promise<void>;
 }
 
 export interface AthenaLifecycleAdapter {
-  subscribe(
-    listener: (state: AthenaLifecycleState) => void,
-  ): () => void;
+  subscribe(listener: (state: AthenaLifecycleState) => void): () => void;
 }
 
 export interface AthenaUploadAdapter {
@@ -36,11 +34,11 @@ export interface AthenaUploadAdapter {
       headers?: Record<string, string>;
       onProgress?: (loaded: number, total?: number) => void;
       signal?: AbortSignal;
-    },
+    }
   ): Promise<Response>;
 }
 
 export type AthenaReactNativeFetch = (
   input: RequestInfo | URL,
-  init?: RequestInit,
+  init?: RequestInit
 ) => Promise<Response>;

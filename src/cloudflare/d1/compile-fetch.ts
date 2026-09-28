@@ -6,8 +6,8 @@ import {
   isAthenaSelectQueryAst,
   mergeRelationCatalogs,
   normalizeTransportPayload,
-  resolveQueryPlan,
   resetQueryPlanAliases,
+  resolveQueryPlan,
   selectPayloadHasRelations,
 } from "../../query/engine/index.ts";
 import type { D1DatabaseLike } from "../types.ts";

@@ -5,6 +5,6 @@ export type AthenaAuthPreviousPolicy = "none" | "optional" | "required";
 export type AthenaAuthResultPolicy = "receipt" | "resource";
 
 export interface AthenaAuthAuditSemanticContract {
-	previous: AthenaAuthPreviousPolicy;
-	result: AthenaAuthResultPolicy;
+  previous: AthenaAuthPreviousPolicy;
+  result: AthenaAuthResultPolicy;
 }

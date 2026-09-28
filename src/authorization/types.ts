@@ -32,7 +32,7 @@ export type DecisionReasonKind =
 
 /** Map an internal reason to the caller-safe public message. */
 export function publicAuthorizationMessage(
-  reason: DecisionReasonKind,
+  reason: DecisionReasonKind
 ): PublicAuthorizationMessage {
   switch (reason) {
     case "effective_right_matched":

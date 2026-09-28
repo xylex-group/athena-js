@@ -27,7 +27,8 @@ export const ATHENA_AUTH_ADMIN_SUITE_OPS = [
   "admin-secret-redaction",
 ] as const;
 
-export type AthenaAuthAdminSuiteOp = (typeof ATHENA_AUTH_ADMIN_SUITE_OPS)[number];
+export type AthenaAuthAdminSuiteOp =
+  (typeof ATHENA_AUTH_ADMIN_SUITE_OPS)[number];
 
 export interface AthenaAuthAdminParityTarget {
   admin?: {
@@ -48,7 +49,11 @@ export interface AthenaAuthAdminParityReport {
   target: string;
 }
 
-function fail(report: AthenaAuthAdminParityReport, op: string, detail: string): void {
+function fail(
+  report: AthenaAuthAdminParityReport,
+  op: string,
+  detail: string
+): void {
   report.failed.push(`${op}: ${detail}`);
 }
 
@@ -58,9 +63,13 @@ function pass(report: AthenaAuthAdminParityReport, op: string): void {
   }
 }
 
-function defer(report: AthenaAuthAdminParityReport, op: string, detail: string): void {
+function defer(
+  report: AthenaAuthAdminParityReport,
+  op: string,
+  detail: string
+): void {
   const row = `${op}: ${detail}`;
-  if (!report.deferred.includes(row) && !report.passed.includes(op)) {
+  if (!(report.deferred.includes(row) || report.passed.includes(op))) {
     report.deferred.push(row);
   }
 }
@@ -92,20 +101,23 @@ export async function runAdminAuthParitySuite(
     (target.url ? createAthenaAuthParityHandleFromUrl(target.url) : undefined);
   const admin = target.admin;
 
-  if (!handle || !admin) {
+  if (!(handle && admin)) {
     return {
       ...report,
-      reason: !handle
-        ? target.name === "rust"
+      reason: handle
+        ? "ATHENA_AUTH_ADMIN_EMAIL/PASSWORD unset — skip-with-reason"
+        : target.name === "rust"
           ? "ATHENA_AUTH_URL unset — rust admin target skip-with-reason"
-          : "no handle — skip-with-reason"
-        : "ATHENA_AUTH_ADMIN_EMAIL/PASSWORD unset — skip-with-reason",
+          : "no handle — skip-with-reason",
       skipped: true,
     };
   }
 
   const origin = "http://app.local/api/auth";
-  const jsonHeaders = { "content-type": "application/json", origin: "http://app.local" };
+  const jsonHeaders = {
+    "content-type": "application/json",
+    origin: "http://app.local",
+  };
 
   const signin = await handle(
     new Request(`${origin}/sign-in/email`, {
@@ -346,7 +358,11 @@ export async function runAdminAuthParitySuite(
       fail(report, "admin-forbidden-for-user", `status ${forbidden.status}`);
     }
   } else {
-    defer(report, "admin-forbidden-for-user", "member sign-in did not set cookie");
+    defer(
+      report,
+      "admin-forbidden-for-user",
+      "member sign-in did not set cookie"
+    );
   }
 
   return report;

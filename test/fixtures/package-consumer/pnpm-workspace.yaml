@@ -1,0 +1,6 @@
+packages:
+  - "."
+allowBuilds:
+  esbuild: true
+shamefullyHoist: true
+ignoreWorkspaceRootCheck: true

@@ -14,7 +14,7 @@ import {
   withRetry,
 } from "../src/auxiliaries.ts";
 import { AthenaGatewayError } from "../src/gateway/errors.ts";
-import { makeResult } from "./helpers/athena-result.ts";
+import { makeResult, makeResultError } from "./helpers/athena-result.ts";
 
 test("isOk detects successful Athena results", () => {
   assert.equal(isOk(makeResult({ data: { id: 1 } })), true);
@@ -329,6 +329,108 @@ test("withRetry retries transient failures and eventually succeeds", async () =>
 
   assert.equal(result, "ok");
   assert.equal(attempts, 3);
+});
+
+test("withRetry retries raw HTTP 429 failures by default", async () => {
+  let attempts = 0;
+
+  const result = await withRetry(
+    { baseDelayMs: 0, jitter: false, retries: 1 },
+    async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw { status: 429 };
+      }
+      return "ok";
+    }
+  );
+
+  assert.equal(result, "ok");
+  assert.equal(attempts, 2);
+});
+
+test("withRetry retries normalized rate-limit results by default", async () => {
+  let attempts = 0;
+
+  const result = await withRetry(
+    { baseDelayMs: 0, jitter: false, retries: 1 },
+    async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw makeResult({
+          error: makeResultError("rate limited", {
+            athenaCode: "RATE_LIMITED",
+            category: "server",
+            kind: "rate_limit",
+            status: 429,
+          }),
+        });
+      }
+      return "ok";
+    }
+  );
+
+  assert.equal(result, "ok");
+  assert.equal(attempts, 2);
+});
+
+test("withRetry retries HTTP 503 failures by default", async () => {
+  let attempts = 0;
+
+  const result = await withRetry(
+    { baseDelayMs: 0, jitter: false, retries: 1 },
+    async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw { status: 503 };
+      }
+      return "ok";
+    }
+  );
+
+  assert.equal(result, "ok");
+  assert.equal(attempts, 2);
+});
+
+test("withRetry retries network failures by default", async () => {
+  let attempts = 0;
+
+  const result = await withRetry(
+    { baseDelayMs: 0, jitter: false, retries: 1 },
+    async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new AthenaGatewayError({
+          code: "NETWORK_ERROR",
+          endpoint: "/gateway/fetch",
+          message: "network unavailable",
+          method: "POST",
+          status: 0,
+        });
+      }
+      return "ok";
+    }
+  );
+
+  assert.equal(result, "ok");
+  assert.equal(attempts, 2);
+});
+
+test("withRetry does not retry validation failures by default", async () => {
+  let attempts = 0;
+
+  await assert.rejects(
+    withRetry(
+      { baseDelayMs: 0, jitter: false, retries: 1 },
+      async () => {
+        attempts += 1;
+        throw { status: 422, message: "validation failed" };
+      }
+    ),
+    { status: 422 }
+  );
+
+  assert.equal(attempts, 1);
 });
 
 test("withRetry does not retry non-retriable errors by default", async () => {

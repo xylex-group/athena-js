@@ -10,6 +10,51 @@ function quoteIdentifierSegment(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;
 }
 
+function splitQualifiedIdentifier(
+  identifier: string
+): Array<{ quoted: boolean; value: string }> {
+  const segments: Array<{ quoted: boolean; value: string }> = [];
+  let index = 0;
+
+  while (index <= identifier.length) {
+    if (identifier[index] === '"') {
+      const start = index;
+      index += 1;
+      let closed = false;
+      while (index < identifier.length) {
+        if (identifier[index] !== '"') {
+          index += 1;
+          continue;
+        }
+        if (identifier[index + 1] === '"') {
+          index += 2;
+          continue;
+        }
+        index += 1;
+        closed = true;
+        break;
+      }
+      if (!closed || (index < identifier.length && identifier[index] !== ".")) {
+        return [{ quoted: false, value: identifier }];
+      }
+      segments.push({ quoted: true, value: identifier.slice(start, index) });
+    } else {
+      const start = index;
+      while (index < identifier.length && identifier[index] !== ".") {
+        index += 1;
+      }
+      segments.push({ quoted: false, value: identifier.slice(start, index) });
+    }
+
+    if (index === identifier.length) {
+      break;
+    }
+    index += 1;
+  }
+
+  return segments;
+}
+
 function parseAliasedIdentifierToken(
   token: string
 ): { baseIdentifier: string; aliasIdentifier: string } | null {
@@ -46,9 +91,8 @@ function parseAliasedIdentifierToken(
  * Quotes a `schema.table.column`-style identifier path safely for SQL.
  */
 export function quoteQualifiedIdentifier(identifier: string): string {
-  return identifier
-    .split(".")
-    .map((segment) => quoteIdentifierSegment(segment))
+  return splitQualifiedIdentifier(identifier)
+    .map(({ quoted, value }) => (quoted ? value : quoteIdentifierSegment(value)))
     .join(".");
 }
 

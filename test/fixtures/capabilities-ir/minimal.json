@@ -1,0 +1,21 @@
+{
+  "kind": "athena.capabilities",
+  "irVersion": 1,
+  "capabilities": [
+    {
+      "key": "data.operation.fetch",
+      "domain": "data",
+      "kind": "operation",
+      "implementation": "native",
+      "status": "available",
+      "maturity": "stable",
+      "sources": [
+        {
+          "kind": "runtime",
+          "source": "fixture"
+        }
+      ]
+    }
+  ],
+  "metadata": {}
+}

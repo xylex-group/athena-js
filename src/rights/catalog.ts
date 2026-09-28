@@ -7,32 +7,32 @@ import { parseAthenaRightKey } from "./key.ts";
  * descriptor documents and never owns a TypeScript native table.
  */
 export type AthenaRightDescriptorWire = {
-	action: string;
-	description: string;
-	isPattern: boolean;
-	key: string;
-	kind: string;
-	resource: string;
-	source: string;
+  action: string;
+  description: string;
+  isPattern: boolean;
+  key: string;
+  kind: string;
+  resource: string;
+  source: string;
 };
 
 /** Parse a wire descriptor. `resource` / `action` are taken from the document. */
 export function descriptorFromWire(
-	wire: AthenaRightDescriptorWire,
+  wire: AthenaRightDescriptorWire
 ): AthenaRightDescriptor {
-	return {
-		action: wire.action,
-		description: wire.description,
-		isPattern: wire.isPattern,
-		key: parseAthenaRightKey(wire.key),
-		kind: wire.kind,
-		resource: wire.resource,
-		source: wire.source,
-	};
+  return {
+    action: wire.action,
+    description: wire.description,
+    isPattern: wire.isPattern,
+    key: parseAthenaRightKey(wire.key),
+    kind: wire.kind,
+    resource: wire.resource,
+    source: wire.source,
+  };
 }
 
 export function descriptorsFromWire(
-	wires: readonly AthenaRightDescriptorWire[],
+  wires: readonly AthenaRightDescriptorWire[]
 ): AthenaRightDescriptor[] {
-	return wires.map(descriptorFromWire);
+  return wires.map(descriptorFromWire);
 }

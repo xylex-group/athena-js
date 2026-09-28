@@ -1,10 +1,10 @@
 import { strict as assert } from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createRequire } from "node:module";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
@@ -13,7 +13,11 @@ const require = createRequire(import.meta.url);
 const pkg = require(join(pkgRoot, "package.json")) as {
   exports: Record<
     string,
-    { browser?: unknown; import?: string; types?: string }
+    {
+      browser?: unknown;
+      import?: { default?: string; types?: string };
+      require?: { default?: string; types?: string };
+    }
   >;
 };
 
@@ -40,11 +44,16 @@ function collectSpecifiers(source: string): string[] {
   return specifiers;
 }
 
-function resolveRelative(fromFile: string, specifier: string): string | undefined {
+function resolveRelative(
+  fromFile: string,
+  specifier: string
+): string | undefined {
   if (!specifier.startsWith(".")) {
     return;
   }
-  const resolved = fileURLToPath(new URL(specifier, pathToFileURL(`${dirname(fromFile)}/`)));
+  const resolved = fileURLToPath(
+    new URL(specifier, pathToFileURL(`${dirname(fromFile)}/`))
+  );
   const candidates = specifier.endsWith(".ts")
     ? [resolved]
     : [`${resolved}.ts`, join(resolved, "index.ts")];
@@ -75,12 +84,13 @@ async function walk(entries: string[]): Promise<Set<string>> {
 test("email/node is a Node-only published export without a browser condition", () => {
   const nodeExport = pkg.exports["./email/node"];
   assert.ok(nodeExport);
-  assert.equal(nodeExport.types, "./dist/email/node.d.ts");
-  assert.equal(nodeExport.import, "./dist/email/node.js");
+  assert.equal(nodeExport.import?.types, "./dist/email/node.d.ts");
+  assert.equal(nodeExport.import?.default, "./dist/email/node.js");
+  assert.equal(nodeExport.require?.types, "./dist/email/node.d.cts");
   assert.equal("browser" in nodeExport, false);
   const emailExport = pkg.exports["./email"];
   assert.ok(emailExport);
-  assert.equal(emailExport.import, "./dist/email.js");
+  assert.equal(emailExport.import?.default, "./dist/email.js");
 });
 
 test("browser and Cloudflare graphs cannot reach SMTP or Node net/tls", async () => {
@@ -92,7 +102,8 @@ test("browser and Cloudflare graphs cannot reach SMTP or Node net/tls", async ()
     "email/index.ts",
   ]);
   const smtpFiles = [...visited].filter(
-    (file) => file.includes("/src/email-node/") || file.endsWith("/email-node/smtp.ts")
+    (file) =>
+      file.includes("/src/email-node/") || file.endsWith("/email-node/smtp.ts")
   );
   assert.deepEqual(smtpFiles, []);
 

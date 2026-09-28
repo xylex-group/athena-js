@@ -34,15 +34,20 @@ athena/
 The release SSOT is local verification, not GitHub CI:
 
 ```bash
+pnpm finality
 pnpm test:finality
 pnpm release:verify
 ```
 
-`test:finality` is fail-closed and ordered (typecheck → unit → ownership →
-build → exports → browser boundary → create-athena-app fixture → packed
-tarball consumer → ephemeral Postgres → Next embedded E2E → cleanup).
-PostgreSQL uses `ATHENA_TEST_DATABASE_URL` or `DATABASE_URL`, otherwise
-Docker/Podman auto-launch. Red cannot release; green is releasable.
+`finality` and `test:finality` are the same orchestrator (`scripts/run-finality.mjs`)
+against the tracked matrix in `scripts/finality-matrix.mjs`. The run is fail-closed
+and ordered (typecheck → unit → ownership → build → exports → browser/RN/Auth UI
+export graph → create-athena-app fixture → packed tarball consumer → ephemeral
+Postgres → Next embedded E2E → packed golden path / social / passkey → docs
+drift → cleanup). PostgreSQL uses `ATHENA_TEST_DATABASE_URL` or `DATABASE_URL`,
+otherwise Docker/Podman auto-launch. `release:verify` adds the Auth schema lock
+plus `test:tarball` and `test:examples` with the same hard gates. Red cannot
+release; green is releasable.
 
 Quick iteration still uses:
 

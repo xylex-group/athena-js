@@ -1,14 +1,43 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import pg from "pg";
 import { createPostgresIntrospectionProvider } from "../src/index.ts";
 
 const connectionString = process.env.PG_INTROSPECTION_URL;
+const initSql = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "integration/postgres/init/01-schema.sql"
+  ),
+  "utf8"
+);
+
+async function ensureIntrospectionFixtures(url: string): Promise<void> {
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    const existing = await client.query(
+      "SELECT to_regclass('public.type_lab') AS table_name"
+    );
+    if (existing.rows[0]?.table_name) {
+      return;
+    }
+    await client.query(initSql);
+  } finally {
+    await client.end();
+  }
+}
 
 test("postgres introspection provider captures exhaustive type metadata and relations", async (t) => {
   if (!connectionString) {
     t.skip("PG_INTROSPECTION_URL is required for integration tests");
     return;
   }
+
+  await ensureIntrospectionFixtures(connectionString);
 
   const provider = createPostgresIntrospectionProvider({
     connectionString,

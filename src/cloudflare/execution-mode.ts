@@ -41,7 +41,8 @@ export const ATHENA_EXECUTION_MODE_ALIASES = {
   server: "gateway",
 } as const satisfies Record<string, AthenaExecutionMode>;
 
-export type AthenaExecutionModeInput = keyof typeof ATHENA_EXECUTION_MODE_ALIASES;
+export type AthenaExecutionModeInput =
+  keyof typeof ATHENA_EXECUTION_MODE_ALIASES;
 
 export const ATHENA_EXECUTION_PREFER_ALIASES = {
   cloudflare: "edge",
@@ -84,16 +85,13 @@ function normalizeModeString(
   value: string | null | undefined
 ): AthenaExecutionMode | undefined {
   if (value === undefined || value === null) {
-    return undefined;
+    return;
   }
   const key = value.trim().toLowerCase();
   if (!key) {
-    return undefined;
+    return;
   }
-  const mapped =
-    ATHENA_EXECUTION_MODE_ALIASES[
-      key as AthenaExecutionModeInput
-    ];
+  const mapped = ATHENA_EXECUTION_MODE_ALIASES[key as AthenaExecutionModeInput];
   if (!mapped) {
     throw new AthenaConfigurationError(
       "ATHENA_NO_SERVICE_CONFIGURED",
@@ -126,7 +124,6 @@ function resolveGatewayUrl(
       return value;
     }
   }
-  return undefined;
 }
 
 function resolvePrefer(

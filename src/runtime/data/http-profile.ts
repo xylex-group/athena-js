@@ -1,7 +1,7 @@
 import { runtimeConfigError } from "./errors.ts";
 import {
-  resolveAthenaRuntimeLimits,
   type ResolvedAthenaRuntimeLimits,
+  resolveAthenaRuntimeLimits,
 } from "./limits.ts";
 import {
   headerOrigin,
@@ -29,8 +29,8 @@ export function resolveAthenaRuntimeHttpProfile(
   const limits = resolveAthenaRuntimeLimits(config.limits);
   const extra = config.security.http;
   return {
-    allowUnboundedMutations: extra?.allowUnboundedMutations === true,
     allowedOrigins: extra?.allowedOrigins ?? [],
+    allowUnboundedMutations: extra?.allowUnboundedMutations === true,
     enabled: httpEnabled,
     limits,
     requireCsrfOnCookieMutations:
@@ -72,10 +72,12 @@ export function assertBrowserPolicyProfile(
 
 export function requestHasCookieCredentials(request: Request): boolean {
   const cookie = request.headers.get("cookie");
-  return Boolean(cookie && cookie.trim());
+  return Boolean(cookie?.trim());
 }
 
-export function isMutationOperation(operation: AthenaRuntimeOperation): boolean {
+export function isMutationOperation(
+  operation: AthenaRuntimeOperation
+): boolean {
   return MUTATION_OPERATIONS.has(operation);
 }
 
@@ -85,13 +87,18 @@ export function evaluateHttpRequestGuard(
   profile: AthenaRuntimeHttpProfile
 ):
   | { ok: true }
-  | { ok: false; code: "ATHENA_CSRF_REJECTED"; message: string; status: number } {
+  | {
+      ok: false;
+      code: "ATHENA_CSRF_REJECTED";
+      message: string;
+      status: number;
+    } {
   if (!profile.enabled) {
     return { ok: true };
   }
   const originHeader = request.headers.get("origin");
   const incoming = headerOrigin(request);
-  if (originHeader && originHeader.trim() && !incoming) {
+  if (originHeader?.trim() && !incoming) {
     return {
       code: "ATHENA_CSRF_REJECTED",
       message: "Athena rejected a request with an invalid Origin.",
@@ -111,7 +118,11 @@ export function evaluateHttpRequestGuard(
       status: 403,
     };
   }
-  if (operation === "health" || operation === "preflight" || operation === "fetch") {
+  if (
+    operation === "health" ||
+    operation === "preflight" ||
+    operation === "fetch"
+  ) {
     return { ok: true };
   }
   if (
@@ -143,12 +154,12 @@ export function evaluateHttpRequestGuard(
 export function corsHeadersForRequest(
   request: Request,
   profile: AthenaRuntimeHttpProfile
-): HeadersInit {
+): Record<string, string> {
   if (!profile.enabled) {
     return {};
   }
   const incoming = headerOrigin(request);
-  if (!incoming || !isAllowedRequestOrigin(request, profile.allowedOrigins)) {
+  if (!(incoming && isAllowedRequestOrigin(request, profile.allowedOrigins))) {
     return { vary: "Origin" };
   }
   return {

@@ -37,9 +37,9 @@ test("aborted get-session does not become a session error", () => {
   const flight = store.beginRefresh();
   assert.equal(store.getSnapshot().status, "loading");
   store.completeRefresh(flight.epoch, {
-    ok: false,
     error:
       "Network error while calling GET /get-session: signal is aborted without reason",
+    ok: false,
   });
   assert.equal(store.getSnapshot().error, null);
   assert.equal(store.getSnapshot().status, "unauthenticated");
@@ -50,8 +50,8 @@ test("aborted refresh keeps an existing session", () => {
   store.setSession({ id: "s1" });
   const flight = store.beginRefresh();
   store.completeRefresh(flight.epoch, {
-    ok: false,
     error: { message: "signal is aborted without reason" },
+    ok: false,
   });
   assert.equal(store.getSnapshot().session?.id, "s1");
   assert.equal(store.getSnapshot().status, "authenticated");
@@ -106,26 +106,20 @@ test("hydrate seeds unknown store and does not override later mutations", () => 
   const store = createAthenaAuthSessionStore<{ id: string }>();
   const session = { id: "s1" };
 
-  assert.equal(
-    store.hydrate({ status: "authenticated", session }),
-    true
-  );
+  assert.equal(store.hydrate({ session, status: "authenticated" }), true);
   assert.equal(store.getSnapshot().status, "authenticated");
   assert.equal(store.getSnapshot().session?.id, "s1");
 
+  assert.equal(store.hydrate({ session, status: "authenticated" }), false);
   assert.equal(
-    store.hydrate({ status: "authenticated", session }),
-    false
-  );
-  assert.equal(
-    store.hydrate({ status: "unauthenticated", session: null }),
+    store.hydrate({ session: null, status: "unauthenticated" }),
     false
   );
   assert.equal(store.getSnapshot().session?.id, "s1");
 
   store.setSession({ id: "s2" });
   assert.equal(
-    store.hydrate({ status: "authenticated", session: { id: "s1" } }),
+    store.hydrate({ session: { id: "s1" }, status: "authenticated" }),
     false
   );
   assert.equal(store.getSnapshot().session?.id, "s2");
@@ -133,14 +127,17 @@ test("hydrate seeds unknown store and does not override later mutations", () => 
 
 test("hydrate unauthenticated is valid for a cold store", () => {
   const store = createAthenaAuthSessionStore<{ id: string }>();
-  assert.equal(store.hydrate({ status: "unauthenticated", session: null }), true);
+  assert.equal(
+    store.hydrate({ session: null, status: "unauthenticated" }),
+    true
+  );
   assert.equal(store.getSnapshot().status, "unauthenticated");
   assert.equal(store.getSnapshot().session, null);
 });
 
 test("hydrate does not start a refresh", () => {
   const store = createAthenaAuthSessionStore<{ id: string }>();
-  store.hydrate({ status: "authenticated", session: { id: "s1" } });
+  store.hydrate({ session: { id: "s1" }, status: "authenticated" });
   assert.equal(store.getSnapshot().status, "authenticated");
   const flight = store.beginRefresh();
   assert.equal(flight.skipped, false);
@@ -155,8 +152,8 @@ test("setSession cancels in-flight refresh (setActive wins over stale getSession
   }>();
 
   store.setSession({
-    session: { id: "s1", activeOrganizationId: "org-a" },
-    user: { id: "u1", email: "a@example.com" },
+    session: { activeOrganizationId: "org-a", id: "s1" },
+    user: { email: "a@example.com", id: "u1" },
   });
 
   const flight = store.beginRefresh();
@@ -164,16 +161,16 @@ test("setSession cancels in-flight refresh (setActive wins over stale getSession
 
   // setActive-style authoritative patch
   store.setSession({
-    session: { id: "s1", activeOrganizationId: "org-b" },
-    user: { id: "u1", email: "a@example.com" },
+    session: { activeOrganizationId: "org-b", id: "s1" },
+    user: { email: "a@example.com", id: "u1" },
   });
 
   // Stale getSession completes with org-a — must be ignored
   store.completeRefresh(flight.epoch, {
     ok: true,
     session: {
-      session: { id: "s1", activeOrganizationId: "org-a" },
-      user: { id: "u1", email: "a@example.com" },
+      session: { activeOrganizationId: "org-a", id: "s1" },
+      user: { email: "a@example.com", id: "u1" },
     },
   });
 
@@ -195,9 +192,9 @@ test("concurrent getSession does not return session_loading as a request error",
     return new Response(
       JSON.stringify({
         session: { id: "s1", token: "tok", userId: "u1" },
-        user: { id: "u1", email: "a@example.com" },
+        user: { email: "a@example.com", id: "u1" },
       }),
-      { status: 200, headers: { "content-type": "application/json" } }
+      { headers: { "content-type": "application/json" }, status: 200 }
     );
   }) as typeof fetch;
 
@@ -227,9 +224,9 @@ test("signIn.email updates session store from token+user payload", async () => {
       JSON.stringify({
         redirect: false,
         token: "tok_abc",
-        user: { id: "u1", email: "a@example.com" },
+        user: { email: "a@example.com", id: "u1" },
       }),
-      { status: 200, headers: { "content-type": "application/json" } }
+      { headers: { "content-type": "application/json" }, status: 200 }
     )) as typeof fetch;
 
   try {
@@ -238,6 +235,7 @@ test("signIn.email updates session store from token+user payload", async () => {
       baseUrl: "https://auth.example.test",
       key: "test-key",
     });
+
     const result = await mod.auth.signIn.email({
       email: "a@example.com",
       password: "password-long-enough",
@@ -247,6 +245,120 @@ test("signIn.email updates session store from token+user payload", async () => {
     assert.equal(snap.status, "authenticated");
     assert.equal(snap.session?.user.id, "u1");
     assert.equal(snap.session?.session.token, "tok_abc");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("delayed sign-in after signOut cannot restore the invalidated session", async () => {
+  let releaseSignIn: (() => void) | undefined;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input) => {
+    if (String(input).endsWith("/sign-in/email")) {
+      await new Promise<void>((resolve) => {
+        releaseSignIn = resolve;
+      });
+
+      return new Response(
+        JSON.stringify({
+          redirect: false,
+          token: "stale-token",
+          user: { email: "stale@example.com", id: "stale-user" },
+        }),
+        { headers: { "content-type": "application/json" }, status: 200 }
+      );
+    }
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  }) as typeof fetch;
+
+  try {
+    const { createAuthModule } = await import("../src/auth/client.ts");
+    const mod = createAuthModule(
+      {
+        apiKey: "test-key",
+        baseUrl: "https://auth.example.test",
+      },
+      {
+        sessionPersistence: {
+          clearSession: async () => {},
+          persistSessionToken: async () => {},
+        },
+      }
+    );
+    const signIn = mod.auth.signIn.email({
+      email: "stale@example.com",
+      password: "password-long-enough",
+    });
+    await mod.auth.signOut();
+    releaseSignIn?.();
+    const result = await signIn;
+
+    assert.equal(result.ok, true);
+    assert.equal(mod.auth.session.getSnapshot().session, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getSession after signOut invalidation cannot revive durable auth", async () => {
+  let releaseSignOut: (() => void) | undefined;
+  let getSessionCalls = 0;
+  let sessionToken = "old-token";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input) => {
+    if (String(input).endsWith("/sign-out")) {
+      await new Promise<void>((resolve) => {
+        releaseSignOut = resolve;
+      });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      });
+    }
+    getSessionCalls += 1;
+    return new Response(
+      JSON.stringify({
+        session: {
+          id: "stale-session",
+          token: "stale-token",
+          userId: "old-user",
+        },
+        user: { email: "old@example.com", id: "old-user" },
+      }),
+      { headers: { "content-type": "application/json" }, status: 200 }
+    );
+  }) as typeof fetch;
+
+  try {
+    const { createAuthModule } = await import("../src/auth/client.ts");
+    const mod = createAuthModule(
+      {
+        apiKey: "test-key",
+        baseUrl: "https://auth.example.test",
+      },
+      {
+        sessionPersistence: {
+          clearSession: async () => {
+            sessionToken = "";
+          },
+          persistSessionToken: async (token: string) => {
+            sessionToken = token;
+          },
+        },
+      }
+    );
+
+    const signOut = mod.auth.signOut();
+    const refresh = await mod.auth.getSession();
+    assert.equal(refresh.data, null);
+    assert.equal(getSessionCalls, 0);
+    releaseSignOut?.();
+    await signOut;
+    assert.equal(sessionToken, "");
+    assert.equal(mod.auth.session.getSnapshot().session, null);
   } finally {
     globalThis.fetch = originalFetch;
   }

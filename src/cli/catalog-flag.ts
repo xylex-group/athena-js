@@ -3,32 +3,32 @@
  */
 
 export type JoinPipe<T extends readonly string[]> = T extends readonly [
-	infer Head extends string,
-	...infer Rest extends string[],
+  infer Head extends string,
+  ...infer Rest extends string[],
 ]
-	? Rest extends readonly []
-		? Head
-		: Rest extends readonly string[]
-			? `${Head}|${JoinPipe<Rest>}`
-			: never
-	: never;
+  ? Rest extends readonly []
+    ? Head
+    : Rest extends readonly string[]
+      ? `${Head}|${JoinPipe<Rest>}`
+      : never
+  : never;
 
 export function joinCatalogEnumValues<const T extends readonly string[]>(
-	values: T,
+  values: T
 ): JoinPipe<T> {
-	return values.join("|") as JoinPipe<T>;
+  return values.join("|") as JoinPipe<T>;
 }
 
 export function catalogEnumFlag<
-	const Name extends string,
-	const T extends readonly string[],
+  const Name extends string,
+  const T extends readonly string[],
 >(name: Name, values: T): `${Name} ${JoinPipe<T>}` {
-	return `${name} ${joinCatalogEnumValues(values)}`;
+  return `${name} ${joinCatalogEnumValues(values)}`;
 }
 
 export function isCatalogEnumValue<const T extends readonly string[]>(
-	values: T,
-	value: string,
+  values: T,
+  value: string
 ): value is T[number] {
-	return (values as readonly string[]).includes(value);
+  return (values as readonly string[]).includes(value);
 }

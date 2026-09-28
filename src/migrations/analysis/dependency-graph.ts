@@ -1,6 +1,6 @@
 import { formatObjectRef, objectKey } from "./ast.ts";
-import { findProvider } from "./verifier.ts";
 import type { MigrationAnalysis } from "./semantic-ir.ts";
+import { findProvider } from "./verifier.ts";
 
 export interface MigrationGraphEdge {
   fromVersion: number;
@@ -27,7 +27,10 @@ export function buildMigrationGraph(
     creates: analysis.effects.creates.map((object) => formatObjectRef(object)),
     filename: analysis.filename,
     reads: analysis.dependencies
-      .filter((item) => item.category === "REQUIRES_TABLE" || item.category === "READS")
+      .filter(
+        (item) =>
+          item.category === "REQUIRES_TABLE" || item.category === "READS"
+      )
       .map((item) => formatObjectRef(item.object)),
     version: analysis.version,
   }));
@@ -69,11 +72,17 @@ export function formatMigrationGraph(graph: MigrationGraph): string {
       lines.push(`   creates ${node.creates.slice(0, 12).join(", ")}`);
     }
     if (node.reads.length > 0) {
-      lines.push(`   reads ${[...new Set(node.reads)].slice(0, 12).join(", ")}`);
+      lines.push(
+        `   reads ${[...new Set(node.reads)].slice(0, 12).join(", ")}`
+      );
     }
-    const outgoing = graph.edges.filter((edge) => edge.fromVersion === node.version);
+    const outgoing = graph.edges.filter(
+      (edge) => edge.fromVersion === node.version
+    );
     for (const edge of outgoing) {
-      const target = graph.nodes.find((item) => item.version === edge.toVersion);
+      const target = graph.nodes.find(
+        (item) => item.version === edge.toVersion
+      );
       if (target) {
         lines.push(`       ↓ ${target.filename} (${edge.object})`);
       }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
+import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../../src/auth/contract/index.ts";
 import {
   AUTH_EMAIL_EVENT_CATALOG,
   authEmailEvents,
@@ -11,7 +11,6 @@ import {
 import { MemoryAuthStores } from "../../src/auth/local/memory-stores.ts";
 import { passwordHashNeedsRehash } from "../../src/auth/local/password.ts";
 import { createAthenaAuthRuntime } from "../../src/auth/local/runtime.ts";
-import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../../src/auth/contract/index.ts";
 
 function createTestHasher() {
   return {
@@ -31,7 +30,10 @@ async function json(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
-async function signInAdmin(runtime: ReturnType<typeof createAthenaAuthRuntime>, stores: MemoryAuthStores) {
+async function signInAdmin(
+  runtime: ReturnType<typeof createAthenaAuthRuntime>,
+  stores: MemoryAuthStores
+) {
   const signup = await runtime.handle(
     new Request("http://app.local/api/auth/sign-up/email", {
       body: JSON.stringify({
@@ -56,8 +58,9 @@ test("EMAIL-01 authEmailEvents flatten to the Rust 014 catalog", () => {
   assert.ok(flat.includes("user.email.verify"));
   assert.ok(flat.includes("organization.member.invite"));
   assert.equal(
-    AUTH_EMAIL_EVENT_CATALOG.find((entry) => entry.event_type === "user.email.verify")
-      ?.default_template_key,
+    AUTH_EMAIL_EVENT_CATALOG.find(
+      (entry) => entry.event_type === "user.email.verify"
+    )?.default_template_key,
     "verification_email"
   );
 });
@@ -89,8 +92,8 @@ test("EMAIL-02/03/04/07/19 embedded template CRUD and send match Rust envelopes"
   const cookie = await signInAdmin(runtime, stores);
   const baseline = provider.messages.length;
   const headers = {
-    cookie,
     "content-type": "application/json",
+    cookie,
   };
 
   const events = await runtime.handle(
@@ -164,8 +167,8 @@ test("EMAIL-19 production send without provider fails closed and persists a fail
   });
   const cookie = await signInAdmin(runtime, stores);
   const headers = {
-    cookie,
     "content-type": "application/json",
+    cookie,
   };
   const created = await runtime.handle(
     new Request("http://app.local/api/auth/admin/email-template/create", {
@@ -202,9 +205,8 @@ test("EMAIL-19 production send without provider fails closed and persists a fail
   );
   assert.equal(failures.status, 200);
   const failureBody = await json(failures);
-  const rows = (failureBody.email_send_failures ?? failureBody.emailSendFailures) as
-    | unknown[]
-    | undefined;
+  const rows = (failureBody.email_send_failures ??
+    failureBody.emailSendFailures) as unknown[] | undefined;
   assert.ok(Array.isArray(rows));
   assert.equal(rows.length >= 1, true);
 });
@@ -220,8 +222,8 @@ test("EMAIL-18 private-network attachment URLs are rejected", async () => {
   });
   const cookie = await signInAdmin(runtime, stores);
   const headers = {
-    cookie,
     "content-type": "application/json",
+    cookie,
   };
   const created = await runtime.handle(
     new Request("http://app.local/api/auth/admin/email-template/create", {
@@ -261,8 +263,8 @@ test("EMAIL-23 inactive template send is rejected", async () => {
   });
   const cookie = await signInAdmin(runtime, stores);
   const headers = {
-    cookie,
     "content-type": "application/json",
+    cookie,
   };
   const created = await runtime.handle(
     new Request("http://app.local/api/auth/admin/email-template/create", {
@@ -302,8 +304,8 @@ test("EMAIL-14 session token bindings are denied", async () => {
   });
   const cookie = await signInAdmin(runtime, stores);
   const headers = {
-    cookie,
     "content-type": "application/json",
+    cookie,
   };
   const created = await runtime.handle(
     new Request("http://app.local/api/auth/admin/email-template/create", {

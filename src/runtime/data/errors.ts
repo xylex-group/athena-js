@@ -4,7 +4,36 @@ import type {
   AthenaGatewayEndpointPath,
   AthenaGatewayResponse,
 } from "../../gateway/types.ts";
+import { isCatalogErrorCode } from "../error/registry.ts";
 import type { AthenaRuntimeErrorCode } from "./types.ts";
+
+const ATHENA_RUNTIME_ERROR_CODES: ReadonlySet<string> = new Set<string>([
+  "ATHENA_RUNTIME_UNAVAILABLE",
+  "ATHENA_RUNTIME_UNSUPPORTED_OPERATION",
+  "ATHENA_RUNTIME_CONFIG_INVALID",
+  "ATHENA_RAW_SQL_FORBIDDEN",
+  "ATHENA_RPC_FORBIDDEN",
+  "ATHENA_RPC_NOT_EXPOSED",
+  "ATHENA_AUTH_REQUIRED",
+  "ATHENA_AUTH_INVALID_SESSION",
+  "ATHENA_AUTH_SESSION_EXPIRED",
+  "ATHENA_AUTH_PRINCIPAL_RESOLUTION_FAILED",
+  "ATHENA_AUTH_ORG_NOT_ALLOWED",
+  "ATHENA_AUTH_CONFIG_INVALID",
+  "ATHENA_POLICY_DENIED",
+  "ATHENA_POLICY_INVALID",
+  "ATHENA_POLICY_UNRESOLVED",
+  "ATHENA_POLICY_UNSUPPORTED_EXPRESSION",
+  "ATHENA_POLICY_WRITE_CONFLICT",
+  "ATHENA_POLICY_SUBJECT_MISSING",
+  "ATHENA_MODEL_NOT_EXPOSED",
+  "ATHENA_MODEL_UNKNOWN_FIELD",
+  "ATHENA_MODEL_UNKNOWN_RELATION",
+  "ATHENA_MODEL_INVALID_REGISTRY",
+  "ATHENA_CSRF_REJECTED",
+  "ATHENA_LIMIT_EXCEEDED",
+  "ATHENA_UNBOUNDED_MUTATION",
+] satisfies AthenaRuntimeErrorCode[]);
 
 export class AthenaRuntimeError extends Error {
   readonly runtimeCode: AthenaRuntimeErrorCode;
@@ -63,16 +92,40 @@ export function runtimeDeniedResponse(
   };
 }
 
+export function isAllowlistedRuntimePublicCode(code: string): boolean {
+  return ATHENA_RUNTIME_ERROR_CODES.has(code) || isCatalogErrorCode(code);
+}
+
 export function readRuntimeErrorCode(
   response: AthenaGatewayResponse<unknown>
 ): string | undefined {
   const raw = response.raw;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const error = (raw as { error?: { code?: unknown } }).error;
+    if (
+      error &&
+      typeof error === "object" &&
+      typeof error.code === "string" &&
+      isAllowlistedRuntimePublicCode(error.code)
+    ) {
+      return error.code;
+    }
+  }
+}
+
+export function readRuntimeErrorNumber(
+  response: AthenaGatewayResponse<unknown>
+): number | undefined {
+  const raw = response.raw;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return response.errorDetails?.hint;
+    return;
   }
-  const error = (raw as { error?: { code?: unknown } }).error;
-  if (error && typeof error.code === "string") {
-    return error.code;
+  const error = (raw as { error?: { errorNumber?: unknown } }).error;
+  if (
+    error &&
+    typeof error === "object" &&
+    typeof error.errorNumber === "number"
+  ) {
+    return error.errorNumber;
   }
-  return response.errorDetails?.hint;
 }

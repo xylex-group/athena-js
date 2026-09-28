@@ -1,16 +1,16 @@
 export type SchemaIrProvenanceSource =
-	| "models"
-	| "introspection"
-	| "fixture"
-	| "snapshot"
-	| "table"
-	| string;
+  | "models"
+  | "introspection"
+  | "fixture"
+  | "snapshot"
+  | "table"
+  | string;
 
 export interface SchemaIrProvenance {
-	readonly source?: SchemaIrProvenanceSource;
-	readonly generatedAt?: string;
-	readonly generator?: string;
-	readonly backend?: string | null;
+  readonly backend?: string | null;
+  readonly generatedAt?: string;
+  readonly generator?: string;
+  readonly source?: SchemaIrProvenanceSource;
 }
 
 /**
@@ -18,6 +18,6 @@ export interface SchemaIrProvenance {
  * Fingerprint MUST exclude this object.
  */
 export interface SchemaMetadata {
-	readonly provenance?: SchemaIrProvenance;
-	readonly extensions?: Readonly<Record<string, unknown>>;
+  readonly extensions?: Readonly<Record<string, unknown>>;
+  readonly provenance?: SchemaIrProvenance;
 }

@@ -36,7 +36,7 @@ export async function resolveRuntimeKey(
   }
 
   return db.transaction(async (tx) => {
-    await tx.query(`SELECT pg_advisory_xact_lock($1)`, [
+    await tx.query("SELECT pg_advisory_xact_lock($1)", [
       ATHENA_AUTH_INIT_ADVISORY_LOCK,
     ]);
     const existing = await tx.query<{
@@ -62,7 +62,9 @@ export async function resolveRuntimeKey(
         keyId: row.key_id,
         material: row.key_material,
         purpose: row.purpose,
-        retiredAt: row.retired_at ? new Date(row.retired_at).toISOString() : null,
+        retiredAt: row.retired_at
+          ? new Date(row.retired_at).toISOString()
+          : null,
       };
     }
 

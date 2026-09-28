@@ -1,17 +1,17 @@
 export type BillingEnvironmentName = "test" | "live";
 
 export interface BillingEnvironment {
-	readonly testMode: boolean;
-	readonly name: BillingEnvironmentName;
+  readonly name: BillingEnvironmentName;
+  readonly testMode: boolean;
 }
 
 /** Named live-selection invariant (see billing/safety/environment.ts). */
 export type BillingLiveCredentialSelection = BillingEnvironment;
 
 export function billingEnvironmentName(
-	testMode: boolean,
+  testMode: boolean
 ): BillingEnvironmentName {
-	return testMode ? "test" : "live";
+  return testMode ? "test" : "live";
 }
 
 /**
@@ -19,11 +19,11 @@ export function billingEnvironmentName(
  * so a live credential never becomes active merely by existing.
  */
 export function resolveBillingEnvironment(input?: {
-	testMode?: boolean;
+  testMode?: boolean;
 }): BillingEnvironment {
-	const testMode = input?.testMode !== false;
-	return {
-		testMode,
-		name: billingEnvironmentName(testMode),
-	};
+  const testMode = input?.testMode !== false;
+  return {
+    name: billingEnvironmentName(testMode),
+    testMode,
+  };
 }

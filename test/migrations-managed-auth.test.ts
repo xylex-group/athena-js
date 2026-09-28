@@ -1,103 +1,105 @@
 import { strict as assert } from "node:assert/strict";
 import {
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	readdirSync,
-	rmSync,
-	writeFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import "./windows-defer-force-exit.mjs";
 import { getAthenaAuthExpectedLedger } from "../src/auth/local/schema.ts";
-import { ATHENA_PROJECT_GENERATED_ROOT } from "../src/generator/config.ts";
 import { parseCommand } from "../src/cli/parse-command.ts";
+import { ATHENA_PROJECT_GENERATED_ROOT } from "../src/generator/config.ts";
 import {
-	DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
-	DEFAULT_MIGRATIONS_DIRECTORY,
-	ensureAthenaProjectLayout,
-	inspectManagedAuthMigrations,
-	listManagedAuthMigrationArtifacts,
-	materializeManagedAuthMigrations,
-	runMigrations,
+  DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
+  DEFAULT_MIGRATIONS_DIRECTORY,
+  ensureAthenaProjectLayout,
+  inspectManagedAuthMigrations,
+  listManagedAuthMigrationArtifacts,
+  materializeManagedAuthMigrations,
+  runMigrations,
 } from "../src/migrations/index.ts";
 import type { MigrationSourceControlState } from "../src/migrations/source-control/types.ts";
 import type {
-	AppliedMigration,
-	AppliedMigrationResult,
-	MigrationBackend,
-	MigrationFile,
+  AppliedMigration,
+  AppliedMigrationResult,
+  MigrationBackend,
+  MigrationFile,
 } from "../src/migrations/types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const nextMinimalRoot = resolve(
-	here,
-	"..",
-	"..",
-	"athena-auth-ui",
-	"examples",
-	"next-minimal",
+  here,
+  "..",
+  "..",
+  "athena-auth-ui",
+  "examples",
+  "next-minimal"
 );
 
 class MemoryBackend implements MigrationBackend {
-	readonly kind = "memory";
-	readonly appliedSql: string[] = [];
-	private readonly rows: AppliedMigration[];
+  readonly kind = "memory";
+  readonly appliedSql: string[] = [];
+  private readonly rows: AppliedMigration[];
 
-	constructor(rows: AppliedMigration[] = []) {
-		this.rows = [...rows];
-	}
+  constructor(rows: AppliedMigration[] = []) {
+    this.rows = [...rows];
+  }
 
-	async acquireLock(): Promise<void> {}
-	async releaseLock(): Promise<void> {}
-	async ensureLedger(): Promise<void> {}
-	async listAppliedMigrations(): Promise<AppliedMigration[]> {
-		return [...this.rows];
-	}
+  async acquireLock(): Promise<void> {}
+  async releaseLock(): Promise<void> {}
+  async ensureLedger(): Promise<void> {}
+  async listAppliedMigrations(): Promise<AppliedMigration[]> {
+    return [...this.rows];
+  }
 
-	async inspectCatalog() {
-		const { emptyPhysicalCatalog } = await import(
-			"../src/migrations/analysis/catalog.ts"
-		);
-		return emptyPhysicalCatalog();
-	}
+  async inspectCatalog() {
+    const { emptyPhysicalCatalog } = await import(
+      "../src/migrations/analysis/catalog.ts"
+    );
+    return emptyPhysicalCatalog();
+  }
 
-	async applyMigration(migration: MigrationFile): Promise<AppliedMigrationResult> {
-		this.appliedSql.push(migration.sql);
-		const row: AppliedMigrationResult = {
-			appliedAt: new Date(),
-			checksum: migration.checksum,
-			executionMs: 1,
-			filename: migration.filename,
-			name: migration.name,
-			version: migration.version,
-		};
-		this.rows.push(row);
-		return row;
-	}
+  async applyMigration(
+    migration: MigrationFile
+  ): Promise<AppliedMigrationResult> {
+    this.appliedSql.push(migration.sql);
+    const row: AppliedMigrationResult = {
+      appliedAt: new Date(),
+      checksum: migration.checksum,
+      executionMs: 1,
+      filename: migration.filename,
+      name: migration.name,
+      version: migration.version,
+    };
+    this.rows.push(row);
+    return row;
+  }
 
-	async close(): Promise<void> {}
+  async close(): Promise<void> {}
 }
 
 /** Avoid spawnSync("git") — on Windows, `--test-force-exit` races those uv_async handles. */
 function noSourceControl(): MigrationSourceControlState {
-	return {
-		available: false,
-		changedFiles: [],
-		detached: false,
-		migrationDirectory: DEFAULT_MIGRATIONS_DIRECTORY,
-	};
+  return {
+    available: false,
+    changedFiles: [],
+    detached: false,
+    migrationDirectory: DEFAULT_MIGRATIONS_DIRECTORY,
+  };
 }
 
 function writeProject(root: string): void {
-	writeFileSync(
-		join(root, "athena.config.ts"),
-		`
+  writeFileSync(
+    join(root, "athena.config.ts"),
+    `
 export default {
   provider: {
     kind: 'postgres',
@@ -111,251 +113,287 @@ export default {
   },
 }
 `,
-		"utf8",
-	);
+    "utf8"
+  );
 }
 
 test("managed Auth artifacts use canonical generation names and header", () => {
-	const artifacts = listManagedAuthMigrationArtifacts();
-	const ledger = getAthenaAuthExpectedLedger();
-	assert.equal(artifacts.length, ledger.length);
-	assert.deepEqual(
-		artifacts.map((item) => item.version),
-		ledger.map((item) => item.version),
-	);
-	assert.equal(artifacts[0]?.filename, "001_create_core_tables.sql");
-	for (const artifact of artifacts) {
-		assert.match(artifact.filename, /^\d{3}_.+\.sql$/);
-		assert.match(artifact.contents, /AUTO-GENERATED BY @xylex-group\/athena/);
-		assert.match(artifact.contents, /Do not edit/);
-		assert.doesNotMatch(artifact.contents, /DROP TABLE athena\.users;/);
-	}
+  const artifacts = listManagedAuthMigrationArtifacts();
+  const ledger = getAthenaAuthExpectedLedger();
+  assert.equal(artifacts.length, ledger.length);
+  assert.deepEqual(
+    artifacts.map((item) => item.version),
+    ledger.map((item) => item.version)
+  );
+  assert.equal(artifacts[0]?.filename, "001_create_core_tables.sql");
+  for (const artifact of artifacts) {
+    assert.match(artifact.filename, /^\d{3}_.+\.sql$/);
+    assert.match(artifact.contents, /AUTO-GENERATED BY @xylex-group\/athena/);
+    assert.match(artifact.contents, /Do not edit/);
+    assert.doesNotMatch(artifact.contents, /DROP TABLE athena\.users;/);
+  }
 });
 
 test("fresh project without athena/ gets layout dirs and is not an error", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-fresh-"));
-	try {
-		const layout = await ensureAthenaProjectLayout({ cwd: root });
-		assert.equal(layout.createdApplicationMigrations, true);
-		assert.equal(layout.createdManagedAuthMigrations, true);
-		assert.equal(existsSync(join(root, DEFAULT_MIGRATIONS_DIRECTORY)), true);
-		assert.equal(
-			existsSync(join(root, DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY)),
-			true,
-		);
-		assert.equal(existsSync(join(root, "athena", "migrations", ".gitkeep")), true);
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-fresh-"));
+  try {
+    const layout = await ensureAthenaProjectLayout({ cwd: root });
+    assert.equal(layout.createdApplicationMigrations, true);
+    assert.equal(layout.createdManagedAuthMigrations, true);
+    assert.equal(existsSync(join(root, DEFAULT_MIGRATIONS_DIRECTORY)), true);
+    assert.equal(
+      existsSync(join(root, DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY)),
+      true
+    );
+    assert.equal(
+      existsSync(join(root, "athena", "migrations", ".gitkeep")),
+      true
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("existing application migrations directory is preserved", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-existing-"));
-	try {
-		const appFile = join(root, "athena", "migrations", "0001_initial.sql");
-		mkdirSync(dirname(appFile), { recursive: true });
-		writeFileSync(appFile, "SELECT 1;\n", "utf8");
-		const layout = await ensureAthenaProjectLayout({ cwd: root });
-		assert.equal(layout.createdApplicationMigrations, false);
-		assert.equal(readFileSync(appFile, "utf8"), "SELECT 1;\n");
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-existing-"));
+  try {
+    const appFile = join(root, "athena", "migrations", "0001_initial.sql");
+    mkdirSync(dirname(appFile), { recursive: true });
+    writeFileSync(appFile, "SELECT 1;\n", "utf8");
+    const layout = await ensureAthenaProjectLayout({ cwd: root });
+    assert.equal(layout.createdApplicationMigrations, false);
+    assert.equal(readFileSync(appFile, "utf8"), "SELECT 1;\n");
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("materialize is deterministic and idempotent", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-idemp-"));
-	try {
-		const first = await materializeManagedAuthMigrations({ cwd: root });
-		const second = await materializeManagedAuthMigrations({ cwd: root });
-		assert.ok(first.written.length > 10);
-		assert.equal(second.written.length, 0);
-		assert.equal(second.unchanged.length, first.written.length);
-		assert.equal(second.restored.length, 0);
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-idemp-"));
+  try {
+    const first = await materializeManagedAuthMigrations({ cwd: root });
+    const second = await materializeManagedAuthMigrations({ cwd: root });
+    assert.ok(first.written.length > 10);
+    assert.equal(second.written.length, 0);
+    assert.equal(second.unchanged.length, first.written.length);
+    assert.equal(second.restored.length, 0);
 
-		const directory = join(root, DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY);
-		const names = readdirSync(directory).filter((name) => name.endsWith(".sql"));
-		assert.deepEqual(
-			names,
-			listManagedAuthMigrationArtifacts().map((item) => item.filename),
-		);
-		const firstFile = join(directory, "001_create_core_tables.sql");
-		const again = await materializeManagedAuthMigrations({ cwd: root });
-		assert.equal(
-			readFileSync(firstFile, "utf8"),
-			listManagedAuthMigrationArtifacts()[0]?.contents,
-		);
-		assert.equal(again.unchanged.includes("001_create_core_tables.sql"), true);
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+    const directory = join(root, DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY);
+    const names = readdirSync(directory).filter((name) =>
+      name.endsWith(".sql")
+    );
+    assert.deepEqual(
+      names,
+      listManagedAuthMigrationArtifacts().map((item) => item.filename)
+    );
+    const firstFile = join(directory, "001_create_core_tables.sql");
+    const again = await materializeManagedAuthMigrations({ cwd: root });
+    assert.equal(
+      readFileSync(firstFile, "utf8"),
+      listManagedAuthMigrationArtifacts()[0]?.contents
+    );
+    assert.equal(again.unchanged.includes("001_create_core_tables.sql"), true);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("modified managed Auth file is reported and not used as execution SQL", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-drift-"));
-	try {
-		writeProject(root);
-		await materializeManagedAuthMigrations({ cwd: root });
-		const target = join(
-			root,
-			DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
-			"001_create_core_tables.sql",
-		);
-		writeFileSync(target, "-- TAMPERED\nDROP TABLE athena.users;\n", "utf8");
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-drift-"));
+  try {
+    writeProject(root);
+    await materializeManagedAuthMigrations({ cwd: root });
+    const target = join(
+      root,
+      DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
+      "001_create_core_tables.sql"
+    );
+    writeFileSync(target, "-- TAMPERED\nDROP TABLE athena.users;\n", "utf8");
 
-		const inspection = await inspectManagedAuthMigrations({ cwd: root });
-		assert.equal(inspection.drifted, true);
-		assert.equal(
-			inspection.files.find((file) => file.filename === "001_create_core_tables.sql")
-				?.status,
-			"modified",
-		);
+    const inspection = await inspectManagedAuthMigrations({ cwd: root });
+    assert.equal(inspection.drifted, true);
+    assert.equal(
+      inspection.files.find(
+        (file) => file.filename === "001_create_core_tables.sql"
+      )?.status,
+      "modified"
+    );
 
-		let authMigrateCalls = 0;
-		const backend = new MemoryBackend();
-		await runMigrations({
-			createBackend: async () => backend,
-			cwd: root,
-			inspectSourceControl: () => noSourceControl(),
-			log: () => undefined,
-			migrateAuthSchema: async () => {
-				authMigrateCalls += 1;
-			},
-			mode: "apply",
-			plain: true,
-		});
-		assert.equal(authMigrateCalls, 1);
-		assert.equal(backend.appliedSql.some((sql) => sql.includes("TAMPERED")), false);
-		assert.equal(
-			backend.appliedSql.some((sql) => sql.includes("DROP TABLE athena.users")),
-			false,
-		);
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+    let authMigrateCalls = 0;
+    const backend = new MemoryBackend();
+    await runMigrations({
+      createBackend: async () => backend,
+      cwd: root,
+      inspectSourceControl: () => noSourceControl(),
+      log: () => undefined,
+      migrateAuthSchema: async () => {
+        authMigrateCalls += 1;
+      },
+      mode: "apply",
+      plain: true,
+    });
+    assert.equal(authMigrateCalls, 1);
+    assert.equal(
+      backend.appliedSql.some((sql) => sql.includes("TAMPERED")),
+      false
+    );
+    assert.equal(
+      backend.appliedSql.some((sql) => sql.includes("DROP TABLE athena.users")),
+      false
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("rematerialize restores canonical managed Auth file", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-restore-"));
-	try {
-		await materializeManagedAuthMigrations({ cwd: root });
-		const filename = "001_create_core_tables.sql";
-		const target = join(root, DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY, filename);
-		writeFileSync(target, "-- TAMPERED\n", "utf8");
-		const result = await materializeManagedAuthMigrations({
-			cwd: root,
-			overwrite: true,
-		});
-		assert.equal(result.restored.includes(filename), true);
-		assert.equal(
-			readFileSync(target, "utf8"),
-			listManagedAuthMigrationArtifacts()[0]?.contents,
-		);
-		const inspection = await inspectManagedAuthMigrations({ cwd: root });
-		assert.equal(inspection.drifted, false);
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-restore-"));
+  try {
+    await materializeManagedAuthMigrations({ cwd: root });
+    const filename = "001_create_core_tables.sql";
+    const target = join(
+      root,
+      DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
+      filename
+    );
+    writeFileSync(target, "-- TAMPERED\n", "utf8");
+    const result = await materializeManagedAuthMigrations({
+      cwd: root,
+      overwrite: true,
+    });
+    assert.equal(result.restored.includes(filename), true);
+    assert.equal(
+      readFileSync(target, "utf8"),
+      listManagedAuthMigrationArtifacts()[0]?.contents
+    );
+    const inspection = await inspectManagedAuthMigrations({ cwd: root });
+    assert.equal(inspection.drifted, false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("application and Auth ledgers stay independent on apply", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-ledgers-"));
-	try {
-		writeProject(root);
-		mkdirSync(join(root, "athena", "migrations"), { recursive: true });
-		writeFileSync(
-			join(root, "athena", "migrations", "0001_initial.sql"),
-			"CREATE TABLE public.widgets (id text);\n",
-			"utf8",
-		);
-		const backend = new MemoryBackend();
-		let authMigrateCalls = 0;
-		const summary = await runMigrations({
-			createBackend: async () => backend,
-			cwd: root,
-			inspectSourceControl: () => noSourceControl(),
-			log: () => undefined,
-			migrateAuthSchema: async () => {
-				authMigrateCalls += 1;
-			},
-			mode: "apply",
-			plain: true,
-		});
-		assert.equal(summary.newlyApplied.length, 1);
-		assert.equal(summary.newlyApplied[0]?.filename, "0001_initial.sql");
-		assert.equal(authMigrateCalls, 1);
-		assert.equal(backend.appliedSql.length, 1);
-		assert.match(backend.appliedSql[0] ?? "", /public\.widgets/);
-		assert.equal(
-			existsSync(
-				join(
-					root,
-					DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
-					"001_create_core_tables.sql",
-				),
-			),
-			true,
-		);
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-ledgers-"));
+  try {
+    writeProject(root);
+    mkdirSync(join(root, "athena", "migrations"), { recursive: true });
+    writeFileSync(
+      join(root, "athena", "migrations", "0001_initial.sql"),
+      "CREATE TABLE public.widgets (id text);\n",
+      "utf8"
+    );
+    const backend = new MemoryBackend();
+    let authMigrateCalls = 0;
+    const summary = await runMigrations({
+      createBackend: async () => backend,
+      cwd: root,
+      inspectSourceControl: () => noSourceControl(),
+      log: () => undefined,
+      migrateAuthSchema: async () => {
+        authMigrateCalls += 1;
+      },
+      mode: "apply",
+      plain: true,
+    });
+    assert.equal(summary.newlyApplied.length, 1);
+    assert.equal(summary.newlyApplied[0]?.filename, "0001_initial.sql");
+    assert.equal(authMigrateCalls, 1);
+    assert.equal(backend.appliedSql.length, 1);
+    assert.match(backend.appliedSql[0] ?? "", /public\.widgets/);
+    assert.equal(
+      existsSync(
+        join(
+          root,
+          DEFAULT_MANAGED_AUTH_MIGRATIONS_DIRECTORY,
+          "001_create_core_tables.sql"
+        )
+      ),
+      true
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("generator default output is project-root athena/generated", async () => {
-	const { normalizeGeneratorConfig } = await import("../src/generator/config.ts");
-	assert.equal(ATHENA_PROJECT_GENERATED_ROOT, "athena/generated");
-	const output = normalizeGeneratorConfig({
-		provider: {
-			kind: "postgres",
-			mode: "direct",
-			connectionString: "postgres://localhost/app_db",
-		},
-	}).output;
-	assert.equal(
-		output.targets.model,
-		"athena/generated/models/{schema_kebab}/{model_kebab}.ts",
-	);
-	assert.equal(
-		output.targets.schema,
-		"athena/generated/schema/{schema_kebab}.ts",
-	);
-	assert.equal(output.targets.database, "athena/generated/relations.ts");
-	assert.equal(output.targets.registry, "athena/generated/registry.ts");
+  const { normalizeGeneratorConfig } = await import(
+    "../src/generator/config.ts"
+  );
+  assert.equal(ATHENA_PROJECT_GENERATED_ROOT, "athena/generated");
+  const output = normalizeGeneratorConfig({
+    provider: {
+      connectionString: "postgres://localhost/app_db",
+      kind: "postgres",
+      mode: "direct",
+    },
+  }).output;
+  assert.equal(
+    output.targets.model,
+    "athena/generated/models/{schema_kebab}/{model_kebab}.ts"
+  );
+  assert.equal(
+    output.targets.schema,
+    "athena/generated/schema/{schema_kebab}.ts"
+  );
+  assert.equal(output.targets.database, "athena/generated/relations.ts");
+  assert.equal(output.targets.registry, "athena/generated/registry.ts");
 });
 
 test("next-minimal uses project-root Athena layout without config bootstrap import", () => {
-	assert.equal(existsSync(join(nextMinimalRoot, "athena.config.ts")), true);
-	assert.equal(existsSync(join(nextMinimalRoot, "athena", "generated", "registry.ts")), true);
-	assert.equal(existsSync(join(nextMinimalRoot, "src", "lib", "athena", "generated")), false);
-	assert.equal(existsSync(join(nextMinimalRoot, "athena", "migrations")), true);
-	assert.equal(
-		existsSync(join(nextMinimalRoot, "athena", "managed", "auth", "migrations")),
-		true,
-	);
-	const config = readFileSync(join(nextMinimalRoot, "athena.config.ts"), "utf8");
-	assert.doesNotMatch(config, /from ["']\.\/athena\/generated\/registry["']/);
-	assert.match(config, /athena\/generated\/registry\.ts/);
-	const rootClient = readFileSync(
-		join(nextMinimalRoot, "src", "lib", "athena", "root.ts"),
-		"utf8",
-	);
-	assert.match(rootClient, /athena\/generated\/registry/);
+  assert.equal(existsSync(join(nextMinimalRoot, "athena.config.ts")), true);
+  assert.equal(
+    existsSync(join(nextMinimalRoot, "athena", "generated", "registry.ts")),
+    true
+  );
+  assert.equal(
+    existsSync(join(nextMinimalRoot, "src", "lib", "athena", "generated")),
+    false
+  );
+  assert.equal(existsSync(join(nextMinimalRoot, "athena", "migrations")), true);
+  assert.equal(
+    existsSync(
+      join(nextMinimalRoot, "athena", "managed", "auth", "migrations")
+    ),
+    true
+  );
+  const config = readFileSync(
+    join(nextMinimalRoot, "athena.config.ts"),
+    "utf8"
+  );
+  assert.doesNotMatch(config, /from ["']\.\/athena\/generated\/registry["']/);
+  assert.match(config, /athena\/generated\/registry\.ts/);
+  const rootClient = readFileSync(
+    join(nextMinimalRoot, "src", "lib", "athena", "root.ts"),
+    "utf8"
+  );
+  const rootFactory = readFileSync(
+    join(nextMinimalRoot, "src", "lib", "athena", "create-client.ts"),
+    "utf8"
+  );
+  assert.match(`${rootClient}\n${rootFactory}`, /athena\/generated\/registry/);
 });
 
 test("generate config loads when generated registry is absent", async () => {
-	const root = mkdtempSync(join(tmpdir(), "athena-managed-bootstrap-"));
-	try {
-		writeProject(root);
-		const { loadGeneratorConfig } = await import("../src/generator/config.ts");
-		const loaded = await loadGeneratorConfig({ cwd: root });
-		assert.equal(loaded.config.output.targets.registry.includes("athena/generated"), true);
-		assert.equal(existsSync(join(root, "athena", "generated", "registry.ts")), false);
-	} finally {
-		rmSync(root, { force: true, recursive: true });
-	}
+  const root = mkdtempSync(join(tmpdir(), "athena-managed-bootstrap-"));
+  try {
+    writeProject(root);
+    const { loadGeneratorConfig } = await import("../src/generator/config.ts");
+    const loaded = await loadGeneratorConfig({ cwd: root });
+    assert.equal(
+      loaded.config.output.targets.registry.includes("athena/generated"),
+      true
+    );
+    assert.equal(
+      existsSync(join(root, "athena", "generated", "registry.ts")),
+      false
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test("athena-js migrate auth sync is a registered command", () => {
-	const parsed = parseCommand(["migrate", "auth", "sync"]);
-	assert.equal(parsed.command, "migrate-auth-sync");
+  const parsed = parseCommand(["migrate", "auth", "sync"]);
+  assert.equal(parsed.command, "migrate-auth-sync");
 });

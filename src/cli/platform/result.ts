@@ -1,22 +1,34 @@
 import type { CliExitCode } from "../exit-code.ts";
 
 export interface CliDiagnostic {
-	code: string;
-	level: "info" | "warn" | "error";
-	message: string;
-	hint?: string;
-	details?: Record<string, unknown>;
+  code: string;
+  details?: Record<string, unknown>;
+  hint?: string;
+  level: "info" | "warn" | "error";
+  message: string;
 }
 
 export interface CommandResultMeta {
-	command: string;
-	durationMs: number;
+  command: string;
+  durationMs: number;
 }
 
+export type CommandFailureCategory =
+  | "usage"
+  | "config"
+  | "auth"
+  | "network"
+  | "domain";
+
 export interface CommandResult<T = unknown> {
-	data: T;
-	warnings: CliDiagnostic[];
-	meta: CommandResultMeta;
-	exitCode?: CliExitCode;
-	ok?: boolean;
+  category?: CommandFailureCategory;
+  code?: string;
+  data?: T;
+  details?: unknown;
+  exitCode?: CliExitCode;
+  message?: string;
+  meta?: CommandResultMeta;
+  ok?: boolean;
+  value?: T;
+  warnings?: CliDiagnostic[];
 }

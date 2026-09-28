@@ -3,7 +3,12 @@ export async function decodeAthenaGatewayJsonBody(
   options?: { maxBodyBytes?: number }
 ): Promise<
   | { ok: true; payload: unknown }
-  | { ok: false; code: "ATHENA_LIMIT_EXCEEDED" | "ATHENA_RUNTIME_UNAVAILABLE"; message: string; status: number }
+  | {
+      ok: false;
+      code: "ATHENA_LIMIT_EXCEEDED" | "ATHENA_RUNTIME_UNAVAILABLE";
+      message: string;
+      status: number;
+    }
 > {
   const maxBodyBytes = options?.maxBodyBytes;
   const declared = request.headers.get("content-length");

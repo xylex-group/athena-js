@@ -8,7 +8,9 @@ import { extname, join, relative } from "node:path";
 
 const root = process.argv[2];
 if (!root) {
-  console.error("Usage: node scripts/audit-consumer-athena-usage.mjs <consumer-root>");
+  console.error(
+    "Usage: node scripts/audit-consumer-athena-usage.mjs <consumer-root>"
+  );
   process.exit(1);
 }
 
@@ -69,7 +71,12 @@ for (const file of FILES) {
       from = idx + needle.length;
     }
   }
-  if (text.includes("/gateway/update") || text.includes("/gateway/insert") || text.includes("/gateway/delete") || text.includes("/gateway/fetch")) {
+  if (
+    text.includes("/gateway/update") ||
+    text.includes("/gateway/insert") ||
+    text.includes("/gateway/delete") ||
+    text.includes("/gateway/fetch")
+  ) {
     gatewayDb.push(relative(root, file).replaceAll("\\", "/"));
   }
 }

@@ -1,6 +1,4 @@
 import { buildStructuredSelectTransport } from "./gateway/structured-select.ts";
-import type { AthenaRelationDescriptor } from "./query/descriptor.ts";
-import { compileIncludeSelectString } from "./query/include-select.ts";
 import type {
   AthenaFetchPayload,
   AthenaGatewayCallOptions,
@@ -9,6 +7,8 @@ import type {
   AthenaJsonValue,
   AthenaSortBy,
 } from "./gateway/types.ts";
+import type { AthenaRelationDescriptor } from "./query/descriptor.ts";
+import { compileIncludeSelectString } from "./query/include-select.ts";
 import type {
   AthenaOrderBy,
   AthenaSelectShape,
@@ -324,7 +324,9 @@ export function createSelectTransportPlan(input: {
     const where = conditions
       ? Object.fromEntries(
           conditions
-            .filter((condition) => condition.column && condition.operator === "eq")
+            .filter(
+              (condition) => condition.column && condition.operator === "eq"
+            )
             .map((condition) => [
               condition.column as string,
               { eq: condition.value ?? null },

@@ -1,7 +1,4 @@
-import type {
-  AthenaEmailDeliveryPort,
-  AthenaEmailModule,
-} from "./types.ts";
+import type { AthenaEmailDeliveryPort, AthenaEmailModule } from "./types.ts";
 
 export function createEmailDeliveryPort(
   email: Pick<AthenaEmailModule, "send">

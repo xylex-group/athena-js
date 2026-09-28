@@ -24,9 +24,11 @@ export interface DirtyMigrationWorktree {
 
 export type InspectDirtyMigrationWorktreeInput = InspectSourceControlInput;
 
-export function parseGitPorcelainLine(line: string): DirtyWorktreeEntry | undefined {
+export function parseGitPorcelainLine(
+  line: string
+): DirtyWorktreeEntry | undefined {
   if (line.length < 4) {
-    return undefined;
+    return;
   }
   const code = line.slice(0, 2).trim() || line.slice(0, 2);
   const rest = line.slice(3);

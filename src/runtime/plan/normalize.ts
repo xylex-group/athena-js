@@ -3,14 +3,14 @@
  * Does not materialize Node backends.
  */
 
-import {
-	type AthenaClientConfig,
-	normalizeUniversalCreateClientConfig,
-} from "../../v3-client-core.ts";
 import type { AthenaClientModelsInput } from "../../schema/types.ts";
+import type { AthenaClientConfig } from "../../client/contracts.ts";
+import {
+  normalizeUniversalConfig as normalizeUniversalConfigImpl,
+} from "../../client/config/normalize.ts";
 
 export function normalizeUniversalConfig<
-	TModels extends AthenaClientModelsInput | undefined,
+  TModels extends AthenaClientModelsInput | undefined,
 >(config: AthenaClientConfig<TModels>): AthenaClientConfig<TModels> {
-	return normalizeUniversalCreateClientConfig(config);
+  return normalizeUniversalConfigImpl(config);
 }

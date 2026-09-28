@@ -41,7 +41,7 @@ test("live PG: insert / select / update / delete smoke", live, async () => {
 
   const inserted = await client
     .from("athena_pg_direct_smoke")
-    .insert({ id, email, name: "Ada" })
+    .insert({ email, id, name: "Ada" })
     .select("id,email,name");
   assert.equal(inserted.error, null, String(inserted.error ?? ""));
   assert.ok(inserted.data);

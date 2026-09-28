@@ -7,6 +7,7 @@
     "@clack/prompts": "^0.11.0",
     "@noble/hashes": "^1.8.0",
     "@simplewebauthn/server": "^13.3.2",
+    "@xylex-group/athena": "link:",
     "blessed": "^0.1.81",
     "chalk": "^4.1.2",
     "cron-parser": "^4.9.0",
@@ -14,11 +15,13 @@
     "pg": "^8.20.0",
     "pgsql-parser": "^18.2.6",
     "server-only": "^0.0.1",
+    "tsx": "^4.21.0",
     "use-sync-external-store": "^1.6.0",
     "zod": "^4.4.3"
   },
   "description": "Athena JS SDK",
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "^2.5.5",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
@@ -35,15 +38,14 @@
     "eslint": "^8.57.1",
     "express": "^4.22.2",
     "mollie-api-typescript": "1.12.25",
+    "next": "16.3.3",
     "publint": "^0.3.23",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-test-renderer": "^18.3.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-test-renderer": "18.3.1",
     "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "ultracite": "^7.9.4",
-    "next": "16.3.1"
+    "ultracite": "^7.9.4"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -51,172 +53,367 @@
   "exports": {
     ".": {
       "browser": {
-        "types": "./dist/browser.d.ts",
-        "import": "./dist/browser.js",
-        "require": "./dist/browser.cjs",
+        "import": {
+          "types": "./dist/browser.d.ts",
+          "default": "./dist/browser.js"
+        },
+        "require": {
+          "types": "./dist/browser.d.cts",
+          "default": "./dist/browser.cjs"
+        },
         "default": "./dist/browser.js"
       },
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
       "default": "./dist/index.js"
     },
     "./auth/server": {
-      "types": "./dist/auth/server.d.ts",
-      "import": "./dist/auth/server.js",
-      "require": "./dist/auth/server.cjs",
+      "import": {
+        "types": "./dist/auth/server.d.ts",
+        "default": "./dist/auth/server.js"
+      },
+      "require": {
+        "types": "./dist/auth/server.d.cts",
+        "default": "./dist/auth/server.cjs"
+      },
       "default": "./dist/auth/server.js"
     },
     "./admin": {
-      "types": "./dist/admin.d.ts",
-      "import": "./dist/admin.js",
-      "require": "./dist/admin.cjs",
+      "import": {
+        "types": "./dist/admin.d.ts",
+        "default": "./dist/admin.js"
+      },
+      "require": {
+        "types": "./dist/admin.d.cts",
+        "default": "./dist/admin.cjs"
+      },
       "default": "./dist/admin.js"
     },
     "./billing": {
-      "types": "./dist/billing.d.ts",
-      "import": "./dist/billing.js",
-      "require": "./dist/billing.cjs",
+      "import": {
+        "types": "./dist/billing.d.ts",
+        "default": "./dist/billing.js"
+      },
+      "require": {
+        "types": "./dist/billing.d.cts",
+        "default": "./dist/billing.cjs"
+      },
       "default": "./dist/billing.js"
     },
+    "./capabilities": {
+      "import": {
+        "types": "./dist/capabilities.d.ts",
+        "default": "./dist/capabilities.js"
+      },
+      "require": {
+        "types": "./dist/capabilities.d.cts",
+        "default": "./dist/capabilities.cjs"
+      },
+      "default": "./dist/capabilities.js"
+    },
     "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.js",
-      "require": "./dist/browser.cjs",
+      "import": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.js"
+      },
+      "require": {
+        "types": "./dist/browser.d.cts",
+        "default": "./dist/browser.cjs"
+      },
       "default": "./dist/browser.js"
     },
     "./cloudflare": {
-      "types": "./dist/cloudflare.d.ts",
-      "import": "./dist/cloudflare.js",
-      "require": "./dist/cloudflare.cjs",
+      "import": {
+        "types": "./dist/cloudflare.d.ts",
+        "default": "./dist/cloudflare.js"
+      },
+      "require": {
+        "types": "./dist/cloudflare.d.cts",
+        "default": "./dist/cloudflare.cjs"
+      },
       "default": "./dist/cloudflare.js"
     },
+    "./cloudflare/d1/statement-classifier": {
+      "import": {
+        "types": "./dist/cloudflare/d1/statement-classifier.d.ts",
+        "default": "./dist/cloudflare/d1/statement-classifier.js"
+      },
+      "require": {
+        "types": "./dist/cloudflare/d1/statement-classifier.d.cts",
+        "default": "./dist/cloudflare/d1/statement-classifier.cjs"
+      },
+      "default": "./dist/cloudflare/d1/statement-classifier.js"
+    },
+    "./config": {
+      "import": {
+        "types": "./dist/config.d.ts",
+        "default": "./dist/config.js"
+      },
+      "require": {
+        "types": "./dist/config.d.cts",
+        "default": "./dist/config.cjs"
+      },
+      "default": "./dist/config.js"
+    },
     "./contracts": {
-      "types": "./dist/contracts.d.ts",
-      "import": "./dist/contracts.js",
-      "require": "./dist/contracts.cjs",
+      "import": {
+        "types": "./dist/contracts.d.ts",
+        "default": "./dist/contracts.js"
+      },
+      "require": {
+        "types": "./dist/contracts.d.cts",
+        "default": "./dist/contracts.cjs"
+      },
       "default": "./dist/contracts.js"
     },
     "./contracts/v1": {
-      "types": "./dist/contracts/v1.d.ts",
-      "import": "./dist/contracts/v1.js",
-      "require": "./dist/contracts/v1.cjs",
+      "import": {
+        "types": "./dist/contracts/v1.d.ts",
+        "default": "./dist/contracts/v1.js"
+      },
+      "require": {
+        "types": "./dist/contracts/v1.d.cts",
+        "default": "./dist/contracts/v1.cjs"
+      },
       "default": "./dist/contracts/v1.js"
     },
     "./cookies": {
-      "types": "./dist/cookies.d.ts",
-      "import": "./dist/cookies.js",
-      "require": "./dist/cookies.cjs",
-      "default": "./dist/cookies.js"
+      "import": {
+        "types": "./dist/cookies/index.d.ts",
+        "default": "./dist/cookies/index.js"
+      },
+      "require": {
+        "types": "./dist/cookies/index.d.cts",
+        "default": "./dist/cookies/index.cjs"
+      },
+      "default": "./dist/cookies/index.js"
+    },
+    "./cookies/session": {
+      "import": {
+        "types": "./dist/cookies/session.d.ts",
+        "default": "./dist/cookies/session.js"
+      },
+      "require": {
+        "types": "./dist/cookies/session.d.cts",
+        "default": "./dist/cookies/session.cjs"
+      },
+      "default": "./dist/cookies/session.js"
     },
     "./env": {
-      "types": "./dist/env.d.ts",
-      "import": "./dist/env.js",
-      "require": "./dist/env.cjs",
+      "import": {
+        "types": "./dist/env.d.ts",
+        "default": "./dist/env.js"
+      },
+      "require": {
+        "types": "./dist/env.d.cts",
+        "default": "./dist/env.cjs"
+      },
       "default": "./dist/env.js"
     },
     "./email": {
-      "types": "./dist/email.d.ts",
-      "import": "./dist/email.js",
-      "require": "./dist/email.cjs",
+      "import": {
+        "types": "./dist/email.d.ts",
+        "default": "./dist/email.js"
+      },
+      "require": {
+        "types": "./dist/email.d.cts",
+        "default": "./dist/email.cjs"
+      },
       "default": "./dist/email.js"
     },
     "./email/node": {
-      "types": "./dist/email/node.d.ts",
-      "import": "./dist/email/node.js",
-      "require": "./dist/email/node.cjs",
+      "import": {
+        "types": "./dist/email/node.d.ts",
+        "default": "./dist/email/node.js"
+      },
+      "require": {
+        "types": "./dist/email/node.d.cts",
+        "default": "./dist/email/node.cjs"
+      },
       "default": "./dist/email/node.js"
     },
     "./next/client": {
-      "types": "./dist/next/client.d.ts",
-      "import": "./dist/next/client.js",
-      "require": "./dist/next/client.cjs",
+      "import": {
+        "types": "./dist/next/client.d.ts",
+        "default": "./dist/next/client.js"
+      },
+      "require": {
+        "types": "./dist/next/client.d.cts",
+        "default": "./dist/next/client.cjs"
+      },
       "default": "./dist/next/client.js"
     },
     "./next/server": {
-      "types": "./dist/next/server.d.ts",
-      "import": "./dist/next/server.js",
-      "require": "./dist/next/server.cjs",
+      "import": {
+        "types": "./dist/next/server.d.ts",
+        "default": "./dist/next/server.js"
+      },
+      "require": {
+        "types": "./dist/next/server.d.cts",
+        "default": "./dist/next/server.cjs"
+      },
       "default": "./dist/next/server.js"
     },
     "./next/session": {
-      "types": "./dist/next/session.d.ts",
-      "import": "./dist/next/session.js",
-      "require": "./dist/next/session.cjs",
+      "import": {
+        "types": "./dist/next/session.d.ts",
+        "default": "./dist/next/session.js"
+      },
+      "require": {
+        "types": "./dist/next/session.d.cts",
+        "default": "./dist/next/session.cjs"
+      },
       "default": "./dist/next/session.js"
     },
     "./organization": {
-      "types": "./dist/organization.d.ts",
-      "import": "./dist/organization.js",
-      "require": "./dist/organization.cjs",
+      "import": {
+        "types": "./dist/organization.d.ts",
+        "default": "./dist/organization.js"
+      },
+      "require": {
+        "types": "./dist/organization.d.cts",
+        "default": "./dist/organization.cjs"
+      },
       "default": "./dist/organization.js"
     },
     "./policy": {
-      "types": "./dist/policy.d.ts",
-      "import": "./dist/policy.js",
-      "require": "./dist/policy.cjs",
+      "import": {
+        "types": "./dist/policy.d.ts",
+        "default": "./dist/policy.js"
+      },
+      "require": {
+        "types": "./dist/policy.d.cts",
+        "default": "./dist/policy.cjs"
+      },
       "default": "./dist/policy.js"
     },
     "./rights": {
-      "types": "./dist/rights.d.ts",
-      "import": "./dist/rights.js",
-      "require": "./dist/rights.cjs",
+      "import": {
+        "types": "./dist/rights.d.ts",
+        "default": "./dist/rights.js"
+      },
+      "require": {
+        "types": "./dist/rights.d.cts",
+        "default": "./dist/rights.cjs"
+      },
       "default": "./dist/rights.js"
     },
     "./schema": {
-      "types": "./dist/schema.d.ts",
-      "import": "./dist/schema.js",
-      "require": "./dist/schema.cjs",
+      "import": {
+        "types": "./dist/schema.d.ts",
+        "default": "./dist/schema.js"
+      },
+      "require": {
+        "types": "./dist/schema.d.cts",
+        "default": "./dist/schema.cjs"
+      },
       "default": "./dist/schema.js"
     },
     "./devtools": {
-      "types": "./dist/devtools.d.ts",
-      "import": "./dist/devtools.js",
-      "require": "./dist/devtools.cjs",
+      "import": {
+        "types": "./dist/devtools.d.ts",
+        "default": "./dist/devtools.js"
+      },
+      "require": {
+        "types": "./dist/devtools.d.cts",
+        "default": "./dist/devtools.cjs"
+      },
       "default": "./dist/devtools.js"
     },
     "./package.json": "./package.json",
     "./server": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/server.js",
-      "require": "./dist/server.cjs",
+      "import": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      },
+      "require": {
+        "types": "./dist/server.d.cts",
+        "default": "./dist/server.cjs"
+      },
       "default": "./dist/server.js"
     },
     "./runtime": {
-      "types": "./dist/runtime.d.ts",
-      "import": "./dist/runtime.js",
-      "require": "./dist/runtime.cjs",
+      "import": {
+        "types": "./dist/runtime.d.ts",
+        "default": "./dist/runtime.js"
+      },
+      "require": {
+        "types": "./dist/runtime.d.cts",
+        "default": "./dist/runtime.cjs"
+      },
       "default": "./dist/runtime.js"
     },
     "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js",
-      "require": "./dist/react.cjs",
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      },
       "default": "./dist/react.js"
     },
     "./react-native": {
-      "types": "./dist/react-native.d.ts",
-      "import": "./dist/react-native.js",
-      "require": "./dist/react-native.cjs",
+      "import": {
+        "types": "./dist/react-native.d.ts",
+        "default": "./dist/react-native.js"
+      },
+      "require": {
+        "types": "./dist/react-native.d.cts",
+        "default": "./dist/react-native.cjs"
+      },
       "default": "./dist/react-native.js"
     },
     "./social-providers": {
-      "types": "./dist/social-providers.d.ts",
-      "import": "./dist/social-providers.js",
-      "require": "./dist/social-providers.cjs",
+      "import": {
+        "types": "./dist/social-providers.d.ts",
+        "default": "./dist/social-providers.js"
+      },
+      "require": {
+        "types": "./dist/social-providers.d.cts",
+        "default": "./dist/social-providers.cjs"
+      },
       "default": "./dist/social-providers.js"
     },
     "./utils": {
-      "types": "./dist/utils.d.ts",
-      "import": "./dist/utils.js",
-      "require": "./dist/utils.cjs",
+      "import": {
+        "types": "./dist/utils.d.ts",
+        "default": "./dist/utils.js"
+      },
+      "require": {
+        "types": "./dist/utils.d.cts",
+        "default": "./dist/utils.cjs"
+      },
       "default": "./dist/utils.js"
     },
     "./migrations": {
-      "types": "./dist/migrations.d.ts",
-      "import": "./dist/migrations.js",
-      "require": "./dist/migrations.cjs",
+      "import": {
+        "types": "./dist/migrations.d.ts",
+        "default": "./dist/migrations.js"
+      },
+      "require": {
+        "types": "./dist/migrations.d.cts",
+        "default": "./dist/migrations.cjs"
+      },
       "default": "./dist/migrations.js"
+    },
+    "./local": {
+      "import": {
+        "types": "./dist/local.d.ts",
+        "default": "./dist/local.js"
+      },
+      "require": {
+        "types": "./dist/local.d.cts",
+        "default": "./dist/local.cjs"
+      },
+      "default": "./dist/local.js"
     }
   },
   "files": [
@@ -279,18 +476,26 @@
   },
   "homepage": "https://github.com/xylex-group/athena/tree/main/packages/athena-js#readme",
   "scripts": {
-    "build": "tsup",
-    "check": "ultracite check",
-    "check:all": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm test:browser-bundle && pnpm audit:rn",
+    "build": "node scripts/tsup-build.mjs",
+    "check": "ultracite check && node scripts/check-structural-complexity.mjs",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm test:browser-bundle && pnpm audit:rn && node scripts/check-structural-complexity.mjs",
+    "check:attw": "node scripts/check-are-the-types-wrong.mjs",
     "check:exports": "node scripts/inspect-package.mjs",
     "check:publint": "publint",
     "check:tarball": "node scripts/check-release-tarball.mjs",
-    "docs:check": "node scripts/check-docs-consistency.mjs",
-    "check:release": "pnpm lint && pnpm typecheck:all && pnpm test && pnpm build && pnpm test:browser-bundle && pnpm audit:rn && pnpm check:exports && pnpm check:publint && pnpm check:tarball && pnpm docs:check",
-    "dev": "ATHENA_TSUP_WATCH=1 tsup --watch",
-    "docs:methods": "node scripts/generate-sdk-method-reference.mjs",
-    "docs:site:check": "pnpm --dir ../../apps/docs docs:sync-athena-js:check",
-    "docs:site:sync": "pnpm --dir ../../apps/docs docs:sync-athena-js",
+    "postpack": "node scripts/pack-self-link-manifest.mjs restore",
+    "prepack": "node scripts/pack-self-link-manifest.mjs strip",
+    "cli:dev": "node scripts/ensure-dev-self-link.mjs && node --import tsx src/cli/bin.ts",
+    "docs:check": "node --import tsx scripts/docs/cli.mts --check && node scripts/check-docs-consistency.mjs",
+    "docs:coverage": "node --import tsx scripts/docs/cli.mts --coverage",
+    "docs:generate": "node --import tsx scripts/docs/cli.mts",
+    "audit:runtime-boundaries": "node scripts/audit-runtime-boundaries.mjs",
+    "test:node-import": "node scripts/test-package-node-import.mjs",
+    "test:stabilization-finality": "node scripts/run-stabilization-finality.mjs",
+    "check:release": "pnpm lint && pnpm typecheck:all && pnpm test && pnpm build && pnpm test:browser-bundle && node scripts/audit-runtime-boundaries.mjs && node scripts/test-package-node-import.mjs && pnpm audit:rn && pnpm check:exports && pnpm check:publint && pnpm check:attw && pnpm check:tarball && pnpm docs:check && node scripts/check-structural-complexity.mjs",
+    "dev": "node scripts/assert-published-dts.mjs && ATHENA_TSUP_WATCH=1 tsup --watch",
+    "docs:methods": "node --import tsx scripts/docs/cli.mts",
+    "generate:error-ir": "node scripts/generate-error-ir.mjs",
     "example:admin": "tsx examples/node/admin-permission.ts",
     "example:auth-session": "tsx examples/node/auth-session.ts",
     "example:billing": "tsx examples/node/billing.ts",
@@ -303,9 +508,10 @@
     "format": "ultracite fix",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:fix": "pnpm lint -- --fix",
+    "finality": "node scripts/run-finality.mjs",
     "prepublishOnly": "pnpm release:verify",
     "publish:token": "node scripts/publish.js",
-    "release:verify": "pnpm test:finality && pnpm test:tarball && pnpm test:examples",
+    "release:verify": "node scripts/verify-auth-schema-release.mjs && pnpm test:finality && pnpm test:tarball && pnpm test:examples && pnpm check:attw",
     "test": "node scripts/run-unit-tests.mjs",
     "test:examples": "pnpm typecheck:examples && node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/examples-session.test.ts",
     "test:finality": "node scripts/run-finality.mjs",
@@ -315,7 +521,10 @@
     "audit:consumer": "node scripts/audit-consumer-athena-usage.mjs",
     "audit:rn": "node scripts/audit-rn-bundle-safety.mjs",
     "test:browser-bundle": "node scripts/audit-browser-bundle-safety.mjs",
-    "test:integration:postgres": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/postgres-introspection.integration.test.ts test/postgres-direct-live.test.ts test/postgres-direct-live-ast.test.ts test/sdd/athena-local-runtime.live.test.ts test/sdd/athena-local-runtime.r6.test.ts test/sdd/athena-local-runtime.r7.test.ts test/sdd/athena-local-runtime.r7.live.test.ts test/sdd/speedrun-pg-finality.live.test.ts",
+    "postgres:up": "node scripts/run-postgres-docker-tests.mjs --up-only",
+    "postgres:down": "node scripts/run-postgres-docker-tests.mjs --down",
+    "test:postgres": "node scripts/run-postgres-docker-tests.mjs",
+    "test:integration:postgres": "node scripts/run-postgres-docker-tests.mjs --all",
     "test:policy-conformance": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/sdd/athena-local-runtime.r7.test.ts test/sdd/athena-local-runtime.r3.test.ts",
     "auth:route-parity": "node scripts/auth-route-parity.mjs --print",
     "test:parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/finality-parity-suite.test.ts test/finality-password-portability.test.ts test/finality-portability.test.ts test/admin-auth-parity.test.ts test/admin-auth-portability.test.ts test/auth-route-inventory.test.ts test/auth-embedded-tier-a.test.ts test/email-parity.test.ts",
@@ -326,12 +535,15 @@
     "test:query-parity": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/query-ast-parity.test.ts test/query-ast-act.test.ts",
     "test:conformance": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/conformance/**/*.test.ts",
     "test:sdd": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/sdd/**/*.test.ts",
-    "test:watch": "node --import ./test/register-server-only.mjs --import tsx --test --watch test/*.test.ts test/sdd/**/*.test.ts",
-    "typecheck": "tsc -p tsconfig.typecheck.json",
-    "typecheck:examples": "tsc -p examples/cloudflare/tsconfig.json && tsc -p examples/node/tsconfig.json && tsc -p examples/session/tsconfig.json",
+    "test:billing-release": "node scripts/run-release-gates.mjs --billing",
+    "test:auth-schema-release": "node scripts/run-release-gates.mjs --auth-schema",
+    "test:watch": "node --import ./test/register-server-only.mjs --import tsx --test --watch test/*.test.ts test/auth/**/*.test.ts test/sdd/**/*.test.ts",
+    "typecheck": "node scripts/ensure-dev-self-link.mjs && tsc -p tsconfig.typecheck.json",
+    "typecheck:examples": "node scripts/ensure-dev-self-link.mjs && tsc -p examples/cloudflare/tsconfig.json && tsc -p examples/node/tsconfig.json && tsc -p examples/session/tsconfig.json",
     "typecheck:tests": "tsc -p tsconfig.full.json --noEmit",
     "typecheck:all": "pnpm typecheck && pnpm typecheck:examples && pnpm typecheck:tests",
-    "test:migrations": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/migrations*.test.ts test/cli-migrate.test.ts"
+    "test:migrations": "node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/migrations*.test.ts test/cli-migrate.test.ts",
+    "sync:mirror": "node scripts/sync-mirror.mjs"
   },
   "sideEffects": false,
   "type": "module",
@@ -350,11 +562,17 @@
       "billing": [
         "dist/billing.d.ts"
       ],
+      "capabilities": [
+        "dist/capabilities.d.ts"
+      ],
       "browser": [
         "dist/browser.d.ts"
       ],
       "cloudflare": [
         "dist/cloudflare.d.ts"
+      ],
+      "config": [
+        "dist/config.d.ts"
       ],
       "contracts": [
         "dist/contracts.d.ts"
@@ -363,7 +581,10 @@
         "dist/contracts/v1.d.ts"
       ],
       "cookies": [
-        "dist/cookies.d.ts"
+        "dist/cookies/index.d.ts"
+      ],
+      "cookies/session": [
+        "dist/cookies/session.d.ts"
       ],
       "env": [
         "dist/env.d.ts"
@@ -415,10 +636,13 @@
       ],
       "migrations": [
         "dist/migrations.d.ts"
+      ],
+      "local": [
+        "dist/local.d.ts"
       ]
     }
   },
-  "version": "5.3.0",
+  "version": "5.6.10",
   "overrides": {
     "brace-expansion@<1.1.18": "1.1.18",
     "brace-expansion@>=5 <5.0.9": "5.0.9",
@@ -427,18 +651,5 @@
     "picomatch": "4.0.4",
     "rollup": ">=4.59.0"
   },
-  "packageManager": "pnpm@9.15.0",
-  "pnpm": {
-    "overrides": {
-      "brace-expansion@1": "1.1.18",
-      "brace-expansion@5": "5.0.9",
-      "flatted": ">=3.4.4",
-      "minimatch@3": "3.1.3",
-      "picomatch@4": "4.0.4",
-      "rollup": ">=4.59.0",
-      "ajv@6": "6.14.0",
-      "esbuild@0.27": "0.28.1",
-      "esbuild@0.28.0": "0.28.1"
-    }
-  }
+  "packageManager": "pnpm@11.23.0"
 }

@@ -36,5 +36,6 @@
     "test:e2e:generator": "tsx --test test/generator-*.e2e.test.ts"
   },
   "type": "module",
-  "version": "3.0.0"
+  "version": "3.0.0",
+  "private": true
 }

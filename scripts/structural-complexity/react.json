@@ -1,0 +1,164 @@
+{
+  "src/react/index.ts": {
+    "branches": 0,
+    "loc": 135,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/react/internal/query-result.ts": {
+    "branches": 4,
+    "loc": 47,
+    "maxFunctionLoc": 21,
+    "maxNesting": 2
+  },
+  "src/react/internal/use-browser-refetch.ts": {
+    "branches": 14,
+    "loc": 79,
+    "maxFunctionLoc": 42,
+    "maxNesting": 4
+  },
+  "src/react/internal/use-latest-ref.ts": {
+    "branches": 0,
+    "loc": 8,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/react/internal/use-query-auto-fetch.ts": {
+    "branches": 6,
+    "loc": 41,
+    "maxFunctionLoc": 36,
+    "maxNesting": 3
+  },
+  "src/react/internal/use-query-executor.ts": {
+    "branches": 6,
+    "loc": 68,
+    "maxFunctionLoc": 62,
+    "maxNesting": 3
+  },
+  "src/react/internal/use-query-subscription.ts": {
+    "branches": 0,
+    "loc": 22,
+    "maxFunctionLoc": 17,
+    "maxNesting": 1
+  },
+  "src/react/provider.ts": {
+    "branches": 2,
+    "loc": 50,
+    "maxFunctionLoc": 16,
+    "maxNesting": 3
+  },
+  "src/react/query-client.ts": {
+    "branches": 97,
+    "loc": 788,
+    "maxFunctionLoc": 68,
+    "maxNesting": 5
+  },
+  "src/react/query-client/entity-store.ts": {
+    "branches": 4,
+    "loc": 97,
+    "maxFunctionLoc": 15,
+    "maxNesting": 2
+  },
+  "src/react/query-client/graph-index.ts": {
+    "branches": 7,
+    "loc": 64,
+    "maxFunctionLoc": 38,
+    "maxNesting": 3
+  },
+  "src/react/query-client/mutation-store.ts": {
+    "branches": 26,
+    "loc": 307,
+    "maxFunctionLoc": 153,
+    "maxNesting": 4
+  },
+  "src/react/query-client/query-store.ts": {
+    "branches": 57,
+    "loc": 565,
+    "maxFunctionLoc": 226,
+    "maxNesting": 3
+  },
+  "src/react/types.ts": {
+    "branches": 0,
+    "loc": 230,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/react/use-admin-permission.ts": {
+    "branches": 29,
+    "loc": 219,
+    "maxFunctionLoc": 142,
+    "maxNesting": 4
+  },
+  "src/react/use-athena-mutation.ts": {
+    "branches": 3,
+    "loc": 63,
+    "maxFunctionLoc": 36,
+    "maxNesting": 4
+  },
+  "src/react/use-athena-query.ts": {
+    "branches": 4,
+    "loc": 52,
+    "maxFunctionLoc": 28,
+    "maxNesting": 2
+  },
+  "src/react/use-athena-read-query.ts": {
+    "branches": 13,
+    "loc": 188,
+    "maxFunctionLoc": 101,
+    "maxNesting": 3
+  },
+  "src/react/use-athena-session-client.ts": {
+    "branches": 2,
+    "loc": 79,
+    "maxFunctionLoc": 31,
+    "maxNesting": 1
+  },
+  "src/react/use-mutation.ts": {
+    "branches": 4,
+    "loc": 105,
+    "maxFunctionLoc": 98,
+    "maxNesting": 3
+  },
+  "src/react/use-query.ts": {
+    "branches": 1,
+    "loc": 64,
+    "maxFunctionLoc": 50,
+    "maxNesting": 2
+  },
+  "src/react/use-session.ts": {
+    "branches": 62,
+    "loc": 434,
+    "maxFunctionLoc": 200,
+    "maxNesting": 4
+  },
+  "src/react/use-storage-file-delete.ts": {
+    "branches": 1,
+    "loc": 70,
+    "maxFunctionLoc": 44,
+    "maxNesting": 3
+  },
+  "src/react/use-storage-files.ts": {
+    "branches": 13,
+    "loc": 104,
+    "maxFunctionLoc": 78,
+    "maxNesting": 4
+  },
+  "src/react/use-storage-upload.ts": {
+    "branches": 10,
+    "loc": 148,
+    "maxFunctionLoc": 78,
+    "maxNesting": 4
+  },
+  "src/react/use-sync-external-store-shim.d.ts": {
+    "branches": 0,
+    "loc": 8,
+    "maxFunctionLoc": 5,
+    "maxNesting": 0
+  },
+  "src/react/utils.ts": {
+    "branches": 113,
+    "loc": 398,
+    "maxFunctionLoc": 59,
+    "maxNesting": 4
+  }
+}

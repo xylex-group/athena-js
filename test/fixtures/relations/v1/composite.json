@@ -1,0 +1,102 @@
+{
+  "schema": "athena/relations-fixture/v1",
+  "tables": [
+    { "table": "memberships", "primaryKey": ["organization_id", "member_id"] },
+    { "table": "organizations", "primaryKey": ["organization_id", "id"] },
+    { "table": "members", "primaryKey": ["tenant_id", "id"] },
+    { "table": "organization_members", "primaryKey": ["organization_id", "member_id"] }
+  ],
+  "relations": [
+    {
+      "id": "public.memberships.organization",
+      "name": "organization",
+      "cardinality": "many-to-one",
+      "from": {
+        "table": "memberships",
+        "columns": ["organization_id", "member_id"]
+      },
+      "to": {
+        "table": "organizations",
+        "columns": ["organization_id", "id"]
+      }
+    },
+    {
+      "id": "public.organizations.members",
+      "name": "members",
+      "cardinality": "many-to-many",
+      "from": { "table": "organizations", "columns": ["id"] },
+      "to": { "table": "members", "columns": ["tenant_id", "id"] },
+      "through": {
+        "table": "organization_members",
+        "fromColumns": ["organization_id"],
+        "toColumns": ["tenant_id", "member_id"]
+      }
+    },
+    {
+      "id": "public.organizations.invalid",
+      "name": "invalid",
+      "cardinality": "one-to-many",
+      "from": { "table": "organizations", "columns": ["organization_id", "id"] },
+      "to": { "table": "members", "columns": ["id"] }
+    }
+  ],
+  "cases": [
+    {
+      "name": "forward composite direct",
+      "request": {
+        "source": { "table": "memberships" },
+        "relation": "organization"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "many-to-one",
+        "fromColumns": ["organization_id", "member_id"],
+        "toColumns": ["organization_id", "id"]
+      }
+    },
+    {
+      "name": "reverse composite direct",
+      "request": {
+        "source": { "table": "organizations" },
+        "relation": "memberships"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "reverse",
+        "cardinality": "one-to-many",
+        "fromColumns": ["organization_id", "id"],
+        "toColumns": ["organization_id", "member_id"]
+      }
+    },
+    {
+      "name": "forward asymmetric many-to-many",
+      "request": {
+        "source": { "table": "organizations" },
+        "relation": "members"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "many-to-many",
+        "fromColumns": ["id"],
+        "toColumns": ["tenant_id", "id"],
+        "junction": {
+          "fromColumns": ["organization_id"],
+          "toColumns": ["tenant_id", "member_id"]
+        }
+      }
+    },
+    {
+      "name": "invalid direct key widths",
+      "request": {
+        "source": { "table": "organizations" },
+        "relation": "invalid"
+      },
+      "expected": {
+        "outcome": "error",
+        "code": "ATHENA_QUERY_RELATION_METADATA_CONFLICT"
+      }
+    }
+  ]
+}

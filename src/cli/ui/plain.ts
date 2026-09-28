@@ -11,7 +11,9 @@ import type {
 } from "./types.ts";
 
 function indentBlock(text: string, prefix = "  "): string[] {
-  return text.split("\n").map((line) => (line.length === 0 ? "" : `${prefix}${line}`));
+  return text
+    .split("\n")
+    .map((line) => (line.length === 0 ? "" : `${prefix}${line}`));
 }
 
 function kv(
@@ -23,14 +25,20 @@ function kv(
   return `${paint(padEnd(label, labelWidth), "dim", capabilities)}${value}`;
 }
 
-function outcomeColor(
-  outcome: string
-): "red" | "yellow" | "green" | "none" {
+function outcomeColor(outcome: string): "red" | "yellow" | "green" | "none" {
   const text = outcome.toLowerCase();
-  if (text.includes("conflict") || text.includes("drift") || text.includes("error")) {
+  if (
+    text.includes("conflict") ||
+    text.includes("drift") ||
+    text.includes("error")
+  ) {
     return "red";
   }
-  if (text.includes("pending") || text.includes("remain")) {
+  if (
+    text.includes("pending") ||
+    text.includes("remain") ||
+    text.includes("reconcil")
+  ) {
     return "yellow";
   }
   if (text.includes("up to date") || text.includes("no pending")) {
@@ -55,11 +63,7 @@ function writeSection(
       34
     );
     emit(
-      paint(
-        `${padEnd("Migration", nameWidth)}  Status`,
-        "dim",
-        capabilities
-      )
+      paint(`${padEnd("Migration", nameWidth)}  Status`, "dim", capabilities)
     );
     for (const row of section.rows) {
       const label = paint(
@@ -68,9 +72,9 @@ function writeSection(
         capabilities
       );
       const duration =
-        row.durationMs !== undefined
-          ? paint(`  ${row.durationMs}ms`, "dim", capabilities)
-          : "";
+        row.durationMs === undefined
+          ? ""
+          : paint(`  ${row.durationMs}ms`, "dim", capabilities);
       emit(`${padEnd(row.name, nameWidth)}  ${label}${duration}`);
       if (row.detail) {
         for (const line of indentBlock(row.detail, "  ")) {
@@ -122,17 +126,26 @@ export function createPlainUi(
 
   return {
     capabilities,
+    async confirm() {
+      // Non-interactive plain UI never prompts.
+      return false;
+    },
+    error(message) {
+      emit(paint(message, "red", capabilities));
+    },
+    info(message) {
+      if (capabilities.quiet) {
+        return;
+      }
+      for (const line of message.split("\n")) {
+        emit(line);
+      }
+    },
     intro(title) {
       if (capabilities.quiet) {
         return;
       }
       write(railStart(title, capabilities));
-    },
-    outro(message) {
-      if (capabilities.quiet) {
-        return;
-      }
-      write(railEnd(message, capabilities));
     },
     note(message, title) {
       if (capabilities.quiet) {
@@ -145,25 +158,11 @@ export function createPlainUi(
         emit(line);
       }
     },
-    warn(message) {
-      emit(paint(message, "yellow", capabilities));
-    },
-    error(message) {
-      emit(paint(message, "red", capabilities));
-    },
-    success(message) {
+    outro(message) {
       if (capabilities.quiet) {
         return;
       }
-      emit(paint(message, "green", capabilities));
-    },
-    info(message) {
-      if (capabilities.quiet) {
-        return;
-      }
-      for (const line of message.split("\n")) {
-        emit(line);
-      }
+      write(railEnd(message, capabilities));
     },
     renderMigrationReport(report: MigrationReportView) {
       if (capabilities.quiet && capabilities.mode !== "json") {
@@ -182,6 +181,9 @@ export function createPlainUi(
 
       writeSection(emit, report.application, capabilities, interactiveLook);
       writeSection(emit, report.auth, capabilities, interactiveLook);
+      for (const section of report.modules ?? []) {
+        writeSection(emit, section, capabilities, interactiveLook);
+      }
 
       emit(paint(report.outcome, outcomeColor(report.outcome), capabilities));
       for (const diagnostic of report.diagnostics) {
@@ -193,9 +195,14 @@ export function createPlainUi(
       }
       write(railEnd("", capabilities));
     },
-    async confirm() {
-      // Non-interactive plain UI never prompts.
-      return false;
+    success(message) {
+      if (capabilities.quiet) {
+        return;
+      }
+      emit(paint(message, "green", capabilities));
+    },
+    warn(message) {
+      emit(paint(message, "yellow", capabilities));
     },
   };
 }

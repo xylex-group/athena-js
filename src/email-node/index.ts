@@ -6,17 +6,17 @@
 
 import "server-only";
 
+export { createMemorySmtpTransport } from "./memory-transport.ts";
 export {
-  smtp,
   type AthenaSmtpAuth,
   type AthenaSmtpConfig,
   type AthenaSmtpSecure,
+  smtp,
 } from "./smtp.ts";
 export {
-  createNodeSmtpTransport,
   type AthenaSmtpConnectInput,
   type AthenaSmtpConnection,
   type AthenaSmtpReply,
   type AthenaSmtpTransport,
+  createNodeSmtpTransport,
 } from "./transport.ts";
-export { createMemorySmtpTransport } from "./memory-transport.ts";

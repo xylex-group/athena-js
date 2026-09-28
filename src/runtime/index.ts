@@ -1,24 +1,24 @@
 export {
-  type AthenaAuthRuntime,
-  type AthenaDbTransport,
-  type AthenaRuntimeEnvironment,
-  type AthenaStorageTransport,
-  type AthenaRuntimeDiagnostics,
-  type ResolvedAthenaRuntime,
-  type ResolveAthenaRuntimeOptions,
-  detectAthenaRuntimeEnvironment,
-  inferEmbeddedAuthMode,
-  resolveAthenaRuntime,
-  resolveDatabaseUri,
-  toAthenaRuntimeDiagnostics,
-} from "./resolve.ts";
-
-export {
   type AthenaContractIssue,
   AthenaContractParseError,
   parseContractOrThrow,
   safeParseContract,
 } from "./parse.ts";
+export {
+  type AthenaAuthRuntime,
+  type AthenaChatTransport,
+  type AthenaDbTransport,
+  type AthenaRuntimeDiagnostics,
+  type AthenaRuntimeEnvironment,
+  type AthenaStorageTransport,
+  detectAthenaRuntimeEnvironment,
+  inferEmbeddedAuthMode,
+  type ResolveAthenaRuntimeOptions,
+  type ResolvedAthenaRuntime,
+  resolveAthenaRuntime,
+  resolveDatabaseUri,
+  toAthenaRuntimeDiagnostics,
+} from "./resolve.ts";
 
 export {
   athenaErrorBodySchema,

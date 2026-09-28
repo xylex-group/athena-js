@@ -97,7 +97,7 @@ export interface AthenaAuthBridgeHandlerOptions
   extends AthenaAuthSessionBridgeOptions {
   defaultRedirectTo?: string | undefined;
   exchange: (
-    input: AthenaAuthBridgeExchangeInput,
+    input: AthenaAuthBridgeExchangeInput
   ) => Promise<AthenaAuthBridgeExchangeResult | null | undefined>;
 }
 

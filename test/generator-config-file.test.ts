@@ -28,6 +28,10 @@ test("renderGeneratorConfigFile emits modern direct template with generatorEnv s
     schemas: ["public", "athena", "forms"],
   });
 
+  assert.equal(
+    content.includes('from "@xylex-group/athena/config"'),
+    true
+  );
   assert.equal(content.includes("defineAthenaConfig"), true);
   assert.equal(content.includes('generatorEnv("DATABASE_URL")'), true);
   assert.equal(content.includes('mode: "direct"'), true);
@@ -177,13 +181,13 @@ test("ensureGeneratorConfigFile creates modern config when missing", async () =>
     assert.equal(content.includes('preset: "athena-direct"'), true);
     assert.equal(
       existsSync(join(root, "athena", "migrations", ".gitkeep")),
-      true,
+      true
     );
     assert.equal(
       result.changes.some((change) =>
-        change.startsWith("created-migrations-directory:"),
+        change.startsWith("created-migrations-directory:")
       ),
-      true,
+      true
     );
   } finally {
     rmSync(root, { force: true, recursive: true });
@@ -355,8 +359,8 @@ test("ensureGeneratorConfigFile marks missing connection as fallback provenance,
     ATHENA_URL: process.env.ATHENA_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     PG_URL: process.env.PG_URL,
-    POSTGRESQL_URL: process.env.POSTGRESQL_URL,
     POSTGRES_URL: process.env.POSTGRES_URL,
+    POSTGRESQL_URL: process.env.POSTGRESQL_URL,
   };
 
   try {
@@ -406,8 +410,8 @@ test("ensureGeneratorConfigFile discovers public+athena via shared authority aft
     ATHENA_GENERATOR_PG_URL: process.env.ATHENA_GENERATOR_PG_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     PG_URL: process.env.PG_URL,
-    POSTGRESQL_URL: process.env.POSTGRESQL_URL,
     POSTGRES_URL: process.env.POSTGRES_URL,
+    POSTGRESQL_URL: process.env.POSTGRESQL_URL,
   };
 
   try {
@@ -463,9 +467,7 @@ test("ensureGeneratorConfigFile discovers public+athena via shared authority aft
 });
 
 test("resolveGeneratorDatabaseAuthority reuses .env connection the same way migrate does", () => {
-  const root = mkdtempSync(
-    join(tmpdir(), "athena-generator-authority-env-")
-  );
+  const root = mkdtempSync(join(tmpdir(), "athena-generator-authority-env-"));
   const previousDatabaseUrl = process.env.DATABASE_URL;
   delete process.env.DATABASE_URL;
 
@@ -485,7 +487,10 @@ test("resolveGeneratorDatabaseAuthority reuses .env connection the same way migr
       assert.equal(authority.source, "environment-probe");
       assert.equal(authority.mode, "direct");
       assert.equal(authority.provider.kind, "postgres");
-      if (authority.provider.kind === "postgres" && authority.provider.mode === "direct") {
+      if (
+        authority.provider.kind === "postgres" &&
+        authority.provider.mode === "direct"
+      ) {
         assert.match(
           authority.provider.connectionString,
           /127\.0\.0\.1:5432\/migrated_db/

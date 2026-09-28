@@ -4,17 +4,17 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createClient } from "../src/v3-client.ts";
 import {
   LEGACY_CREATE_CLIENT_AUTH_ENV_KEYS,
   resolveLegacyCreateClientAuthUrl,
 } from "../src/auth/resolve-routing.ts";
+import { createClient } from "../src/v3-client.ts";
 
 test("legacy createClient auth env keys are ATHENA_AUTH_URL then NEXT_PUBLIC", () => {
-  assert.deepEqual([...LEGACY_CREATE_CLIENT_AUTH_ENV_KEYS], [
-    "ATHENA_AUTH_URL",
-    "NEXT_PUBLIC_ATHENA_AUTH_URL",
-  ]);
+  assert.deepEqual(
+    [...LEGACY_CREATE_CLIENT_AUTH_ENV_KEYS],
+    ["ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]
+  );
 });
 
 test("legacy resolve: explicit auth.url wins over env and root", () => {

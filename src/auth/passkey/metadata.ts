@@ -1,6 +1,4 @@
-import {
-  serializePasskeyTransports,
-} from "./transports.ts";
+import { serializePasskeyTransports } from "./transports.ts";
 
 /** WebAuthn authenticator-data backup-eligible (BE) flag. */
 export const AUTHDATA_BE = 0x08;

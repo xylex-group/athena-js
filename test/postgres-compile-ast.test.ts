@@ -5,10 +5,10 @@ import {
   compilePostgresAstCount,
 } from "../src/postgres/compile-ast.ts";
 import {
+  type AthenaRelationCatalog,
   normalizeFindManyInput,
   resetQueryPlanAliases,
   resolveQueryPlan,
-  type AthenaRelationCatalog,
 } from "../src/query/engine/index.ts";
 
 const catalog: AthenaRelationCatalog = {
@@ -27,8 +27,8 @@ test("compilePostgresAst emits one parameterized nested json_agg statement", () 
   resetQueryPlanAliases();
   const ast = normalizeFindManyInput({
     select: {
-      name: true,
       instruments: { select: { name: true } },
+      name: true,
     },
     table: "orchestral_sections",
     where: { name: { eq: "Brass" } },
@@ -47,13 +47,13 @@ test("compilePostgresAst applies nested filter, order, and child limit", () => {
   const ast = normalizeFindManyInput({
     limit: 2,
     select: {
-      name: true,
       instruments: {
         limit: 1,
         orderBy: { name: "desc" },
         select: { name: true },
         where: { name: { ilike: "T%" } },
       },
+      name: true,
     },
     table: "orchestral_sections",
   });
@@ -68,10 +68,10 @@ test("compilePostgresAst applies nested filter, order, and child limit", () => {
 test("compilePostgresAst binds user values and quotes identifiers", () => {
   resetQueryPlanAliases();
   const ast = normalizeFindManyInput({
+    limit: 5,
     select: { name: true },
     table: "orchestral_sections",
     where: { name: { ilike: "%wood%" } },
-    limit: 5,
   });
   const compiled = compilePostgresAst(resolveQueryPlan(ast, { catalog }));
   assert.equal(
@@ -85,8 +85,8 @@ test("compilePostgresAstCount counts parent rows only", () => {
   resetQueryPlanAliases();
   const ast = normalizeFindManyInput({
     select: {
-      name: true,
       instruments: { select: { name: true } },
+      name: true,
     },
     table: "orchestral_sections",
     where: { name: { eq: "Brass" } },

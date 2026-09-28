@@ -1,6 +1,6 @@
 import {
-  AthenaQueryError,
   type AthenaConditionAst,
+  AthenaQueryError,
   type AthenaQueryPlan,
   type AthenaResolvedRelationConditionAst,
   type AthenaResolvedSelectionField,
@@ -9,6 +9,10 @@ import {
   D1_QUERY_CAPABILITIES,
   validatePlanAgainstCapabilities,
 } from "../../query/engine/index.ts";
+import {
+  atMostOneSqlLimit,
+  relationResultShape,
+} from "../../query/engine/relation-result-shape.ts";
 import { quoteQualifiedIdentifier } from "../../sql-identifiers.ts";
 import { type D1CompiledSql, D1SqlCompileError } from "./sql.ts";
 
@@ -111,7 +115,7 @@ function compileCondition(
         default:
           throw new D1SqlCompileError(
             "unsupported_operator",
-            `Unknown compare operator`
+            "Unknown compare operator"
           );
       }
     }
@@ -133,8 +137,12 @@ function compileCondition(
 function compileRelationPredicate(
   condition: AthenaResolvedRelationConditionAst,
   parent: AthenaResolvedSource,
-  binder: Binder
+  binder: Binder,
+  effectivePlan?: AthenaQueryPlan
 ): string {
+  if (condition.predicate === "every" && !condition.filter) {
+    return "TRUE";
+  }
   const child: AthenaResolvedSource = {
     alias: condition.target.alias,
     modelId: condition.target.modelId,
@@ -148,8 +156,13 @@ function compileRelationPredicate(
     condition.junctionAlias
   );
   const filters = [joinSql];
-  if (condition.filter) {
-    const inner = compileCondition(condition.filter, child, binder);
+  const effectiveFilters = effectivePlan
+    ? compileEffectivePlanFilters(effectivePlan, binder)
+    : condition.filter
+      ? [compileCondition(condition.filter, child, binder)]
+      : [];
+  if (effectiveFilters.length > 0) {
+    const inner = effectiveFilters.join(" AND ");
     if (condition.predicate === "every") {
       filters.push(`NOT (CASE WHEN ${inner} THEN 1 ELSE 0 END)`);
     } else {
@@ -167,6 +180,18 @@ function compileRelationPredicate(
   return exists;
 }
 
+function compileEffectivePlanFilters(
+  plan: AthenaQueryPlan,
+  binder: Binder
+): string[] {
+  return [
+    ...(plan.filter
+      ? [compileCondition(plan.filter, plan.source, binder)]
+      : []),
+    ...compileInnerRelationFilters(plan, binder),
+  ];
+}
+
 function compileRelationScope(
   parent: AthenaResolvedSource,
   child: AthenaResolvedSource,
@@ -179,7 +204,7 @@ function compileRelationScope(
   junctionAlias?: string
 ): { fromSql: string; joinSql: string } {
   if (descriptor.cardinality === "many-to-many") {
-    if (!descriptor.junction || !junctionAlias) {
+    if (!(descriptor.junction && junctionAlias)) {
       throw new AthenaQueryError(
         "ATHENA_QUERY_INVALID_NORMALIZED_AST",
         "Many-to-many relation is missing junction metadata"
@@ -213,6 +238,39 @@ function compileRelationScope(
   };
 }
 
+function compileInnerRelationFilters(
+  plan: AthenaQueryPlan,
+  binder: Binder
+): string[] {
+  return plan.selection.flatMap((field) => {
+    if (field.kind !== "relation" || field.join !== "inner") {
+      return [];
+    }
+    const child = field.plan;
+    return [
+      compileRelationPredicate(
+        {
+          descriptor: field.descriptor,
+          filter: child.filter,
+          junctionAlias: field.junctionAlias,
+          kind: "resolved-relation",
+          predicate: "exists",
+          relation: field.descriptor.name,
+          target: {
+            alias: child.source.alias,
+            modelId: child.source.modelId,
+            schema: child.source.schema,
+            table: child.source.table,
+          },
+        },
+        plan.source,
+        binder,
+        child
+      ),
+    ];
+  });
+}
+
 function joinPredicate(
   parent: AthenaResolvedSource,
   child: AthenaResolvedSource,
@@ -227,20 +285,22 @@ function joinPredicate(
     .join(" AND ");
 }
 
-function jsonObjectExpr(
-  fields: AthenaResolvedSelectionField[],
-  alias: string
-): string {
+function jsonObjectExpr(plan: AthenaQueryPlan, binder: Binder): string {
   const pairs: string[] = [];
-  for (const field of fields) {
-    if (field.kind !== "column") {
-      throw new D1SqlCompileError(
-        "relations_unsupported",
-        "D1 nested relations deeper than one level require an explicit column list at each level"
+  for (const field of plan.selection) {
+    if (field.kind === "column") {
+      const key = field.alias ?? field.column;
+      pairs.push(
+        `'${key.replace(/'/g, "''")}'`,
+        qualifyColumn(plan.source.alias, field.column)
       );
+      continue;
     }
-    const key = field.alias ?? field.column;
-    pairs.push(`'${key.replace(/'/g, "''")}'`, qualifyColumn(alias, field.column));
+    const key = field.alias;
+    pairs.push(
+      `'${key.replace(/'/g, "''")}'`,
+      `json(${compileRelationValue(plan, field, binder)})`
+    );
   }
   if (pairs.length === 0) {
     throw new D1SqlCompileError(
@@ -249,6 +309,50 @@ function jsonObjectExpr(
     );
   }
   return `json_object(${pairs.join(", ")})`;
+}
+
+function compileRelationValue(
+  plan: AthenaQueryPlan,
+  field: Extract<AthenaResolvedSelectionField, { kind: "relation" }>,
+  binder: Binder
+): string {
+  const child = field.plan;
+  const { fromSql, joinSql } = compileRelationScope(
+    plan.source,
+    child.source,
+    field.descriptor,
+    field.junctionAlias
+  );
+  const objectExpr = jsonObjectExpr(child, binder);
+  const filters = [joinSql, ...compileEffectivePlanFilters(child, binder)];
+  const page = canonicalizePagination(child.pagination);
+  const childOrder = child.orderBy?.length
+    ? ` ORDER BY ${child.orderBy
+        .map(
+          (order) =>
+            `${qualifyColumn(child.source.alias, order.field.field)} ${order.direction === "desc" ? "DESC" : "ASC"}`
+        )
+        .join(", ")}`
+    : "";
+  const resultShape = relationResultShape(
+    field.descriptor.cardinality,
+    field.selection
+  );
+  const limit =
+    resultShape === "many"
+      ? page.limit === undefined
+        ? ""
+        : ` LIMIT ${Math.max(0, Math.trunc(page.limit))}`
+      : ` LIMIT ${atMostOneSqlLimit(page.limit)}`;
+  const offset =
+    page.offset === undefined
+      ? ""
+      : ` OFFSET ${Math.max(0, Math.trunc(page.offset))}`;
+  const inner = `SELECT ${objectExpr} AS __athena_rel FROM ${fromSql} WHERE ${filters.join(" AND ")}${childOrder}${limit}${offset}`;
+  if (resultShape === "many") {
+    return `COALESCE((SELECT json_group_array(json(__athena_rel)) FROM (${inner})), '[]')`;
+  }
+  return `(SELECT __athena_rel FROM (${inner}))`;
 }
 
 function compileSelectList(plan: AthenaQueryPlan, binder: Binder): string {
@@ -268,53 +372,15 @@ function compileSelectList(plan: AthenaQueryPlan, binder: Binder): string {
       continue;
     }
 
-    const child = field.plan;
-    const { fromSql, joinSql } = compileRelationScope(
-      plan.source,
-      child.source,
-      field.descriptor,
-      field.junctionAlias
+    parts.push(
+      `${compileRelationValue(plan, field, binder)} AS ${quoteIdent(field.alias)}`
     );
-    const objectExpr = jsonObjectExpr(child.selection, child.source.alias);
-    const filters = [joinSql];
-    if (child.filter) {
-      filters.push(compileCondition(child.filter, child.source, binder));
-    }
-    const page = canonicalizePagination(child.pagination);
-    const childOrder = child.orderBy?.[0]
-      ? ` ORDER BY ${qualifyColumn(child.source.alias, child.orderBy[0].field.field)} ${child.orderBy[0].direction === "desc" ? "DESC" : "ASC"}`
-      : "";
-    const toMany =
-      field.descriptor.cardinality === "one-to-many" ||
-      field.descriptor.cardinality === "many-to-many";
-    const limit = toMany
-      ? page.limit !== undefined
-        ? ` LIMIT ${Math.max(0, Math.trunc(page.limit))}`
-        : ""
-      : " LIMIT 1";
-    const offset =
-      page.offset !== undefined
-        ? ` OFFSET ${Math.max(0, Math.trunc(page.offset))}`
-        : "";
-    const inner = `SELECT ${objectExpr} AS __athena_rel FROM ${fromSql} WHERE ${filters.join(" AND ")}${childOrder}${limit}${offset}`;
-    if (
-      field.descriptor.cardinality === "one-to-many" ||
-      field.descriptor.cardinality === "many-to-many"
-    ) {
-      parts.push(
-        `COALESCE((SELECT json_group_array(__athena_rel) FROM (${inner})), '[]') AS ${quoteIdent(field.alias)}`
-      );
-    } else {
-      parts.push(
-        `(SELECT __athena_rel FROM (${inner})) AS ${quoteIdent(field.alias)}`
-      );
-    }
   }
   return parts.join(", ");
 }
 
 export function compileD1Ast(plan: AthenaQueryPlan): D1CompiledSql {
-  if (!plan || plan.kind !== "resolved-select" || !Array.isArray(plan.selection)) {
+  if (plan?.kind !== "resolved-select" || !Array.isArray(plan.selection)) {
     throw new D1SqlCompileError(
       "unsupported_operator",
       "compileD1Ast requires a resolved AthenaQueryPlan"
@@ -325,8 +391,14 @@ export function compileD1Ast(plan: AthenaQueryPlan): D1CompiledSql {
   const parts = [
     `SELECT ${compileSelectList(plan, binder)} FROM ${qualifyTable(plan.source)}`,
   ];
-  if (plan.filter) {
-    parts.push(`WHERE ${compileCondition(plan.filter, plan.source, binder)}`);
+  const where = [
+    ...compileInnerRelationFilters(plan, binder),
+    ...(plan.filter
+      ? [compileCondition(plan.filter, plan.source, binder)]
+      : []),
+  ];
+  if (where.length > 0) {
+    parts.push(`WHERE ${where.join(" AND ")}`);
   }
   if (plan.orderBy?.[0]) {
     const order = plan.orderBy[0];

@@ -10,18 +10,19 @@ export function resolveTransactionOptions(
   options?: AthenaTransactionOptions,
   callOptions?: AthenaResolvedTransactionOptions["callOptions"]
 ): AthenaResolvedTransactionOptions {
-  if (options?.isolationLevel) {
-    if (!capabilities.isolationLevels.includes(options.isolationLevel)) {
-      throw new AthenaTransactionError(
-        "ATHENA_TRANSACTION_ISOLATION_UNSUPPORTED",
-        `Isolation level "${options.isolationLevel}" is not supported by backend "${capabilities.backend}"`,
-        {
-          backend: capabilities.backend,
-          isolationLevel: options.isolationLevel,
-          supported: [...capabilities.isolationLevels],
-        }
-      );
-    }
+  if (
+    options?.isolationLevel &&
+    !capabilities.isolationLevels.includes(options.isolationLevel)
+  ) {
+    throw new AthenaTransactionError(
+      "ATHENA_TRANSACTION_ISOLATION_UNSUPPORTED",
+      `Isolation level "${options.isolationLevel}" is not supported by backend "${capabilities.backend}"`,
+      {
+        backend: capabilities.backend,
+        isolationLevel: options.isolationLevel,
+        supported: [...capabilities.isolationLevels],
+      }
+    );
   }
   if (options?.readOnly && !capabilities.readOnly) {
     throw new AthenaTransactionError(

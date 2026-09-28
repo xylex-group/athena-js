@@ -9,14 +9,14 @@ import { jsonObjectSchema, jsonValueSchema } from "../src/runtime/schemas.ts";
 
 /** Parse result must be assignable to JsonValue without a cast. */
 const parsedValue = parseContractOrThrow(jsonValueSchema, {
-	nested: [1, true, null, "x"],
+  nested: [1, true, null, "x"],
 });
 const asJsonValue: JsonValue = parsedValue;
 
 /** Parse result must be assignable to JsonObject without a cast. */
 const parsedObject = parseContractOrThrow(jsonObjectSchema, {
-	a: 1,
-	b: [null, { c: "y" }],
+  a: 1,
+  b: [null, { c: "y" }],
 });
 const asJsonObject: JsonObject = parsedObject;
 

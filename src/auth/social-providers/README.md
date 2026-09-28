@@ -21,16 +21,16 @@ import {
   type AccountStatus,
   type AthenaOptions,
   type AthenaProfile,
-} from "@xylex-group/athena/social-providers"
+} from "@xylex-group/athena/social-providers";
 ```
 
 ### Provider id types (single source, no duplicates)
 
-| Type | Meaning |
-|------|---------|
+| Type                 | Meaning                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AuthSocialProvider` | Auth API id for `signIn.social` / link (`google` \| `apple` \| `microsoft` \| `github` \| `discord` \| `athena` \| `saml` + merge extensions) |
-| `AuthOAuthProvider` | `Exclude<AuthSocialProvider, "saml">` |
-| `SocialProvider` | OAuth **factory** registry key (wide list + open `(string & {})`) |
+| `AuthOAuthProvider`  | `Exclude<AuthSocialProvider, "saml">`                                                                                                         |
+| `SocialProvider`     | OAuth **factory** registry key (wide list + open `(string & {})`)                                                                             |
 
 Defined once in `auth/types.ts`; re-exported here and from `@xylex-group/athena`. Do not redefine a narrower local union unless your app intentionally restricts providers.
 
@@ -82,13 +82,13 @@ lives under `auth/`.
 const provider = socialProviders.google({
   clientId: process.env.GOOGLE_CLIENT_ID!,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-})
+});
 
 const url = await provider.createAuthorizationURL({
   state,
   codeVerifier,
   redirectURI: "https://app.example.com/api/auth/callback/google",
-})
+});
 ```
 
 Each factory returns a provider with:
@@ -104,26 +104,27 @@ Each factory returns a provider with:
 
 `athena` / `AthenaOptions` / `AthenaProfile` are first-class entries for the
 upcoming Athena Auth identity provider. Configure `issuer` (or full endpoint
-overrides); defaults use `{issuer}/oauth2/authorize|token|userinfo`.
+overrides); defaults resolve `/oauth/authorize` and `/oauth/token` from
+validated issuer discovery unless those endpoints are overridden.
 
 ```ts
-import { athena } from "@xylex-group/athena/social-providers"
+import { athena } from "@xylex-group/athena/social-providers";
 
 const provider = athena({
   clientId: "…",
   clientSecret: "…",
   issuer: "https://auth.example.com",
-})
+});
 ```
 
 ## Design notes
 
-| Topic | Approach |
-|--------|----------|
-| Fetch | Native `fetch` via `athenaFetch` — **not** `@better-fetch/fetch` |
-| Errors | `AthenaAuthError` (not `BetterAuthError`) |
-| Crypto / JWT | [`jose`](https://github.com/panva/jose) for ID token / JWKS verification |
-| Validation | `zod` for `SocialProviderListEnum` |
+| Topic         | Approach                                                                       |
+| ------------- | ------------------------------------------------------------------------------ |
+| Fetch         | Native `fetch` via `athenaFetch` — **not** `@better-fetch/fetch`               |
+| Errors        | `AthenaAuthError` (not `BetterAuthError`)                                      |
+| Crypto / JWT  | [`jose`](https://github.com/panva/jose) for ID token / JWKS verification       |
+| Validation    | `zod` for `SocialProviderListEnum`                                             |
 | Compatibility | Provider file names and exports align with Better Auth so configs port cleanly |
 
 ## Built-in providers

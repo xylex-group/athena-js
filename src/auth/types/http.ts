@@ -1,0 +1,16 @@
+export type {
+  AthenaAuthCredentials,
+  AthenaAuthEndpointPath,
+  AthenaAuthErrorCode,
+  AthenaAuthErrorDetails,
+  AthenaAuthGetTokenRequest,
+  AthenaAuthIssuerMetadata,
+  AthenaAuthJwks,
+  AthenaAuthMethod,
+  AthenaAuthQueryPrimitive,
+  AthenaAuthQueryValue,
+  AthenaAuthResult,
+  AthenaAuthToken,
+  AthenaAuthTransportErrorCode,
+  AthenaInitialAuthState,
+} from "./catalog.ts";

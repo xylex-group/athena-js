@@ -44,11 +44,11 @@ export type AthenaResourceIdentity =
     };
 
 export interface AthenaResolvedResource {
-  table: string;
-  schema?: string;
-  database?: string;
   canonicalResource: string;
+  database?: string;
   model?: string;
+  schema?: string;
+  table: string;
 }
 
 export type AthenaResourceLookup = {
@@ -83,7 +83,7 @@ export function parseAthenaResourceRef(value: string): AthenaResourceRef {
 }
 
 export function normalizeAthenaResourceRef(
-  ref: AthenaResourceInput,
+  ref: AthenaResourceInput
 ): AthenaResourceRef {
   const table = ref.table.trim();
   const schema = trimOptional(ref.schema);
@@ -114,7 +114,7 @@ export function athenaResourceKeys(ref: AthenaResourceInput): string[] {
     keys.add(`${normalized.schema}.${normalized.table}`);
     if (normalized.database) {
       keys.add(
-        `${normalized.database}.${normalized.schema}.${normalized.table}`,
+        `${normalized.database}.${normalized.schema}.${normalized.table}`
       );
     }
   }
@@ -122,7 +122,7 @@ export function athenaResourceKeys(ref: AthenaResourceInput): string[] {
 }
 
 export function resolvedAthenaResource(
-  ref: AthenaResourceInput & { model?: string },
+  ref: AthenaResourceInput & { model?: string }
 ): AthenaResolvedResource {
   const normalized = normalizeAthenaResourceRef(ref);
   const model = trimOptional(ref.model);
@@ -133,15 +133,13 @@ export function resolvedAthenaResource(
   };
 }
 
-function pickResolved(
-  value: AthenaResolvedResource,
-): AthenaResolvedResource {
+function pickResolved(value: AthenaResolvedResource): AthenaResolvedResource {
   return resolvedAthenaResource(value);
 }
 
 function rawResourceToken(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return undefined;
+    return;
   }
   const record = payload as Record<string, unknown>;
   const table =
@@ -153,11 +151,11 @@ function rawResourceToken(payload: unknown): string | undefined {
 
 export function resolveAthenaResourceFromPayload(
   payload: unknown,
-  modelIndex?: AthenaResourceLookup,
+  modelIndex?: AthenaResourceLookup
 ): AthenaResolvedResource | undefined {
   const token = rawResourceToken(payload);
   if (!token) {
-    return undefined;
+    return;
   }
   const parsed = parseAthenaResourceRef(token);
   const candidates = [
@@ -174,19 +172,19 @@ export function resolveAthenaResourceFromPayload(
     }
   }
   if (!parsed.table) {
-    return undefined;
+    return;
   }
   return resolvedAthenaResource(parsed);
 }
 
 export function relationResourceIdentity(
-  ref: AthenaResourceInput & { model?: string },
+  ref: AthenaResourceInput & { model?: string }
 ): AthenaResourceIdentity {
   const resolved = resolvedAthenaResource(ref);
   return {
+    canonicalResource: resolved.canonicalResource,
     kind: "relation",
     ref: normalizeAthenaResourceRef(ref),
-    canonicalResource: resolved.canonicalResource,
     ...(resolved.model ? { model: resolved.model } : {}),
   };
 }
@@ -200,41 +198,43 @@ export function storageObjectResourceIdentity(input: {
   return {
     kind: "storage-object",
     ...(bucket ? { bucket } : {}),
-    key,
     canonicalResource: bucket ? `${bucket}/${key}` : key,
+    key,
   };
 }
 
 export function authResourceIdentity(resource: string): AthenaResourceIdentity {
   const token = resource.trim();
   return {
+    canonicalResource: token,
     kind: "auth",
     resource: token,
-    canonicalResource: token,
   };
 }
 
-export function serviceResourceIdentity(service: string): AthenaResourceIdentity {
+export function serviceResourceIdentity(
+  service: string
+): AthenaResourceIdentity {
   const token = service.trim();
   return {
+    canonicalResource: token,
     kind: "service",
     service: token,
-    canonicalResource: token,
   };
 }
 
 export function canonicalAthenaResourceIdentity(
-  identity: AthenaResourceIdentity,
+  identity: AthenaResourceIdentity
 ): string {
   return identity.canonicalResource;
 }
 
 export function matchAthenaResource(
   scope: AthenaResourceInput | string,
-  resolved: AthenaResolvedResource,
+  resolved: AthenaResolvedResource
 ): boolean {
   const ref = normalizeAthenaResourceRef(
-    typeof scope === "string" ? parseAthenaResourceRef(scope) : scope,
+    typeof scope === "string" ? parseAthenaResourceRef(scope) : scope
   );
   if (!ref.table.trim() || ref.table.trim() !== resolved.table) {
     return false;

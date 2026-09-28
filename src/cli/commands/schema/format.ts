@@ -1,174 +1,178 @@
 import type {
-	SchemaColumnType,
-	SchemaDiff,
-	SchemaDiffOperation,
-	SchemaTableIdentity,
+  SchemaColumnType,
+  SchemaDiff,
+  SchemaDiffOperation,
+  SchemaTableIdentity,
 } from "../../../schema/diff/index.ts";
 
 export const DESTRUCTIVE_SCHEMA_KINDS = new Set<SchemaDiffOperation["kind"]>([
-	"drop_schema",
-	"drop_table",
-	"drop_column",
-	"drop_primary_key",
-	"drop_unique_constraint",
-	"drop_foreign_key",
-	"drop_index",
+  "drop_schema",
+  "drop_table",
+  "drop_column",
+  "drop_primary_key",
+  "drop_unique_constraint",
+  "drop_foreign_key",
+  "drop_index",
 ]);
 
 export function isDestructiveSchemaOperation(
-	operation: SchemaDiffOperation,
+  operation: SchemaDiffOperation
 ): boolean {
-	return DESTRUCTIVE_SCHEMA_KINDS.has(operation.kind);
+  return DESTRUCTIVE_SCHEMA_KINDS.has(operation.kind);
 }
 
 export function formatColumnType(type: SchemaColumnType): string {
-	if (type.length != null) {
-		return `${type.name}(${type.length})`;
-	}
-	if (type.precision != null && type.scale != null) {
-		return `${type.name}(${type.precision},${type.scale})`;
-	}
-	if (type.arrayDimensions > 0) {
-		return `${type.name}${"[]".repeat(type.arrayDimensions)}`;
-	}
-	return type.name;
+  if (type.length != null) {
+    return `${type.name}(${type.length})`;
+  }
+  if (type.precision != null && type.scale != null) {
+    return `${type.name}(${type.precision},${type.scale})`;
+  }
+  if (type.arrayDimensions > 0) {
+    return `${type.name}${"[]".repeat(type.arrayDimensions)}`;
+  }
+  return type.name;
 }
 
 function tableKey(table: SchemaTableIdentity): string {
-	return table.schema === "public" ? table.name : `${table.schema}.${table.name}`;
+  return table.schema === "public"
+    ? table.name
+    : `${table.schema}.${table.name}`;
 }
 
 function operationTable(operation: SchemaDiffOperation): string {
-	switch (operation.kind) {
-		case "create_schema":
-		case "drop_schema":
-			return operation.schema;
-		case "create_table":
-			return tableKey(operation.table);
-		case "drop_table":
-			return tableKey(operation.table);
-		case "rename_table":
-			return tableKey(operation.from);
-		case "add_column":
-		case "drop_column":
-		case "rename_column":
-		case "alter_column":
-		case "add_primary_key":
-		case "drop_primary_key":
-		case "add_unique_constraint":
-		case "drop_unique_constraint":
-		case "add_foreign_key":
-		case "drop_foreign_key":
-		case "alter_foreign_key":
-		case "add_index":
-		case "drop_index":
-			return tableKey(operation.table);
-		default: {
-			const _exhaustive: never = operation;
-			return _exhaustive;
-		}
-	}
+  switch (operation.kind) {
+    case "create_schema":
+    case "drop_schema":
+      return operation.schema;
+    case "create_table":
+      return tableKey(operation.table);
+    case "drop_table":
+      return tableKey(operation.table);
+    case "rename_table":
+      return tableKey(operation.from);
+    case "add_column":
+    case "drop_column":
+    case "rename_column":
+    case "alter_column":
+    case "add_primary_key":
+    case "drop_primary_key":
+    case "add_unique_constraint":
+    case "drop_unique_constraint":
+    case "add_foreign_key":
+    case "drop_foreign_key":
+    case "alter_foreign_key":
+    case "add_index":
+    case "drop_index":
+      return tableKey(operation.table);
+    default: {
+      const _exhaustive: never = operation;
+      return _exhaustive;
+    }
+  }
 }
 
 function formatOperationLine(operation: SchemaDiffOperation): string {
-	switch (operation.kind) {
-		case "create_schema":
-			return "+ schema";
-		case "drop_schema":
-			return "- schema";
-		case "create_table":
-			return "+ table";
-		case "drop_table":
-			return "- table";
-		case "rename_table":
-			return `~ ${operation.from.name} → ${operation.to.name}`;
-		case "add_column":
-			return `+ ${operation.column.name} ${formatColumnType(operation.column.type)}`;
-		case "drop_column":
-			return `- ${operation.column.name}`;
-		case "rename_column":
-			return `~ ${operation.from} → ${operation.to}`;
-		case "alter_column": {
-			const typeChange = operation.changes.type;
-			if (typeChange) {
-				return `~ ${operation.column} ${formatColumnType(typeChange.from)} → ${formatColumnType(typeChange.to)}`;
-			}
-			return `~ ${operation.column}`;
-		}
-		case "add_primary_key":
-			return `+ primary key (${operation.primaryKey.columns.join(", ")})`;
-		case "drop_primary_key":
-			return `- primary key`;
-		case "add_unique_constraint":
-			return `+ unique (${operation.unique.columns.join(", ")})`;
-		case "drop_unique_constraint":
-			return `- unique (${operation.unique.columns.join(", ")})`;
-		case "add_foreign_key":
-			return `+ foreign key (${operation.foreignKey.columns.join(", ")})`;
-		case "drop_foreign_key":
-			return `- foreign key (${operation.foreignKey.columns.join(", ")})`;
-		case "alter_foreign_key":
-			return `~ foreign key`;
-		case "add_index":
-			return `+ index (${operation.index.columns.map((column) => column.name).join(", ")})`;
-		case "drop_index":
-			return `- index (${operation.index.columns.map((column) => column.name).join(", ")})`;
-		default: {
-			const _exhaustive: never = operation;
-			return _exhaustive;
-		}
-	}
+  switch (operation.kind) {
+    case "create_schema":
+      return "+ schema";
+    case "drop_schema":
+      return "- schema";
+    case "create_table":
+      return "+ table";
+    case "drop_table":
+      return "- table";
+    case "rename_table":
+      return `~ ${operation.from.name} → ${operation.to.name}`;
+    case "add_column":
+      return `+ ${operation.column.name} ${formatColumnType(operation.column.type)}`;
+    case "drop_column":
+      return `- ${operation.column.name}`;
+    case "rename_column":
+      return `~ ${operation.from} → ${operation.to}`;
+    case "alter_column": {
+      const typeChange = operation.changes.type;
+      if (typeChange) {
+        return `~ ${operation.column} ${formatColumnType(typeChange.from)} → ${formatColumnType(typeChange.to)}`;
+      }
+      return `~ ${operation.column}`;
+    }
+    case "add_primary_key":
+      return `+ primary key (${operation.primaryKey.columns.join(", ")})`;
+    case "drop_primary_key":
+      return "- primary key";
+    case "add_unique_constraint":
+      return `+ unique (${operation.unique.columns.join(", ")})`;
+    case "drop_unique_constraint":
+      return `- unique (${operation.unique.columns.join(", ")})`;
+    case "add_foreign_key":
+      return `+ foreign key (${operation.foreignKey.columns.join(", ")})`;
+    case "drop_foreign_key":
+      return `- foreign key (${operation.foreignKey.columns.join(", ")})`;
+    case "alter_foreign_key":
+      return "~ foreign key";
+    case "add_index":
+      return `+ index (${operation.index.columns.map((column) => column.name).join(", ")})`;
+    case "drop_index":
+      return `- index (${operation.index.columns.map((column) => column.name).join(", ")})`;
+    default: {
+      const _exhaustive: never = operation;
+      return _exhaustive;
+    }
+  }
 }
 
 export function formatSchemaDiffText(diff: SchemaDiff): string {
-	if (diff.operations.length === 0) {
-		return ["Athena schema diff", "", "No changes.", ""].join("\n");
-	}
+  if (diff.operations.length === 0) {
+    return ["Athena schema diff", "", "No changes.", ""].join("\n");
+  }
 
-	const grouped = new Map<string, SchemaDiffOperation[]>();
-	for (const operation of diff.operations) {
-		const key = operationTable(operation);
-		const list = grouped.get(key) ?? [];
-		list.push(operation);
-		grouped.set(key, list);
-	}
+  const grouped = new Map<string, SchemaDiffOperation[]>();
+  for (const operation of diff.operations) {
+    const key = operationTable(operation);
+    const list = grouped.get(key) ?? [];
+    list.push(operation);
+    grouped.set(key, list);
+  }
 
-	const lines: string[] = ["Athena schema diff", ""];
-	for (const [table, operations] of grouped) {
-		lines.push(table);
-		for (const operation of operations) {
-			lines.push(`  ${formatOperationLine(operation)}`);
-		}
-		lines.push("");
-	}
+  const lines: string[] = ["Athena schema diff", ""];
+  for (const [table, operations] of grouped) {
+    lines.push(table);
+    for (const operation of operations) {
+      lines.push(`  ${formatOperationLine(operation)}`);
+    }
+    lines.push("");
+  }
 
-	const destructive = diff.operations.filter(isDestructiveSchemaOperation).length;
-	lines.push(`${diff.summary.totalOperations} change${diff.summary.totalOperations === 1 ? "" : "s"}`);
-	if (destructive > 0) {
-		lines.push(
-			`${destructive} potentially destructive`,
-		);
-	}
-	return `${lines.join("\n")}\n`;
+  const destructive = diff.operations.filter(
+    isDestructiveSchemaOperation
+  ).length;
+  lines.push(
+    `${diff.summary.totalOperations} change${diff.summary.totalOperations === 1 ? "" : "s"}`
+  );
+  if (destructive > 0) {
+    lines.push(`${destructive} potentially destructive`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 export function formatProposedMigration(diff: SchemaDiff): string {
-	const lines = [
-		"-- Proposed Athena schema migration (not applied).",
-		"-- Generated by `athena-js schema diff --migration`.",
-		"-- Review, then author SQL under athena/migrations/.",
-		"",
-	];
-	if (diff.operations.length === 0) {
-		lines.push("-- No operations.");
-		return `${lines.join("\n")}\n`;
-	}
-	for (const operation of diff.operations) {
-		const risk = isDestructiveSchemaOperation(operation)
-			? "destructive"
-			: "additive";
-		lines.push(`-- [${risk}] ${operation.kind} ${operationTable(operation)}`);
-		lines.push(`--   ${formatOperationLine(operation)}`);
-	}
-	return `${lines.join("\n")}\n`;
+  const lines = [
+    "-- Proposed Athena schema migration (not applied).",
+    "-- Generated by `athena-js schema diff --migration`.",
+    "-- Review, then author SQL under athena/migrations/.",
+    "",
+  ];
+  if (diff.operations.length === 0) {
+    lines.push("-- No operations.");
+    return `${lines.join("\n")}\n`;
+  }
+  for (const operation of diff.operations) {
+    const risk = isDestructiveSchemaOperation(operation)
+      ? "destructive"
+      : "additive";
+    lines.push(`-- [${risk}] ${operation.kind} ${operationTable(operation)}`);
+    lines.push(`--   ${formatOperationLine(operation)}`);
+  }
+  return `${lines.join("\n")}\n`;
 }

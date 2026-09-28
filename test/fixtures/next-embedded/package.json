@@ -7,6 +7,6 @@
     "start": "node server.mjs"
   },
   "dependencies": {
-    "@xylex-group/athena": "file:../../../.tmp/packages/xylex-group-athena.tgz"
+    "@xylex-group/athena": "file:C:/Users/floris/Documents/GitHub/athena/packages/athena-js/.tmp/packages/xylex-group-athena-5.6.2.tgz"
   }
 }

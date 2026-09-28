@@ -1,39 +1,67 @@
 /**
- * Dispatch AthenaRuntimePlan to Node domain materializers.
+ * Dispatch a resolved construction to independent Node domain materializers.
  */
 
-import type { BillingProviderRegistry } from "../../billing/runtime/local/providers/registry.ts";
-import type { AthenaClientConfig } from "../../v3-client-core.ts";
-import { materializeAuth } from "../materializers/auth.ts";
-import { materializeBilling } from "../materializers/billing.ts";
-import { materializeChat } from "../materializers/chat.ts";
-import { materializeDatabase } from "../materializers/database.ts";
-import { materializeStorage } from "../materializers/storage.ts";
+import type { AthenaClientModelsInput } from "../../schema/types.ts";
+import {
+  materializeBillingPlan,
+  type AthenaMaterializedBilling,
+} from "../materializers/billing.ts";
+import { materializeChat, type AthenaMaterializedChat } from "../materializers/chat.ts";
+import {
+  materializeDatabase,
+  type AthenaMaterializedDatabase,
+} from "../materializers/database.ts";
+import {
+  materializeStoragePlan,
+  type AthenaMaterializedStorage,
+} from "../materializers/storage.ts";
+import type {
+  AthenaRuntimeConfigBindings,
+  ResolvedAthenaConstruction,
+} from "../construction/types.ts";
+import { recordRuntimePlanMaterialized } from "../ownership.ts";
 import { validateRuntimePlan } from "./validate.ts";
-import type { AthenaRuntimePlan } from "./types.ts";
 
-export interface AthenaMaterializedRuntime {
-	billingProviderRegistry: BillingProviderRegistry;
-	config: AthenaClientConfig;
-	plan: AthenaRuntimePlan;
+export interface AthenaMaterializedRuntime<
+  TModels extends AthenaClientModelsInput | undefined,
+> {
+  readonly billing: AthenaMaterializedBilling;
+  readonly bindings: AthenaRuntimeConfigBindings<TModels>;
+  readonly chat: AthenaMaterializedChat;
+  readonly database: AthenaMaterializedDatabase<TModels>;
+  readonly plan: ResolvedAthenaConstruction<TModels>["plan"];
+  readonly storage: AthenaMaterializedStorage;
 }
 
-export function materializeRuntimePlan(
-	plan: unknown,
-): AthenaMaterializedRuntime {
-	const validated = validateRuntimePlan(plan);
-	const base = validated.config as AthenaClientConfig;
-	const withAuth = materializeAuth(base, validated);
-	const withDb = materializeDatabase(withAuth, validated);
-	const withStorage = materializeStorage(withDb, validated);
-	const withChat = materializeChat(withStorage, validated);
-	const billingProviderRegistry = materializeBilling(withChat, validated);
-	return {
-		billingProviderRegistry,
-		config: withChat,
-		plan: {
-			...validated,
-			config: withChat,
-		},
-	};
+export function materializeRuntimePlan<
+  TModels extends AthenaClientModelsInput | undefined,
+>(
+  construction: ResolvedAthenaConstruction<TModels>,
+): AthenaMaterializedRuntime<TModels> {
+  const plan = validateRuntimePlan(construction.plan);
+  recordRuntimePlanMaterialized();
+  const database = materializeDatabase<TModels>(plan, construction.resources.db);
+  const storage = materializeStoragePlan(plan, construction.resources.storage);
+  const chat = materializeChat(
+    plan,
+    construction.resources.chat,
+    database.postgresRuntime,
+  );
+  const billing = materializeBillingPlan(
+    plan,
+    database.postgresRuntime,
+  );
+  return {
+    billing,
+    bindings: {
+      ...database.bindings,
+      ...storage.bindings,
+      ...chat.bindings,
+    },
+    chat,
+    database,
+    plan,
+    storage,
+  };
 }

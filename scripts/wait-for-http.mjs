@@ -5,7 +5,7 @@
  */
 const url = process.argv[2];
 const timeoutMs = Number(process.argv[3] ?? 90_000);
-const intervalMs = 1_000;
+const intervalMs = 1000;
 
 if (!url) {
   console.error("wait-for-http: url required");
@@ -26,5 +26,7 @@ while (Date.now() - started < timeoutMs) {
   await new Promise((resolve) => setTimeout(resolve, intervalMs));
 }
 
-console.error(`wait-for-http: timed out after ${timeoutMs}ms waiting for ${url}`);
+console.error(
+  `wait-for-http: timed out after ${timeoutMs}ms waiting for ${url}`
+);
 process.exit(1);

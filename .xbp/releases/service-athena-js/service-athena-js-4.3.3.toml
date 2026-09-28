@@ -2923,7 +2923,7 @@ completed_at = "2026-08-11T23:42:50.362863100Z"
 
 [steps.github_release.details]
 release_id = 368911294
-release_url = "https://github.com/xylex-group/athena/releases/tag/athena-js-4.3.3"
+release_url = "https://github.com/xylex-group/athena-js/releases/tag/athena-js-4.3.3"
 
 [steps.publish_linear]
 status = "Failed"

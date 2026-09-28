@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Athena RN 53 Fixture",
+    "slug": "athena-rn53-fixture",
+    "version": "0.0.0",
+    "newArchEnabled": true,
+    "jsEngine": "hermes"
+  }
+}

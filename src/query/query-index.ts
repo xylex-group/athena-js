@@ -40,11 +40,7 @@ export class AthenaQueryGraphIndex {
     }
     for (const relation of descriptor.dependency.relations) {
       if (relation.targetModel) {
-        this.add(
-          this.byModel,
-          `::${relation.targetModel}`,
-          queryId
-        );
+        this.add(this.byModel, `::${relation.targetModel}`, queryId);
       }
     }
   }
@@ -59,8 +55,16 @@ export class AthenaQueryGraphIndex {
     entityRefs?: readonly string[]
   ): void {
     if (descriptor) {
-      this.remove(this.byModel, athenaModelIndexKey(descriptor.target), queryId);
-      this.remove(this.byScope, athenaScopeIndexKey(descriptor.context), queryId);
+      this.remove(
+        this.byModel,
+        athenaModelIndexKey(descriptor.target),
+        queryId
+      );
+      this.remove(
+        this.byScope,
+        athenaScopeIndexKey(descriptor.context),
+        queryId
+      );
       for (const field of descriptor.dependency.fields) {
         this.remove(
           this.byField,
@@ -100,11 +104,7 @@ export class AthenaQueryGraphIndex {
     map.set(key, new Set([queryId]));
   }
 
-  private remove(
-    map: Map<string, Set<string>>,
-    key: string,
-    queryId: string
-  ) {
+  private remove(map: Map<string, Set<string>>, key: string, queryId: string) {
     const existing = map.get(key);
     if (!existing) {
       return;

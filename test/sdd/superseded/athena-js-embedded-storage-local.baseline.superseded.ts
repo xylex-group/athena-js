@@ -21,18 +21,18 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/athena-js-embedded-storage-local.target.test.ts";
+  "test/sdd/athena-js-embedded-storage-local.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-CFG-01",
-	"B-TOP-01",
-	"B-TOP-02",
-	"B-CON-01",
-	"B-CON-02",
-	"B-UPL-01",
-	"B-UPL-02",
-	"B-OBJ-01",
-	"B-ERR-01",
-	"B-R2-01",
-	"B-MAN-01",
+  "B-CFG-01",
+  "B-TOP-01",
+  "B-TOP-02",
+  "B-CON-01",
+  "B-CON-02",
+  "B-UPL-01",
+  "B-UPL-02",
+  "B-OBJ-01",
+  "B-ERR-01",
+  "B-R2-01",
+  "B-MAN-01",
 ] as const;

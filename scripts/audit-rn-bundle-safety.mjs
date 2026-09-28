@@ -16,15 +16,15 @@
  *     runs `pnpm build` (or npm run build) in this package first
  *
  * Exit 0: no forbidden Node/server-only/pg/react-dom import patterns found
-  *         in dist/browser.js, dist/browser.cjs, and (when present)
-  *         dist/react-native.js / dist/react-native.cjs
-  * Exit 1: missing dist, stale/missing artifacts, or forbidden patterns
-  *
-  * A PASS means only:
-  *   No obvious Node/server-only imports were detected in the browser/RN artifacts.
-  *
-  * A PASS does NOT mean:
-  *   The artifact is ready for Hermes, Expo, or Metro resolution.
+ *         in dist/browser.js, dist/browser.cjs, and (when present)
+ *         dist/react-native.js / dist/react-native.cjs
+ * Exit 1: missing dist, stale/missing artifacts, or forbidden patterns
+ *
+ * A PASS means only:
+ *   No obvious Node/server-only imports were detected in the browser/RN artifacts.
+ *
+ * A PASS does NOT mean:
+ *   The artifact is ready for Hermes, Expo, or Metro resolution.
  *
  * Not covered (follow-up PR):
  *   Metro / Expo resolution, package export conditions, Hermes execution,
@@ -252,33 +252,33 @@ function main() {
   printScopeBanner();
 
   // Always scan both ESM and CJS browser artifacts (ARCH-NATIVE-005).
-    scanBrowserArtifact("dist/browser.js", join(distDir, "browser.js"), {
-      expectBrowserUnsupportedStub: true,
-    });
-    scanBrowserArtifact("dist/browser.cjs", join(distDir, "browser.cjs"), {
-      expectBrowserUnsupportedStub: true,
-    });
+  scanBrowserArtifact("dist/browser.js", join(distDir, "browser.js"), {
+    expectBrowserUnsupportedStub: true,
+  });
+  scanBrowserArtifact("dist/browser.cjs", join(distDir, "browser.cjs"), {
+    expectBrowserUnsupportedStub: true,
+  });
 
-    // RN thin adapter entry (required once tsup emits react-native).
-    const rnJs = join(distDir, "react-native.js");
-    const rnCjs = join(distDir, "react-native.cjs");
-    if (existsSync(rnJs) || existsSync(rnCjs)) {
-      scanBrowserArtifact("dist/react-native.js", rnJs, {
-        expectBrowserUnsupportedStub: false,
-      });
-      scanBrowserArtifact("dist/react-native.cjs", rnCjs, {
-        expectBrowserUnsupportedStub: false,
-      });
-    } else {
-      console.error(
-        "\nFAIL: dist/react-native.{js,cjs} missing — rebuild after adding react-native entry"
-      );
-      process.exit(1);
-    }
+  // RN thin adapter entry (required once tsup emits react-native).
+  const rnJs = join(distDir, "react-native.js");
+  const rnCjs = join(distDir, "react-native.cjs");
+  if (existsSync(rnJs) || existsSync(rnCjs)) {
+    scanBrowserArtifact("dist/react-native.js", rnJs, {
+      expectBrowserUnsupportedStub: false,
+    });
+    scanBrowserArtifact("dist/react-native.cjs", rnCjs, {
+      expectBrowserUnsupportedStub: false,
+    });
+  } else {
+    console.error(
+      "\nFAIL: dist/react-native.{js,cjs} missing — rebuild after adding react-native entry"
+    );
+    process.exit(1);
+  }
 
-    const index = readIfExists(join(distDir, "index.js"));
-    const nextServer = readIfExists(join(distDir, "next", "server.js"));
-    const react = readIfExists(join(distDir, "react.js"));
+  const index = readIfExists(join(distDir, "index.js"));
+  const nextServer = readIfExists(join(distDir, "next", "server.js"));
+  const react = readIfExists(join(distDir, "react.js"));
 
   if (index) {
     console.log("\n--- dist/index.js (root, Node) top imports ---");

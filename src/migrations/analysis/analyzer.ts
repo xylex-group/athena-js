@@ -1,19 +1,22 @@
 import type { MigrationFile } from "../types.ts";
 import {
-  formatObjectRef,
   locationFromOffset,
   PARSER_ID,
   type SchemaObjectRef,
   type SqlSourceLocation,
-  type TableRef,
 } from "./ast.ts";
 import {
+  type PgAstNode,
   parsePostgresSql,
   pgNameList,
   pgString,
-  type PgAstNode,
-  walkAst,
 } from "./parser.ts";
+import { parsePlpgsqlBindings } from "./plpgsql-bindings.ts";
+import {
+  extractQueryDependencies,
+  uniqueDeps,
+  writeTargetFromNode,
+} from "./query-deps.ts";
 import type {
   DependencyCategory,
   DependencyConfidence,
@@ -30,16 +33,6 @@ function asRecord(value: unknown): PgAstNode | undefined {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as PgAstNode;
   }
-  return undefined;
-}
-
-function snippetAt(sql: string, offset: number, length = 48): string {
-  const start = Math.max(0, offset);
-  return sql.slice(start, start + length).replace(/\s+/g, " ").trim();
-}
-
-function tableRef(schema: string | undefined, name: string): TableRef {
-  return { kind: "table", name, schema: schema || DEFAULT_SCHEMA };
 }
 
 function dep(
@@ -52,160 +45,26 @@ function dep(
   return { category, confidence, location, object, snippet };
 }
 
-function collectRangeVars(
-  node: unknown
-): Array<{ alias: string; location: number; table: TableRef }> {
-  const found: Array<{ alias: string; location: number; table: TableRef }> = [];
-  walkAst(node, (kind, value) => {
-    if (kind !== "RangeVar") {
-      return;
-    }
-    const relname = typeof value.relname === "string" ? value.relname : undefined;
-    if (!relname) {
-      return;
-    }
-    const schema =
-      typeof value.schemaname === "string" ? value.schemaname : DEFAULT_SCHEMA;
-    const aliasNode = asRecord(value.alias);
-    const alias =
-      (aliasNode && typeof aliasNode.aliasname === "string"
-        ? aliasNode.aliasname
-        : relname) ?? relname;
-    found.push({
-      alias,
-      location: typeof value.location === "number" ? value.location : 0,
-      table: tableRef(schema, relname),
-    });
-  });
-  return found;
-}
-
-function extractQueryDependencies(
-  node: unknown,
-  filename: string,
-  sql: string,
-  baseOffset: number
-): SemanticDependency[] {
-  const dependencies: SemanticDependency[] = [];
-  const ranges = collectRangeVars(node);
-  const aliases = new Map<string, TableRef>();
-  for (const range of ranges) {
-    aliases.set(range.alias, range.table);
-    aliases.set(range.table.name, range.table);
-    const qualified = range.table.schema
-      ? `${range.table.schema}.${range.table.name}`
-      : undefined;
-    const location = locationFromOffset(
-      filename,
-      sql,
-      baseOffset + range.location
-    );
-    dependencies.push(
-      dep(
-        "REQUIRES_TABLE",
-        range.table,
-        range.table.schema === DEFAULT_SCHEMA && !range.table.schema
-          ? "probable"
-          : "certain",
-        location,
-        snippetAt(sql, baseOffset + range.location)
-      )
-    );
-    dependencies.push(
-      dep("READS", range.table, "certain", location, snippetAt(sql, baseOffset + range.location))
-    );
-    dependencies.push(
-      dep("REQUIRES_SCHEMA", { kind: "schema", name: range.table.schema }, "certain", location)
-    );
-    if (qualified) {
-      aliases.set(qualified, range.table);
-    }
+function ownedByNames(options: unknown): string[] | undefined {
+  if (!Array.isArray(options)) {
+    return;
   }
-
-  walkAst(node, (kind, value) => {
-    if (kind === "ColumnRef") {
-      const fields = Array.isArray(value.fields) ? value.fields : [];
-      const names = fields
-        .map((field) => pgString(field))
-        .filter((item): item is string => Boolean(item));
-      if (names.length === 0) {
-        return;
-      }
-      const location = locationFromOffset(
-        filename,
-        sql,
-        baseOffset + (typeof value.location === "number" ? value.location : 0)
-      );
-      if (names.length >= 2) {
-        const column = names[names.length - 1];
-        const alias = names[names.length - 2];
-        const table = aliases.get(alias);
-        if (table) {
-          dependencies.push(
-            dep(
-              "REQUIRES_COLUMN",
-              {
-                kind: "column",
-                name: column,
-                schema: table.schema,
-                table: table.name,
-              },
-              "certain",
-              location,
-              snippetAt(sql, baseOffset + (typeof value.location === "number" ? value.location : 0))
-            )
-          );
-        }
-      }
-      return;
+  for (const option of options) {
+    const def = asRecord(asRecord(option)?.DefElem) ?? asRecord(option);
+    if (!def || def.defname !== "owned_by") {
+      continue;
     }
-    if (kind === "FuncCall") {
-      const names = pgNameList(value.funcname);
-      if (names.length === 0) {
-        return;
-      }
-      const schema = names.length > 1 ? names[0] : DEFAULT_SCHEMA;
-      const name = names[names.length - 1];
-      if (name === "format") {
-        return;
-      }
-      dependencies.push(
-        dep(
-          "INVOKES",
-          { kind: "function", name, schema },
-          names.length > 1 ? "certain" : "probable",
-          locationFromOffset(
-            filename,
-            sql,
-            baseOffset + (typeof value.location === "number" ? value.location : 0)
-          )
-        )
-      );
-      dependencies.push(
-        dep(
-          "REQUIRES_FUNCTION",
-          { kind: "function", name, schema },
-          names.length > 1 ? "certain" : "probable"
-        )
-      );
-      return;
-    }
-    if (kind === "ExecuteStmt") {
-      dependencies.push({
-        category: "READS",
-        confidence: "dynamic",
-        object: { kind: "table", name: "<dynamic>", schema: DEFAULT_SCHEMA },
-        snippet: "EXECUTE",
-      });
-    }
-  });
-
-  return dependencies;
+    const list = asRecord(asRecord(def.arg)?.List);
+    const items = Array.isArray(list?.items) ? list.items : [];
+    return items
+      .map((item) => pgString(item))
+      .filter((item): item is string => Boolean(item));
+  }
 }
 
 function defElemArgString(options: unknown, name: string): string | undefined {
   if (!Array.isArray(options)) {
-    return undefined;
+    return;
   }
   for (const option of options) {
     const def = asRecord(asRecord(option)?.DefElem) ?? asRecord(option);
@@ -223,27 +82,244 @@ function defElemArgString(options: unknown, name: string): string | undefined {
       : Array.isArray(asRecord(arg)?.items)
         ? (asRecord(arg)?.items as unknown[])
         : undefined;
-    if (items && items[0]) {
-      return pgString(items[0]);
+    const first = items?.[0];
+    if (first) {
+      return pgString(first);
     }
   }
-  return undefined;
+}
+
+function isSqlWordStart(body: string, index: number): boolean {
+  if (index === 0) {
+    return true;
+  }
+  return !/[\w$]/u.test(body[index - 1] ?? "");
+}
+
+function readDollarTag(body: string, index: number): string | undefined {
+  const match = /^\$[A-Za-z0-9_]*\$/u.exec(body.slice(index));
+  return match?.[0];
+}
+
+/**
+ * Advance through SQL so WITH … (SELECT …) … ; stays one statement.
+ * Nested SELECT inside CTE parentheses must not start a new fragment.
+ */
+function endOfSqlStatement(body: string, start: number): number {
+  let index = start;
+  let depth = 0;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let inSingle = false;
+  let dollarTag: string | undefined;
+  while (index < body.length) {
+    const char = body[index];
+    const next = body[index + 1];
+    if (inLineComment) {
+      if (char === "\n") {
+        inLineComment = false;
+      }
+      index += 1;
+      continue;
+    }
+    if (inBlockComment) {
+      if (char === "*" && next === "/") {
+        inBlockComment = false;
+        index += 2;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+    if (dollarTag) {
+      if (body.startsWith(dollarTag, index)) {
+        index += dollarTag.length;
+        dollarTag = undefined;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+    if (inSingle) {
+      if (char === "'" && next === "'") {
+        index += 2;
+        continue;
+      }
+      if (char === "'") {
+        inSingle = false;
+      }
+      index += 1;
+      continue;
+    }
+    if (char === "-" && next === "-") {
+      inLineComment = true;
+      index += 2;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      inBlockComment = true;
+      index += 2;
+      continue;
+    }
+    if (char === "'") {
+      inSingle = true;
+      index += 1;
+      continue;
+    }
+    const tag = char === "$" ? readDollarTag(body, index) : undefined;
+    if (tag) {
+      dollarTag = tag;
+      index += tag.length;
+      continue;
+    }
+    if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth = Math.max(0, depth - 1);
+    } else if (char === ";" && depth === 0) {
+      return index + 1;
+    }
+    index += 1;
+  }
+  return -1;
+}
+
+function topLevelKeywordIndexes(body: string, keyword: string): number[] {
+  const indexes: number[] = [];
+  const upper = keyword.toUpperCase();
+  let index = 0;
+  let depth = 0;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let inSingle = false;
+  let dollarTag: string | undefined;
+  while (index < body.length) {
+    const char = body[index];
+    const next = body[index + 1];
+    if (inLineComment) {
+      if (char === "\n") {
+        inLineComment = false;
+      }
+      index += 1;
+      continue;
+    }
+    if (inBlockComment) {
+      if (char === "*" && next === "/") {
+        inBlockComment = false;
+        index += 2;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+    if (dollarTag) {
+      if (body.startsWith(dollarTag, index)) {
+        index += dollarTag.length;
+        dollarTag = undefined;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+    if (inSingle) {
+      if (char === "'" && next === "'") {
+        index += 2;
+        continue;
+      }
+      if (char === "'") {
+        inSingle = false;
+      }
+      index += 1;
+      continue;
+    }
+    if (char === "-" && next === "-") {
+      inLineComment = true;
+      index += 2;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      inBlockComment = true;
+      index += 2;
+      continue;
+    }
+    if (char === "'") {
+      inSingle = true;
+      index += 1;
+      continue;
+    }
+    const tag = char === "$" ? readDollarTag(body, index) : undefined;
+    if (tag) {
+      dollarTag = tag;
+      index += tag.length;
+      continue;
+    }
+    if (depth === 0 && isSqlWordStart(body, index)) {
+      const slice = body.slice(index, index + keyword.length);
+      if (slice.toUpperCase() === upper) {
+        const after = body[index + keyword.length];
+        if (!(after && /[\w$]/u.test(after))) {
+          indexes.push(index);
+        }
+      }
+    }
+    if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth = Math.max(0, depth - 1);
+    }
+    index += 1;
+  }
+  return indexes;
+}
+
+function functionParameterNames(node: PgAstNode): string[] {
+  const lists = [node.parameters, node.params];
+  const names: string[] = [];
+  for (const list of lists) {
+    if (!Array.isArray(list)) {
+      continue;
+    }
+    for (const item of list) {
+      const record =
+        asRecord(asRecord(item)?.FunctionParameter) ?? asRecord(item);
+      if (typeof record?.name === "string" && record.name.length > 0) {
+        names.push(record.name);
+      }
+    }
+  }
+  return names;
 }
 
 function plpgsqlSqlFragments(body: string): string[] {
+  const covered: Array<{ end: number; start: number }> = [];
   const fragments: string[] = [];
+  for (const start of topLevelKeywordIndexes(body, "WITH")) {
+    const end = endOfSqlStatement(body, start);
+    if (end <= start) {
+      continue;
+    }
+    fragments.push(body.slice(start, end));
+    covered.push({ end, start });
+  }
   const pattern =
     /\b(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|RETURN\s+QUERY)\b[\s\S]*?;/gi;
   let match = pattern.exec(body);
   while (match) {
-    fragments.push(match[0]);
+    const start = match.index;
+    const end = start + match[0].length;
+    const nested = covered.some(
+      (range) => start < range.end && end > range.start
+    );
+    if (!nested) {
+      fragments.push(match[0]);
+    }
     match = pattern.exec(body);
   }
   return fragments;
 }
 
 function isDynamicBody(body: string): boolean {
-  return /\bEXECUTE\b/i.test(body) && /\bformat\s*\(/i.test(body);
+  return /\bEXECUTE\b/i.test(body);
 }
 
 async function analyzeFunctionBody(
@@ -251,31 +327,62 @@ async function analyzeFunctionBody(
   language: string,
   filename: string,
   sql: string,
-  bodyOffset: number
+  bodyOffset: number,
+  parameters: readonly string[] = []
 ): Promise<{ dependencies: SemanticDependency[]; warnings: string[] }> {
   const warnings: string[] = [];
   const dependencies: SemanticDependency[] = [];
-  const fragments =
-    language === "plpgsql" ? plpgsqlSqlFragments(body) : [body];
+  const proceduralBindings =
+    language === "plpgsql" ? parsePlpgsqlBindings(body, parameters) : undefined;
+  if (proceduralBindings) {
+    for (const table of proceduralBindings.rowVariables.values()) {
+      dependencies.push({
+        category: "REQUIRES_TABLE",
+        confidence: "certain",
+        explicitlyQualified: Boolean(table.schema),
+        object: table,
+        resolution: "exact",
+      });
+    }
+  }
+  const fragments = language === "plpgsql" ? plpgsqlSqlFragments(body) : [body];
   if (isDynamicBody(body)) {
     dependencies.push({
       category: "READS",
       confidence: "dynamic",
-      object: { kind: "table", name: "<dynamic>", schema: DEFAULT_SCHEMA },
-      snippet: "EXECUTE format(...)",
+      object: { kind: "table", name: "<dynamic>", schema: "" },
+      resolution: "unverified",
+      snippet: "EXECUTE",
     });
-    warnings.push("Dynamic SQL detected; static dependency verification incomplete.");
+    warnings.push(
+      "Dynamic SQL detected; static dependency verification incomplete."
+    );
   }
   for (const fragment of fragments) {
     try {
       const parsed = await parsePostgresSql(fragment);
       for (const statement of parsed.statements) {
         dependencies.push(
-          ...extractQueryDependencies(statement.node, filename, sql, bodyOffset)
+          ...extractQueryDependencies(
+            statement.node,
+            filename,
+            sql,
+            bodyOffset,
+            { proceduralBindings }
+          )
         );
       }
     } catch {
-      warnings.push(`Unable to parse ${language} body fragment as SQL.`);
+      warnings.push(
+        `Unable to parse ${language} body fragment as SQL; treating as unverifiable.`
+      );
+      dependencies.push({
+        category: "READS",
+        confidence: "unknown",
+        object: { kind: "table", name: "<unverified>", schema: "" },
+        resolution: "unverified",
+        snippet: fragment.slice(0, 48),
+      });
     }
   }
   return { dependencies, warnings };
@@ -297,24 +404,32 @@ function emptyEffects(): MigrationEffects {
   return { creates: [], drops: [], modifies: [] };
 }
 
-function qualifiedName(node: PgAstNode, fallbackSchema = DEFAULT_SCHEMA): {
+function qualifiedName(
+  node: PgAstNode,
+  fallbackSchema = DEFAULT_SCHEMA
+): {
   name: string;
   schema: string;
 } {
   if (typeof node.relname === "string") {
     return {
       name: node.relname,
-      schema: typeof node.schemaname === "string" ? node.schemaname : fallbackSchema,
+      schema:
+        typeof node.schemaname === "string" ? node.schemaname : fallbackSchema,
     };
   }
   const names = pgNameList(node);
   if (names.length >= 2) {
-    return { schema: names[0], name: names[names.length - 1] };
+    return { name: names[names.length - 1], schema: names[0] };
   }
-  return { schema: fallbackSchema, name: names[0] ?? "unknown" };
+  return { name: names[0] ?? "unknown", schema: fallbackSchema };
 }
 
-function columnDefs(tableElts: unknown, schema: string, table: string): SchemaObjectRef[] {
+function columnDefs(
+  tableElts: unknown,
+  schema: string,
+  table: string
+): SchemaObjectRef[] {
   if (!Array.isArray(tableElts)) {
     return [];
   }
@@ -351,7 +466,8 @@ async function analyzeStatement(
   switch (kind) {
     case "CreateSchemaStmt": {
       statementKind = "create_schema";
-      const name = typeof node.schemaname === "string" ? node.schemaname : DEFAULT_SCHEMA;
+      const name =
+        typeof node.schemaname === "string" ? node.schemaname : DEFAULT_SCHEMA;
       object = { kind: "schema", name };
       effects = { creates: [object], drops: [], modifies: [] };
       break;
@@ -368,17 +484,29 @@ async function analyzeStatement(
         modifies: [],
       };
       dependencies.push(
-        dep("REQUIRES_SCHEMA", { kind: "schema", name: ident.schema }, "certain", loc)
+        dep(
+          "REQUIRES_SCHEMA",
+          { kind: "schema", name: ident.schema },
+          "certain",
+          loc
+        )
       );
       break;
     }
     case "CreateTableAsStmt": {
       statementKind = "create_table_as";
       const into = asRecord(asRecord(node.into)?.rel) ?? asRecord(node.into);
-      const ident = into ? qualifiedName(into) : { name: "unknown", schema: DEFAULT_SCHEMA };
+      const ident = into
+        ? qualifiedName(into)
+        : { name: "unknown", schema: DEFAULT_SCHEMA };
       object = { kind: "table", name: ident.name, schema: ident.schema };
       effects = { creates: [object], drops: [], modifies: [] };
-      dependencies = extractQueryDependencies(node.query ?? node, filename, sql, location);
+      dependencies = extractQueryDependencies(
+        node.query ?? node,
+        filename,
+        sql,
+        location
+      );
       break;
     }
     case "AlterTableStmt": {
@@ -395,7 +523,8 @@ async function analyzeStatement(
           continue;
         }
         if (alter.subtype === "AT_AddColumn") {
-          const def = asRecord(asRecord(alter.def)?.ColumnDef) ?? asRecord(alter.def);
+          const def =
+            asRecord(asRecord(alter.def)?.ColumnDef) ?? asRecord(alter.def);
           if (def && typeof def.colname === "string") {
             const column: SchemaObjectRef = {
               kind: "column",
@@ -407,7 +536,10 @@ async function analyzeStatement(
             modifies.push({ kind: "add_column", object: column });
           }
         }
-        if (alter.subtype === "AT_DropColumn" && typeof alter.name === "string") {
+        if (
+          alter.subtype === "AT_DropColumn" &&
+          typeof alter.name === "string"
+        ) {
           modifies.push({
             kind: "drop_column",
             object: {
@@ -436,14 +568,20 @@ async function analyzeStatement(
           const schema = names.length > 1 ? names[0] : DEFAULT_SCHEMA;
           const name = names[names.length - 1];
           dropped.push({ kind: "table", name, schema });
-        } else if (removeType.includes("FUNCTION") || removeType === "OBJECT_FUNCTION") {
+        } else if (
+          removeType.includes("FUNCTION") ||
+          removeType === "OBJECT_FUNCTION"
+        ) {
           statementKind = "drop_function";
-          const schema = names.length > 1 ? names[0] : DEFAULT_SCHEMA;
+          const schema = names.length > 1 ? names[0] : "";
           const name = names[names.length - 1];
           dropped.push({ kind: "function", name, schema });
-        } else if (removeType.includes("INDEX") || removeType === "OBJECT_INDEX") {
+        } else if (
+          removeType.includes("INDEX") ||
+          removeType === "OBJECT_INDEX"
+        ) {
           statementKind = "drop_index";
-          const schema = names.length > 1 ? names[0] : DEFAULT_SCHEMA;
+          const schema = names.length > 1 ? names[0] : "";
           const name = names[names.length - 1];
           dropped.push({ kind: "index", name, schema });
         }
@@ -466,21 +604,35 @@ async function analyzeStatement(
       };
       effects = { creates: [object], drops: [], modifies: [] };
       dependencies.push(
-        dep("REQUIRES_TABLE", { kind: "table", name: ident.name, schema: ident.schema }, "certain", loc)
+        dep(
+          "REQUIRES_TABLE",
+          { kind: "table", name: ident.name, schema: ident.schema },
+          "certain",
+          loc
+        )
       );
       break;
     }
     case "ViewStmt": {
-      statementKind = node.relkind === "m" ? "create_materialized_view" : "create_view";
+      statementKind =
+        node.relkind === "m" ? "create_materialized_view" : "create_view";
       const view = asRecord(node.view) ?? {};
       const ident = qualifiedName(view);
       object = {
-        kind: statementKind === "create_materialized_view" ? "materialized_view" : "view",
+        kind:
+          statementKind === "create_materialized_view"
+            ? "materialized_view"
+            : "view",
         name: ident.name,
         schema: ident.schema,
       };
       effects = { creates: [object], drops: [], modifies: [] };
-      dependencies = extractQueryDependencies(node.query ?? node, filename, sql, location);
+      dependencies = extractQueryDependencies(
+        node.query ?? node,
+        filename,
+        sql,
+        location
+      );
       break;
     }
     case "CreateFunctionStmt": {
@@ -491,10 +643,19 @@ async function analyzeStatement(
       statementKind = isProcedure ? "create_procedure" : "create_function";
       object = { kind: isProcedure ? "function" : "function", name, schema };
       effects = { creates: [object], drops: [], modifies: [] };
-      const language = (defElemArgString(node.options, "language") ?? "sql").toLowerCase();
+      const language = (
+        defElemArgString(node.options, "language") ?? "sql"
+      ).toLowerCase();
       const body = defElemArgString(node.options, "as") ?? "";
       const bodyOffset = location;
-      const analyzed = await analyzeFunctionBody(body, language, filename, sql, bodyOffset);
+      const analyzed = await analyzeFunctionBody(
+        body,
+        language,
+        filename,
+        sql,
+        bodyOffset,
+        functionParameterNames(node)
+      );
       dependencies = analyzed.dependencies;
       warnings.push(...analyzed.warnings);
       break;
@@ -503,11 +664,22 @@ async function analyzeStatement(
       statementKind = "create_trigger";
       const relation = asRecord(node.relation) ?? {};
       const ident = qualifiedName(relation);
-      const trigName = typeof node.trigname === "string" ? node.trigname : "trigger";
-      object = { kind: "trigger", name: trigName, schema: ident.schema, table: ident.name };
+      const trigName =
+        typeof node.trigname === "string" ? node.trigname : "trigger";
+      object = {
+        kind: "trigger",
+        name: trigName,
+        schema: ident.schema,
+        table: ident.name,
+      };
       effects = { creates: [object], drops: [], modifies: [] };
       dependencies.push(
-        dep("REQUIRES_TABLE", { kind: "table", name: ident.name, schema: ident.schema }, "certain", loc)
+        dep(
+          "REQUIRES_TABLE",
+          { kind: "table", name: ident.name, schema: ident.schema },
+          "certain",
+          loc
+        )
       );
       const funcnames = pgNameList(node.funcname);
       if (funcnames.length > 0) {
@@ -517,7 +689,7 @@ async function analyzeStatement(
             {
               kind: "function",
               name: funcnames[funcnames.length - 1],
-              schema: funcnames.length > 1 ? funcnames[0] : DEFAULT_SCHEMA,
+              schema: funcnames.length > 1 ? funcnames[0] : "",
             },
             "certain",
             loc
@@ -528,18 +700,31 @@ async function analyzeStatement(
     }
     case "CreatePolicyStmt":
     case "AlterPolicyStmt": {
-      statementKind = kind === "CreatePolicyStmt" ? "create_policy" : "alter_policy";
+      statementKind =
+        kind === "CreatePolicyStmt" ? "create_policy" : "alter_policy";
       const table = asRecord(node.table) ?? {};
       const ident = qualifiedName(table);
-      const policyName = typeof node.policy_name === "string" ? node.policy_name : "policy";
-      object = { kind: "policy", name: policyName, schema: ident.schema, table: ident.name };
+      const policyName =
+        typeof node.policy_name === "string" ? node.policy_name : "policy";
+      object = {
+        kind: "policy",
+        name: policyName,
+        schema: ident.schema,
+        table: ident.name,
+      };
       effects = {
         creates: kind === "CreatePolicyStmt" ? [object] : [],
         drops: [],
-        modifies: kind === "AlterPolicyStmt" ? [{ kind: "alter_policy", object }] : [],
+        modifies:
+          kind === "AlterPolicyStmt" ? [{ kind: "alter_policy", object }] : [],
       };
       dependencies.push(
-        dep("REQUIRES_TABLE", { kind: "table", name: ident.name, schema: ident.schema }, "certain", loc)
+        dep(
+          "REQUIRES_TABLE",
+          { kind: "table", name: ident.name, schema: ident.schema },
+          "certain",
+          loc
+        )
       );
       break;
     }
@@ -554,16 +739,65 @@ async function analyzeStatement(
       break;
     }
     case "CreateSeqStmt": {
-      statementKind = "other";
+      statementKind = "create_sequence";
       const seq = asRecord(node.sequence) ?? {};
       const ident = qualifiedName(seq);
       object = { kind: "sequence", name: ident.name, schema: ident.schema };
       effects = { creates: [object], drops: [], modifies: [] };
       break;
     }
+    case "AlterSeqStmt": {
+      const seq = asRecord(node.sequence) ?? {};
+      const ident = qualifiedName(seq);
+      object = { kind: "sequence", name: ident.name, schema: ident.schema };
+      dependencies.push(
+        dep(
+          "REQUIRES_SEQUENCE",
+          { kind: "sequence", name: ident.name, schema: ident.schema },
+          "certain",
+          loc
+        )
+      );
+      const ownedBy = ownedByNames(node.options);
+      if (
+        ownedBy &&
+        !(ownedBy.length === 1 && ownedBy[0]?.toLowerCase() === "none")
+      ) {
+        const column = ownedBy[ownedBy.length - 1];
+        const table =
+          ownedBy.length >= 2 ? ownedBy[ownedBy.length - 2] : undefined;
+        const schema =
+          ownedBy.length >= 3 ? ownedBy[ownedBy.length - 3] : DEFAULT_SCHEMA;
+        if (column && table) {
+          dependencies.push(
+            dep(
+              "REQUIRES_TABLE",
+              { kind: "table", name: table, schema },
+              "certain",
+              loc
+            )
+          );
+          dependencies.push(
+            dep(
+              "REQUIRES_COLUMN",
+              {
+                kind: "column",
+                name: column,
+                schema,
+                table,
+              },
+              "certain",
+              loc
+            )
+          );
+        }
+      }
+      break;
+    }
     case "CreateExtensionStmt": {
       statementKind = "create_extension";
-      const name = typeof node.extname === "string" ? node.extname : "extension";
+      const name =
+        typeof node.extname === "string" ? node.extname : "extension";
       object = { kind: "extension", name };
       effects = { creates: [object], drops: [], modifies: [] };
       break;
@@ -574,14 +808,28 @@ async function analyzeStatement(
     case "CommentStmt":
       statementKind = "comment";
       break;
-    default:
+    default: {
       dependencies = extractQueryDependencies(node, filename, sql, location);
-      if (kind === "InsertStmt" || kind === "UpdateStmt" || kind === "DeleteStmt") {
-        for (const range of collectRangeVars(node)) {
-          dependencies.push(dep("WRITES", range.table, "certain", loc));
+      if (
+        kind === "InsertStmt" ||
+        kind === "UpdateStmt" ||
+        kind === "DeleteStmt"
+      ) {
+        const target = writeTargetFromNode(node);
+        if (target) {
+          object = target.table;
+          dependencies.push(
+            dep(
+              "WRITES",
+              target.table,
+              target.explicitlyQualified ? "certain" : "probable",
+              loc
+            )
+          );
         }
       }
       break;
+    }
   }
 
   return {
@@ -596,18 +844,25 @@ async function analyzeStatement(
   };
 }
 
-function uniqueDeps(dependencies: SemanticDependency[]): SemanticDependency[] {
-  const seen = new Set<string>();
-  const result: SemanticDependency[] = [];
-  for (const item of dependencies) {
-    const key = `${item.category}:${item.confidence}:${formatObjectRef(item.object)}:${item.object.kind}`;
-    if (seen.has(key)) {
+function parseMigrationDirectives(sql: string): SchemaObjectRef[] {
+  const requires: SchemaObjectRef[] = [];
+  for (const line of sql.split(/\r?\n/)) {
+    const match = /^\s*--\s*requires-table:\s+([\w.]+)/i.exec(line);
+    if (!match?.[1]) {
       continue;
     }
-    seen.add(key);
-    result.push(item);
+    const parts = match[1].split(".").filter((part) => part.length > 0);
+    if (parts.length >= 2) {
+      requires.push({
+        kind: "table",
+        name: parts[parts.length - 1],
+        schema: parts[0],
+      });
+    } else if (parts[0]) {
+      requires.push({ kind: "table", name: parts[0], schema: "" });
+    }
   }
-  return result;
+  return requires;
 }
 
 /**
@@ -619,6 +874,7 @@ export async function analyzeMigrationFile(
   const parsed = await parsePostgresSql(file.sql);
   const statements: SemanticStatement[] = [];
   const warnings: string[] = [];
+  let statementIndex = 0;
   for (const statement of parsed.statements) {
     const analyzed = await analyzeStatement(
       statement.kind,
@@ -628,13 +884,26 @@ export async function analyzeMigrationFile(
       statement.location,
       statement.length
     );
+    const owner = analyzed.statement.object;
+    analyzed.statement.dependencies = analyzed.statement.dependencies.map(
+      (item) => ({
+        ...item,
+        owner: item.owner ?? owner,
+        statementIndex,
+      })
+    );
     statements.push(analyzed.statement);
     warnings.push(...analyzed.warnings);
+    statementIndex += 1;
   }
-  const dependencies = uniqueDeps(statements.flatMap((item) => item.dependencies));
+  const declaredRequires = parseMigrationDirectives(file.sql);
+  const dependencies = uniqueDeps(
+    statements.flatMap((item) => item.dependencies)
+  );
   const effects = mergeEffects(...statements.map((item) => item.effects));
   return {
     checksum: file.checksum,
+    declaredRequires,
     dependencies,
     effects,
     filename: file.filename,

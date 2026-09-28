@@ -1,23 +1,23 @@
 import type { AthenaAuthImplementedDomainEvent } from "./events.ts";
 import type {
-	AthenaAuthAfterHookPayload,
-	AthenaAuthBeforeHookPayload,
-	AthenaAuthHookErrorInput,
+  AthenaAuthAfterHookPayload,
+  AthenaAuthBeforeHookPayload,
+  AthenaAuthHookErrorInput,
 } from "./types.ts";
 
-type AthenaAuthHooksInput = {
-	after?: {
-		[K in AthenaAuthImplementedDomainEvent]?: (
-			payload: AthenaAuthAfterHookPayload<K>,
-		) => void;
-	};
-	before?: {
-		[K in AthenaAuthImplementedDomainEvent]?: (
-			payload: AthenaAuthBeforeHookPayload<K>,
-		) => void;
-	};
-	onError?: (input: AthenaAuthHookErrorInput) => void;
-};
+interface AthenaAuthHooksInput {
+  after?: {
+    [K in AthenaAuthImplementedDomainEvent]?: (
+      payload: AthenaAuthAfterHookPayload<K>
+    ) => void;
+  };
+  before?: {
+    [K in AthenaAuthImplementedDomainEvent]?: (
+      payload: AthenaAuthBeforeHookPayload<K>
+    ) => void;
+  };
+  onError?: (input: AthenaAuthHookErrorInput) => void;
+}
 
 /**
  * Identity helper so hook callbacks are contextually typed per event.
@@ -25,7 +25,7 @@ type AthenaAuthHooksInput = {
  * `handler | handler[]` and make destructured params implicit `any`.
  */
 export function defineAthenaAuthHooks<T extends AthenaAuthHooksInput>(
-	hooks: T,
+  hooks: T
 ): T {
-	return hooks;
+  return hooks;
 }

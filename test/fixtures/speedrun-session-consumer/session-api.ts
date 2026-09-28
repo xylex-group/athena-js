@@ -9,25 +9,25 @@ import type { UseSessionResult } from "../../../src/react/use-session.ts";
 export type AppSession = AthenaSessionData;
 
 export function mapServerSession(
-	result: GetServerSessionResult,
+  result: GetServerSessionResult
 ): AppSession | null {
-	if (!result.ok) {
-		throw new Error(result.error.message);
-	}
-	if (!result.authenticated) {
-		return null;
-	}
-	return result.data;
+  if (!result.ok) {
+    throw new Error(result.error.message);
+  }
+  if (!result.authenticated) {
+    return null;
+  }
+  return result.data;
 }
 
 export function readHookOrg(session: UseSessionResult): string | null {
-	return session.organizationId;
+  return session.organizationId;
 }
 
 export function bindResolver(resolver: ServerSessionResolver) {
-	return {
-		getSession: () => resolver.getSession(),
-		getSessionOrNull: () => resolver.getSessionOrNull(),
-		requireSession: () => resolver.requireSession(),
-	};
+  return {
+    getSession: () => resolver.getSession(),
+    getSessionOrNull: () => resolver.getSessionOrNull(),
+    requireSession: () => resolver.requireSession(),
+  };
 }

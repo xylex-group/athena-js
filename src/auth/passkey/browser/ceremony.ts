@@ -1,14 +1,15 @@
 import type { AthenaPasskeyHint } from "../../types.ts";
 import { formatPasskeyDiscoverabilityDiagnostic } from "./diagnostic.ts";
 import {
-  toPublicKeyCredentialCreationOptions,
-  toPublicKeyCredentialRequestOptions,
   type PasskeyBrowserOptionsInput,
   type PasskeyBrowserRpIdFallback,
+  toPublicKeyCredentialCreationOptions,
+  toPublicKeyCredentialRequestOptions,
 } from "./options.ts";
-import {
-  serializeAuthenticationCredential,
-  serializeRegistrationCredential,
+
+export {
+  serializeAssertedPasskey,
+  serializeCreatedPasskey,
 } from "./serialize.ts";
 
 export type PasskeyCreationOptionsWithHints =
@@ -46,7 +47,7 @@ function ensureBrowserWebAuthn(flow: string): void {
 
 function asHints(value: unknown): AthenaPasskeyHint[] | undefined {
   if (!Array.isArray(value)) {
-    return undefined;
+    return;
   }
   const hints = value.filter(
     (entry): entry is AthenaPasskeyHint =>
@@ -70,9 +71,9 @@ export function applyPasskeyRegistrationOverrides(
   }
   const authenticatorAttachment = payload.authenticatorAttachment;
   const hints = asHints(payload.hints);
-  const extensions = asRecord(payload.extensions) as
-    | AuthenticationExtensionsClientInputs
-    | null;
+  const extensions = asRecord(
+    payload.extensions
+  ) as AuthenticationExtensionsClientInputs | null;
   const next: PasskeyCreationOptionsWithHints = {
     ...options,
     extensions: extensions
@@ -97,15 +98,97 @@ export function applyPasskeyRegistrationOverrides(
   return next;
 }
 
+let activeCredentialRequest:
+  | {
+      controller: AbortController;
+      settled: Promise<void>;
+    }
+  | undefined;
+
+function createAbortError(cause?: unknown): Error {
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  if (cause !== undefined) {
+    Object.assign(error, { cause });
+  }
+  return error;
+}
+
+export function isAlreadyPendingWebAuthnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const name = "name" in error ? String(error.name) : "";
+  const message = "message" in error ? String(error.message).toLowerCase() : "";
+  return (
+    message.includes("request is already pending") ||
+    (name === "InvalidStateError" && message.includes("pending"))
+  );
+}
+
+export function resetWebAuthnCeremonyLockForTests(): void {
+  activeCredentialRequest = undefined;
+}
+
+/**
+ * At most one navigator.credentials.create/get may be owned in this browsing
+ * context. Aborting the prior signal is not enough; the previous promise must
+ * settle before the next native ceremony starts.
+ */
+async function withExclusiveWebAuthnCeremony<T>(
+  callerSignal: AbortSignal | undefined,
+  operate: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const previous = activeCredentialRequest;
+  previous?.controller.abort();
+  if (previous) {
+    await previous.settled;
+  }
+
+  if (callerSignal?.aborted) {
+    throw createAbortError();
+  }
+
+  const controller = new AbortController();
+  const onCallerAbort = (): void => {
+    controller.abort();
+  };
+  callerSignal?.addEventListener("abort", onCallerAbort);
+
+  let settle = (): void => undefined;
+  const settled = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
+  const owned = { controller, settled };
+  activeCredentialRequest = owned;
+
+  try {
+    return await operate(controller.signal);
+  } catch (error) {
+    if (isAlreadyPendingWebAuthnError(error)) {
+      throw createAbortError(error);
+    }
+    throw error;
+  } finally {
+    callerSignal?.removeEventListener("abort", onCallerAbort);
+    settle();
+    if (activeCredentialRequest === owned) {
+      activeCredentialRequest = undefined;
+    }
+  }
+}
+
 export async function createPasskeyCredential(
   publicKey: PasskeyCreationOptionsWithHints,
   signal?: AbortSignal
 ): Promise<Credential | null> {
   ensureBrowserWebAuthn("passkey.register");
-  return navigator.credentials.create({
-    publicKey,
-    ...(signal ? { signal } : {}),
-  });
+  return withExclusiveWebAuthnCeremony(signal, (ownedSignal) =>
+    navigator.credentials.create({
+      publicKey,
+      signal: ownedSignal,
+    })
+  );
 }
 
 export async function getPasskeyCredential(
@@ -114,11 +197,13 @@ export async function getPasskeyCredential(
   signal?: AbortSignal
 ): Promise<Credential | null> {
   ensureBrowserWebAuthn("passkey.signIn");
-  return navigator.credentials.get({
-    ...(mediation ? { mediation } : {}),
-    ...(signal ? { signal } : {}),
-    publicKey,
-  });
+  return withExclusiveWebAuthnCeremony(signal, (ownedSignal) =>
+    navigator.credentials.get({
+      ...(mediation ? { mediation } : {}),
+      publicKey,
+      signal: ownedSignal,
+    })
+  );
 }
 
 export function creationOptionsFromWire(
@@ -142,14 +227,6 @@ export function requestOptionsFromWire(
   fallback?: PasskeyBrowserRpIdFallback
 ): PublicKeyCredentialRequestOptions {
   return toPublicKeyCredentialRequestOptions(options, fallback);
-}
-
-export function serializeCreatedPasskey(credential: unknown): string {
-  return JSON.stringify(serializeRegistrationCredential(credential));
-}
-
-export function serializeAssertedPasskey(credential: unknown): string {
-  return JSON.stringify(serializeAuthenticationCredential(credential));
 }
 
 export function noAssertionDiagnostic(input: {

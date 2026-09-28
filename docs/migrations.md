@@ -84,7 +84,7 @@ Auth SQL on the dedicated Auth ledger/lock.
 Override in `athena.config.ts`:
 
 ```ts
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {

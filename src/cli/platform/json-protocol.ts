@@ -2,64 +2,64 @@ import { CLI_JSON_SCHEMA_VERSION } from "./constants.ts";
 import type { CliDiagnostic } from "./result.ts";
 
 export interface CliJsonErrorBody {
-	code: string;
-	message: string;
-	hint?: string;
-	details?: Record<string, unknown>;
+  code: string;
+  details?: Record<string, unknown>;
+  hint?: string;
+  message: string;
 }
 
 export interface CliJsonSuccess<T = unknown> {
-	schemaVersion: typeof CLI_JSON_SCHEMA_VERSION;
-	command: string;
-	ok: true;
-	data: T;
-	warnings?: CliDiagnostic[];
-	meta?: {
-		durationMs: number;
-	};
+  command: string;
+  data: T;
+  meta?: {
+    durationMs: number;
+  };
+  ok: true;
+  schemaVersion: typeof CLI_JSON_SCHEMA_VERSION;
+  warnings?: CliDiagnostic[];
 }
 
 export interface CliJsonFailure {
-	schemaVersion: typeof CLI_JSON_SCHEMA_VERSION;
-	command: string;
-	ok: false;
-	error: CliJsonErrorBody;
+  command: string;
+  error: CliJsonErrorBody;
+  ok: false;
+  schemaVersion: typeof CLI_JSON_SCHEMA_VERSION;
 }
 
 export type CliJsonEnvelope<T = unknown> = CliJsonSuccess<T> | CliJsonFailure;
 
 export function encodeCliJsonSuccess<T>(
-	command: string,
-	data: T,
-	options: { durationMs?: number; warnings?: CliDiagnostic[] } = {},
+  command: string,
+  data: T,
+  options: { durationMs?: number; warnings?: CliDiagnostic[] } = {}
 ): CliJsonSuccess<T> {
-	const envelope: CliJsonSuccess<T> = {
-		schemaVersion: CLI_JSON_SCHEMA_VERSION,
-		command,
-		ok: true,
-		data,
-	};
-	if (options.warnings && options.warnings.length > 0) {
-		envelope.warnings = options.warnings;
-	}
-	if (options.durationMs !== undefined) {
-		envelope.meta = { durationMs: options.durationMs };
-	}
-	return envelope;
+  const envelope: CliJsonSuccess<T> = {
+    command,
+    data,
+    ok: true,
+    schemaVersion: CLI_JSON_SCHEMA_VERSION,
+  };
+  if (options.warnings && options.warnings.length > 0) {
+    envelope.warnings = options.warnings;
+  }
+  if (options.durationMs !== undefined) {
+    envelope.meta = { durationMs: options.durationMs };
+  }
+  return envelope;
 }
 
 export function encodeCliJsonFailure(
-	command: string,
-	error: CliJsonErrorBody,
+  command: string,
+  error: CliJsonErrorBody
 ): CliJsonFailure {
-	return {
-		schemaVersion: CLI_JSON_SCHEMA_VERSION,
-		command,
-		ok: false,
-		error,
-	};
+  return {
+    command,
+    error,
+    ok: false,
+    schemaVersion: CLI_JSON_SCHEMA_VERSION,
+  };
 }
 
 export function stringifyCliJson(envelope: CliJsonEnvelope): string {
-	return JSON.stringify(envelope, null, 2);
+  return JSON.stringify(envelope, null, 2);
 }

@@ -1,3 +1,5 @@
+import type { MigrationExecutionTransform } from "../types.ts";
+
 export type ReconciliationClassification =
   | "CONSISTENT"
   | "SOURCE_DRIFT"
@@ -16,10 +18,12 @@ export type ReconciliationClassification =
 
 export type ReconciliationConfidence = "HIGH" | "MEDIUM" | "AMBIGUOUS";
 
+export type PhysicalMatchEvidence = boolean | "unknown";
+
 export type MigrationReconciliationAction =
   | {
       fromChecksum: string;
-      kind: "repair-ledger";
+      kind: "record-ledger-drift";
       toChecksum: string;
       version: number;
     }
@@ -38,7 +42,11 @@ export type MigrationReconciliationAction =
 
 export interface ArchivedMigrationSource {
   checksum: string;
+  executionChecksum?: string;
   executionId?: string;
+  executionSql?: string;
+  executionTransformId?: string;
+  executionTransformVersion?: string;
   sourceBlobSha?: string;
   sourceCommit?: string;
   sourcePath?: string;
@@ -49,6 +57,8 @@ export interface ArchivedMigrationSource {
 export interface RepositoryMigrationTruth {
   checksum: string;
   committed: boolean;
+  executionSql?: string;
+  executionTransform?: MigrationExecutionTransform;
   filename: string;
   gitBlobSha?: string;
   name: string;
@@ -59,6 +69,9 @@ export interface RepositoryMigrationTruth {
 
 export interface LedgerMigrationTruth {
   checksum: string;
+  executionChecksum?: string;
+  executionTransformId?: string;
+  executionTransformVersion?: string;
   name: string;
   postSchemaFingerprint?: string;
   sourceBlobSha?: string;
@@ -69,11 +82,13 @@ export interface LedgerMigrationTruth {
 
 export interface ReconciliationEvidence {
   archiveChecksum?: string;
-  laterDependenciesSatisfied: boolean;
-  physicalMatchesArchive: boolean;
-  physicalMatchesRepository: boolean;
-  repositoryCommitted: boolean;
+  archiveExecutionMatchesLedger: boolean;
   competingArchive: boolean;
+  executionMatchesLedger: boolean;
+  laterDependenciesSatisfied: boolean;
+  physicalMatchesArchive: PhysicalMatchEvidence;
+  physicalMatchesRepository: PhysicalMatchEvidence;
+  repositoryCommitted: boolean;
 }
 
 export interface VersionReconciliation {

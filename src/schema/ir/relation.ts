@@ -3,8 +3,8 @@ import type { SchemaObjectId } from "./identity.ts";
 export type SchemaRelationCardinality = "1:1" | "1:n" | "n:1" | "n:n";
 
 export interface SchemaRelationThrough {
-  readonly tableId: SchemaObjectId | string;
   readonly sourceColumns: readonly string[];
+  readonly tableId: SchemaObjectId | string;
   readonly targetColumns: readonly string[];
 }
 
@@ -13,13 +13,13 @@ export interface SchemaRelationThrough {
  * Cardinalities: 1:1, 1:n, n:1, n:n. Optional through + backingConstraintIds.
  */
 export interface SchemaRelation {
-  readonly id: SchemaObjectId;
-  readonly cardinality: SchemaRelationCardinality;
-  readonly sourceTableId: SchemaObjectId | string;
-  readonly targetTableId: SchemaObjectId | string;
-  readonly sourceColumns?: readonly string[];
-  readonly targetColumns?: readonly string[];
-  readonly through?: SchemaRelationThrough;
   readonly backingConstraintIds: readonly string[];
+  readonly cardinality: SchemaRelationCardinality;
+  readonly id: SchemaObjectId;
   readonly name?: string | null;
+  readonly sourceColumns?: readonly string[];
+  readonly sourceTableId: SchemaObjectId | string;
+  readonly targetColumns?: readonly string[];
+  readonly targetTableId: SchemaObjectId | string;
+  readonly through?: SchemaRelationThrough;
 }

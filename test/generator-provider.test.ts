@@ -236,6 +236,15 @@ test("resolveGeneratorProvider supports direct postgres provider from pg_url con
   ) => Promise<{ rows: QueryResultRow[] }>) = createMinimalPgCatalogMock();
   (Pool.prototype.end as unknown as () => Promise<void>) = async () =>
     undefined;
+  const originalConnect = Pool.prototype.connect;
+  const catalogQuery = createMinimalPgCatalogMock();
+  (Pool.prototype.connect as unknown as () => Promise<{
+    query: typeof catalogQuery;
+    release: () => void;
+  }>) = async () => ({
+    query: catalogQuery,
+    release() {},
+  });
 
   try {
     const provider = resolveGeneratorProvider(
@@ -258,6 +267,7 @@ test("resolveGeneratorProvider supports direct postgres provider from pg_url con
   } finally {
     Pool.prototype.query = originalQuery;
     Pool.prototype.end = originalEnd;
+    Pool.prototype.connect = originalConnect;
   }
 });
 
@@ -344,6 +354,15 @@ test("resolveGeneratorProvider direct postgres mode uses config schemas when ins
   };
   (Pool.prototype.end as unknown as () => Promise<void>) = async () =>
     undefined;
+  const originalConnect = Pool.prototype.connect;
+  const mockedQuery = Pool.prototype.query.bind(Pool.prototype);
+  (Pool.prototype.connect as unknown as () => Promise<{
+    query: typeof mockedQuery;
+    release: () => void;
+  }>) = async () => ({
+    query: mockedQuery,
+    release() {},
+  });
 
   try {
     const provider = resolveGeneratorProvider(
@@ -368,6 +387,7 @@ test("resolveGeneratorProvider direct postgres mode uses config schemas when ins
   } finally {
     Pool.prototype.query = originalQuery;
     Pool.prototype.end = originalEnd;
+    Pool.prototype.connect = originalConnect;
   }
 });
 

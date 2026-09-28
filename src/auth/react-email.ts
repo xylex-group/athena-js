@@ -108,7 +108,12 @@ async function resolveReactEmailRenderModule(): Promise<ReactEmailRenderModule> 
   if (!reactEmailRenderModulePromise) {
     reactEmailRenderModulePromise = (async () => {
       try {
-        const loaded = await import("@react-email/render");
+        const specifier = ["@react-email", "render"].join("/");
+        const loaded = (await import(
+          /* webpackIgnore: true */
+          /* @vite-ignore */
+          specifier
+        )) as ReactEmailRenderModule & { render?: unknown };
         if (!isFunction(loaded.render)) {
           throw new Error("missing render(...) export");
         }

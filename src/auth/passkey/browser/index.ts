@@ -4,11 +4,11 @@ export {
   createPasskeyCredential,
   creationOptionsFromWire,
   getPasskeyCredential,
+  isAlreadyPendingWebAuthnError,
   noAssertionDiagnostic,
-  requestOptionsFromWire,
-  serializeAssertedPasskey,
-  serializeCreatedPasskey,
   type PasskeyCreationOptionsWithHints,
+  requestOptionsFromWire,
+  resetWebAuthnCeremonyLockForTests,
 } from "./ceremony.ts";
 export {
   formatPasskeyDiscoverabilityDiagnostic,
@@ -17,13 +17,17 @@ export {
   type PasskeyDiscoverabilityDiagnosticInput,
 } from "./diagnostic.ts";
 export {
+  type PasskeyBrowserOptionsInput,
+  type PasskeyBrowserRpIdFallback,
   resolvePasskeyRpId,
   toPublicKeyCredentialCreationOptions,
   toPublicKeyCredentialRequestOptions,
-  type PasskeyBrowserOptionsInput,
-  type PasskeyBrowserRpIdFallback,
 } from "./options.ts";
 export {
+  type AthenaPasskeyAuthenticationWire,
+  type AthenaPasskeyRegistrationWire,
+  serializeAssertedPasskey,
   serializeAuthenticationCredential,
+  serializeCreatedPasskey,
   serializeRegistrationCredential,
 } from "./serialize.ts";

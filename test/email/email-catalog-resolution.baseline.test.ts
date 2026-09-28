@@ -10,8 +10,9 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-
+import * as emailPublic from "../../src/auth/email/index.ts";
 import {
+  type AthenaAuthEmailTemplateRow,
   AUTH_EMAIL_EVENT_CATALOG,
   authEmailEvents,
   builtinAuthEmailBody,
@@ -20,9 +21,7 @@ import {
   emitAuthEmail,
   getAuthEmailEventDefinition,
   renderAuthEmailFragment,
-  type AthenaAuthEmailTemplateRow,
 } from "../../src/auth/email/index.ts";
-import * as emailPublic from "../../src/auth/email/index.ts";
 import { MemoryAuthEmailStore } from "../../src/auth/local/email/store.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -152,7 +151,10 @@ test("B-CAT-PRIVATE-RESOLVE: resolveTemplate is private; no exported resolver", 
   const emitSrc = readFileSync(join(emailDir, "emit.ts"), "utf8");
   const indexSrc = readFileSync(join(emailDir, "index.ts"), "utf8");
   assert.match(emitSrc, /async function resolveTemplate\(/);
-  assert.equal(emitSrc.includes("export async function resolveTemplate"), false);
+  assert.equal(
+    emitSrc.includes("export async function resolveTemplate"),
+    false
+  );
   assert.equal(indexSrc.includes("resolveTemplate"), false);
   assert.equal(indexSrc.includes("resolveAuthEmailTemplate"), false);
   assert.equal("resolveAuthEmailTemplate" in emailPublic, false);
@@ -171,7 +173,10 @@ test("B-CAT-FLAT-DATA: EmitAuthEmailInput.data is Record<string, string>; no Pas
   assert.equal(emailSources.includes("PasswordResetTemplateData"), false);
   assert.equal(emailSources.includes("VerifyEmailTemplateData"), false);
   assert.equal(emailSources.includes("flattenAuthEmailTemplateData"), false);
-  assert.equal(emailSources.includes("assertAuthEmailRequiredVariables"), false);
+  assert.equal(
+    emailSources.includes("assertAuthEmailRequiredVariables"),
+    false
+  );
   assert.equal("PasswordResetTemplateData" in emailPublic, false);
   assert.equal(
     renderAuthEmailFragment("Reset {{reset_url}}", {
@@ -240,7 +245,10 @@ test("B-CAT-INACTIVE: inactive stored row does not mask builtin", async () => {
   assert.equal(result.success, true);
   assert.equal(provider.messages[0]?.subject, "Reset your password");
   assert.equal(String(provider.messages[0]?.text).includes("INACTIVE"), false);
-  assert.match(String(provider.messages[0]?.text), /https:\/\/app\.example\/reset/);
+  assert.match(
+    String(provider.messages[0]?.text),
+    /https:\/\/app\.example\/reset/
+  );
 });
 
 test("B-CAT-FALLBACK-EN: active en override used when requested locale has no row", async () => {
@@ -292,8 +300,14 @@ test("B-CAT-NO-PREFIX: request nl-NL does not pick stored nl (CURRENT gap vs Rus
   );
   assert.equal(result.success, true);
   assert.equal(provider.messages[0]?.subject, "Reset your password");
-  assert.equal(String(provider.messages[0]?.subject).includes("OVERRIDE-NL"), false);
-  assert.equal(String(provider.messages[0]?.text).includes("OVERRIDE-NL"), false);
+  assert.equal(
+    String(provider.messages[0]?.subject).includes("OVERRIDE-NL"),
+    false
+  );
+  assert.equal(
+    String(provider.messages[0]?.text).includes("OVERRIDE-NL"),
+    false
+  );
 });
 
 test("B-CAT-WORKFLOWS-DEFAULT-EN: emitMail call sites omit locale (defaults en)", () => {
@@ -305,7 +319,9 @@ test("B-CAT-WORKFLOWS-DEFAULT-EN: emitMail call sites omit locale (defaults en)"
     join(pkgRoot, "src/auth/local/extended-routes.ts"),
     "utf8"
   );
-  const runtimeCalls = [...runtimeSrc.matchAll(/await emitMail\(\{([\s\S]*?)\}\);/g)];
+  const runtimeCalls = [
+    ...runtimeSrc.matchAll(/await emitMail\(\{([\s\S]*?)\}\);/g),
+  ];
   const extendedCalls = [
     ...extendedSrc.matchAll(/await ctx\.emitMail\?\.\(\{([\s\S]*?)\}\);/g),
   ];

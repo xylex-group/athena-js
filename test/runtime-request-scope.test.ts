@@ -36,7 +36,7 @@ test("T-runtime-scope: request close() throws and does not dispose the root PG r
     databaseUrl: SAMPLE_PG,
     env: {},
   });
-  const view = root.withContext({ userId: "u1", organizationId: "org-a" });
+  const view = root.withContext({ organizationId: "org-a", userId: "u1" });
   const runtime = getAthenaClientInternals(root)?.postgresRuntime;
   assert.ok(runtime);
   const closeView = view as unknown as typeof root;

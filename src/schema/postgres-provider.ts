@@ -1,7 +1,7 @@
 import {
-  type AthenaPostgresPool,
-  createPostgresPool,
-} from "../postgres/driver.ts";
+  type AthenaPostgresRuntime,
+  createAthenaPostgresRuntime,
+} from "../postgres/owned-runtime.ts";
 import {
   type ColumnQueryRow,
   type EnumQueryRow,
@@ -29,19 +29,22 @@ export interface PostgresIntrospectionProviderOptions {
 }
 
 class PgCatalogClient {
-  constructor(private readonly pool: AthenaPostgresPool) {}
+  constructor(private readonly runtime: AthenaPostgresRuntime) {}
 
   async queryColumns(schemas: string[]): Promise<ColumnQueryRow[]> {
-    const result = await this.pool.query<ColumnQueryRow>(
+    const result = await this.runtime.query<ColumnQueryRow>(
       POSTGRES_CATALOG_SQL.columns,
-      [schemas]
+      [schemas],
+      { workload: "introspection" }
     );
     return result.rows;
   }
 
   async queryEnums(): Promise<Map<number, string[]>> {
-    const result = await this.pool.query<EnumQueryRow>(
-      POSTGRES_CATALOG_SQL.enums
+    const result = await this.runtime.query<EnumQueryRow>(
+      POSTGRES_CATALOG_SQL.enums,
+      undefined,
+      { workload: "introspection" }
     );
     const enumMap = new Map<number, string[]>();
     for (const row of result.rows) {
@@ -53,17 +56,19 @@ class PgCatalogClient {
   }
 
   async queryPrimaryKeys(schemas: string[]): Promise<PrimaryKeyQueryRow[]> {
-    const result = await this.pool.query<PrimaryKeyQueryRow>(
+    const result = await this.runtime.query<PrimaryKeyQueryRow>(
       POSTGRES_CATALOG_SQL.primaryKeys,
-      [schemas]
+      [schemas],
+      { workload: "introspection" }
     );
     return result.rows;
   }
 
   async queryForeignKeys(schemas: string[]): Promise<ForeignKeyQueryRow[]> {
-    const result = await this.pool.query<ForeignKeyQueryRow>(
+    const result = await this.runtime.query<ForeignKeyQueryRow>(
       POSTGRES_CATALOG_SQL.foreignKeys,
-      [schemas]
+      [schemas],
+      { workload: "introspection" }
     );
     return result.rows;
   }
@@ -71,17 +76,19 @@ class PgCatalogClient {
   async queryUniqueConstraints(
     schemas: string[]
   ): Promise<UniqueConstraintQueryRow[]> {
-    const result = await this.pool.query<UniqueConstraintQueryRow>(
+    const result = await this.runtime.query<UniqueConstraintQueryRow>(
       POSTGRES_CATALOG_SQL.uniqueConstraints,
-      [schemas]
+      [schemas],
+      { workload: "introspection" }
     );
     return result.rows;
   }
 
   async queryIndexes(schemas: string[]): Promise<IndexQueryRow[]> {
-    const result = await this.pool.query<IndexQueryRow>(
+    const result = await this.runtime.query<IndexQueryRow>(
       POSTGRES_CATALOG_SQL.indexes,
-      [schemas]
+      [schemas],
+      { workload: "introspection" }
     );
     return result.rows;
   }
@@ -104,11 +111,13 @@ class PostgresIntrospectionProvider implements SchemaIntrospectionProvider {
     options?: IntrospectionInspectOptions
   ): Promise<IntrospectionSnapshot> {
     const schemas =
-          options?.schemas && options.schemas.length > 0
-            ? normalizePostgresCatalogSchemas(options.schemas)
-            : this.schemas;
-        const pool = await createPostgresPool(this.connectionString);
-        const catalogClient = new PgCatalogClient(pool);
+      options?.schemas && options.schemas.length > 0
+        ? normalizePostgresCatalogSchemas(options.schemas)
+        : this.schemas;
+    const runtime = createAthenaPostgresRuntime({
+      connectionString: this.connectionString,
+    });
+    const catalogClient = new PgCatalogClient(runtime);
 
     try {
       const [
@@ -142,7 +151,7 @@ class PostgresIntrospectionProvider implements SchemaIntrospectionProvider {
         schemas: assembler.toSchemas(),
       };
     } finally {
-      await pool.end();
+      await runtime.close();
     }
   }
 }

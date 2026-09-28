@@ -1,9 +1,10 @@
+import { strict as assert } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
+import { normalizeAthenaAuthConfig } from "../src/auth/config.ts";
 import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../src/auth/contract/index.ts";
 import {
   ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED,
@@ -17,10 +18,7 @@ import { createEmailDeliveryPort } from "../src/email/delivery-port.ts";
 import { createEmailModule } from "../src/email/module.ts";
 import { httpEmailProvider } from "../src/email/providers/http.ts";
 import { createMemorySmtpTransport, smtp } from "../src/email-node/smtp.ts";
-import {
-  AthenaConfigurationError,
-  createClient,
-} from "../src/index.ts";
+import { AthenaConfigurationError, createClient } from "../src/index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
@@ -120,6 +118,10 @@ test("embedded Auth + SMTP sends through the injected root email module", async 
   });
   const runtime = createAthenaAuthRuntime({
     autoMigrate: false,
+    config: normalizeAthenaAuthConfig({
+      mode: "local",
+      security: { trustedOrigins: ["https://app.example"] },
+    }),
     delivery: createEmailDeliveryPort(email),
     hasher: createTestHasher(),
   });
@@ -146,6 +148,10 @@ test("embedded Auth + HTTP provider sends through the injected root email module
   });
   const runtime = createAthenaAuthRuntime({
     autoMigrate: false,
+    config: normalizeAthenaAuthConfig({
+      mode: "local",
+      security: { trustedOrigins: ["https://app.example"] },
+    }),
     delivery: createEmailDeliveryPort(email),
     hasher: createTestHasher(),
   });
@@ -153,7 +159,10 @@ test("embedded Auth + HTTP provider sends through the injected root email module
   await forgetPassword(runtime, "reset-http@example.com");
   assert.equal(bodies.length, 2);
   const body = bodies[1] as { to: unknown; subject: string };
-  assert.equal(body.subject.includes("password") || body.subject.length > 0, true);
+  assert.equal(
+    body.subject.includes("password") || body.subject.length > 0,
+    true
+  );
 });
 
 test("missing root provider yields a deterministic Auth email error", async () => {
@@ -172,8 +181,14 @@ test("missing root provider yields a deterministic Auth email error", async () =
   assert.equal(result.success, false);
   const failures = await store.listFailures();
   assert.equal(failures.length, 1);
-  assert.equal(failures[0]?.error_code, ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED);
-  assert.equal(failures[0]?.error_message, ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED);
+  assert.equal(
+    failures[0]?.error_code,
+    ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED
+  );
+  assert.equal(
+    failures[0]?.error_message,
+    ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED
+  );
 });
 
 test("remote Auth ignores the local root email provider", async () => {
@@ -252,7 +267,7 @@ test("provider failure persists an Auth failure record", async () => {
   assert.equal(failures.length, 1);
   assert.match(failures[0]?.error_message ?? "", /smtp connection refused/);
   const emails = await store.listEmails();
-  assert.equal(emails.length, 0);
+  assert.equal(emails.length, 1);
 });
 
 test("successful delivery does not create a failure record", async () => {

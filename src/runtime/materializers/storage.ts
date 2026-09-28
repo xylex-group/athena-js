@@ -1,148 +1,121 @@
 /**
- * Node storage materializer — local ObjectStore bind / HTTP module stays on core.
+ * Node storage materializer — plan-selected provider plus opaque handles.
  */
 
-import type { AthenaClientModelsInput } from "../../schema/types.ts";
 import { createLocalStorageModule } from "../../storage/local.ts";
-import type { AthenaStorageModule } from "../../storage/module.ts";
-import {
-	bindStorageProvider,
-	bindStorageRuntime,
-	createStorageRuntime,
-	getStorageProvider,
-} from "../../storage/runtime/index.ts";
+import { createStorageRuntime } from "../../storage/runtime/index.ts";
 import { createLocalStorageProvider } from "../../storage/runtime/providers/local-provider.ts";
 import { createR2StorageProvider } from "../../storage/runtime/providers/r2-provider.ts";
 import {
-	createS3StorageProvider,
-	isAthenaS3ObjectClient,
+  createS3StorageProvider,
+  isAthenaS3ObjectClient,
 } from "../../storage/runtime/providers/s3-provider.ts";
-import type { AthenaStorageLifecycleHooks } from "../../storage/runtime/types.ts";
+import { ATHENA_LOCAL_OBJECT_STORE } from "../../storage/runtime.ts";
 import {
-	bindLocalObjectStore,
-	getLocalObjectStore,
-	isLocalStorageConfig,
-	isS3StorageConfig,
-} from "../../storage/runtime.ts";
-import {
-	type AthenaClientConfig,
-	AthenaConfigurationError,
-	normalizeOptional,
-} from "../../v3-client-core.ts";
+  ATHENA_STORAGE_PROVIDER,
+  ATHENA_STORAGE_RUNTIME,
+} from "../../storage/runtime/types.ts";
+import { AthenaConfigurationError } from "../../config/errors.ts";
 import type { AthenaRuntimePlan } from "../plan/types.ts";
+import type {
+  AthenaRuntimeConfigBindings,
+  AthenaStorageRuntimeResources,
+} from "../construction/types.ts";
 
-function isR2StorageConfig(
-	storage: unknown,
-): storage is { prefix?: string | null; r2: { get: unknown; put: unknown } } {
-	return Boolean(
-		storage &&
-			typeof storage === "object" &&
-			typeof (storage as { r2?: { get?: unknown; put?: unknown } }).r2?.get ===
-				"function" &&
-			typeof (storage as { r2?: { put?: unknown } }).r2?.put === "function",
-	);
+export interface AthenaMaterializedStorage {
+  readonly bindings: Pick<AthenaRuntimeConfigBindings<never>, "storage">;
 }
 
-function attachRuntime<TStorage extends object>(
-	storage: TStorage,
-	lifecycle?: AthenaStorageLifecycleHooks,
-): TStorage {
-	const provider = getStorageProvider(storage);
-	if (!provider) {
-		return storage;
-	}
-	return bindStorageRuntime(
-		storage,
-		createStorageRuntime({
-			lifecycle,
-			provider,
-		}),
-	);
+function bindingFor(
+  provider: NonNullable<AthenaStorageRuntimeResources["existingProvider"]>,
+  resources: AthenaStorageRuntimeResources,
+): AthenaMaterializedStorage {
+  const runtime =
+    resources.existingRuntime ??
+    createStorageRuntime({
+      lifecycle: resources.lifecycle,
+      provider,
+    });
+  return {
+    bindings: {
+      storage: {
+        ...(resources.existingLocalStore
+          ? { [ATHENA_LOCAL_OBJECT_STORE]: resources.existingLocalStore }
+          : {}),
+        [ATHENA_STORAGE_PROVIDER]: provider,
+        [ATHENA_STORAGE_RUNTIME]: runtime,
+      },
+    },
+  };
 }
 
-export function materializeStorage<
-	TModels extends AthenaClientModelsInput | undefined,
->(
-	config: AthenaClientConfig<TModels>,
-	_plan?: AthenaRuntimePlan,
-): AthenaClientConfig<TModels> {
-	if (isLocalStorageConfig(config.storage)) {
-		const root = normalizeOptional(config.storage.root);
-		if (!root) {
-			throw new AthenaConfigurationError(
-				"ATHENA_RUNTIME_CONFIG_INVALID",
-				'storage.provider "local" requires a filesystem root.',
-				"storage",
-			);
-		}
-		const store: AthenaStorageModule =
-			getLocalObjectStore<AthenaStorageModule>(config.storage) ??
-			createLocalStorageModule({
-				prefix: config.storage.prefix,
-				root,
-			});
-		const withStore = getLocalObjectStore(config.storage)
-			? config.storage
-			: bindLocalObjectStore(config.storage, store);
-		const provider =
-			getStorageProvider(withStore) ?? createLocalStorageProvider(store);
-		const next: AthenaClientConfig<TModels> = {
-			...config,
-			storage: attachRuntime(
-				bindStorageProvider(withStore, provider),
-				config.lifecycle?.storage,
-			),
-		};
-		if (next.capabilities && !config.capabilities) {
-			next.capabilities = {
-				...next.capabilities,
-				storage: {
-					...next.capabilities.storage,
-					local: true,
-					objects: true,
-				},
-			};
-		}
-		return next;
-	}
+function materializeStorageBinding(
+  plan: AthenaRuntimePlan,
+  resources: AthenaStorageRuntimeResources,
+): AthenaMaterializedStorage {
+  if (plan.storage.transport === "local") {
+    if (!plan.storage.root) {
+      throw new AthenaConfigurationError(
+        "ATHENA_RUNTIME_CONFIG_INVALID",
+        'storage.provider "local" requires a filesystem root.',
+        "storage",
+      );
+    }
+    const store =
+      resources.existingLocalStore ??
+      createLocalStorageModule({
+        prefix: plan.storage.prefix,
+        root: plan.storage.root,
+      });
+    const provider =
+      resources.existingProvider ?? createLocalStorageProvider(store);
+    return bindingFor(provider, { ...resources, existingLocalStore: store });
+  }
 
-	if (isR2StorageConfig(config.storage)) {
-		const provider =
-			getStorageProvider(config.storage) ??
-			createR2StorageProvider(config.storage.r2 as never, config.storage.prefix);
-		return {
-			...config,
-			storage: attachRuntime(
-				bindStorageProvider(config.storage, provider),
-				config.lifecycle?.storage,
-			),
-		};
-	}
+  if (plan.storage.transport === "r2") {
+    if (!resources.r2) {
+      throw new AthenaConfigurationError(
+        "ATHENA_RUNTIME_CONFIG_INVALID",
+        'storage provider "r2" requires an injected R2 binding.',
+        "storage",
+      );
+    }
+    const provider =
+      resources.existingProvider ??
+      createR2StorageProvider(resources.r2, plan.storage.prefix);
+    return bindingFor(provider, resources);
+  }
 
-	if (isS3StorageConfig(config.storage)) {
-		const bucket = normalizeOptional(config.storage.bucket);
-		if (!bucket || !isAthenaS3ObjectClient(config.storage.s3)) {
-			throw new AthenaConfigurationError(
-				"ATHENA_RUNTIME_CONFIG_INVALID",
-				'storage.provider "s3" requires a bucket and an injected S3 object client (getObject/putObject/headObject/deleteObject/listObjectsV2).',
-				"storage",
-			);
-		}
-		const provider =
-			getStorageProvider(config.storage) ??
-			createS3StorageProvider({
-				bucket,
-				prefix: config.storage.prefix,
-				s3: config.storage.s3,
-			});
-		return {
-			...config,
-			storage: attachRuntime(
-				bindStorageProvider(config.storage, provider),
-				config.lifecycle?.storage,
-			),
-		};
-	}
+  if (plan.storage.transport === "s3") {
+    if (
+      !plan.storage.bucket ||
+      !resources.s3 ||
+      !isAthenaS3ObjectClient(resources.s3)
+    ) {
+      throw new AthenaConfigurationError(
+        "ATHENA_RUNTIME_CONFIG_INVALID",
+        'storage.provider "s3" requires a bucket and an injected S3 object client (getObject/putObject/headObject/deleteObject/listObjectsV2).',
+        "storage",
+      );
+    }
+    const provider =
+      resources.existingProvider ??
+      createS3StorageProvider({
+        bucket: plan.storage.bucket,
+        prefix: plan.storage.prefix,
+        s3: resources.s3,
+      });
+    return bindingFor(provider, resources);
+  }
 
-	return config;
+  return { bindings: {} };
 }
+
+export function materializeStoragePlan(
+  plan: AthenaRuntimePlan,
+  resources: AthenaStorageRuntimeResources,
+): AthenaMaterializedStorage {
+  return materializeStorageBinding(plan, resources);
+}
+
+export { materializeStorageCompat as materializeStorage } from "../compat/materializers.ts";

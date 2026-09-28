@@ -9,13 +9,10 @@ import {
   resolveAthenaQueryTarget,
 } from "../query/descriptor.ts";
 import {
-  describeQueryEnvelope,
+  type AthenaNormalizedQueryPage,
   extractResultRows,
   isCollectionOperation,
   mapResultRows,
-  materializeNormalizedQueryPage,
-  mergeEntityRow,
-  type AthenaNormalizedQueryPage,
   mutationTouchesQueryMembership,
   queryDependsOnRelationTarget,
   removeResultRows,
@@ -26,121 +23,31 @@ import type { AthenaEntityKey } from "../query/model-identity.ts";
 import {
   athenaEntityKeyToken,
   createAthenaEntityKey,
-  entityKeyFromSinglePrimary,
 } from "../query/model-identity.ts";
-import { AthenaQueryGraphIndex } from "../query/query-index.ts";
 import type { AthenaModelTarget } from "../schema/types.ts";
+import {
+  EntityStore,
+  resolveModelRowKey,
+} from "./query-client/entity-store.ts";
+import { QueryClientGraphIndex } from "./query-client/graph-index.ts";
+import type { ExecuteMutationInput } from "./query-client/mutation-store.ts";
+import { MutationStore } from "./query-client/mutation-store.ts";
+import {
+  type ExecuteQueryInput,
+  type QueryEntry,
+  QueryStore,
+} from "./query-client/query-store.ts";
 import type {
-  AthenaCacheMode,
   AthenaInvalidateQueriesFilters,
   AthenaMutationDefaults,
-  AthenaMutationEvent,
-  AthenaMutationRequestLog,
-  AthenaMutationResultData,
-  AthenaMutationState,
   AthenaQueryClientConfig,
   AthenaQueryDefaults,
-  AthenaQueryEvent,
-  AthenaQueryRequestLog,
-  AthenaQueryResult,
-  AthenaQueryState,
   AthenaRuntimeEvent,
   AthenaStateAdapter,
   AthenaUnsubscribe,
   QueryKey,
 } from "./types.ts";
-import {
-  matchesQueryKey,
-  normalizeAthenaError,
-  normalizeAthenaResult,
-  runWithRetry,
-  safeSerializeQueryKey,
-} from "./utils.ts";
-
-interface ExecuteQueryInput<TQueryFnData, TData> {
-  cacheMode?: AthenaCacheMode;
-  dedupe?: boolean;
-  descriptor?: AthenaQueryDescriptor;
-  force?: boolean;
-  model?: AthenaModelTarget;
-  queryFn: (context?: { signal?: AbortSignal }) => Promise<TQueryFnData>;
-  signal?: AbortSignal;
-  queryKey: QueryKey;
-  queryKeyToken: string;
-  retry?: number | false;
-  retryDelay?: number | ((attempt: number) => number);
-  select?: (data: TQueryFnData) => TData;
-}
-
-interface ExecuteMutationInput<TVariables, TMutationFnData, TData> {
-  mutationFn: (variables: TVariables) => Promise<TMutationFnData>;
-  mutationKey?: QueryKey;
-  mutationKeyToken: string;
-  retry?: number | false;
-  retryDelay?: number | ((attempt: number) => number);
-  select?: (data: TMutationFnData) => TData;
-  variables: TVariables;
-}
-
-interface QueryEntry {
-  activeRequestId: number;
-  cacheMode?: AthenaCacheMode;
-  descriptor?: AthenaQueryDescriptor;
-  entityRefs?: string[];
-  gcTimer?: ReturnType<typeof setTimeout>;
-  normalizedPage?: AthenaNormalizedQueryPage;
-  key: string;
-  listeners: Set<() => void>;
-  model?: AthenaModelTarget;
-  queryFn?: (context?: { signal?: AbortSignal }) => Promise<unknown>;
-  queryKey?: QueryKey;
-  retry?: number | false;
-  retryDelay?: number | ((attempt: number) => number);
-  select?: (data: unknown) => unknown;
-  state: AthenaQueryState<unknown>;
-}
-
-interface MutationEntry {
-  activeRequestId: number;
-  gcTimer?: ReturnType<typeof setTimeout>;
-  key: string;
-  listeners: Set<() => void>;
-  state: AthenaMutationState<unknown, unknown>;
-}
-
-function createInitialQueryState<TData>(
-  initialData?: TData
-): AthenaQueryState<TData> {
-  return {
-    data: initialData,
-    error: null,
-    isFetching: false,
-    status: initialData === undefined ? "idle" : "success",
-    updatedAt: initialData === undefined ? undefined : Date.now(),
-  };
-}
-
-function createInitialMutationState<TVariables, TData>(): AthenaMutationState<
-  TVariables,
-  TData
-> {
-  return {
-    data: undefined,
-    error: null,
-    isLoading: false,
-    lastResponse: undefined,
-    lastVariables: undefined,
-    status: "idle",
-    updatedAt: undefined,
-  };
-}
-
-function shouldUseMemoryCache(
-  config: AthenaQueryClientConfig,
-  override?: AthenaCacheMode
-): boolean {
-  return (override ?? config.cache?.mode) === "memory";
-}
+import { matchesQueryKey, safeSerializeQueryKey } from "./utils.ts";
 
 export interface AthenaCacheTransaction {
   insert(queryKey: QueryKey, row: Record<string, unknown>): void;
@@ -150,7 +57,9 @@ export interface AthenaCacheTransaction {
     id: unknown,
     updater:
       | Record<string, unknown>
-      | ((current: Record<string, unknown> | undefined) => Record<string, unknown>)
+      | ((
+          current: Record<string, unknown> | undefined
+        ) => Record<string, unknown>)
   ): void;
 }
 
@@ -179,21 +88,11 @@ export interface AthenaModelCache<TRow = Record<string, unknown>> {
   ): TRow;
 }
 
-interface EntityEntry {
-  data: Record<string, unknown>;
-  key: AthenaEntityKey;
-  updatedAt: number;
-}
-
 export class AthenaQueryClient {
-  private readonly queryEntries = new Map<string, QueryEntry>();
-  private readonly mutationEntries = new Map<string, MutationEntry>();
-  private readonly entityEntries = new Map<string, EntityEntry>();
-  private readonly graphIndex = new AthenaQueryGraphIndex();
-  private readonly inflightQueries = new Map<
-    string,
-    Promise<AthenaQueryResult<unknown>>
-  >();
+  private readonly entities = new EntityStore();
+  private readonly graph = new QueryClientGraphIndex();
+  private readonly queries: QueryStore;
+  private readonly mutations: MutationStore;
   private readonly eventSubscribers = new Set<
     (event: AthenaRuntimeEvent) => void
   >();
@@ -227,6 +126,24 @@ export class AthenaQueryClient {
       retry: config.defaultMutationOptions?.retry ?? 0,
       retryDelay: config.defaultMutationOptions?.retryDelay,
     };
+    this.queries = new QueryStore({
+      config: this.config,
+      emitEvent: (event) => this.emitEvent(event),
+      entities: this.entities,
+      graph: this.graph,
+      nextRequestId: () => {
+        this.requestCounter += 1;
+        return this.requestCounter;
+      },
+    });
+    this.mutations = new MutationStore({
+      config: this.config,
+      emitEvent: (event) => this.emitEvent(event),
+      nextRequestId: () => {
+        this.requestCounter += 1;
+        return this.requestCounter;
+      },
+    });
   }
 
   getQueryKeyToken(queryKey: QueryKey): string {
@@ -241,48 +158,24 @@ export class AthenaQueryClient {
   }
 
   getQueryData<TData = unknown>(queryKey: QueryKey): TData | undefined {
-    const token = this.getQueryKeyToken(queryKey);
-    const entry = this.queryEntries.get(token);
-    if (!entry) {
-      return;
-    }
-    return this.materializeEntry(entry) as TData | undefined;
+    return this.queries.getQueryData(this.getQueryKeyToken(queryKey));
   }
 
   getNormalizedQueryPage(
     queryKey: QueryKey
   ): AthenaNormalizedQueryPage | undefined {
-    return this.queryEntries.get(this.getQueryKeyToken(queryKey))
-      ?.normalizedPage;
+    return this.queries.getNormalizedPage(this.getQueryKeyToken(queryKey));
   }
 
   setQueryData<TData>(
     queryKey: QueryKey,
     updater: TData | ((previous: TData | undefined) => TData)
   ): TData {
-    const token = this.getQueryKeyToken(queryKey);
-    const entry = this.ensureQueryEntry(token);
-    entry.queryKey = queryKey;
-    entry.normalizedPage = undefined;
-    entry.activeRequestId = ++this.requestCounter;
-    const previous = this.materializeEntry(entry) as TData | undefined;
-    const next =
-      typeof updater === "function"
-        ? (updater as (value: TData | undefined) => TData)(previous)
-        : updater;
-    const finishedAt = Date.now();
-    this.setQueryState(
-      entry,
-      {
-        ...entry.state,
-        data: next,
-        error: null,
-        status: "success",
-        updatedAt: finishedAt,
-      },
-      "query_updated"
+    return this.queries.setQueryData(
+      queryKey,
+      this.getQueryKeyToken(queryKey),
+      updater
     );
-    return next;
   }
 
   async invalidateQueries(
@@ -292,7 +185,7 @@ export class AthenaQueryClient {
     const shouldRefetch = filters.refetch !== false;
     const matched: QueryEntry[] = [];
 
-    for (const entry of this.queryEntries.values()) {
+    for (const entry of this.queries.values()) {
       if (entry.queryKey === undefined) {
         continue;
       }
@@ -306,7 +199,7 @@ export class AthenaQueryClient {
 
     const refetches: Promise<unknown>[] = [];
     for (const entry of matched) {
-      this.setQueryState(
+      this.queries.setState(
         entry,
         {
           ...entry.state,
@@ -322,7 +215,7 @@ export class AthenaQueryClient {
         entry.queryKey !== undefined
       ) {
         refetches.push(
-          this.executeQuery({
+          this.queries.execute({
             cacheMode: entry.cacheMode,
             dedupe: true,
             force: true,
@@ -344,7 +237,7 @@ export class AthenaQueryClient {
 
   async prefetch(executable: AthenaExecutable<unknown>): Promise<void> {
     const descriptor = executable.getDescriptor();
-    await this.executeQuery({
+    await this.queries.execute({
       cacheMode: "memory",
       descriptor,
       force: false,
@@ -357,14 +250,11 @@ export class AthenaQueryClient {
 
   dehydrate(): AthenaDehydratedCache {
     return {
-      entities: [...this.entityEntries.entries()].map(([token, entry]) => ({
-        data: entry.data,
-        token,
-      })),
-      queries: [...this.queryEntries.values()]
+      entities: this.entities.dehydrate(),
+      queries: [...this.queries.values()]
         .filter((entry) => entry.queryKey && entry.state.data !== undefined)
         .map((entry) => ({
-          data: this.materializeEntry(entry),
+          data: this.queries.materialize(entry),
           descriptor: entry.descriptor,
           normalizedPage: entry.normalizedPage,
           queryKey: entry.queryKey as QueryKey,
@@ -374,32 +264,22 @@ export class AthenaQueryClient {
   }
 
   hydrate(state: AthenaDehydratedCache): void {
-    for (const entity of state.entities) {
-      this.entityEntries.set(entity.token, {
-        data: entity.data,
-        key: {
-          context: null,
-          model: { table: "" },
-          primaryKey: [],
-        },
-        updatedAt: Date.now(),
-      });
-    }
+    this.entities.ingestDehydrated(state.entities);
     for (const query of state.queries) {
       const token = this.getQueryKeyToken(query.queryKey);
-      const entry = this.ensureQueryEntry(token);
+      const entry = this.queries.ensure(token);
       entry.queryKey = query.queryKey;
       entry.descriptor = query.descriptor;
       entry.normalizedPage = query.normalizedPage;
       if (query.descriptor) {
-        this.graphIndex.indexQuery(token, query.descriptor);
+        this.graph.indexQuery(token, query.descriptor);
       }
       if (query.normalizedPage) {
         for (const entityToken of query.normalizedPage.entities) {
-          this.graphIndex.indexEntity(token, entityToken);
+          this.graph.indexEntity(token, entityToken);
         }
       }
-      this.setQueryState(
+      this.queries.setState(
         entry,
         {
           ...entry.state,
@@ -424,11 +304,15 @@ export class AthenaQueryClient {
   async transaction<T>(
     work: (cache: AthenaCacheTransaction) => Promise<T> | T
   ): Promise<T> {
-    const snapshot = this.snapshotCache();
+    const snapshot = {
+      entities: this.entities.snapshot(),
+      queries: this.queries.snapshot(),
+    };
     try {
       return await work(this.createTransactionHandle());
     } catch (error) {
-      this.restoreSnapshot(snapshot);
+      this.entities.restore(snapshot.entities);
+      this.queries.restoreSnapshot(snapshot.queries);
       throw error;
     }
   }
@@ -436,9 +320,7 @@ export class AthenaQueryClient {
   getEntity<TRow = Record<string, unknown>>(
     key: AthenaEntityKey
   ): TRow | undefined {
-    return this.entityEntries.get(athenaEntityKeyToken(key))?.data as
-      | TRow
-      | undefined;
+    return this.entities.get<TRow>(key);
   }
 
   reconcileExecutable(
@@ -539,60 +421,23 @@ export class AthenaQueryClient {
   }
 
   getMutationKeyToken(mutationKey?: QueryKey): string {
-    if (mutationKey === undefined || mutationKey === null) {
-      return "__mutation__default__";
-    }
-    return safeSerializeQueryKey(mutationKey as QueryKey);
+    return this.mutations.token(mutationKey);
   }
 
-  getQueryState<TData = unknown>(key: string): AthenaQueryState<TData> {
-    const entry = this.ensureQueryEntry(key);
-    return entry.state as AthenaQueryState<TData>;
+  getQueryState<TData = unknown>(key: string) {
+    return this.queries.getState<TData>(key);
   }
 
-  getMutationState<TVariables = unknown, TData = unknown>(
-    key: string
-  ): AthenaMutationState<TVariables, TData> {
-    const entry = this.ensureMutationEntry(key);
-    return entry.state as AthenaMutationState<TVariables, TData>;
+  getMutationState<TVariables = unknown, TData = unknown>(key: string) {
+    return this.mutations.getState<TVariables, TData>(key);
   }
 
   subscribeQuery(key: string, listener: () => void): AthenaUnsubscribe {
-    const entry = this.ensureQueryEntry(key);
-    if (entry.gcTimer) {
-      clearTimeout(entry.gcTimer);
-      entry.gcTimer = undefined;
-    }
-    entry.listeners.add(listener);
-    return () => {
-      const current = this.queryEntries.get(key);
-      if (!current) {
-        return;
-      }
-      current.listeners.delete(listener);
-      if (current.listeners.size === 0) {
-        this.scheduleQueryGc(current);
-      }
-    };
+    return this.queries.subscribe(key, listener);
   }
 
   subscribeMutation(key: string, listener: () => void): AthenaUnsubscribe {
-    const entry = this.ensureMutationEntry(key);
-    if (entry.gcTimer) {
-      clearTimeout(entry.gcTimer);
-      entry.gcTimer = undefined;
-    }
-    entry.listeners.add(listener);
-    return () => {
-      const current = this.mutationEntries.get(key);
-      if (!current) {
-        return;
-      }
-      current.listeners.delete(listener);
-      if (current.listeners.size === 0) {
-        this.scheduleMutationGc(current);
-      }
-    };
+    return this.mutations.subscribe(key, listener);
   }
 
   subscribeEvents(
@@ -612,577 +457,23 @@ export class AthenaQueryClient {
   }
 
   resetQuery(queryKey: QueryKey): void {
-    const key = this.getQueryKeyToken(queryKey);
-    const entry = this.ensureQueryEntry(key);
-    entry.activeRequestId = ++this.requestCounter;
-    this.setQueryState(entry, createInitialQueryState(), "query_reset");
-    this.inflightQueries.delete(key);
+    this.queries.reset(this.getQueryKeyToken(queryKey));
   }
 
   resetMutation(mutationKey?: QueryKey): void {
-    const key = this.getMutationKeyToken(mutationKey);
-    const entry = this.ensureMutationEntry(key);
-    entry.activeRequestId = ++this.requestCounter;
-    this.setMutationState(
-      entry,
-      createInitialMutationState(),
-      "mutation_reset"
-    );
+    this.mutations.reset(mutationKey);
   }
 
-  async executeQuery<TQueryFnData, TData = TQueryFnData>(
+  executeQuery<TQueryFnData, TData = TQueryFnData>(
     input: ExecuteQueryInput<TQueryFnData, TData>
-  ): Promise<AthenaQueryResult<TData>> {
-    const entry = this.ensureQueryEntry(input.queryKeyToken);
-    entry.queryKey = input.queryKey;
-    entry.queryFn = input.queryFn;
-    entry.retry = input.retry;
-    entry.retryDelay = input.retryDelay;
-    entry.select = input.select as ((data: unknown) => unknown) | undefined;
-    if (input.cacheMode !== undefined) {
-      entry.cacheMode = input.cacheMode;
-    }
-    if (input.descriptor) {
-      if (entry.descriptor) {
-        this.graphIndex.unindexQuery(entry.key, entry.descriptor, entry.entityRefs);
-      }
-      entry.descriptor = input.descriptor;
-      this.graphIndex.indexQuery(entry.key, input.descriptor);
-    }
-    if (input.model) {
-      entry.model = input.model;
-    }
-
-    if (input.dedupe !== false) {
-      const existing = this.inflightQueries.get(input.queryKeyToken);
-      if (existing) {
-        return existing as Promise<AthenaQueryResult<TData>>;
-      }
-    }
-
-    if (
-      !input.force &&
-      shouldUseMemoryCache(this.config, input.cacheMode ?? entry.cacheMode)
-    ) {
-      const staleTime = this.config.cache?.staleTime ?? 0;
-      const hasFreshData =
-        entry.state.status === "success" &&
-        entry.state.data !== undefined &&
-        entry.state.updatedAt !== undefined &&
-        Date.now() - entry.state.updatedAt <= staleTime;
-      if (hasFreshData) {
-        return {
-          __applied: true,
-          data: entry.state.data as TData,
-          error: null,
-          raw: entry.state.lastResponse ?? entry.state.data,
-          status: 200,
-        } as AthenaQueryResult<TData>;
-      }
-    }
-
-    const requestId = ++this.requestCounter;
-    entry.activeRequestId = requestId;
-
-    const startRequestLog: AthenaQueryRequestLog = {
-      attempt: 1,
-      queryKey: input.queryKey,
-      queryKeyToken: input.queryKeyToken,
-      requestId,
-      startedAt: Date.now(),
-    };
-
-    const loadingStatus =
-      entry.state.data === undefined ? "loading" : entry.state.status;
-    this.setQueryState(
-      entry,
-      {
-        ...entry.state,
-        error: null,
-        isFetching: true,
-        lastRequest: startRequestLog,
-        status: loadingStatus,
-      },
-      "query_updated"
-    );
-
-    const executionPromise = runWithRetry(
-      async (attempt) => {
-        const attemptRequestLog: AthenaQueryRequestLog = {
-          ...startRequestLog,
-          attempt,
-        };
-
-        if (entry.activeRequestId === requestId) {
-          this.setQueryState(
-            entry,
-            {
-              ...entry.state,
-              isFetching: true,
-              lastRequest: attemptRequestLog,
-            },
-            "query_updated"
-          );
-        }
-
-        const rawResult = await input.queryFn(
-          input.signal ? { signal: input.signal } : undefined
-        );
-        const normalized = normalizeAthenaResult<TQueryFnData, TData>(
-          rawResult,
-          input.select
-        );
-
-        if (normalized.error) {
-          // Internal transport object for retry/normalize path (not a public Error).
-          // biome-ignore lint/style/useThrowOnlyError: structured control-flow payload
-          throw {
-            __athenaNormalizedError: normalized.error,
-            __athenaRaw: normalized.raw,
-            __athenaResponse: rawResult,
-            __athenaStatus: normalized.status,
-          };
-        }
-
-        return {
-          attempt,
-          normalized,
-          response: rawResult,
-        };
-      },
-      {
-        retry: input.retry,
-        retryDelay: input.retryDelay,
-      }
-    )
-      .then((result) => {
-        const applied = entry.activeRequestId === requestId;
-        if (applied) {
-          const finishedAt = Date.now();
-          const doneRequestLog: AthenaQueryRequestLog = {
-            ...startRequestLog,
-            attempt: result.attempt,
-            endedAt: finishedAt,
-          };
-          const data = this.ingestQueryResult(entry, result.normalized.data);
-          this.setQueryState(
-            entry,
-            {
-              ...entry.state,
-              data,
-              error: null,
-              isFetching: false,
-              lastRequest: doneRequestLog,
-              lastResponse: result.response,
-              status: "success",
-              updatedAt: finishedAt,
-            },
-            "query_updated"
-          );
-        }
-
-        return {
-          ...result.normalized,
-          __applied: applied,
-        } as AthenaQueryResult<TData>;
-      })
-      .catch((error) => {
-        const wrapped =
-          typeof error === "object" && error !== null
-            ? (error as Record<string, unknown>)
-            : undefined;
-
-        const normalizedError = wrapped?.__athenaNormalizedError
-          ? (wrapped.__athenaNormalizedError as ReturnType<
-              typeof normalizeAthenaError
-            >)
-          : normalizeAthenaError(error);
-
-        const status =
-          typeof wrapped?.__athenaStatus === "number"
-            ? (wrapped.__athenaStatus as number)
-            : (normalizedError.status ?? 500);
-
-        const raw = wrapped?.__athenaRaw ?? normalizedError.raw ?? null;
-        const response = wrapped?.__athenaResponse ?? raw;
-
-        const applied = entry.activeRequestId === requestId;
-        if (applied) {
-          const finishedAt = Date.now();
-          const doneRequestLog: AthenaQueryRequestLog = {
-            ...startRequestLog,
-            attempt:
-              entry.state.lastRequest?.requestId === requestId
-                ? entry.state.lastRequest.attempt
-                : startRequestLog.attempt,
-            endedAt: finishedAt,
-          };
-          this.setQueryState(
-            entry,
-            {
-              ...entry.state,
-              error: normalizedError,
-              isFetching: false,
-              lastRequest: doneRequestLog,
-              lastResponse: response,
-              status: "error",
-              updatedAt: finishedAt,
-            },
-            "query_updated"
-          );
-        }
-
-        return {
-          __applied: applied,
-          data: undefined,
-          error: normalizedError,
-          raw,
-          status,
-        } as AthenaQueryResult<TData>;
-      })
-      .finally(() => {
-        const inflight = this.inflightQueries.get(input.queryKeyToken);
-        if (inflight === executionPromise) {
-          this.inflightQueries.delete(input.queryKeyToken);
-        }
-      });
-
-    this.inflightQueries.set(
-      input.queryKeyToken,
-      executionPromise as Promise<AthenaQueryResult<unknown>>
-    );
-
-    return executionPromise;
+  ) {
+    return this.queries.execute(input);
   }
 
-  async executeMutation<TVariables, TMutationFnData, TData = TMutationFnData>(
+  executeMutation<TVariables, TMutationFnData, TData = TMutationFnData>(
     input: ExecuteMutationInput<TVariables, TMutationFnData, TData>
-  ): Promise<AthenaMutationResultData<TData>> {
-    const entry = this.ensureMutationEntry(input.mutationKeyToken);
-    const requestId = ++this.requestCounter;
-    entry.activeRequestId = requestId;
-
-    const startRequestLog: AthenaMutationRequestLog<TVariables> = {
-      attempt: 1,
-      mutationKey: input.mutationKey,
-      mutationKeyToken: input.mutationKeyToken,
-      requestId,
-      startedAt: Date.now(),
-      variables: input.variables,
-    };
-
-    this.setMutationState(
-      entry,
-      {
-        ...entry.state,
-        error: null,
-        isLoading: true,
-        lastRequest: startRequestLog,
-        lastVariables: input.variables,
-        status: "loading",
-      },
-      "mutation_updated"
-    );
-
-    try {
-      const result = await runWithRetry(
-        async (attempt) => {
-          const attemptRequestLog: AthenaMutationRequestLog<TVariables> = {
-            ...startRequestLog,
-            attempt,
-          };
-
-          if (entry.activeRequestId === requestId) {
-            this.setMutationState(
-              entry,
-              {
-                ...entry.state,
-                isLoading: true,
-                lastRequest: attemptRequestLog,
-              },
-              "mutation_updated"
-            );
-          }
-
-          const rawResult = await input.mutationFn(input.variables);
-          const normalized = normalizeAthenaResult<TMutationFnData, TData>(
-            rawResult,
-            input.select
-          );
-          if (normalized.error) {
-            // Internal transport object for retry/normalize path (not a public Error).
-            // biome-ignore lint/style/useThrowOnlyError: structured control-flow payload
-            throw {
-              __athenaNormalizedError: normalized.error,
-              __athenaRaw: normalized.raw,
-              __athenaResponse: rawResult,
-              __athenaStatus: normalized.status,
-            };
-          }
-
-          return {
-            attempt,
-            normalized,
-            response: rawResult,
-          };
-        },
-        {
-          retry: input.retry,
-          retryDelay: input.retryDelay,
-        }
-      );
-
-      if (entry.activeRequestId === requestId) {
-        const finishedAt = Date.now();
-        const doneRequestLog: AthenaMutationRequestLog<TVariables> = {
-          ...startRequestLog,
-          attempt: result.attempt,
-          endedAt: finishedAt,
-        };
-        this.setMutationState(
-          entry,
-          {
-            ...entry.state,
-            data: result.normalized.data,
-            error: null,
-            isLoading: false,
-            lastRequest: doneRequestLog,
-            lastResponse: result.response,
-            lastVariables: input.variables,
-            status: "success",
-            updatedAt: finishedAt,
-          },
-          "mutation_updated"
-        );
-      }
-
-      return result.normalized;
-    } catch (error) {
-      const wrapped =
-        typeof error === "object" && error !== null
-          ? (error as Record<string, unknown>)
-          : undefined;
-      const normalizedError = wrapped?.__athenaNormalizedError
-        ? (wrapped.__athenaNormalizedError as ReturnType<
-            typeof normalizeAthenaError
-          >)
-        : normalizeAthenaError(error);
-
-      const status =
-        typeof wrapped?.__athenaStatus === "number"
-          ? (wrapped.__athenaStatus as number)
-          : (normalizedError.status ?? 500);
-      const raw = wrapped?.__athenaRaw ?? normalizedError.raw ?? null;
-      const response = wrapped?.__athenaResponse ?? raw;
-
-      if (entry.activeRequestId === requestId) {
-        const finishedAt = Date.now();
-        const doneRequestLog: AthenaMutationRequestLog<TVariables> = {
-          ...startRequestLog,
-          attempt:
-            entry.state.lastRequest?.requestId === requestId
-              ? entry.state.lastRequest.attempt
-              : startRequestLog.attempt,
-          endedAt: finishedAt,
-        };
-
-        this.setMutationState(
-          entry,
-          {
-            ...entry.state,
-            error: normalizedError,
-            isLoading: false,
-            lastRequest: doneRequestLog,
-            lastResponse: response,
-            lastVariables: input.variables,
-            status: "error",
-            updatedAt: finishedAt,
-          },
-          "mutation_updated"
-        );
-      }
-
-      return {
-        data: undefined,
-        error: normalizedError,
-        raw,
-        status,
-      };
-    }
-  }
-
-  private ensureQueryEntry(key: string): QueryEntry {
-    let entry = this.queryEntries.get(key);
-    if (entry) {
-      return entry;
-    }
-
-    entry = {
-      activeRequestId: 0,
-      key,
-      listeners: new Set(),
-      state: createInitialQueryState(),
-    };
-    this.queryEntries.set(key, entry);
-    return entry;
-  }
-
-  private ensureMutationEntry(key: string): MutationEntry {
-    let entry = this.mutationEntries.get(key);
-    if (entry) {
-      return entry;
-    }
-
-    entry = {
-      activeRequestId: 0,
-      key,
-      listeners: new Set(),
-      state: createInitialMutationState(),
-    };
-    this.mutationEntries.set(key, entry);
-    return entry;
-  }
-
-  private scheduleQueryGc(entry: QueryEntry): void {
-    const gcTime = shouldUseMemoryCache(this.config)
-      ? Math.max(0, this.config.cache?.gcTime ?? 300_000)
-      : Math.max(0, this.config.cache?.gcTime ?? 0);
-
-    entry.gcTimer = setTimeout(() => {
-      const current = this.queryEntries.get(entry.key);
-      if (!current || current.listeners.size > 0) {
-        return;
-      }
-      this.graphIndex.unindexQuery(
-        entry.key,
-        current.descriptor,
-        current.entityRefs
-      );
-      this.queryEntries.delete(entry.key);
-      this.inflightQueries.delete(entry.key);
-      this.emitEvent({
-        key: entry.key,
-        state: current.state,
-        timestamp: Date.now(),
-        type: "query_gc",
-      });
-    }, gcTime);
-  }
-
-  private scheduleMutationGc(entry: MutationEntry): void {
-    const gcTime = shouldUseMemoryCache(this.config)
-      ? Math.max(0, this.config.cache?.gcTime ?? 300_000)
-      : Math.max(0, this.config.cache?.gcTime ?? 0);
-
-    entry.gcTimer = setTimeout(() => {
-      const current = this.mutationEntries.get(entry.key);
-      if (!current || current.listeners.size > 0) {
-        return;
-      }
-      this.mutationEntries.delete(entry.key);
-    }, gcTime);
-  }
-
-  private setQueryState(
-    entry: QueryEntry,
-    state: AthenaQueryState<unknown>,
-    eventType: AthenaQueryEvent["type"]
-  ): void {
-    entry.state = state;
-    for (const listener of entry.listeners) {
-      listener();
-    }
-
-    this.emitEvent({
-      key: entry.key,
-      state,
-      timestamp: Date.now(),
-      type: eventType,
-    });
-  }
-
-  private setMutationState(
-    entry: MutationEntry,
-    state: AthenaMutationState<unknown, unknown>,
-    eventType: AthenaMutationEvent["type"]
-  ): void {
-    entry.state = state;
-    for (const listener of entry.listeners) {
-      listener();
-    }
-
-    this.emitEvent({
-      key: entry.key,
-      state,
-      timestamp: Date.now(),
-      type: eventType,
-    });
-  }
-
-  private ingestQueryResult(entry: QueryEntry, data: unknown): unknown {
-    if (
-      !(
-        entry.descriptor &&
-        entry.model &&
-        entry.descriptor.projection?.kind === "full-model"
-      )
-    ) {
-      entry.entityRefs = undefined;
-      entry.normalizedPage = undefined;
-      return data;
-    }
-
-    const refs: string[] = [];
-    for (const row of extractResultRows(data)) {
-      try {
-        const key = createAthenaEntityKey(
-          entry.model as AthenaModelTarget,
-          row,
-          entry.descriptor?.context
-        );
-        const token = athenaEntityKeyToken(key);
-        this.mergeEntityNode(key, row);
-        refs.push(token);
-      } catch {
-        // Row is not identity-complete; skip graph write.
-      }
-    }
-    if (entry.entityRefs) {
-      this.graphIndex.unindexQuery(entry.key, undefined, entry.entityRefs);
-    }
-    entry.entityRefs = refs;
-    const envelope = describeQueryEnvelope(data);
-    entry.normalizedPage = {
-      entities: refs,
-      envelope: envelope.envelope,
-      extras: envelope.extras,
-    };
-    for (const token of refs) {
-      this.graphIndex.indexEntity(entry.key, token);
-    }
-    return this.materializeEntry(entry) ?? data;
-  }
-
-  private materializeEntry(entry: QueryEntry): unknown {
-    if (!entry.normalizedPage) {
-      return entry.state.data;
-    }
-    return materializeNormalizedQueryPage(entry.normalizedPage, (token) =>
-      this.entityEntries.get(token)?.data
-    );
-  }
-
-  private mergeEntityNode(
-    key: AthenaEntityKey,
-    row: Record<string, unknown>
-  ): void {
-    const token = athenaEntityKeyToken(key);
-    const current = this.entityEntries.get(token);
-    this.entityEntries.set(token, {
-      data: mergeEntityRow(current?.data, row),
-      key,
-      updatedAt: Date.now(),
-    });
+  ) {
+    return this.mutations.execute(input);
   }
 
   private writeEntity(
@@ -1193,10 +484,14 @@ export class AthenaQueryClient {
       mutation?: AthenaQueryDescriptor;
     }
   ): void {
-    this.mergeEntityNode(key, row);
+    this.entities.merge(key, row);
     const token = athenaEntityKeyToken(key);
     const changedFields = options?.changedFields ?? Object.keys(row);
-    const affected = this.collectAffectedQueryEntries(key, changedFields, options?.mutation);
+    const affected = this.collectAffectedQueryEntries(
+      key,
+      changedFields,
+      options?.mutation
+    );
 
     for (const entry of affected) {
       if (!(entry.descriptor && entry.queryKey)) {
@@ -1255,8 +550,8 @@ export class AthenaQueryClient {
       return;
     }
     if (entry.normalizedPage) {
-      const next = this.materializeEntry(entry);
-      this.setQueryState(
+      const next = this.queries.materialize(entry);
+      this.queries.setState(
         entry,
         {
           ...entry.state,
@@ -1268,7 +563,7 @@ export class AthenaQueryClient {
       return;
     }
     const token = athenaEntityKeyToken(key);
-    const entity = this.entityEntries.get(token);
+    const entity = this.entities.getByToken(token);
     if (!entity) {
       return;
     }
@@ -1319,8 +614,8 @@ export class AthenaQueryClient {
 
   private removeEntity(key: AthenaEntityKey): void {
     const token = athenaEntityKeyToken(key);
-    this.entityEntries.delete(token);
-    for (const entry of [...this.queryEntries.values()]) {
+    this.entities.delete(key);
+    for (const entry of [...this.queries.values()]) {
       if (!entry.queryKey) {
         continue;
       }
@@ -1387,91 +682,22 @@ export class AthenaQueryClient {
     changedFields: readonly string[],
     mutation?: AthenaQueryDescriptor
   ): QueryEntry[] {
-    const ids = new Set<string>();
-    const token = athenaEntityKeyToken(key);
-    for (const queryId of this.graphIndex.queriesForEntity(token)) {
-      ids.add(queryId);
-    }
-    for (const queryId of this.graphIndex.queriesForModel({
-      database: key.model.database,
-      schema: key.model.schema,
-      table: key.model.table,
-    })) {
-      ids.add(queryId);
-    }
-    for (const field of changedFields) {
-      for (const queryId of this.graphIndex.queriesForField(
-        {
-          database: key.model.database,
-          schema: key.model.schema,
-          table: key.model.table,
-        },
-        field
-      )) {
-        ids.add(queryId);
-      }
-    }
-    if (mutation?.target.model) {
-      for (const queryId of this.graphIndex.byModel.get(
-        `::${mutation.target.model}`
-      ) ?? []) {
-        ids.add(queryId);
-      }
-    }
-
+    const ids = this.graph.collectAffectedQueryIds(
+      key,
+      changedFields,
+      mutation
+    );
     const entries: QueryEntry[] = [];
     for (const id of ids) {
-      const entry = this.queryEntries.get(id);
+      const entry = this.queries.get(id);
       if (entry) {
         entries.push(entry);
       }
     }
     if (entries.length === 0) {
-      return [...this.queryEntries.values()];
+      return [...this.queries.values()];
     }
     return entries;
-  }
-
-  private snapshotCache() {
-    return {
-      entities: new Map(this.entityEntries),
-      queries: new Map(
-        [...this.queryEntries.entries()].map(([token, entry]) => [
-          token,
-          {
-            data: entry.state.data,
-            descriptor: entry.descriptor,
-            entityRefs: entry.entityRefs ? [...entry.entityRefs] : undefined,
-            queryKey: entry.queryKey,
-            updatedAt: entry.state.updatedAt,
-          },
-        ])
-      ),
-    };
-  }
-
-  private restoreSnapshot(
-    snapshot: ReturnType<AthenaQueryClient["snapshotCache"]>
-  ): void {
-    this.entityEntries.clear();
-    for (const [token, entry] of snapshot.entities) {
-      this.entityEntries.set(token, entry);
-    }
-    for (const [token, snap] of snapshot.queries) {
-      const entry = this.ensureQueryEntry(token);
-      entry.descriptor = snap.descriptor;
-      entry.entityRefs = snap.entityRefs;
-      entry.queryKey = snap.queryKey;
-      this.setQueryState(
-        entry,
-        {
-          ...entry.state,
-          data: snap.data,
-          updatedAt: snap.updatedAt,
-        },
-        "query_updated"
-      );
-    }
   }
 
   private createTransactionHandle(): AthenaCacheTransaction {
@@ -1479,9 +705,15 @@ export class AthenaQueryClient {
       insert: (queryKey, row) => {
         const current = this.getQueryData(queryKey);
         const rows = extractResultRows(current);
-        this.setQueryData(queryKey, Array.isArray(current)
-          ? [...rows, row]
-          : { ...(isPlainResult(current) ? current : {}), data: [...rows, row] });
+        this.setQueryData(
+          queryKey,
+          Array.isArray(current)
+            ? [...rows, row]
+            : {
+                ...(isPlainResult(current) ? current : {}),
+                data: [...rows, row],
+              }
+        );
       },
       remove: (queryKey, id) => {
         const current = this.getQueryData(queryKey);
@@ -1524,17 +756,6 @@ export function createAthenaQueryClient(
   config?: AthenaQueryClientConfig
 ): AthenaQueryClient {
   return new AthenaQueryClient(config);
-}
-
-function resolveModelRowKey(
-  model: AthenaModelTarget,
-  id: unknown,
-  context?: AthenaCacheContextDescriptor
-): AthenaEntityKey {
-  if (typeof id === "object" && id !== null) {
-    return createAthenaEntityKey(model, id, context);
-  }
-  return entityKeyFromSinglePrimary(model, id, context);
 }
 
 function isPlainResult(value: unknown): value is Record<string, unknown> {

@@ -1,9 +1,9 @@
+export { AthenaChatError } from "./error.ts";
 export {
-	AthenaChatError,
-	chatSdkManifest,
-	createChatModule,
-	createRemoteChatRuntime,
-	unwrapChatMessage,
-	unwrapChatRoom,
-	type AthenaChatClientConfig,
+  type AthenaChatClientConfig,
+  chatSdkManifest,
+  createChatModule,
+  createRemoteChatRuntime,
+  unwrapChatMessage,
+  unwrapChatRoom,
 } from "./remote/runtime.ts";

@@ -3,6 +3,21 @@ import { toModelPayload } from "./model-form.ts";
 import { type AnyColumnBuilder, getColumnConfig } from "./table-columns.ts";
 import type { AnyModelDef, ModelColumnKind } from "./types.ts";
 
+const POSTGRES_INT8_MIN = BigInt("-9223372036854775808");
+const POSTGRES_INT8_MAX = BigInt("9223372036854775807");
+
+function createBigintSchema(): ZodTypeAny {
+  return z
+    .string()
+    .refine((value) => {
+      if (!/^[+-]?\d+$/.test(value)) {
+        return false;
+      }
+      const parsed = BigInt(value);
+      return parsed >= POSTGRES_INT8_MIN && parsed <= POSTGRES_INT8_MAX;
+    });
+}
+
 export interface AthenaTableSchemaBundle<Row, Insert, Update> {
   readonly form: ZodType<Insert>;
   readonly insert: ZodType<Insert>;
@@ -14,6 +29,9 @@ function isScalarFormKind(kind: ModelColumnKind): boolean {
   return (
     kind === "string" ||
     kind === "number" ||
+    kind === "smallint" ||
+    kind === "integer" ||
+    kind === "bigint" ||
     kind === "decimal" ||
     kind === "boolean" ||
     kind === "enumeration"
@@ -28,6 +46,12 @@ function createBaseSchema(column: AnyColumnBuilder): ZodTypeAny {
       return z.boolean();
     case "number":
       return z.number();
+    case "smallint":
+      return z.number().int().min(-32768).max(32767);
+    case "integer":
+      return z.number().int().min(-2147483648).max(2147483647);
+    case "bigint":
+      return createBigintSchema();
     case "decimal":
       // Precision-safe runtime representation (matches PostgreSQL NUMERIC wire).
       return z.string();
@@ -94,6 +118,13 @@ export function buildTableSchemaBundle<Row, Insert, Update>(
 
     rowShape[columnName] = applyNullable(base, column);
 
+    if (config.identity === "always") {
+      // Keep ALWAYS columns visible to Zod so explicit values fail instead of
+      // being silently stripped.
+      insertShape[columnName] = z.never().optional();
+      updateShape[columnName] = z.never().optional();
+      continue;
+    }
     if (config.isGenerated) {
       continue;
     }

@@ -5,11 +5,12 @@
  * Host:
  * node --import ./test/register-server-only.mjs --import tsx --test --test-force-exit test/email-parity.test.ts
  */
+
+import { strict as assert } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   ATHENA_AUTH_EMAIL_PROVIDER_NOT_CONFIGURED,
@@ -19,22 +20,19 @@ import {
 } from "../src/auth/email/index.ts";
 import { MemoryAuthEmailStore } from "../src/auth/local/email/store.ts";
 import { createEmailDeliveryPort } from "../src/email/delivery-port.ts";
-import { createEmailModule } from "../src/email/module.ts";
 import {
   ATHENA_EMAIL_MESSAGE_INVALID,
   AthenaEmailError,
 } from "../src/email/errors.ts";
-import { resolveAthenaEmailMessage } from "../src/email/runtime.ts";
+import { createEmailModule } from "../src/email/module.ts";
 import { normalizeAthenaEmailConfig } from "../src/email/normalize-config.ts";
+import { resolveAthenaEmailMessage } from "../src/email/runtime.ts";
 import { buildSmtpMime } from "../src/email-node/mime.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 const rustTemplates = readFileSync(
-  join(
-    repoRoot,
-    "services/athena-auth/crates/core/src/email/templates.rs"
-  ),
+  join(repoRoot, "services/athena-auth/crates/core/src/email/templates.rs"),
   "utf8"
 );
 const rustTypes = readFileSync(
@@ -44,22 +42,22 @@ const rustTypes = readFileSync(
 
 const RUST_DEFAULTS = {
   account_deletion_confirmation_email: {
-    html: "<p>Click the link below to confirm the deletion of your account:</p><p><a href=\"{{verification_url}}\">Confirm Account Deletion</a></p><p>If you did not request this, please ignore this email.</p>",
+    html: '<p>Click the link below to confirm the deletion of your account:</p><p><a href="{{verification_url}}">Confirm Account Deletion</a></p><p>If you did not request this, please ignore this email.</p>',
     subject: "Confirm account deletion",
     text: "Confirm account deletion: {{verification_url}}",
   },
   change_email_confirmation_email: {
-    html: "<p>Click the link below to confirm your new email address:</p><p><a href=\"{{verification_url}}\">Confirm Email Change</a></p>",
+    html: '<p>Click the link below to confirm your new email address:</p><p><a href="{{verification_url}}">Confirm Email Change</a></p>',
     subject: "Confirm your email change",
     text: "Confirm your email change: {{verification_url}}",
   },
   organization_invitation_email: {
-    html: "<p>You were invited to join <strong>{{organization_name}}</strong>.</p><p>Role: <strong>{{role}}</strong></p><p>Invited by: <strong>{{inviter_identity}}</strong></p><p><a href=\"{{invitation_url}}\">Open invitation</a></p><p>If you are not signed in yet, create or verify your account first, then open the invitation link again.</p>",
+    html: '<p>You were invited to join <strong>{{organization_name}}</strong>.</p><p>Role: <strong>{{role}}</strong></p><p>Invited by: <strong>{{inviter_identity}}</strong></p><p><a href="{{invitation_url}}">Open invitation</a></p><p>If you are not signed in yet, create or verify your account first, then open the invitation link again.</p>',
     subject: "Invitation to join {{organization_name}}",
     text: "You were invited to join {{organization_name}}.\nRole: {{role}}\nInvited by: {{inviter_identity}}\nInvitation link: {{invitation_url}}",
   },
   password_reset_email: {
-    html: "<p>Click the link below to reset your password:</p><p><a href=\"{{reset_url}}\">Reset Password</a></p>",
+    html: '<p>Click the link below to reset your password:</p><p><a href="{{reset_url}}">Reset Password</a></p>',
     subject: "Reset your password",
     text: "Reset your password: {{reset_url}}",
   },
@@ -69,18 +67,25 @@ const RUST_DEFAULTS = {
     text: "Your 2FA verification code is: {{otp_code}}",
   },
   verification_email: {
-    html: "<p>Click the link below to verify your email address:</p><p><a href=\"{{verification_url}}\">Verify Email</a></p>",
+    html: '<p>Click the link below to verify your email address:</p><p><a href="{{verification_url}}">Verify Email</a></p>',
     subject: "Verify your email address",
     text: "Verify your email address: {{verification_url}}",
   },
 } as const;
 
 function rustHas(fragment: string): void {
-  assert.ok(rustTemplates.includes(fragment), `Rust templates.rs missing ${fragment}`);
+  assert.ok(
+    rustTemplates.includes(fragment),
+    `Rust templates.rs missing ${fragment}`
+  );
 }
 
 function mimeFor(input: {
-  attachments?: Array<{ content: string; contentType?: string; filename?: string }>;
+  attachments?: Array<{
+    content: string;
+    contentType?: string;
+    filename?: string;
+  }>;
   html?: string;
   text?: string;
 }): string {
@@ -222,7 +227,7 @@ test("EMAIL-PARITY-06 provider failure persists Auth failure metadata", async ()
   assert.equal(failures[0]?.resolved, false);
   assert.match(failures[0]?.error_message ?? "", /upstream 550/);
   assert.equal(
-    (failures[0]?.metadata as { event_type?: string }).event_type,
+    (failures[0]?.metadata as { event_type?: string } | undefined)?.event_type,
     "user.password.reset"
   );
 });
@@ -246,7 +251,7 @@ test("EMAIL-PARITY-07 verification email matches Rust builtin envelope", async (
   assert.equal(emails[0]?.subject, expected.subject);
   assert.match(emails[0]?.text_body ?? "", /https:\/\/app\.example\/verify/);
   assert.equal(
-    (emails[0]?.metadata as { event_type?: string }).event_type,
+    (emails[0]?.metadata as { event_type?: string } | undefined)?.event_type,
     "user.email.verify"
   );
 });
@@ -329,7 +334,8 @@ test("EMAIL-PARITY-11 persisted success metadata matches Rust emails columns", a
   assert.equal(typeof row.created_at, "string");
   assert.equal(typeof row.updated_at, "string");
   assert.equal(
-    (row.metadata as { event_type?: string; template_key?: string }).template_key,
+    (row.metadata as { event_type?: string; template_key?: string })
+      .template_key,
     "password_reset_email"
   );
   assert.equal((await store.listFailures()).length, 0);

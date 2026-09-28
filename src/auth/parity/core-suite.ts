@@ -94,7 +94,11 @@ export interface AthenaAuthParityReport {
   target: string;
 }
 
-function fail(report: AthenaAuthParityReport, op: string, detail: string): void {
+function fail(
+  report: AthenaAuthParityReport,
+  op: string,
+  detail: string
+): void {
   report.failed.push(`${op}: ${detail}`);
 }
 
@@ -104,8 +108,12 @@ function pass(report: AthenaAuthParityReport, op: string): void {
   }
 }
 
-function defer(report: AthenaAuthParityReport, op: string, detail: string): void {
-  if (!report.deferred.includes(op) && !report.passed.includes(op)) {
+function defer(
+  report: AthenaAuthParityReport,
+  op: string,
+  detail: string
+): void {
+  if (!(report.deferred.includes(op) || report.passed.includes(op))) {
     report.deferred.push(`${op}: ${detail}`);
   }
 }
@@ -211,10 +219,10 @@ export async function runAthenaAuthParitySuite(
       method: "POST",
     })
   );
-  if (signup.status !== 200) {
-    fail(report, "sign-up", `status ${signup.status}`);
-  } else {
+  if (signup.status === 200) {
     pass(report, "sign-up");
+  } else {
+    fail(report, "sign-up", `status ${signup.status}`);
   }
 
   const cookie = cookieHeader(signup);
@@ -229,10 +237,10 @@ export async function runAthenaAuthParitySuite(
       headers: { cookie },
     })
   );
-  if (session.status !== 200) {
-    fail(report, "get-session", `status ${session.status}`);
-  } else {
+  if (session.status === 200) {
     pass(report, "get-session");
+  } else {
+    fail(report, "get-session", `status ${session.status}`);
   }
 
   if (
@@ -263,10 +271,10 @@ export async function runAthenaAuthParitySuite(
       method: "POST",
     })
   );
-  if (signin.status !== 200) {
-    fail(report, "sign-in", `status ${signin.status}`);
-  } else {
+  if (signin.status === 200) {
     pass(report, "sign-in");
+  } else {
+    fail(report, "sign-in", `status ${signin.status}`);
   }
 
   const sessionCookie = cookieHeader(signin) || cookie;

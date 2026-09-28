@@ -5,6 +5,10 @@ import type {
   MigrationPlan,
   MigrationPlanEntry,
 } from "./types.ts";
+import {
+  IDENTITY_MIGRATION_EXECUTION_TRANSFORM,
+  resolveMigrationExecution,
+} from "./checksum.ts";
 
 export interface PlanMigrationsInput {
   applied: readonly AppliedMigration[];
@@ -49,8 +53,16 @@ export function planMigrations(input: PlanMigrationsInput): MigrationPlan {
     const appliedRows = appliedByVersion.get(version) ?? [];
 
     if (appliedRows.length > 1) {
-      const checksums = new Set(appliedRows.map((row) => row.checksum));
-      if (checksums.size > 1 || (local && !checksums.has(local.checksum))) {
+      const identities = new Set(
+        appliedRows.map((row) => migrationExecutionIdentity(row))
+      );
+      if (
+        new Set(appliedRows.map((row) => row.checksum)).size > 1 ||
+        identities.size > 1 ||
+        (local &&
+          (!appliedRows.some((row) => row.checksum === local.checksum) ||
+            !appliedRows.some((row) => matchesExecution(row, local))))
+      ) {
         conflicts.push({
           applied: appliedRows[0],
           kind: "checksum-mismatch",
@@ -74,6 +86,15 @@ export function planMigrations(input: PlanMigrationsInput): MigrationPlan {
 
     if (applied && local) {
       if (applied.checksum !== local.checksum) {
+        conflicts.push({
+          applied,
+          kind: "checksum-mismatch",
+          local,
+          version,
+        });
+        continue;
+      }
+      if (!matchesExecution(applied, local)) {
         conflicts.push({
           applied,
           kind: "checksum-mismatch",
@@ -136,4 +157,32 @@ export function planMigrations(input: PlanMigrationsInput): MigrationPlan {
 
 export function planHasBlockingConflicts(plan: MigrationPlan): boolean {
   return plan.conflicts.length > 0;
+}
+
+function migrationExecutionIdentity(row: AppliedMigration): string {
+  return [
+    row.executionChecksum ?? row.checksum,
+    row.executionTransformId ?? IDENTITY_MIGRATION_EXECUTION_TRANSFORM.id,
+    row.executionTransformVersion ??
+      IDENTITY_MIGRATION_EXECUTION_TRANSFORM.version,
+  ].join(":");
+}
+
+function matchesExecution(
+  applied: AppliedMigration,
+  local: MigrationFile
+): boolean {
+  const execution = resolveMigrationExecution(local);
+  if (applied.executionChecksum === undefined) {
+    return (
+      local.executionSql === undefined &&
+      execution.transform.id === IDENTITY_MIGRATION_EXECUTION_TRANSFORM.id &&
+      execution.transform.version === IDENTITY_MIGRATION_EXECUTION_TRANSFORM.version
+    );
+  }
+  return (
+    applied.executionChecksum === execution.checksum &&
+    applied.executionTransformId === execution.transform.id &&
+    applied.executionTransformVersion === execution.transform.version
+  );
 }

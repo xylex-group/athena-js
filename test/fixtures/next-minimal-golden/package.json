@@ -1,0 +1,17 @@
+{
+  "name": "athena-next-minimal-golden-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Packed next-minimal golden-path fixture. Depends on packed @xylex-group/athena from .tmp/packages/*.tgz — never src/.",
+  "scripts": {
+    "build": "next build --webpack",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@xylex-group/athena": "file:../../../.tmp/packages/xylex-group-athena.tgz",
+    "@xylex-group/athena-auth-ui": "file:../../../.tmp/packages/xylex-group-athena-auth-ui-4.5.0.tgz",
+    "next": "16.3.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

@@ -9,11 +9,12 @@
  *
  * See docs/sdd/xylex/athena-js-root-request-ownership-finality/SPEC.md
  */
+
+import { strict as assert } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   createAthenaAuthHandlers,
@@ -100,7 +101,7 @@ function assertOwnershipInvalid(
   return true;
 }
 
-test("P2 baseline: internals ownership === \"request\" (AthenaRequestRuntime)", () => {
+test('P2 baseline: internals ownership === "request" (AthenaRequestRuntime)', () => {
   const ownershipSrc = readFileSync(
     join(srcRoot, "runtime", "ownership.ts"),
     "utf8"
@@ -126,10 +127,7 @@ test("P2 baseline: internals ownership === \"request\" (AthenaRequestRuntime)", 
   assert.equal(errorsSrc.includes(OWNERSHIP_INVALID), true);
   assert.equal(ownershipSrc.includes(OWNERSHIP_INVALID), true);
   assert.equal(internalsSrc.includes(OWNERSHIP_INVALID), true);
-  assert.equal(
-    internalsSrc.includes('ownership: "request"'),
-    true
-  );
+  assert.equal(internalsSrc.includes('ownership: "request"'), true);
   assert.match(
     internalsSrc,
     /createViewClientInternals[\s\S]*runtimeOwnership:\s*"borrowed"/

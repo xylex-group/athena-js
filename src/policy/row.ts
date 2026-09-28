@@ -1,6 +1,6 @@
 import {
-	normalizeAthenaResourceRef,
-	type AthenaResourceRef,
+  type AthenaResourceRef,
+  normalizeAthenaResourceRef,
 } from "../schema/resource.ts";
 import type { AnyModelDef, ModelColumnMetadata } from "../schema/types.ts";
 import { columnOperand, type PolicyOperandNode } from "./expr-builders.ts";

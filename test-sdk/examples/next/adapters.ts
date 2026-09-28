@@ -15,7 +15,7 @@ import { createAthenaBrowserClient } from "@xylex-group/athena/next/client";
 export type TestSdkAthenaPublicConfig = AthenaBrowserClientConfig;
 
 export function createTestSdkBrowserClient(config: TestSdkAthenaPublicConfig) {
-	return createAthenaBrowserClient(config);
+  return createAthenaBrowserClient(config);
 }
 
 /**
@@ -36,4 +36,4 @@ export function createTestSdkBrowserClient(config: TestSdkAthenaPublicConfig) {
  * ```
  */
 export const NEXT_SERVER_ADAPTER_NOTE =
-	"Import createAthenaServerClient from @xylex-group/athena/next/server in server-only modules.";
+  "Import createAthenaServerClient from @xylex-group/athena/next/server in server-only modules.";

@@ -1,4 +1,6 @@
 import type { BackendType } from "../gateway/types.ts";
+import type { NativeTypeDescriptor } from "./ir/type.ts";
+import type { SchemaColumnGenerationStrategy } from "./ir/column.ts";
 
 type ModelKey = string;
 type ColumnKey = string;
@@ -9,20 +11,52 @@ type ColumnKey = string;
 export type ModelColumnKind =
   | "boolean"
   | "number"
+  | "smallint"
+  | "integer"
+  | "bigint"
   | "string"
   | "decimal"
   | "json"
   | "enumeration";
+
+export type ModelColumnIdentity = "always" | "by-default";
+
+export type ModelColumnGenerationStrategy = SchemaColumnGenerationStrategy;
+
+export type ModelColumnDefaultDialect = "postgres" | "d1" | "sqlite";
+
+export interface ModelColumnSqlDefault {
+  dialect: ModelColumnDefaultDialect;
+  expression: string;
+}
+
+export type ModelColumnDefault =
+  | { kind: "none" }
+  | { kind: "literal"; value: string | number | boolean | null }
+  | ({ kind: "sql" } & ModelColumnSqlDefault)
+  | { kind: "unknown" };
+
+export type ModelColumnDefaultInput =
+  | string
+  | number
+  | boolean
+  | null
+  | ModelColumnSqlDefault;
 
 /**
  * Optional per-column metadata carried by model contracts.
  */
 export interface ModelColumnMetadata {
   columnName?: string;
+  default?: ModelColumnDefault;
   enumValues?: readonly string[];
+  generationStrategy?: ModelColumnGenerationStrategy;
   hasDefault?: boolean;
+  identity?: ModelColumnIdentity;
   isGenerated?: boolean;
   kind: ModelColumnKind;
+  /** Backend-native type metadata preserved during introspection/generation. */
+  nativeType?: NativeTypeDescriptor;
   nullable?: boolean;
   /** Exact-numeric precision when known (PostgreSQL NUMERIC/DECIMAL). */
   precision?: number;
@@ -87,6 +121,7 @@ export type ModelMetadata<Row> = Omit<
  * Relation metadata for model contracts and introspection snapshots.
  */
 export interface ModelRelationMetadata {
+  constraintName?: string;
   kind: ModelRelationKind;
   sourceColumns: ColumnKey[];
   targetColumns: ColumnKey[];
@@ -354,6 +389,7 @@ export interface IntrospectionColumn {
   defaultExpression?: string | null;
   enumValues?: string[];
   hasDefault: boolean;
+  identity?: ModelColumnIdentity;
   isGenerated: boolean;
   isNullable: boolean;
   isPrimaryKey: boolean;

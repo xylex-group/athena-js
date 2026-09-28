@@ -7,10 +7,10 @@ import { compileD1Ast } from "../src/cloudflare/d1/compile-ast.ts";
 import { serializeGatewayPlan } from "../src/gateway/serialize-ast.ts";
 import { compilePostgresAst } from "../src/postgres/compile-ast.ts";
 import {
+  type AthenaRelationCatalog,
   normalizeFindManyInput,
   resetQueryPlanAliases,
   resolveQueryPlan,
-  type AthenaRelationCatalog,
 } from "../src/query/index.ts";
 
 const catalog: AthenaRelationCatalog = {

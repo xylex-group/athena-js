@@ -70,7 +70,9 @@ async function withResendDeadline<T>(
 /**
  * Resend delivery over HTTP (`POST /emails`). Does not import the Resend SDK.
  */
-export function resend(options: ResendEmailProviderOptions): AthenaEmailProvider {
+export function resend(
+  options: ResendEmailProviderOptions
+): AthenaEmailProvider {
   const apiKey = options.apiKey?.trim();
   if (!apiKey) {
     throw new AthenaEmailError(
@@ -115,7 +117,9 @@ export function resend(options: ResendEmailProviderOptions): AthenaEmailProvider
             cc: message.cc.length > 0 ? message.cc : undefined,
             from: formatEmailMailbox(message.from, message.fromName),
             headers:
-              Object.keys(message.headers).length > 0 ? message.headers : undefined,
+              Object.keys(message.headers).length > 0
+                ? message.headers
+                : undefined,
             html: message.html,
             reply_to: message.replyTo,
             subject: message.subject,

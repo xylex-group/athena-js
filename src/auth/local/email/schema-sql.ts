@@ -337,10 +337,11 @@ function emailEventTypeSeedSql(
     event_type: string;
     optional_variables: readonly string[];
     required_variables: readonly string[];
-  }> = AUTH_EMAIL_EVENT_CATALOG,
+  }> = AUTH_EMAIL_EVENT_CATALOG
 ): string {
-  const values = catalog.map(
-    (entry) => `(
+  const values = catalog
+    .map(
+      (entry) => `(
         ${sqlLiteral(entry.event_type)},
         ${sqlLiteral(entry.category)},
         ${sqlLiteral(entry.description)},
@@ -351,7 +352,8 @@ function emailEventTypeSeedSql(
         TRUE,
         '{}'::jsonb
     )`
-  ).join(",\n    ");
+    )
+    .join(",\n    ");
   return `
 INSERT INTO athena.email_event_types (
     event_type, category, description, default_template_key,

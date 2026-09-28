@@ -30,10 +30,10 @@ export const DEFAULT_ATHENA_AUTH_UPSTREAM_URL = DEFAULT_ATHENA_AUTH_ORIGIN;
  * rely on `NEXT_PUBLIC_*` values.
  */
 export const ATHENA_AUTH_UPSTREAM_ENV_KEYS = [
-	"ATHENA_AUTH_UPSTREAM_URL",
-	"ATHENA_AUTH_URL",
-	"NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL",
-	"NEXT_PUBLIC_ATHENA_AUTH_URL",
+  "ATHENA_AUTH_UPSTREAM_URL",
+  "ATHENA_AUTH_URL",
+  "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL",
+  "NEXT_PUBLIC_ATHENA_AUTH_URL",
 ] as const;
 
 /**
@@ -43,100 +43,98 @@ export const ATHENA_AUTH_UPSTREAM_ENV_KEYS = [
 export const ATHENA_AUTH_UPSTREAM_URL_ENV_NAMES = ATHENA_AUTH_UPSTREAM_ENV_KEYS;
 
 export type AthenaAuthUpstreamEnvKey =
-	(typeof ATHENA_AUTH_UPSTREAM_ENV_KEYS)[number];
+  (typeof ATHENA_AUTH_UPSTREAM_ENV_KEYS)[number];
 
 /** Loose env map (Node `process.env` or a test fixture). */
 export type EnvLike = Record<string, string | undefined>;
 
 export type AthenaAuthUpstreamEnv = Partial<
-	Record<AthenaAuthUpstreamEnvKey, string | undefined>
+  Record<AthenaAuthUpstreamEnvKey, string | undefined>
 > &
-	EnvLike;
+  EnvLike;
 
 export interface AthenaAuthClientBaseUrlOptions {
-	/**
-	 * When `true` (default), ensure the client base ends with `/api/auth`.
-	 * Set `false` when the auth server is mounted at a custom path or root.
-	 */
-	appendAuthPath?: boolean;
+  /**
+   * When `true` (default), ensure the client base ends with `/api/auth`.
+   * Set `false` when the auth server is mounted at a custom path or root.
+   */
+  appendAuthPath?: boolean;
 }
 
 const LEADING_SLASHES_REGEX = /^\/+/;
 
 function stripTrailingSlashes(value: string): string {
-	return value.replace(/\/+$/g, "");
+  return value.replace(/\/+$/g, "");
 }
 
 function ensureLeadingSlash(value: string): string {
-	return value.startsWith("/") ? value : `/${value}`;
+  return value.startsWith("/") ? value : `/${value}`;
 }
 
 function ensureAthenaAuthPath(pathname: string): string {
-	const normalizedPath = stripTrailingSlashes(
-		ensureLeadingSlash(pathname.trim()),
-	);
+  const normalizedPath = stripTrailingSlashes(
+    ensureLeadingSlash(pathname.trim())
+  );
 
-	if (!normalizedPath || normalizedPath === "/") {
-		return ATHENA_AUTH_PATH;
-	}
+  if (!normalizedPath || normalizedPath === "/") {
+    return ATHENA_AUTH_PATH;
+  }
 
-	if (normalizedPath.endsWith(ATHENA_AUTH_PATH)) {
-		return normalizedPath;
-	}
+  if (normalizedPath.endsWith(ATHENA_AUTH_PATH)) {
+    return normalizedPath;
+  }
 
-	return `${normalizedPath}${ATHENA_AUTH_PATH}`;
+  return `${normalizedPath}${ATHENA_AUTH_PATH}`;
 }
 
 function stripAthenaAuthPath(pathname: string): string {
-	const normalizedPath = stripTrailingSlashes(
-		ensureLeadingSlash(pathname.trim()),
-	);
+  const normalizedPath = stripTrailingSlashes(
+    ensureLeadingSlash(pathname.trim())
+  );
 
-	if (!normalizedPath || normalizedPath === "/") {
-		return "/";
-	}
+  if (!normalizedPath || normalizedPath === "/") {
+    return "/";
+  }
 
-	if (normalizedPath === ATHENA_AUTH_PATH) {
-		return "/";
-	}
+  if (normalizedPath === ATHENA_AUTH_PATH) {
+    return "/";
+  }
 
-	if (normalizedPath.endsWith(ATHENA_AUTH_PATH)) {
-		const withoutAuthPath = normalizedPath.slice(0, -ATHENA_AUTH_PATH.length);
-		return withoutAuthPath ? ensureLeadingSlash(withoutAuthPath) : "/";
-	}
+  if (normalizedPath.endsWith(ATHENA_AUTH_PATH)) {
+    const withoutAuthPath = normalizedPath.slice(0, -ATHENA_AUTH_PATH.length);
+    return withoutAuthPath ? ensureLeadingSlash(withoutAuthPath) : "/";
+  }
 
-	return normalizedPath;
+  return normalizedPath;
 }
 
 function readProcessEnv(): EnvLike | undefined {
-	try {
-		const maybeProcess = (globalThis as { process?: { env?: EnvLike } })
-			.process;
-		return maybeProcess?.env;
-	} catch {
-		// Restricted runtimes may throw when reading process.
-	}
-	return undefined;
+  try {
+    const maybeProcess = (globalThis as { process?: { env?: EnvLike } })
+      .process;
+    return maybeProcess?.env;
+  } catch {
+    // Restricted runtimes may throw when reading process.
+  }
 }
 
 function getBrowserOrigin(): string | undefined {
-	try {
-		const origin = (
-			globalThis as { window?: { location?: { origin?: string } } }
-		).window?.location?.origin;
-		return typeof origin === "string" && origin.length > 0 ? origin : undefined;
-	} catch {
-		// Non-browser or restricted runtimes may throw on window access.
-	}
-	return undefined;
+  try {
+    const origin = (
+      globalThis as { window?: { location?: { origin?: string } } }
+    ).window?.location?.origin;
+    return typeof origin === "string" && origin.length > 0 ? origin : undefined;
+  } catch {
+    // Non-browser or restricted runtimes may throw on window access.
+  }
 }
 
 /**
  * Returns `true` when the value is an absolute `http://` or `https://` URL.
  */
 export function isAbsoluteUrl(value: string): boolean {
-	const trimmed = value.trim();
-	return trimmed.startsWith("http://") || trimmed.startsWith("https://");
+  const trimmed = value.trim();
+  return trimmed.startsWith("http://") || trimmed.startsWith("https://");
 }
 
 /**
@@ -145,31 +143,30 @@ export function isAbsoluteUrl(value: string): boolean {
  * @returns Trimmed URL string, or `undefined` when none of the keys are set
  */
 export function readAthenaAuthUpstreamUrlFromEnv(
-	env: EnvLike,
+  env: EnvLike
 ): string | undefined {
-	for (const key of ATHENA_AUTH_UPSTREAM_ENV_KEYS) {
-		const value = env[key]?.trim();
-		if (value) {
-			return value;
-		}
-	}
-	return undefined;
+  for (const key of ATHENA_AUTH_UPSTREAM_ENV_KEYS) {
+    const value = env[key]?.trim();
+    if (value) {
+      return value;
+    }
+  }
 }
 
 function resolveConfiguredAthenaAuthUpstreamUrl(
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv
 ): string | undefined {
-	if (typeof rawUpstreamUrl === "string") {
-		const trimmed = rawUpstreamUrl.trim();
-		return trimmed || undefined;
-	}
+  if (typeof rawUpstreamUrl === "string") {
+    const trimmed = rawUpstreamUrl.trim();
+    return trimmed || undefined;
+  }
 
-	if (rawUpstreamUrl) {
-		return readAthenaAuthUpstreamUrlFromEnv(rawUpstreamUrl);
-	}
+  if (rawUpstreamUrl) {
+    return readAthenaAuthUpstreamUrlFromEnv(rawUpstreamUrl);
+  }
 
-	const processEnv = readProcessEnv();
-	return processEnv ? readAthenaAuthUpstreamUrlFromEnv(processEnv) : undefined;
+  const processEnv = readProcessEnv();
+  return processEnv ? readAthenaAuthUpstreamUrlFromEnv(processEnv) : undefined;
 }
 
 /**
@@ -189,21 +186,21 @@ function resolveConfiguredAthenaAuthUpstreamUrl(
  * ```
  */
 export function normalizeAthenaAuthBaseUrl(urlOrPath: string): string {
-	const trimmed = urlOrPath.trim();
+  const trimmed = urlOrPath.trim();
 
-	if (!trimmed) {
-		return ATHENA_AUTH_PATH;
-	}
+  if (!trimmed) {
+    return ATHENA_AUTH_PATH;
+  }
 
-	if (isAbsoluteUrl(trimmed)) {
-		const url = new URL(trimmed);
-		url.pathname = ensureAthenaAuthPath(url.pathname);
-		url.search = "";
-		url.hash = "";
-		return stripTrailingSlashes(url.toString());
-	}
+  if (isAbsoluteUrl(trimmed)) {
+    const url = new URL(trimmed);
+    url.pathname = ensureAthenaAuthPath(url.pathname);
+    url.search = "";
+    url.hash = "";
+    return stripTrailingSlashes(url.toString());
+  }
 
-	return ensureAthenaAuthPath(trimmed);
+  return ensureAthenaAuthPath(trimmed);
 }
 
 /**
@@ -215,58 +212,58 @@ export function normalizeAthenaAuthBaseUrl(urlOrPath: string): string {
  * @returns Origin like `https://auth.example.com` (no trailing slash)
  */
 export function resolveAthenaAuthUpstreamUrl(
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv
 ): string {
-	const configuredUpstream =
-		resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl) ||
-		DEFAULT_ATHENA_AUTH_ORIGIN;
+  const configuredUpstream =
+    resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl) ||
+    DEFAULT_ATHENA_AUTH_ORIGIN;
 
-	if (isAbsoluteUrl(configuredUpstream)) {
-		const upstreamUrl = new URL(configuredUpstream);
-		upstreamUrl.pathname = stripAthenaAuthPath(upstreamUrl.pathname);
-		upstreamUrl.search = "";
-		upstreamUrl.hash = "";
-		return stripTrailingSlashes(upstreamUrl.toString());
-	}
+  if (isAbsoluteUrl(configuredUpstream)) {
+    const upstreamUrl = new URL(configuredUpstream);
+    upstreamUrl.pathname = stripAthenaAuthPath(upstreamUrl.pathname);
+    upstreamUrl.search = "";
+    upstreamUrl.hash = "";
+    return stripTrailingSlashes(upstreamUrl.toString());
+  }
 
-	const normalizedPath = stripAthenaAuthPath(configuredUpstream);
-	return stripTrailingSlashes(
-		new URL(normalizedPath, LOCAL_DEV_ORIGIN).toString(),
-	);
+  const normalizedPath = stripAthenaAuthPath(configuredUpstream);
+  return stripTrailingSlashes(
+    new URL(normalizedPath, LOCAL_DEV_ORIGIN).toString()
+  );
 }
 
 function resolveBrowserFacingOrigin(
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv
 ): string {
-	if (resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl)) {
-		return `${resolveAthenaAuthUpstreamUrl(rawUpstreamUrl)}/`;
-	}
+  if (resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl)) {
+    return `${resolveAthenaAuthUpstreamUrl(rawUpstreamUrl)}/`;
+  }
 
-	const browserOrigin = getBrowserOrigin();
-	if (browserOrigin) {
-		return `${browserOrigin}/`;
-	}
+  const browserOrigin = getBrowserOrigin();
+  if (browserOrigin) {
+    return `${browserOrigin}/`;
+  }
 
-	return `${LOCAL_DEV_ORIGIN}/`;
+  return `${LOCAL_DEV_ORIGIN}/`;
 }
 
 function resolvePreservedAthenaAuthBaseUrl(
-	configuredAuthBaseUrl: string,
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  configuredAuthBaseUrl: string,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv
 ): string {
-	const trimmed = configuredAuthBaseUrl.trim();
-	const preservedConfiguredBaseUrl = trimmed || ATHENA_AUTH_PATH;
+  const trimmed = configuredAuthBaseUrl.trim();
+  const preservedConfiguredBaseUrl = trimmed || ATHENA_AUTH_PATH;
 
-	if (isAbsoluteUrl(preservedConfiguredBaseUrl)) {
-		return stripTrailingSlashes(preservedConfiguredBaseUrl);
-	}
+  if (isAbsoluteUrl(preservedConfiguredBaseUrl)) {
+    return stripTrailingSlashes(preservedConfiguredBaseUrl);
+  }
 
-	return stripTrailingSlashes(
-		new URL(
-			ensureLeadingSlash(preservedConfiguredBaseUrl),
-			resolveBrowserFacingOrigin(rawUpstreamUrl),
-		).toString(),
-	);
+  return stripTrailingSlashes(
+    new URL(
+      ensureLeadingSlash(preservedConfiguredBaseUrl),
+      resolveBrowserFacingOrigin(rawUpstreamUrl)
+    ).toString()
+  );
 }
 
 /**
@@ -282,62 +279,62 @@ function resolvePreservedAthenaAuthBaseUrl(
  * - `resolveAthenaAuthClientBaseUrl(path, upstream, { appendAuthPath: false })`
  */
 export function resolveAthenaAuthClientBaseUrl(
-	configuredAuthBaseUrl?: string | EnvLike,
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
-	options?: AthenaAuthClientBaseUrlOptions,
+  configuredAuthBaseUrl?: string | EnvLike,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  options?: AthenaAuthClientBaseUrlOptions
 ): string;
 export function resolveAthenaAuthClientBaseUrl(
-	configuredAuthBaseUrl: string,
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
-	options?: AthenaAuthClientBaseUrlOptions,
+  configuredAuthBaseUrl: string,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  options?: AthenaAuthClientBaseUrlOptions
 ): string;
 export function resolveAthenaAuthClientBaseUrl(
-	configuredAuthBaseUrl?: string | EnvLike,
-	rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
-	options: AthenaAuthClientBaseUrlOptions = {},
+  configuredAuthBaseUrl?: string | EnvLike,
+  rawUpstreamUrl?: string | AthenaAuthUpstreamEnv,
+  options: AthenaAuthClientBaseUrlOptions = {}
 ): string {
-	let baseInput: string;
+  let baseInput: string;
 
-	if (typeof configuredAuthBaseUrl === "string") {
-		baseInput = configuredAuthBaseUrl;
-	} else if (configuredAuthBaseUrl) {
-		baseInput =
-			readAthenaAuthUpstreamUrlFromEnv(configuredAuthBaseUrl) ??
-			ATHENA_AUTH_PATH;
-	} else {
-		const fromEnv = resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl);
-		baseInput = fromEnv ?? ATHENA_AUTH_PATH;
-	}
+  if (typeof configuredAuthBaseUrl === "string") {
+    baseInput = configuredAuthBaseUrl;
+  } else if (configuredAuthBaseUrl) {
+    baseInput =
+      readAthenaAuthUpstreamUrlFromEnv(configuredAuthBaseUrl) ??
+      ATHENA_AUTH_PATH;
+  } else {
+    const fromEnv = resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl);
+    baseInput = fromEnv ?? ATHENA_AUTH_PATH;
+  }
 
-	if (options.appendAuthPath === false) {
-		return resolvePreservedAthenaAuthBaseUrl(baseInput, rawUpstreamUrl);
-	}
+  if (options.appendAuthPath === false) {
+    return resolvePreservedAthenaAuthBaseUrl(baseInput, rawUpstreamUrl);
+  }
 
-	const normalizedConfiguredBaseUrl = normalizeAthenaAuthBaseUrl(baseInput);
+  const normalizedConfiguredBaseUrl = normalizeAthenaAuthBaseUrl(baseInput);
 
-	if (isAbsoluteUrl(normalizedConfiguredBaseUrl)) {
-		return normalizedConfiguredBaseUrl;
-	}
+  if (isAbsoluteUrl(normalizedConfiguredBaseUrl)) {
+    return normalizedConfiguredBaseUrl;
+  }
 
-	const browserOrigin = getBrowserOrigin();
-	if (browserOrigin) {
-		return stripTrailingSlashes(
-			new URL(normalizedConfiguredBaseUrl, browserOrigin).toString(),
-		);
-	}
+  const browserOrigin = getBrowserOrigin();
+  if (browserOrigin) {
+    return stripTrailingSlashes(
+      new URL(normalizedConfiguredBaseUrl, browserOrigin).toString()
+    );
+  }
 
-	if (resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl)) {
-		// Direct upstream without proxy path: origin only (no /api/auth) when
-		// the configured base was relative — server-side absolute upstream.
-		const upstream = resolveAthenaAuthUpstreamUrl(rawUpstreamUrl);
-		return stripTrailingSlashes(
-			new URL(ATHENA_AUTH_PATH, `${upstream}/`).toString(),
-		);
-	}
+  if (resolveConfiguredAthenaAuthUpstreamUrl(rawUpstreamUrl)) {
+    // Direct upstream without proxy path: origin only (no /api/auth) when
+    // the configured base was relative — server-side absolute upstream.
+    const upstream = resolveAthenaAuthUpstreamUrl(rawUpstreamUrl);
+    return stripTrailingSlashes(
+      new URL(ATHENA_AUTH_PATH, `${upstream}/`).toString()
+    );
+  }
 
-	return stripTrailingSlashes(
-		new URL(normalizedConfiguredBaseUrl, LOCAL_DEV_ORIGIN).toString(),
-	);
+  return stripTrailingSlashes(
+    new URL(normalizedConfiguredBaseUrl, LOCAL_DEV_ORIGIN).toString()
+  );
 }
 
 /**
@@ -356,12 +353,12 @@ export function resolveAthenaAuthClientBaseUrl(
  * ```
  */
 export function resolveAthenaAuthRequestUrl(
-	path: string,
-	rawBaseUrl?: string | EnvLike,
+  path: string,
+  rawBaseUrl?: string | EnvLike
 ): string {
-	const normalizedPath = path.replace(LEADING_SLASHES_REGEX, "");
-	const base = resolveAthenaAuthClientBaseUrl(rawBaseUrl);
-	return new URL(normalizedPath, `${base}/`).toString();
+  const normalizedPath = path.replace(LEADING_SLASHES_REGEX, "");
+  const base = resolveAthenaAuthClientBaseUrl(rawBaseUrl);
+  return new URL(normalizedPath, `${base}/`).toString();
 }
 
 /** Relative auth path for email verification (`GET /verify-email`). */
@@ -391,13 +388,13 @@ export const AUTH_SESSION_PATH = ATHENA_AUTH_GET_SESSION_ABSOLUTE_PATH;
  * skip cookie cache and re-read the live session cookie.
  */
 export const ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM =
-	"disableCookieCache";
+  "disableCookieCache";
 
 /**
  * @deprecated Alias of {@link ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM}.
  */
 export const DISABLE_COOKIE_CACHE_QUERY_PARAM =
-	ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM;
+  ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM;
 
 /** Value paired with {@link ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM}. */
 export const ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE = "true";
@@ -406,7 +403,7 @@ export const ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE = "true";
  * @deprecated Alias of {@link ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE}.
  */
 export const DISABLE_COOKIE_CACHE_QUERY_VALUE =
-	ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE;
+  ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE;
 
 /**
  * Optional request/response header some apps use to pass serialized session
@@ -442,9 +439,9 @@ export const SESSION_DATA_HEADER = ATHENA_SESSION_DATA_HEADER;
  * ```
  */
 export function resolveEmailVerificationCallbackUrl(
-	rawBaseUrl?: string | EnvLike,
+  rawBaseUrl?: string | EnvLike
 ): string {
-	return resolveAthenaAuthRequestUrl(ATHENA_AUTH_VERIFY_EMAIL_PATH, rawBaseUrl);
+  return resolveAthenaAuthRequestUrl(ATHENA_AUTH_VERIFY_EMAIL_PATH, rawBaseUrl);
 }
 
 /**
@@ -471,10 +468,10 @@ export function resolveEmailVerificationCallbackUrl(
  * or pass the **app** origin into this helper when you proxy `/api/auth/*` locally.
  */
 export function createFreshSessionLookupUrl(baseUrl: string | URL): URL {
-	const url = new URL(ATHENA_AUTH_GET_SESSION_ABSOLUTE_PATH, baseUrl);
-	url.searchParams.set(
-		ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM,
-		ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE,
-	);
-	return url;
+  const url = new URL(ATHENA_AUTH_GET_SESSION_ABSOLUTE_PATH, baseUrl);
+  url.searchParams.set(
+    ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM,
+    ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE
+  );
+  return url;
 }

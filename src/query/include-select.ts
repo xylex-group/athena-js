@@ -10,7 +10,7 @@ function relationEmbedToken(relation: AthenaRelationDescriptor): string {
 }
 
 function relationSelectShape(
-  relation: AthenaRelationDescriptor,
+  relation: AthenaRelationDescriptor
 ): AthenaSelectShape {
   if (relation.star || !relation.columns?.length) {
     return { "*": true };
@@ -24,7 +24,7 @@ function relationSelectShape(
  */
 export function compileIncludeSelectString(
   columns: string | string[],
-  relations: readonly AthenaRelationDescriptor[] | undefined,
+  relations: readonly AthenaRelationDescriptor[] | undefined
 ): string {
   if (!relations?.length) {
     return Array.isArray(columns) ? columns.join(",") : columns;

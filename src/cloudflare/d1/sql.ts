@@ -14,11 +14,13 @@ import type {
   AthenaUpdatePayload,
 } from "../../gateway/types.ts";
 import {
-  compileLegacyBooleanNode,
+  athenaPredicateToGatewayCondition,
+  compileAthenaPredicateNode,
   LegacyBooleanParseError,
   parseLegacyBooleanExpression,
 } from "../../query/legacy-boolean.ts";
 import { quoteQualifiedIdentifier } from "../../sql-identifiers.ts";
+import { normalizeSqliteBindValue } from "../../sqlite-local/binds.ts";
 
 export interface D1CompiledStatement {
   params: unknown[];
@@ -360,8 +362,10 @@ function conditionToWhere(condition: AthenaGatewayCondition): WhereClause {
         operator === "or" ? "or" : "and"
       );
       const params: unknown[] = [];
-      const sql = compileLegacyBooleanNode(tree, (predicate) => {
-        const clause = conditionToWhere(predicate);
+      const sql = compileAthenaPredicateNode(tree, (predicate) => {
+        const clause = conditionToWhere(
+          athenaPredicateToGatewayCondition(predicate)
+        );
         params.push(...clause.params);
         return clause.sql;
       });
@@ -563,13 +567,7 @@ function rejectStructuredRelations(payload: AthenaFetchPayload): void {
 }
 
 function jsonValue(value: AthenaJsonValue | undefined): unknown {
-  if (value === undefined) {
-    return null;
-  }
-  if (value !== null && typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return value;
+  return normalizeSqliteBindValue(value);
 }
 
 /**

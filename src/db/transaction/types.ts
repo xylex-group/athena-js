@@ -1,5 +1,4 @@
 import type { AthenaResult } from "../../client-result.ts";
-import type { AthenaExecutable, AthenaQueryDescriptor } from "../../query/descriptor.ts";
 import type {
   AthenaDeletePayload,
   AthenaFetchPayload,
@@ -8,6 +7,10 @@ import type {
   AthenaInsertPayload,
   AthenaUpdatePayload,
 } from "../../gateway/types.ts";
+import type {
+  AthenaExecutable,
+  AthenaQueryDescriptor,
+} from "../../query/descriptor.ts";
 
 export type AthenaTransactionIsolationLevel =
   | "read_committed"
@@ -19,6 +22,7 @@ export type AthenaTransactionBackend =
   | "gateway-postgres"
   | "d1-batch"
   | "gateway-d1"
+  | "sqlite-local"
   | "unsupported";
 
 export interface AthenaTransactionCapabilities {
@@ -50,7 +54,11 @@ export interface AthenaResolvedTransactionOptions {
   timeoutMs?: number;
 }
 
-export type AthenaTransactionOperationKind = "fetch" | "insert" | "update" | "delete";
+export type AthenaTransactionOperationKind =
+  | "fetch"
+  | "insert"
+  | "update"
+  | "delete";
 
 export interface AthenaTransactionOperationBase {
   descriptor: AthenaQueryDescriptor;
@@ -104,11 +112,12 @@ export interface AthenaTransactionTransport {
   ): Promise<AthenaTransactionTransportResult>;
 }
 
-export type AthenaExecutableOutput<T> = T extends AthenaExecutable<infer R>
-  ? R
-  : T extends PromiseLike<infer R>
+export type AthenaExecutableOutput<T> =
+  T extends AthenaExecutable<infer R>
     ? R
-    : never;
+    : T extends PromiseLike<infer R>
+      ? R
+      : never;
 
 export type AthenaTransactionResults<
   T extends readonly AthenaExecutable<unknown>[],
@@ -116,7 +125,8 @@ export type AthenaTransactionResults<
   [K in keyof T]: AthenaExecutableOutput<T[K]>;
 };
 
-export type AthenaTransactionOperationCompiler = () => AthenaTransactionOperation;
+export type AthenaTransactionOperationCompiler =
+  () => AthenaTransactionOperation;
 
 export interface AthenaTransactionCacheObserver {
   reconcileCommitted(
@@ -159,6 +169,17 @@ export const GATEWAY_POSTGRES_TRANSACTION_CAPABILITIES: AthenaTransactionCapabil
     interactive: false,
     isolationLevels: ["read_committed", "repeatable_read", "serializable"],
     readOnly: true,
+    savepoints: false,
+  };
+
+export const SQLITE_LOCAL_TRANSACTION_CAPABILITIES: AthenaTransactionCapabilities =
+  {
+    atomic: true,
+    backend: "sqlite-local",
+    deferrable: false,
+    interactive: true,
+    isolationLevels: [],
+    readOnly: false,
     savepoints: false,
   };
 

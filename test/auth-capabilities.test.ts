@@ -8,9 +8,9 @@ import {
   isSocialCapabilityEnabled,
   resolveSocialProvidersForUi,
 } from "../src/auth/capabilities.ts";
+import { createAuthModule } from "../src/auth/client.ts";
 import { ATHENA_AUTH_OPERATIONS } from "../src/auth/contract/operations.generated.ts";
 import { deriveEmbeddedCapabilityAdvertisement } from "../src/auth/contract/operations.ts";
-import { createAuthModule } from "../src/auth/client.ts";
 
 test("unknown capabilities are not treated as disabled (INV-P)", () => {
   const store = createAthenaAuthCapabilitiesStore();
@@ -26,10 +26,10 @@ test("unknown capabilities are not treated as disabled (INV-P)", () => {
 test("markUnknown after known becomes partial and keeps feature hints", () => {
   const store = createAthenaAuthCapabilitiesStore();
   store.set({
-    status: "known",
-    source: "http",
     organizations: true,
     social: { providers: ["google"] },
+    source: "http",
+    status: "known",
   });
   const after = store.markUnknown("http");
   assert.equal(after.status, "partial");
@@ -39,10 +39,10 @@ test("markUnknown after known becomes partial and keeps feature hints", () => {
 
 test("known false disables; known true enables", () => {
   const store = createAthenaAuthCapabilitiesStore({
-    status: "known",
-    source: "bootstrap",
-    password: false,
     organizations: true,
+    password: false,
+    source: "bootstrap",
+    status: "known",
   });
   const caps = store.get();
   assert.equal(isCapabilityEnabled(caps, "password"), false);
@@ -57,7 +57,7 @@ test("hydrate applies only while status is unknown", () => {
       source: "bootstrap",
       status: "known",
     }),
-    true,
+    true
   );
   assert.equal(store.get().status, "known");
   assert.equal(store.get().passkeys, true);
@@ -67,16 +67,16 @@ test("hydrate applies only while status is unknown", () => {
       source: "http",
       status: "known",
     }),
-    false,
+    false
   );
   assert.equal(store.get().passkeys, true);
 });
 
 test("getSnapshot aliases get and does not invent a second owner", () => {
   const store = createAthenaAuthCapabilitiesStore({
-    status: "known",
-    source: "bootstrap",
     password: true,
+    source: "bootstrap",
+    status: "known",
   });
   assert.equal(store.getSnapshot, store.get);
   assert.equal(store.getSnapshot(), store.get());
@@ -85,7 +85,7 @@ test("getSnapshot aliases get and does not invent a second owner", () => {
 
 test("embedded 5.1 snapshot advertises password/session and hides social; passkeys follow operator enablement", () => {
   const implementation = deriveEmbeddedCapabilityAdvertisement(
-    ATHENA_AUTH_OPERATIONS,
+    ATHENA_AUTH_OPERATIONS
   );
   assert.equal(implementation.passkeys, true);
 
@@ -132,5 +132,8 @@ test("known-false social/passkeys fail closed on the public client", async () =>
     capabilities: createEmbeddedCapabilitySnapshot({ passkeyEnabled: true }),
   }).auth;
   const passkey = await enabled.passkey.generateRegisterOptions({});
-  assert.notEqual(passkey.errorDetails?.code, "ATHENA_AUTH_CAPABILITY_DISABLED");
+  assert.notEqual(
+    passkey.errorDetails?.code,
+    "ATHENA_AUTH_CAPABILITY_DISABLED"
+  );
 });

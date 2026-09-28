@@ -169,7 +169,6 @@ export function resolveHeaderValue(
       return normalized;
     }
   }
-  return undefined;
 }
 
 function isCacheControlHeaderName(name: string): boolean {
@@ -187,7 +186,7 @@ function resolveBearerTokenFromAuthorizationHeader(
 ): string | undefined {
   const authorization = resolveHeaderValue(headers, ["Authorization"]);
   if (!authorization) {
-    return undefined;
+    return;
   }
 
   const token = normalizeBearerToken(authorization);
@@ -199,7 +198,7 @@ function resolveSessionTokenFromCookieHeader(
 ): string | undefined {
   const cookie = resolveHeaderValue(headers, ["Cookie"]);
   if (!cookie) {
-    return undefined;
+    return;
   }
 
   return getSessionCookie(new Headers({ cookie })) ?? undefined;
@@ -207,7 +206,7 @@ function resolveSessionTokenFromCookieHeader(
 
 function resolveBackendType(backend?: BackendOption): string | undefined {
   if (!backend) {
-    return undefined;
+    return;
   }
   return typeof backend === "string" ? backend : backend.type;
 }

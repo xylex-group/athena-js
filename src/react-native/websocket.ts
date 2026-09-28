@@ -5,7 +5,7 @@ import type { AthenaChatWebSocketFactory } from "../chat/types.ts";
  * Prefers an explicit factory, then `globalThis.WebSocket`.
  */
 export function resolveReactNativeWebSocketFactory(
-  factory?: AthenaChatWebSocketFactory | null,
+  factory?: AthenaChatWebSocketFactory | null
 ): AthenaChatWebSocketFactory | undefined {
   if (factory) {
     return factory;

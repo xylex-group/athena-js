@@ -2,6 +2,7 @@ import {
   ATHENA_AUTH_DEFAULT_ARGON2,
   type AthenaAuthArgon2Params,
 } from "../contract/index.ts";
+import { deriveArgon2id } from "./argon2.node.ts";
 import { AthenaAuthRuntimeError } from "./errors.ts";
 
 export interface AthenaAuthPasswordHasher {
@@ -34,7 +35,7 @@ function encodePhcBase64(bytes: Uint8Array): string {
 }
 
 function decodePhcBase64(value: string): Uint8Array {
-  const cleaned = value.replace(/=+$/g, "");
+  const cleaned = value.replace(/[=]+$/g, "");
   const output: number[] = [];
   for (let index = 0; index < cleaned.length; index += 4) {
     const chunk = cleaned.slice(index, index + 4);
@@ -63,24 +64,26 @@ function decodePhcBase64(value: string): Uint8Array {
 function parsePhcDecimal(hash: string, key: string): number | undefined {
   const match = new RegExp(`(?:^|[,$?])${key}=(\\d+)`).exec(hash);
   if (!match) {
-    return undefined;
+    return;
   }
   return Number.parseInt(match[1] ?? "", 10);
 }
 
-export function parseArgon2Phc(hash: string): {
-  hash: Uint8Array;
-  memoryCost: number;
-  parallelism: number;
-  salt: Uint8Array;
-  timeCost: number;
-} | undefined {
+export function parseArgon2Phc(hash: string):
+  | {
+      hash: Uint8Array;
+      memoryCost: number;
+      parallelism: number;
+      salt: Uint8Array;
+      timeCost: number;
+    }
+  | undefined {
   const match =
     /^\$argon2id\$v=19\$m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/.exec(
       hash
     );
   if (!match) {
-    return undefined;
+    return;
   }
   return {
     hash: decodePhcBase64(match[5] ?? ""),
@@ -128,33 +131,17 @@ function encodeUtf8(value: string): Uint8Array {
   return new TextEncoder().encode(value);
 }
 
-async function loadNobleArgon2(): Promise<{
-  argon2id: (
-    password: Uint8Array,
-    salt: Uint8Array,
-    options: { dkLen: number; m: number; p: number; t: number }
-  ) => Uint8Array;
-}> {
-  const importer = new Function(
-    "specifier",
-    "return import(specifier)"
-  ) as (specifier: string) => Promise<{
-    argon2id: (
-      password: Uint8Array,
-      salt: Uint8Array,
-      options: { dkLen: number; m: number; p: number; t: number }
-    ) => Uint8Array;
-  }>;
-  return importer("@noble/hashes/argon2.js");
-}
-
 async function argon2idDigest(
   password: string,
   salt: Uint8Array,
-  params: { dkLen: number; memoryCost: number; parallelism: number; timeCost: number }
+  params: {
+    dkLen: number;
+    memoryCost: number;
+    parallelism: number;
+    timeCost: number;
+  }
 ): Promise<Uint8Array> {
-  const module = await loadNobleArgon2();
-  return module.argon2id(encodeUtf8(password), salt, {
+  return deriveArgon2id(encodeUtf8(password), salt, {
     dkLen: params.dkLen,
     m: params.memoryCost,
     p: params.parallelism,
@@ -213,7 +200,7 @@ export function validatePassword(
 
 export function extractPasswordHash(metadata: unknown): string | undefined {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return undefined;
+    return;
   }
   const value = (metadata as Record<string, unknown>).password_hash;
   return typeof value === "string" && value.length > 0 ? value : undefined;

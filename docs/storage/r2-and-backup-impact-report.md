@@ -113,11 +113,11 @@ Also consider documenting that `metadata.account_id` is accepted server-side eve
 
 ### 2. Docs (recommended)
 
-- `docs/storage/index.md` (and mirrored `apps/docs` athena-js pages if synced):  
+- `docs/storage/index.md` (and the retained `apps/docs-athena-js/docs/storage/index.mdx` site page):
   - Catalog create with R2 examples  
   - Note path-style / 32-char R2 access key validation  
   - Clarify backups are **not** configured through `client.storage.*`
-- Optional: link to server docs [Backups + restore](apps/docs cluster) for operators.
+- Optional: link to the server/operator documentation for backups and restore.
 
 ### 3. Runtime behavior (not required)
 

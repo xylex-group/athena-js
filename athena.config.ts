@@ -1,4 +1,4 @@
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   experimental: {

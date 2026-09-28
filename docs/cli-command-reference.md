@@ -5,6 +5,8 @@ This page is a **deep contract**, not the product CLI inventory. Catalog SSOT is
 If you only need generator contract output, this page plus
 [`generator-config.md`](generator-config.md) is enough.
 
+Commands that load `athena.config.ts` evaluate `defineAthenaConfig` / `generatorEnv` from `@xylex-group/athena` in plain Node. They must not depend on Next `server-only` ([ADR 0064](../../../docs/adr/technical/0064-athena-js-node-tooling-runtime-boundaries.md)).
+
 ## Command surface
 
 Documented here (incomplete vs catalog):

@@ -7,7 +7,13 @@
  *   contracts/auth/routes.generated.json
  *   src/auth/contract/operations.generated.ts
  */
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +27,7 @@ const RUST_ROOTS = [
 ];
 
 const JS_LOCAL_ROOT = path.join(packageRoot, "src/auth/local");
-const JS_TYPES = path.join(packageRoot, "src/auth/types.ts");
+const JS_TYPES = path.join(packageRoot, "src/auth/types/catalog.ts");
 
 const NONPORTABLE = new Set([
   "GET /reference/openapi.json",
@@ -101,137 +107,152 @@ const NON_MUTATING_POST = new Set([
 ]);
 
 const OPERATION_IDS = {
+  "GET /authorization/grants": "oauth.grant.list",
+  "GET /.well-known/oauth-authorization-server": "oauth.metadata",
   "GET /.well-known/jwks.json": "jwt.jwks",
-  "GET /.well-known/openid-configuration": "oidc.discovery",
+  "GET /.well-known/openid-configuration": "jwt.discovery",
   "GET /.well-known/webauthn": "passkey.relatedOrigins",
-  "GET /ok": "health.ok",
-  "GET /health": "health.health",
-  "HEAD /ok": "health.ok.head",
-  "GET /get-session": "session.get",
-  "POST /get-session": "session.get.post",
-  "POST /sign-up/email": "user.create",
-  "POST /sign-in/email": "session.issue.email",
-  "POST /sign-in/username": "session.issue.username",
-  "POST /sign-in/social": "session.issue.social",
-  "POST /session/bridge/issue": "session.bridge.issue",
-  "POST /session/bridge/exchange": "session.bridge.exchange",
-  "POST /sign-out": "session.revoke.current",
-  "POST /forget-password": "user.password.forget",
-  "POST /reset-password": "user.password.reset",
-  "GET /reset-password/{token}": "user.password.reset.token",
-  "POST /change-password": "user.password.change",
-  "POST /set-password": "user.password.set",
-  "POST /update-user": "user.update",
-  "POST /delete-user": "user.delete",
-  "GET /delete-user/verify": "user.delete.verify",
-  "POST /change-email": "user.email.update",
-  "GET /change-email/verify": "user.email.verify.change",
-  "POST /change-email/verify": "user.email.verify.change.post",
-  "GET /verify-email": "user.email.verify",
-  "POST /send-verification-email": "user.email.verify.send",
-  "GET /list-sessions": "session.list",
-  "POST /revoke-session": "session.revoke",
-  "POST /revoke-sessions": "session.revoke.all",
-  "POST /revoke-other-sessions": "session.revoke.others",
-  "GET /list-accounts": "account.list",
-  "POST /link-social": "account.link",
-  "POST /unlink-account": "account.unlink",
+  "GET /api-key/get": "apiKey.get",
+  "GET /api-key/list": "apiKey.list",
+  "GET /authorization/assignments/members":
+    "authorization.assignments.members.list",
+  "GET /authorization/assignments/users":
+    "authorization.assignments.users.list",
   "GET /callback/{provider}": "social.callback",
-  "POST /organization/create": "organization.create",
-  "GET /organization/list": "organization.list",
-  "GET /organization/get-full-organization": "organization.get",
-  "POST /organization/update": "organization.update",
-  "POST /organization/delete": "organization.delete",
-  "POST /organization/set-active": "organization.setActive",
-  "POST /organization/leave": "organization.leave",
-  "POST /organization/check-slug": "organization.checkSlug",
+  "GET /change-email/verify": "user.email.verify.change",
+  "GET /delete-user/verify": "user.delete.verify",
+  "GET /email/list": "email.list",
+  "GET /get-session": "session.get",
+  "GET /health": "health.health",
+  "GET /list-accounts": "account.list",
+  "GET /list-sessions": "session.list",
+  "GET /ok": "health.ok",
   "GET /organization/get-active-member": "member.active",
+  "GET /organization/get-full-organization": "organization.get",
+  "GET /organization/get-invitation": "invitation.get",
+  "GET /organization/list": "organization.list",
+  "GET /organization/list-invitations": "invitation.list",
   "GET /organization/list-members": "member.list",
+  "GET /organization/list-user-invitations": "invitation.listUser",
+  "GET /passkey/generate-register-options": "passkey.register.options",
+  "GET /passkey/list-user-passkeys": "passkey.list",
+  "GET /reset-password/{token}": "user.password.reset.token",
+  "GET /verify-email": "user.email.verify",
+  "HEAD /ok": "health.ok.head",
+  "POST /api-key/create": "apiKey.create",
+  "POST /api-key/delete": "apiKey.delete",
+  "POST /api-key/delete-all-expired-api-keys": "apiKey.deleteExpired",
+  "POST /api-key/get": "apiKey.get.post",
+  "POST /api-key/update": "apiKey.update",
+  "POST /api-key/verify": "apiKey.verify",
+  "POST /change-email": "user.email.update",
+  "POST /change-email/verify": "user.email.verify.change.post",
+  "POST /change-password": "user.password.change",
+  "POST /delete-user": "user.delete",
+  "POST /forget-password": "user.password.forget",
+  "POST /get-access-token": "jwt.accessToken",
+  "POST /get-session": "session.get.post",
+  "POST /link-social": "account.link",
+  "POST /organization/accept-invitation": "invitation.accept",
   "POST /organization/add-member": "member.add",
-  "POST /organization/remove-member": "member.remove",
-  "POST /organization/update-member-role": "member.role.update",
+  "POST /organization/cancel-invitation": "invitation.cancel",
+  "POST /organization/check-slug": "organization.checkSlug",
+  "POST /organization/create": "organization.create",
+  "POST /organization/delete": "organization.delete",
   "POST /organization/has-permission": "organization.hasPermission",
   "POST /organization/invite-member": "invitation.create",
   "POST /organization/invite-member-reminder": "invitation.reminder",
-  "GET /organization/list-invitations": "invitation.list",
-  "GET /organization/list-user-invitations": "invitation.listUser",
-  "GET /organization/get-invitation": "invitation.get",
-  "POST /organization/accept-invitation": "invitation.accept",
+  "POST /organization/leave": "organization.leave",
   "POST /organization/reject-invitation": "invitation.reject",
-  "POST /organization/cancel-invitation": "invitation.cancel",
-  "POST /api-key/create": "apiKey.create",
-  "GET /api-key/list": "apiKey.list",
-  "GET /api-key/get": "apiKey.get",
-  "POST /api-key/get": "apiKey.get.post",
-  "POST /api-key/update": "apiKey.update",
-  "POST /api-key/delete": "apiKey.delete",
-  "POST /api-key/verify": "apiKey.verify",
-  "POST /api-key/delete-all-expired-api-keys": "apiKey.deleteExpired",
-  "POST /two-factor/enable": "twoFactor.enable",
-  "POST /two-factor/disable": "twoFactor.disable",
-  "POST /two-factor/get-totp-uri": "twoFactor.getUri",
-  "POST /two-factor/verify-totp": "twoFactor.verifyEnable",
-  "POST /two-factor/generate-backup-codes": "twoFactor.backupCodes.generate",
-  "POST /two-factor/verify-backup-code": "twoFactor.backupCodes.consume",
-  "POST /two-factor/send-otp": "twoFactor.emailOtp.send",
-  "POST /two-factor/verify-otp": "twoFactor.emailOtp.verify",
-  "GET /passkey/generate-register-options": "passkey.register.options",
-  "POST /passkey/verify-registration": "passkey.register.verify",
-  "POST /passkey/generate-authenticate-options": "passkey.authenticate.options",
-  "POST /passkey/verify-authentication": "passkey.authenticate.verify",
-  "GET /passkey/list-user-passkeys": "passkey.list",
-  "POST /passkey/update-passkey": "passkey.update",
+  "POST /organization/remove-member": "member.remove",
+  "POST /organization/set-active": "organization.setActive",
+  "POST /organization/update": "organization.update",
+  "POST /organization/update-member-role": "member.role.update",
+  "GET /oauth/authorize": "oauth.authorization.request",
+  "POST /oauth/authorize": "oauth.authorization.decision",
+  "POST /oauth/revoke": "oauth.token.revoke",
+  "POST /oauth/token": "oauth.token.exchange",
   "POST /passkey/delete-passkey": "passkey.delete",
-  "POST /token": "jwt.token",
+  "POST /passkey/generate-authenticate-options": "passkey.authenticate.options",
+  "POST /passkey/update-passkey": "passkey.update",
+  "POST /passkey/verify-authentication": "passkey.authenticate.verify",
+  "POST /passkey/verify-registration": "passkey.register.verify",
   "POST /refresh-token": "jwt.refresh",
-  "POST /get-access-token": "jwt.accessToken",
-  "GET /email/list": "email.list",
+  "POST /reset-password": "user.password.reset",
+  "POST /revoke-other-sessions": "session.revoke.others",
+  "POST /revoke-session": "session.revoke",
+  "POST /revoke-sessions": "session.revoke.all",
   "POST /send-security-alert": "email.securityAlert",
   "POST /send-sign-in-email": "email.signIn",
+  "POST /send-verification-email": "user.email.verify.send",
+  "POST /session/bridge/exchange": "session.bridge.exchange",
+  "POST /session/bridge/issue": "session.bridge.issue",
+  "POST /set-password": "user.password.set",
+  "POST /sign-in/email": "session.issue.email",
+  "POST /sign-in/social": "session.issue.social",
+  "POST /sign-in/username": "session.issue.username",
+  "POST /sign-out": "session.revoke.current",
+  "POST /sign-up/email": "user.create",
+  "POST /token": "jwt.token",
+  "POST /two-factor/disable": "twoFactor.disable",
+  "POST /two-factor/enable": "twoFactor.enable",
+  "POST /two-factor/generate-backup-codes": "twoFactor.backupCodes.generate",
+  "POST /two-factor/get-totp-uri": "twoFactor.getUri",
+  "POST /two-factor/send-otp": "twoFactor.emailOtp.send",
+  "POST /two-factor/verify-backup-code": "twoFactor.backupCodes.consume",
+  "POST /two-factor/verify-otp": "twoFactor.emailOtp.verify",
+  "POST /two-factor/verify-totp": "twoFactor.verifyEnable",
+  "POST /unlink-account": "account.unlink",
+  "POST /update-user": "user.update",
+  "PUT /authorization/assignments/members/{memberId}":
+    "authorization.assignments.members.replace",
+  "PUT /authorization/assignments/users/{userId}":
+    "authorization.assignments.users.replace",
 };
 
 const DOMAIN_EVENTS = {
-  "POST /sign-up/email": "user.create",
-  "POST /update-user": "user.update",
-  "POST /delete-user": "user.delete",
-  "POST /change-email": "user.email.update",
   "GET /verify-email": "user.email.verify",
+  "POST /api-key/create": "apiKey.create",
+  "POST /api-key/delete": "apiKey.delete",
+  "POST /api-key/update": "apiKey.update",
+  "POST /change-email": "user.email.update",
   "POST /change-password": "user.password.change",
-  "POST /reset-password": "user.password.reset",
-  "POST /sign-in/email": "session.issue",
-  "POST /sign-in/username": "session.issue",
-  "POST /sign-in/social": "session.issue",
+  "POST /delete-user": "user.delete",
+  "POST /link-social": "account.link",
+  "POST /organization/accept-invitation": "organization.invitation.accept",
+  "POST /organization/add-member": "organization.member.add",
+  "POST /organization/cancel-invitation": "organization.invitation.cancel",
+  "POST /organization/create": "organization.create",
+  "POST /organization/delete": "organization.delete",
+  "POST /organization/invite-member": "organization.invitation.create",
+  "POST /organization/invite-member-reminder":
+    "organization.member.invite.reminder",
+  "POST /organization/leave": "organization.member.remove",
+  "POST /organization/reject-invitation": "organization.invitation.reject",
+  "POST /organization/remove-member": "organization.member.remove",
+  "POST /organization/set-active": "session.activeOrganization.update",
+  "POST /organization/update": "organization.update",
+  "POST /organization/update-member-role": "organization.member.role.update",
+  "POST /passkey/delete-passkey": "passkey.delete",
+  "POST /passkey/update-passkey": "passkey.update",
   "POST /passkey/verify-authentication": "session.issue",
-  "POST /sign-out": "session.revoke",
+  "POST /passkey/verify-registration": "passkey.register",
+  "POST /reset-password": "user.password.reset",
+  "POST /revoke-other-sessions": "session.revoke",
   "POST /revoke-session": "session.revoke",
   "POST /revoke-sessions": "session.revoke",
-  "POST /revoke-other-sessions": "session.revoke",
-  "POST /organization/set-active": "session.activeOrganization.update",
-  "POST /organization/create": "organization.create",
-  "POST /organization/update": "organization.update",
-  "POST /organization/delete": "organization.delete",
-  "POST /organization/add-member": "organization.member.add",
-  "POST /organization/remove-member": "organization.member.remove",
-  "POST /organization/leave": "organization.member.remove",
-  "POST /organization/update-member-role": "organization.member.role.update",
-  "POST /organization/invite-member": "organization.invitation.create",
-  "POST /organization/invite-member-reminder": "organization.member.invite.reminder",
-  "POST /organization/accept-invitation": "organization.invitation.accept",
-  "POST /organization/reject-invitation": "organization.invitation.reject",
-  "POST /organization/cancel-invitation": "organization.invitation.cancel",
-  "POST /api-key/create": "apiKey.create",
-  "POST /api-key/update": "apiKey.update",
-  "POST /api-key/delete": "apiKey.delete",
-  "POST /passkey/verify-registration": "passkey.register",
-  "POST /passkey/update-passkey": "passkey.update",
-  "POST /passkey/delete-passkey": "passkey.delete",
-  "POST /two-factor/enable": "twoFactor.enable",
-  "POST /two-factor/verify-totp": "twoFactor.enable",
-  "POST /two-factor/disable": "twoFactor.disable",
-  "POST /link-social": "account.link",
-  "POST /unlink-account": "account.unlink",
   "POST /send-security-alert": "user.security.alert",
   "POST /send-sign-in-email": "user.sign-in.email",
+  "POST /sign-in/email": "session.issue",
+  "POST /sign-in/social": "session.issue",
+  "POST /sign-in/username": "session.issue",
+  "POST /sign-out": "session.revoke",
+  "POST /sign-up/email": "user.create",
+  "POST /two-factor/disable": "twoFactor.disable",
+  "POST /two-factor/enable": "twoFactor.enable",
+  "POST /two-factor/verify-totp": "twoFactor.enable",
+  "POST /unlink-account": "account.unlink",
+  "POST /update-user": "user.update",
 };
 
 function walk(dir, acc = []) {
@@ -251,21 +272,20 @@ function walk(dir, acc = []) {
 
 function rustRoutes() {
   const routes = new Map();
-  const pattern =
-    /AuthRoute::(get|post|put|delete|patch)\(\s*"([^"]+)"/g;
+  const pattern = /AuthRoute::(get|post|put|delete|patch)\(\s*"([^"]+)"/g;
   const constPattern = /AuthRoute::(get|post)\(\s*([A-Z0-9_]+)/g;
   const constValues = {
-    TOKEN_PATH: "/token",
-    JWKS_PATH: "/.well-known/jwks.json",
+    CHANGE_EMAIL: "/change-email",
+    DELETE_USER: "/delete-user",
+    DELETE_USER_CALLBACK: "/delete-user/callback",
     DISCOVERY_PATH: "/.well-known/openid-configuration",
-    OK: "/ok",
     ERROR: "/error",
     HEALTH: "/health",
+    JWKS_PATH: "/.well-known/jwks.json",
+    OK: "/ok",
     OPENAPI_SPEC: "/reference/openapi.json",
+    TOKEN_PATH: "/token",
     UPDATE_USER: "/update-user",
-    DELETE_USER: "/delete-user",
-    CHANGE_EMAIL: "/change-email",
-    DELETE_USER_CALLBACK: "/delete-user/callback",
   };
 
   for (const root of RUST_ROOTS) {
@@ -313,7 +333,9 @@ function jsLocalRoutes() {
     const text = readFileSync(file, "utf8");
     for (const match of text.matchAll(/if\s*\(([\s\S]*?)\)\s*\{/g)) {
       const cond = match[1];
-      const paths = [...cond.matchAll(/path === "([^"]+)"/g)].map((item) => item[1]);
+      const paths = [...cond.matchAll(/path === "([^"]+)"/g)].map(
+        (item) => item[1]
+      );
       const methods = [...cond.matchAll(/method === "([A-Z]+)"/g)].map(
         (item) => item[1]
       );
@@ -339,17 +361,34 @@ function defaultOperationId(method, routePath) {
   const segments = routePath
     .replace(/^\//, "")
     .split("/")
-    .map((segment) => (segment.startsWith("{") ? "by" : kebabToCamelDot(segment)));
+    .map((segment) =>
+      segment.startsWith("{") ? "by" : kebabToCamelDot(segment)
+    );
   const last = segments.at(-1) ?? "unknown";
   const ns = segments.slice(0, -1).join(".");
-  if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+  if (
+    method === "POST" ||
+    method === "PUT" ||
+    method === "PATCH" ||
+    method === "DELETE"
+  ) {
     return ns ? `${ns}.${last}` : last;
   }
   return ns ? `${ns}.${last}` : last;
 }
 
 function classifyCapability(routePath) {
-  if (routePath.startsWith("/passkey") || routePath === "/.well-known/webauthn") {
+  if (
+    routePath.startsWith("/oauth/") ||
+    routePath === "/.well-known/oauth-authorization-server" ||
+    routePath.startsWith("/authorization/grants")
+  ) {
+    return "oauthAuthorizationServer";
+  }
+  if (
+    routePath.startsWith("/passkey") ||
+    routePath === "/.well-known/webauthn"
+  ) {
     return "passkeys";
   }
   if (
@@ -360,16 +399,16 @@ function classifyCapability(routePath) {
   ) {
     return "social";
   }
-  if (routePath.startsWith("/api-key") || routePath.startsWith("/admin/api-key")) {
+  if (
+    routePath.startsWith("/api-key") ||
+    routePath.startsWith("/admin/api-key")
+  ) {
     return "apiKeys";
   }
   if (routePath.startsWith("/two-factor")) {
     return "twoFactor";
   }
-  if (
-    routePath.includes("invitation") ||
-    routePath.includes("invite-member")
-  ) {
+  if (routePath.includes("invitation") || routePath.includes("invite-member")) {
     return "invitations";
   }
   if (routePath.startsWith("/organization")) {
@@ -393,7 +432,7 @@ function classifyCapability(routePath) {
     return "jwt";
   }
   if (routePath === "/.well-known/openid-configuration") {
-    return "oidc";
+    return "jwt";
   }
   if (routePath === "/ok" || routePath === "/health") {
     return "health";
@@ -425,6 +464,12 @@ function classifyCapability(routePath) {
 }
 
 function classifyAuth(routePath) {
+  if (
+    routePath.startsWith("/oauth/") ||
+    routePath === "/.well-known/oauth-authorization-server"
+  ) {
+    return "protocol";
+  }
   if (routePath.startsWith("/admin")) {
     return "admin";
   }
@@ -451,14 +496,14 @@ function classifyOperation(key, rust, local) {
   const method = key.split(" ")[0];
   const routePath = pathOnly(key);
   const operation = {
+    auth: classifyAuth(routePath),
+    capability: classifyCapability(routePath),
+    embedded: local.has(key) ? "supported" : "unsupported",
     id: OPERATION_IDS[key] ?? defaultOperationId(method, routePath),
     method,
-    path: routePath,
-    capability: classifyCapability(routePath),
-    rust: rust.has(key) ? "supported" : "unsupported",
-    embedded: local.has(key) ? "supported" : "unsupported",
-    auth: classifyAuth(routePath),
     mutation: isMutation(method, routePath),
+    path: routePath,
+    rust: rust.has(key) ? "supported" : "unsupported",
   };
   if (DOMAIN_EVENTS[key]) {
     operation.domainEvent = DOMAIN_EVENTS[key];
@@ -475,34 +520,38 @@ export function buildAuthRouteInventory() {
   const sdk = jsSdkPaths();
   const rustKeys = [...rust.keys()].sort();
   const unionKeys = [...new Set([...rustKeys, ...local])].sort();
-  const operations = unionKeys.map((key) => classifyOperation(key, rust, local));
+  const operations = unionKeys.map((key) =>
+    classifyOperation(key, rust, local)
+  );
   const missingInLocal = rustKeys.filter(
-    (key) => !NONPORTABLE.has(key) && !local.has(key)
+    (key) => !(NONPORTABLE.has(key) || local.has(key))
   );
   const extraLocal = [...local].filter((key) => !rust.has(key)).sort();
   const sdkMissing = rustKeys
     .map(pathOnly)
     .filter(
       (routePath) =>
-        !routePath.includes("{") &&
-        !sdk.has(routePath) &&
-        !NONPORTABLE.has(`GET ${routePath}`) &&
-        !NONPORTABLE.has(`POST ${routePath}`)
+        !(
+          routePath.includes("{") ||
+          sdk.has(routePath) ||
+          NONPORTABLE.has(`GET ${routePath}`) ||
+          NONPORTABLE.has(`POST ${routePath}`)
+        )
     );
 
   return {
-    generatedAt: new Date().toISOString(),
-    rustCount: rustKeys.length,
-    localCount: local.size,
-    sdkPathCount: sdk.size,
-    operationCount: operations.length,
-    rust: rustKeys,
-    local: [...local].sort(),
-    operations,
-    missingInLocal,
     extraLocal,
-    sdkMissing: [...new Set(sdkMissing)].sort(),
+    generatedAt: new Date().toISOString(),
+    local: [...local].sort(),
+    localCount: local.size,
+    missingInLocal,
     nonportable: [...NONPORTABLE].sort(),
+    operationCount: operations.length,
+    operations,
+    rust: rustKeys,
+    rustCount: rustKeys.length,
+    sdkMissing: [...new Set(sdkMissing)].sort(),
+    sdkPathCount: sdk.size,
   };
 }
 
@@ -518,14 +567,37 @@ export const ATHENA_AUTH_OPERATIONS: AthenaAuthOperationDefinition[] = ${body};
 `;
 }
 
+function writeFileIfChanged(filePath, contents) {
+  try {
+    if (readFileSync(filePath, "utf8") === contents) {
+      return;
+    }
+  } catch {
+    // File is missing; write it.
+  }
+  writeFileSync(filePath, contents);
+}
+
+function inventoryFingerprint(value) {
+  const { generatedAt: _generatedAt, ...rest } = value;
+  return JSON.stringify(rest);
+}
+
 const inventory = buildAuthRouteInventory();
 const outDir = path.join(packageRoot, "contracts/auth");
 mkdirSync(outDir, { recursive: true });
-writeFileSync(
-  path.join(outDir, "routes.generated.json"),
-  `${JSON.stringify(inventory, null, 2)}\n`
-);
-writeFileSync(
+const routesPath = path.join(outDir, "routes.generated.json");
+let routesBody = `${JSON.stringify(inventory, null, 2)}\n`;
+try {
+  const existing = JSON.parse(readFileSync(routesPath, "utf8"));
+  if (inventoryFingerprint(existing) === inventoryFingerprint(inventory)) {
+    routesBody = `${JSON.stringify(existing, null, 2)}\n`;
+  }
+} catch {
+  // Missing or invalid; write the new inventory.
+}
+writeFileIfChanged(routesPath, routesBody);
+writeFileIfChanged(
   path.join(packageRoot, "src/auth/contract/operations.generated.ts"),
   emitOperationsTs(inventory.operations)
 );
@@ -534,11 +606,11 @@ if (process.argv.includes("--print")) {
   process.stdout.write(
     `${JSON.stringify(
       {
-        rustCount: inventory.rustCount,
-        localCount: inventory.localCount,
-        operationCount: inventory.operationCount,
-        missingInLocal: inventory.missingInLocal,
         extraLocal: inventory.extraLocal,
+        localCount: inventory.localCount,
+        missingInLocal: inventory.missingInLocal,
+        operationCount: inventory.operationCount,
+        rustCount: inventory.rustCount,
         sdkMissing: inventory.sdkMissing,
       },
       null,

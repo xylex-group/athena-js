@@ -1,17 +1,17 @@
 ﻿import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
 import { resolveGeneratorProvider } from "../src/generator/index.ts";
+import { defineModel } from "../src/schema/definitions.ts";
 import {
   type AthenaSchemaSnapshot,
-  type SchemaColumn,
-  type SchemaDiffOperation,
   diffSchemas,
   normalizeDefaultExpression,
   parseSchemaTypeString,
+  type SchemaColumn,
+  type SchemaDiffOperation,
   schemaSnapshotFromIntrospection,
   schemaSnapshotFromModels,
 } from "../src/schema/diff/index.ts";
-import { defineModel } from "../src/schema/definitions.ts";
 import type { IntrospectionSnapshot } from "../src/schema/types.ts";
 
 test("P1: Export schema-diff APIs from the package root", async () => {
@@ -29,18 +29,18 @@ test("P1: Export schema-diff APIs from the package root", async () => {
 test("P1: Represent generated serial keys using their emitted schema", () => {
   const users = defineModel({
     meta: {
-      schema: "public",
-      model: "users",
-      primaryKey: ["id"],
       columns: {
+        email: { columnName: "email", kind: "string" },
         id: {
-          kind: "number",
           columnName: "id",
           isGenerated: true,
+          kind: "number",
           nullable: false,
         },
-        email: { kind: "string", columnName: "email" },
       },
+      model: "users",
+      primaryKey: ["id"],
+      schema: "public",
     },
   });
 
@@ -56,21 +56,7 @@ test("P1: Represent generated serial keys using their emitted schema", () => {
         name: "public",
         tables: {
           users: {
-            schema: "public",
-            name: "users",
             columns: {
-              id: {
-                arrayDimensions: 0,
-                dataType: "bigint",
-                defaultExpression: "nextval('users_id_seq'::regclass)",
-                hasDefault: true,
-                isGenerated: false,
-                isNullable: false,
-                isPrimaryKey: true,
-                name: "id",
-                typeKind: "scalar",
-                udtName: "int8",
-              },
               email: {
                 arrayDimensions: 0,
                 dataType: "text",
@@ -83,9 +69,23 @@ test("P1: Represent generated serial keys using their emitted schema", () => {
                 typeKind: "scalar",
                 udtName: "text",
               },
+              id: {
+                arrayDimensions: 0,
+                dataType: "bigint",
+                defaultExpression: "nextval('users_id_seq'::regclass)",
+                hasDefault: true,
+                isGenerated: false,
+                isNullable: false,
+                isPrimaryKey: true,
+                name: "id",
+                typeKind: "scalar",
+                udtName: "int8",
+              },
             },
+            name: "users",
             primaryKey: ["id"],
             relations: {},
+            schema: "public",
           },
         },
       },
@@ -104,17 +104,17 @@ test("P1: Represent generated serial keys using their emitted schema", () => {
 test("P1: Align model enum snapshots with CHECK-backed DDL", () => {
   const users = defineModel({
     meta: {
-      schema: "public",
-      model: "users",
-      primaryKey: ["id"],
       columns: {
-        id: { kind: "string", columnName: "id" },
+        id: { columnName: "id", kind: "string" },
         status: {
-          kind: "enumeration",
           columnName: "status",
           enumValues: ["active", "inactive"],
+          kind: "enumeration",
         },
       },
+      model: "users",
+      primaryKey: ["id"],
+      schema: "public",
     },
   });
 
@@ -141,8 +141,6 @@ test("P1: Align model enum snapshots with CHECK-backed DDL", () => {
         name: "public",
         tables: {
           users: {
-            schema: "public",
-            name: "users",
             columns: {
               id: {
                 arrayDimensions: 0,
@@ -169,8 +167,10 @@ test("P1: Align model enum snapshots with CHECK-backed DDL", () => {
                 udtName: "text",
               },
             },
+            name: "users",
             primaryKey: ["id"],
             relations: {},
+            schema: "public",
           },
         },
       },
@@ -188,35 +188,35 @@ test("P1: Align model enum snapshots with CHECK-backed DDL", () => {
 
 test("P2: Include enum-label changes in the type delta", () => {
   const make = (enumValues: string[] | null): AthenaSchemaSnapshot => ({
-    version: 1,
     backend: "postgresql",
     schemas: [
       {
         name: "public",
         tables: [
           {
-            schema: "public",
-            name: "t",
             columns: [
               {
+                default: null,
+                isGenerated: false,
                 name: "status",
+                nullable: false,
                 type: {
                   ...parseSchemaTypeString("text", 0),
                   enumValues,
                 },
-                nullable: false,
-                default: null,
-                isGenerated: false,
               } satisfies SchemaColumn,
             ],
-            primaryKey: { name: null, columns: ["status"] },
-            uniqueConstraints: [],
             foreignKeys: [],
             indexes: [],
+            name: "t",
+            primaryKey: { columns: ["status"], name: null },
+            schema: "public",
+            uniqueConstraints: [],
           },
         ],
       },
     ],
+    version: 1,
   });
 
   const from = make(["a", "b"]);
@@ -239,7 +239,7 @@ test("P2: Execute the new catalog queries in gateway mode", async () => {
   const calls: { query: string }[] = [];
   const original = globalThis.fetch;
 
-  globalThis.fetch = async (url, init) => {
+  globalThis.fetch = async (_url, init) => {
     const payload = JSON.parse(String(init?.body ?? "{}")) as { query: string };
     calls.push({ query: payload.query });
     const sqlText = payload.query;
@@ -281,7 +281,10 @@ test("P2: Execute the new catalog queries in gateway mode", async () => {
         { status: 200 }
       );
     }
-    if (sqlText.includes("FROM pg_type t") && sqlText.includes("JOIN pg_enum")) {
+    if (
+      sqlText.includes("FROM pg_type t") &&
+      sqlText.includes("JOIN pg_enum")
+    ) {
       return new Response(
         JSON.stringify({ data: [], error: null, status: 200 }),
         { status: 200 }
@@ -388,9 +391,7 @@ test("P2: Execute the new catalog queries in gateway mode", async () => {
       "gateway mode must execute index catalog query"
     );
     assert.ok(
-      (table.uniqueConstraints ?? []).some((u) =>
-        u.columns.includes("email")
-      ),
+      (table.uniqueConstraints ?? []).some((u) => u.columns.includes("email")),
       "unique constraints must be assembled in gateway mode"
     );
     assert.ok(
@@ -425,32 +426,32 @@ test("P2: Keep statement timestamps distinct from transaction timestamps", () =>
   );
 
   const make = (defaultExpr: string): AthenaSchemaSnapshot => ({
-    version: 1,
     backend: "postgresql",
     schemas: [
       {
         name: "public",
         tables: [
           {
-            schema: "public",
-            name: "events",
             columns: [
               {
-                name: "created_at",
-                type: parseSchemaTypeString("timestamptz", 0),
-                nullable: false,
                 default: defaultExpr,
                 isGenerated: false,
+                name: "created_at",
+                nullable: false,
+                type: parseSchemaTypeString("timestamptz", 0),
               } satisfies SchemaColumn,
             ],
-            primaryKey: null,
-            uniqueConstraints: [],
             foreignKeys: [],
             indexes: [],
+            name: "events",
+            primaryKey: null,
+            schema: "public",
+            uniqueConstraints: [],
           },
         ],
       },
     ],
+    version: 1,
   });
 
   const diff = diffSchemas({
@@ -478,21 +479,7 @@ test("P2: Preserve descending index directions during introspection", () => {
         name: "public",
         tables: {
           events: {
-            schema: "public",
-            name: "events",
             columns: {
-              id: {
-                arrayDimensions: 0,
-                dataType: "text",
-                defaultExpression: null,
-                hasDefault: false,
-                isGenerated: false,
-                isNullable: false,
-                isPrimaryKey: true,
-                name: "id",
-                typeKind: "scalar",
-                udtName: "text",
-              },
               created_at: {
                 arrayDimensions: 0,
                 dataType: "timestamp with time zone",
@@ -505,19 +492,33 @@ test("P2: Preserve descending index directions during introspection", () => {
                 typeKind: "scalar",
                 udtName: "timestamptz",
               },
+              id: {
+                arrayDimensions: 0,
+                dataType: "text",
+                defaultExpression: null,
+                hasDefault: false,
+                isGenerated: false,
+                isNullable: false,
+                isPrimaryKey: true,
+                name: "id",
+                typeKind: "scalar",
+                udtName: "text",
+              },
             },
-            primaryKey: ["id"],
-            relations: {},
             indexes: [
               {
-                name: "events_created_at_desc_idx",
-                unique: false,
-                columns: ["created_at"],
                 columnDirections: ["desc"],
+                columns: ["created_at"],
                 method: "btree",
+                name: "events_created_at_desc_idx",
                 predicate: null,
+                unique: false,
               },
             ],
+            name: "events",
+            primaryKey: ["id"],
+            relations: {},
+            schema: "public",
           },
         },
       },
@@ -541,34 +542,34 @@ test("P2: Preserve descending index directions during introspection", () => {
 
   // Desired ascending index must not be treated as structurally identical
   const desired: AthenaSchemaSnapshot = {
-    version: 1,
     backend: "postgresql",
     schemas: [
       {
         name: "public",
         tables: [
           {
-            schema: "public",
-            name: "events",
             columns: table!.columns.map((c) => ({ ...c, type: { ...c.type } })),
-            primaryKey: table!.primaryKey
-              ? { name: null, columns: [...table!.primaryKey.columns] }
-              : null,
-            uniqueConstraints: [],
             foreignKeys: [],
             indexes: [
               {
-                name: "events_created_at_desc_idx",
-                unique: false,
-                predicate: null,
+                columns: [{ direction: "asc", name: "created_at" }],
                 method: "btree",
-                columns: [{ name: "created_at", direction: "asc" }],
+                name: "events_created_at_desc_idx",
+                predicate: null,
+                unique: false,
               },
             ],
+            name: "events",
+            primaryKey: table!.primaryKey
+              ? { columns: [...table!.primaryKey.columns], name: null }
+              : null,
+            schema: "public",
+            uniqueConstraints: [],
           },
         ],
       },
     ],
+    version: 1,
   };
 
   const diff = diffSchemas({ from: actual, to: desired });

@@ -1,58 +1,145 @@
-function toBase64Url(bytes: Uint8Array): string {
+export interface AthenaPasskeyAuthenticationWire {
+  authenticatorAttachment?: AuthenticatorAttachment;
+  id: string;
+  rawId: string;
+  response: {
+    authenticatorData: string;
+    clientDataJSON: string;
+    signature: string;
+    userHandle: string | null;
+  };
+  type: "public-key";
+}
+
+export interface AthenaPasskeyRegistrationWire {
+  authenticatorAttachment?: AuthenticatorAttachment;
+  clientExtensionResults: {
+    credProps?: { rk: boolean };
+  };
+  id: string;
+  rawId: string;
+  response: {
+    attestationObject: string;
+    clientDataJSON: string;
+    transports?: string[];
+  };
+  type: "public-key";
+}
+
+type GlobalWebAuthn = typeof globalThis & {
+  AuthenticatorAssertionResponse?: typeof AuthenticatorAssertionResponse;
+  AuthenticatorAttestationResponse?: typeof AuthenticatorAttestationResponse;
+  PublicKeyCredential?: typeof PublicKeyCredential;
+};
+
+function toBase64Url(value: ArrayBuffer | ArrayBufferView): string {
+  const bytes =
+    value instanceof ArrayBuffer
+      ? new Uint8Array(value)
+      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+
   let binary = "";
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
+
   return btoa(binary)
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/[=]+$/g, "");
 }
 
-function serializeWebAuthnValue(value: unknown): unknown {
-  if (value instanceof ArrayBuffer) {
-    return toBase64Url(new Uint8Array(value));
+function requirePublicKeyCredential(value: unknown): PublicKeyCredential {
+  const CredentialCtor = (globalThis as GlobalWebAuthn).PublicKeyCredential;
+  if (!(CredentialCtor && value instanceof CredentialCtor)) {
+    throw new TypeError("Expected a PublicKeyCredential returned by WebAuthn");
   }
-
-  if (ArrayBuffer.isView(value)) {
-    return toBase64Url(
-      new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
-    );
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => serializeWebAuthnValue(item));
-  }
-
-  if (
-    value &&
-    typeof value === "object" &&
-    "toJSON" in value &&
-    typeof (value as { toJSON?: unknown }).toJSON === "function"
-  ) {
-    const jsonValue = (value as { toJSON: () => unknown }).toJSON();
-    if (jsonValue !== value) {
-      return serializeWebAuthnValue(jsonValue);
-    }
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
-        key,
-        serializeWebAuthnValue(nested),
-      ])
-    );
-  }
-
   return value;
 }
 
-/** Browser never verifies (PASSKEY-I3) — serialize only for the HTTP verify body. */
-export function serializeRegistrationCredential(credential: unknown): unknown {
-  return serializeWebAuthnValue(credential);
+function authenticatorAttachmentOf(
+  credential: PublicKeyCredential
+): AuthenticatorAttachment | undefined {
+  const attachment = credential.authenticatorAttachment;
+  if (attachment === "platform" || attachment === "cross-platform") {
+    return attachment;
+  }
 }
 
-export function serializeAuthenticationCredential(credential: unknown): unknown {
-  return serializeWebAuthnValue(credential);
+function registrationExtensionResults(
+  credential: PublicKeyCredential
+): AthenaPasskeyRegistrationWire["clientExtensionResults"] {
+  const results = credential.getClientExtensionResults();
+  const credProps = results.credProps;
+  if (!credProps || typeof credProps !== "object") {
+    return {};
+  }
+  const rk = (credProps as { rk?: unknown }).rk;
+  if (typeof rk !== "boolean") {
+    return {};
+  }
+  return { credProps: { rk } };
+}
+
+export function serializeRegistrationCredential(
+  value: unknown
+): AthenaPasskeyRegistrationWire {
+  const credential = requirePublicKeyCredential(value);
+  const AttestationCtor = (globalThis as GlobalWebAuthn)
+    .AuthenticatorAttestationResponse;
+  if (!(AttestationCtor && credential.response instanceof AttestationCtor)) {
+    throw new TypeError("Expected AuthenticatorAttestationResponse");
+  }
+
+  const response = credential.response;
+  const transports =
+    typeof response.getTransports === "function"
+      ? response.getTransports()
+      : undefined;
+
+  return {
+    authenticatorAttachment: authenticatorAttachmentOf(credential),
+    clientExtensionResults: registrationExtensionResults(credential),
+    id: credential.id,
+    rawId: toBase64Url(credential.rawId),
+    response: {
+      attestationObject: toBase64Url(response.attestationObject),
+      clientDataJSON: toBase64Url(response.clientDataJSON),
+      ...(Array.isArray(transports) ? { transports } : {}),
+    },
+    type: "public-key",
+  };
+}
+
+export function serializeAuthenticationCredential(
+  value: unknown
+): AthenaPasskeyAuthenticationWire {
+  const credential = requirePublicKeyCredential(value);
+  const AssertionCtor = (globalThis as GlobalWebAuthn)
+    .AuthenticatorAssertionResponse;
+  if (!(AssertionCtor && credential.response instanceof AssertionCtor)) {
+    throw new TypeError("Expected AuthenticatorAssertionResponse");
+  }
+
+  const response = credential.response;
+  return {
+    authenticatorAttachment: authenticatorAttachmentOf(credential),
+    id: credential.id,
+    rawId: toBase64Url(credential.rawId),
+    response: {
+      authenticatorData: toBase64Url(response.authenticatorData),
+      clientDataJSON: toBase64Url(response.clientDataJSON),
+      signature: toBase64Url(response.signature),
+      userHandle: response.userHandle ? toBase64Url(response.userHandle) : null,
+    },
+    type: "public-key",
+  };
+}
+
+export function serializeCreatedPasskey(credential: unknown): string {
+  return JSON.stringify(serializeRegistrationCredential(credential));
+}
+
+export function serializeAssertedPasskey(credential: unknown): string {
+  return JSON.stringify(serializeAuthenticationCredential(credential));
 }

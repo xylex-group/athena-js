@@ -54,8 +54,8 @@ test("P?: insert().single() without args keeps default RETURNING projection", as
   const client = createClient({
     auth: false,
     gatewayTransport: transport,
-    url: "https://athena.local",
     key: "test",
+    url: "https://athena.local",
   });
 
   const inserted = await client

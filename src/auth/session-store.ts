@@ -37,6 +37,13 @@ export type AthenaInitialAuthState<TSession = unknown> =
   | { status: "unauthenticated"; session: null };
 
 export interface AthenaAuthSessionStore<TSession = unknown> {
+  beginRefresh(): { epoch: number; skipped: boolean };
+  completeRefresh(
+    epoch: number,
+    result:
+      | { ok: true; session: TSession | null }
+      | { ok: false; error: unknown; clearSession?: boolean }
+  ): void;
   getSnapshot(): AthenaAuthSessionSnapshot<TSession>;
   /**
    * Cold-start seed only. No-ops unless status is `unknown`.
@@ -44,17 +51,10 @@ export interface AthenaAuthSessionStore<TSession = unknown> {
    */
   hydrate(state: AthenaInitialAuthState<TSession>): boolean;
   invalidate(reason?: "signOut" | "revoke" | "manual"): void;
+  setError(error: unknown): void;
   setSession(
     session: TSession | null,
     status?: Exclude<AthenaAuthSessionStatus, "loading" | "unknown">
-  ): void;
-  setError(error: unknown): void;
-  beginRefresh(): { epoch: number; skipped: boolean };
-  completeRefresh(
-    epoch: number,
-    result:
-      | { ok: true; session: TSession | null }
-      | { ok: false; error: unknown; clearSession?: boolean }
   ): void;
   subscribe(listener: AthenaAuthSessionListener<TSession>): () => void;
 }
@@ -84,6 +84,59 @@ export function createAthenaAuthSessionStore<
   };
 
   return {
+    beginRefresh() {
+      if (inFlightEpoch !== null) {
+        return { epoch: inFlightEpoch, skipped: true };
+      }
+      epoch += 1;
+      inFlightEpoch = epoch;
+      commit({
+        epoch,
+        error: null,
+        session: snapshot.session,
+        status: "loading",
+      });
+      return { epoch, skipped: false };
+    },
+
+    completeRefresh(requestEpoch, result) {
+      // Stale, superseded by mutation, or cancelled refresh — ignore.
+      if (inFlightEpoch !== requestEpoch) {
+        return;
+      }
+      inFlightEpoch = null;
+      epoch += 1;
+      if (result.ok) {
+        commit({
+          epoch,
+          error: null,
+          session: result.session,
+          status: result.session === null ? "unauthenticated" : "authenticated",
+        });
+        return;
+      }
+      if (isAbortError(result.error)) {
+        commit({
+          epoch,
+          error: null,
+          session: snapshot.session,
+          status:
+            snapshot.session === null ? "unauthenticated" : "authenticated",
+        });
+        return;
+      }
+      const clear = result.clearSession === true;
+      commit({
+        epoch,
+        error: result.error,
+        session: clear ? null : snapshot.session,
+        status: clear
+          ? "unauthenticated"
+          : snapshot.session === null
+            ? "error"
+            : snapshot.status,
+      });
+    },
     getSnapshot() {
       return snapshot;
     },
@@ -122,105 +175,52 @@ export function createAthenaAuthSessionStore<
         epoch,
         error: null,
         session: null,
-        status: reason === "signOut" || reason === "revoke"
-          ? "unauthenticated"
-          : "unauthenticated",
+        status:
+          reason === "signOut" || reason === "revoke"
+            ? "unauthenticated"
+            : "unauthenticated",
+      });
+    },
+
+    setError(error) {
+      if (isAbortError(error)) {
+        if (inFlightEpoch !== null) {
+          inFlightEpoch = null;
+          epoch += 1;
+          commit({
+            epoch,
+            error: null,
+            session: snapshot.session,
+            status:
+              snapshot.session === null ? "unauthenticated" : "authenticated",
+          });
+        }
+        return;
+      }
+      epoch += 1;
+      // Transport/infrastructure errors must not clear a still-valid session
+      // and must not cancel an in-flight refresh.
+      commit({
+        epoch,
+        error,
+        session: snapshot.session,
+        status: snapshot.session === null ? "error" : snapshot.status,
       });
     },
 
     setSession(session, status) {
-          // Authoritative mutation cancels in-flight refresh (INV-Q: setActive wins).
-          epoch += 1;
-          inFlightEpoch = null;
-          const nextStatus =
-            status ?? (session == null ? "unauthenticated" : "authenticated");
-          commit({
-            epoch,
-            error: null,
-            session,
-            status: nextStatus,
-          });
-        },
-
-        setError(error) {
-          if (isAbortError(error)) {
-            if (inFlightEpoch != null) {
-              inFlightEpoch = null;
-              epoch += 1;
-              commit({
-                epoch,
-                error: null,
-                session: snapshot.session,
-                status:
-                  snapshot.session == null ? "unauthenticated" : "authenticated",
-              });
-            }
-            return;
-          }
-          epoch += 1;
-          // Transport/infrastructure errors must not clear a still-valid session
-          // and must not cancel an in-flight refresh.
-          commit({
-            epoch,
-            error,
-            session: snapshot.session,
-            status: snapshot.session == null ? "error" : snapshot.status,
-          });
-        },
-
-        beginRefresh() {
-          if (inFlightEpoch != null) {
-            return { epoch: inFlightEpoch, skipped: true };
-          }
-          epoch += 1;
-          inFlightEpoch = epoch;
-          commit({
-            epoch,
-            error: null,
-            session: snapshot.session,
-            status: "loading",
-          });
-          return { epoch, skipped: false };
-        },
-
-        completeRefresh(requestEpoch, result) {
-          // Stale, superseded by mutation, or cancelled refresh — ignore.
-          if (inFlightEpoch !== requestEpoch) {
-            return;
-          }
-          inFlightEpoch = null;
-          epoch += 1;
-          if (result.ok) {
-            commit({
-              epoch,
-              error: null,
-              session: result.session,
-              status: result.session == null ? "unauthenticated" : "authenticated",
-            });
-            return;
-          }
-          if (isAbortError(result.error)) {
-            commit({
-              epoch,
-              error: null,
-              session: snapshot.session,
-              status:
-                snapshot.session == null ? "unauthenticated" : "authenticated",
-            });
-            return;
-          }
-          const clear = result.clearSession === true;
-          commit({
-            epoch,
-            error: result.error,
-            session: clear ? null : snapshot.session,
-            status: clear
-              ? "unauthenticated"
-              : snapshot.session == null
-                ? "error"
-                : snapshot.status,
-          });
-        },
+      // Authoritative mutation cancels in-flight refresh (INV-Q: setActive wins).
+      epoch += 1;
+      inFlightEpoch = null;
+      const nextStatus =
+        status ?? (session === null ? "unauthenticated" : "authenticated");
+      commit({
+        epoch,
+        error: null,
+        session,
+        status: nextStatus,
+      });
+    },
 
     subscribe(listener) {
       listeners.add(listener);

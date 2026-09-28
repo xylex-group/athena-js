@@ -5,25 +5,19 @@ Package: `@xylex-group/athena@{{ATHENA_JS_PACKAGE_VERSION}}`.
 This set is split so runtime onboarding, Next.js, auth, typing, generation, and
 maintainer history stay on separate tracks.
 
-**Published product docs:** a curated allowlist of these pages is auto-synced
-into `apps/docs/content/docs/sdks/athena-js`. How the pipeline works, what is
-allowlisted, and day-to-day commands:
-
-→ **[site-publish.md](./site-publish.md)** (dual-publish architecture)
-
-Quick commands: `pnpm docs:site:sync` / `pnpm docs:site:check` from this package,
-or `pnpm --dir apps/docs docs:sync-athena-js`. Do not hand-edit generated site
-MDX that carries the sync banner.
+Narrative guides live beside this index. Generated API reference lives under
+`docs/generated/`.
 
 ## Start here
 
-| Situation              | Open                                                         |
-| ---------------------- | ------------------------------------------------------------ |
-| New app, first client  | [getting-started.md](getting-started.md)                     |
-| Next.js App Router     | [next-js.md](next-js.md)                                     |
-| Migrating from 2.16.x  | [migration-v2-to-v3.md](migration-v2-to-v3.md)               |
-| Exact signatures       | [api-reference.md](api-reference.md)                         |
-| Every method + example | [complete-method-reference.md](complete-method-reference.md) |
+| Situation | Open |
+| --- | --- |
+| New app, first client | [getting-started.md](getting-started.md) |
+| Next.js App Router | [next-js.md](next-js.md) |
+| Migrating from 2.16.x | [migration-v2-to-v3.md](migration-v2-to-v3.md) |
+| Exact signatures | [api-reference.md](api-reference.md) |
+| Deprecations / 6.0.0 | [deprecations.md](deprecations.md) |
+| Every method + example | [generated/api/complete-method-reference.md](generated/api/complete-method-reference.md) |
 
 ---
 
@@ -92,7 +86,6 @@ MDX that carries the sync banner.
 ## Track G — Maintainers (architecture and history)
 
 1. [release-verification.md](release-verification.md) — **local `test:finality` is the release SSOT** (ADR 0019)
-2. [site-publish.md](site-publish.md) — **how package docs auto-publish to apps/docs**
 3. [client-internal-architecture.md](client-internal-architecture.md) — module ownership (`src/client/` context + façade; Runtime Plan + materializers)
 4. [adr/README.md](adr/README.md) — accepted ADR catalog (incl. 0014, [0028](adr/0028-client-runtime-context-and-facade.md), [0029](adr/0029-runtime-plan-and-materializers.md))
 5. [client-v3-consolidation-report.md](client-v3-consolidation-report.md) — design history + ADR 0014 addendum
@@ -108,7 +101,7 @@ before treating “constructors removed” language as current API.
 ```text
 createClient  (sole primitive materializer)
   ├── @xylex-group/athena/server          process root (`databaseUrl`)
-  ├── createAthenaNextHandlers            `/api/athena` + `/api/auth` + `/api/athena/storage` + `/api/athena/billing`
+  ├── createAthenaNextHandlers            `/api/athena` + `/api/auth` + `/api/athena/storage` + `/api/athena/billing` + `/api/athena/billing/webhook`
   ├── createClient({ topology.discover }) @xylex-group/athena/next/client
   ├── createAthenaServerClient            request view (`next/server`)
   └── createAthenaBrowserClient           deprecated alias of next/client

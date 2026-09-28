@@ -6,8 +6,8 @@
  * or when the app sets an explicit features override.
  */
 
-import { deriveEmbeddedCapabilityAdvertisement } from "./contract/operations.ts";
 import { ATHENA_AUTH_OPERATIONS } from "./contract/operations.generated.ts";
+import { deriveEmbeddedCapabilityAdvertisement } from "./contract/operations.ts";
 
 export type AthenaAuthCapabilitiesStatus = "known" | "partial" | "unknown";
 
@@ -27,32 +27,41 @@ export interface AthenaAuthPasskeyCapabilityDetail {
 }
 
 export interface AthenaAuthCapabilitiesFeatures {
-  password?: boolean | null;
+  emailAndPassword?: boolean | null;
   organizations?: boolean | null;
+  passkey?: AthenaAuthPasskeyCapabilityDetail | null;
   /**
    * Broad passkey capability. Unknown is not disabled.
    * Detail flags live on `passkey` and must not replace this boolean.
    */
   passkeys?: boolean | null;
-  passkey?: AthenaAuthPasskeyCapabilityDetail | null;
+  password?: boolean | null;
   sessions?: boolean | null;
   social?: {
     providers?: string[] | null;
   } | null;
-  emailAndPassword?: boolean | null;
 }
 
-export interface AthenaAuthCapabilitiesResult extends AthenaAuthCapabilitiesFeatures {
-  status: AthenaAuthCapabilitiesStatus;
+export interface AthenaAuthCapabilitiesResult
+  extends AthenaAuthCapabilitiesFeatures {
   fetchedAt?: number;
   source: AthenaAuthCapabilitiesSource;
+  status: AthenaAuthCapabilitiesStatus;
 }
 
 export interface AthenaAuthCapabilitiesStore {
   get(): AthenaAuthCapabilitiesResult;
   /** Alias of `get()` — one snapshot owner (INV-P / R11). */
   getSnapshot(): AthenaAuthCapabilitiesResult;
-  set(next: AthenaAuthCapabilitiesResult): void;
+  /**
+   * First-paint seed. No-op unless the store is still `unknown`.
+   * Returns whether the snapshot was applied.
+   */
+  hydrate(next: AthenaAuthCapabilitiesResult): boolean;
+  /** Mark transport failure without disabling features (INV-P). */
+  markUnknown(
+    source?: AthenaAuthCapabilitiesSource
+  ): AthenaAuthCapabilitiesResult;
   /** Merge fields; elevates/downgrades status conservatively. */
   merge(
     patch: Partial<AthenaAuthCapabilitiesFeatures>,
@@ -61,19 +70,15 @@ export interface AthenaAuthCapabilitiesStore {
       source?: AthenaAuthCapabilitiesSource;
     }
   ): AthenaAuthCapabilitiesResult;
-  /** Mark transport failure without disabling features (INV-P). */
-  markUnknown(source?: AthenaAuthCapabilitiesSource): AthenaAuthCapabilitiesResult;
-  /**
-   * First-paint seed. No-op unless the store is still `unknown`.
-   * Returns whether the snapshot was applied.
-   */
-  hydrate(next: AthenaAuthCapabilitiesResult): boolean;
-  subscribe(listener: (value: AthenaAuthCapabilitiesResult) => void): () => void;
+  set(next: AthenaAuthCapabilitiesResult): void;
+  subscribe(
+    listener: (value: AthenaAuthCapabilitiesResult) => void
+  ): () => void;
 }
 
 const EMPTY_UNKNOWN: AthenaAuthCapabilitiesResult = {
-  status: "unknown",
   source: "fallback",
+  status: "unknown",
 };
 
 export interface CreateEmbeddedCapabilitySnapshotOptions {
@@ -100,10 +105,10 @@ export interface CreateEmbeddedCapabilitySnapshotOptions {
  * is `passkeys: false`.
  */
 export function createEmbeddedCapabilitySnapshot(
-  options: CreateEmbeddedCapabilitySnapshotOptions = {},
+  options: CreateEmbeddedCapabilitySnapshotOptions = {}
 ): AthenaAuthCapabilitiesResult {
   const implementation = deriveEmbeddedCapabilityAdvertisement(
-    ATHENA_AUTH_OPERATIONS,
+    ATHENA_AUTH_OPERATIONS
   );
   const enabled = implementation.passkeys && options.passkeyEnabled === true;
   return {
@@ -138,13 +143,25 @@ function pickStatus(
   current: AthenaAuthCapabilitiesStatus,
   next?: AthenaAuthCapabilitiesStatus
 ): AthenaAuthCapabilitiesStatus {
-  if (!next) return current;
-  if (current === "unknown" || next === "unknown") {
-    if (current === "known" && next === "unknown") return "partial";
-    if (current === "unknown" && next === "known") return "partial";
-    return next === "unknown" ? "unknown" : current === "unknown" ? next : "partial";
+  if (!next) {
+    return current;
   }
-  if (current === "partial" || next === "partial") return "partial";
+  if (current === "unknown" || next === "unknown") {
+    if (current === "known" && next === "unknown") {
+      return "partial";
+    }
+    if (current === "unknown" && next === "known") {
+      return "partial";
+    }
+    return next === "unknown"
+      ? "unknown"
+      : current === "unknown"
+        ? next
+        : "partial";
+  }
+  if (current === "partial" || next === "partial") {
+    return "partial";
+  }
   return "known";
 }
 
@@ -154,8 +171,8 @@ export function createAthenaAuthCapabilitiesStore(
   let value: AthenaAuthCapabilitiesResult = {
     ...EMPTY_UNKNOWN,
     ...initial,
-    status: initial?.status ?? "unknown",
     source: initial?.source ?? "fallback",
+    status: initial?.status ?? "unknown",
   };
   const listeners = new Set<(v: AthenaAuthCapabilitiesResult) => void>();
 
@@ -171,15 +188,32 @@ export function createAthenaAuthCapabilitiesStore(
     get,
     getSnapshot: get,
 
-    set(next) {
+    hydrate(next) {
+      if (value.status !== "unknown") {
+        return false;
+      }
       value = { ...next, fetchedAt: next.fetchedAt ?? Date.now() };
       emit();
+      return true;
+    },
+
+    markUnknown(source = "http") {
+      // Keep last known feature hints; only status becomes unknown/partial.
+      value = {
+        ...value,
+        fetchedAt: Date.now(),
+        source,
+        status: value.status === "known" ? "partial" : "unknown",
+      };
+      emit();
+      return value;
     },
 
     merge(patch, meta) {
       value = {
         ...value,
         ...patch,
+        fetchedAt: Date.now(),
         passkey:
           patch.passkey === undefined
             ? value.passkey
@@ -188,33 +222,16 @@ export function createAthenaAuthCapabilitiesStore(
           patch.social === undefined
             ? value.social
             : { ...(value.social ?? {}), ...(patch.social ?? {}) },
-        status: pickStatus(value.status, meta?.status),
         source: meta?.source ?? value.source,
-        fetchedAt: Date.now(),
+        status: pickStatus(value.status, meta?.status),
       };
       emit();
       return value;
     },
 
-    markUnknown(source = "http") {
-      // Keep last known feature hints; only status becomes unknown/partial.
-      value = {
-        ...value,
-        status: value.status === "known" ? "partial" : "unknown",
-        source,
-        fetchedAt: Date.now(),
-      };
-      emit();
-      return value;
-    },
-
-    hydrate(next) {
-      if (value.status !== "unknown") {
-        return false;
-      }
+    set(next) {
       value = { ...next, fetchedAt: next.fetchedAt ?? Date.now() };
       emit();
-      return true;
     },
 
     subscribe(listener) {
@@ -231,10 +248,16 @@ export function isCapabilityEnabled(
   caps: AthenaAuthCapabilitiesResult,
   key: keyof AthenaAuthCapabilitiesFeatures
 ): boolean {
-  if (caps.status === "unknown") return false;
+  if (caps.status === "unknown") {
+    return false;
+  }
   const v = caps[key];
-  if (v == null) return false;
-  if (typeof v === "boolean") return v === true && caps.status === "known";
+  if (v === null) {
+    return false;
+  }
+  if (typeof v === "boolean") {
+    return v === true && caps.status === "known";
+  }
   return false;
 }
 
@@ -243,7 +266,7 @@ export function isCapabilityEnabled(
  * Unknown is not enabled.
  */
 export function isPasskeyOnboardingEnabled(
-  caps: AthenaAuthCapabilitiesResult,
+  caps: AthenaAuthCapabilitiesResult
 ): boolean {
   if (!isCapabilityEnabled(caps, "passkeys")) {
     return false;
@@ -259,13 +282,13 @@ export function resolveSocialProvidersForUi(
   caps: AthenaAuthCapabilitiesResult
 ): { providers: string[] | null; hide: boolean } {
   if (caps.status === "unknown") {
-    return { providers: null, hide: false };
+    return { hide: false, providers: null };
   }
   const list = caps.social?.providers;
   if (list == null) {
-    return { providers: null, hide: caps.status === "known" };
+    return { hide: caps.status === "known", providers: null };
   }
-  return { providers: list, hide: false };
+  return { hide: false, providers: list };
 }
 
 /** True only when status is known and at least one social provider is listed. */

@@ -73,7 +73,9 @@ function defaultHttpBody(message: AthenaResolvedEmailMessage): unknown {
   return {
     attachments: selectAttachments(message).map((attachment) => ({
       content:
-        attachment.content === undefined ? undefined : toBase64(attachment.content),
+        attachment.content === undefined
+          ? undefined
+          : toBase64(attachment.content),
       contentType: attachment.contentType,
       filename: attachment.filename,
       fileUrl: attachment.fileUrl,
@@ -124,7 +126,9 @@ export function httpEmailProvider(
       const response = await withHttpDeadline(
         fetchFn(url, {
           body: JSON.stringify(
-            options.mapBody ? options.mapBody(message) : defaultHttpBody(message)
+            options.mapBody
+              ? options.mapBody(message)
+              : defaultHttpBody(message)
           ),
           headers: {
             "content-type": "application/json",

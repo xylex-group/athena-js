@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AthenaConfigurationError, createClient } from "../src/v3-client.ts";
 import {
   getAttachedAthenaAuthRouting,
   hasDuplicateAthenaAuthPath,
@@ -9,6 +8,7 @@ import {
 } from "../src/auth/resolve-routing.ts";
 import { createAthenaServerClient } from "../src/next/server.ts";
 import { ATHENA_AUTH_PATH } from "../src/utils/athena-auth-url.ts";
+import { AthenaConfigurationError, createClient } from "../src/v3-client.ts";
 
 test("same-origin: browser base is /api/auth and upstream from upstreamUrl", () => {
   const resolved = resolveAthenaAuthRouting({
@@ -77,6 +77,27 @@ test("same-origin: missing upstream does not silently use hosted default", () =>
     resolved.warnings.some((w) => w.includes("no proxy upstream")),
     "expected missing-upstream warning"
   );
+});
+
+test("same-origin: missing upstream does not console.warn", () => {
+  const lines: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => {
+    lines.push(args.map(String).join(" "));
+  };
+  try {
+    resolveAthenaAuthRouting({
+      emitWarnings: true,
+      routing: "same-origin",
+    });
+    assert.equal(
+      lines.some((line) => line.includes("no proxy upstream")),
+      false,
+      lines.join("\n")
+    );
+  } finally {
+    console.warn = original;
+  }
 });
 
 test("credentials default is include regardless of routing mode", () => {
@@ -195,6 +216,7 @@ test("createClient same-origin enables relative auth base and inspectAuth", asyn
     );
     assert.equal(diagnostics.proxyUpstreamBaseUrl, "https://auth.example.com");
     assert.equal(diagnostics.authConfigured, true);
+    assert.equal(diagnostics.source, "resolved-client");
 
     await client.auth.getSession();
     assert.ok(
@@ -286,5 +308,27 @@ test("auth routing WeakMap retained across withContext chain and server client",
     assert.equal(diag.browserRequestBaseUrl, expected.browserRequestBaseUrl);
     assert.equal(diag.mode, expected.mode);
     assert.equal(diag.proxyUpstreamBaseUrl, expected.proxyUpstreamBaseUrl);
+    assert.equal(diag.source, "resolved-client");
   }
+});
+
+test("inspectAuth projects requestOrigin without re-resolving routing policy", () => {
+  const client = createClient({
+    auth: {
+      url: "/api/athena/auth",
+    },
+    key: "k",
+    url: "https://gateway.example.com",
+  });
+  const attached = getAttachedAthenaAuthRouting(client);
+  assert.equal(attached?.browserRequestBaseUrl, "/api/athena/auth");
+  const diag = client.system.inspectAuth({
+    requestOrigin: "https://app.example.com",
+  });
+  assert.equal(diag.source, "resolved-client");
+  assert.equal(diag.browserRequestBaseUrl, "/api/athena/auth");
+  assert.equal(
+    diag.serverRequestBaseUrl,
+    "https://app.example.com/api/athena/auth"
+  );
 });

@@ -1,14 +1,20 @@
 import type { AthenaGatewayClient } from "../../gateway/client.ts";
 import type { AthenaRuntimeDiscoveryDocument } from "../../gateway/discovery-types.ts";
 import type { AthenaGatewayResponse } from "../../gateway/types.ts";
-import type { AthenaDataLifecycleConfig } from "./lifecycle/types.ts";
-import type { AthenaPolicyDecision, AthenaPolicyMode } from "../../policy/decision.ts";
+import type {
+  AthenaPolicyDecision,
+  AthenaPolicyMode,
+} from "../../policy/decision.ts";
 import type { AthenaPolicyRegistry } from "../../policy/registry.ts";
+import type { AthenaDataLifecycleConfig } from "./lifecycle/types.ts";
 import type {
   AthenaResolvedPrincipal,
   AthenaRuntimeAuthConfig,
   AthenaRuntimeAuthMaterial,
 } from "./principal.ts";
+import type { AthenaCapabilitiesIr } from "../../capabilities/types.ts";
+import type { NormalizedAthenaAuthorizationConfig } from "../authorization/config.ts";
+import type { AthenaAuthorizationModelIndex } from "../authorization/model-index.ts";
 
 export type AthenaRuntimeOperation =
   | "fetch"
@@ -18,10 +24,7 @@ export type AthenaRuntimeOperation =
   | "query"
   | "rpc";
 
-export type AthenaRuntimeSecurityMode =
-  | "trusted"
-  | "authenticated"
-  | "policy";
+export type AthenaRuntimeSecurityMode = "trusted" | "authenticated" | "policy";
 
 export type AthenaRuntimeAuthMode =
   | false
@@ -52,6 +55,10 @@ export interface AthenaRuntimeRequestContext {
   traceId?: string;
 }
 
+export type AthenaOAuthScopePolicy = Partial<
+  Record<AthenaRuntimeOperation, readonly string[]>
+>;
+
 export interface AthenaRuntimeLimits {
   maxBodyBytes?: number;
   maxInItems?: number;
@@ -64,14 +71,14 @@ export interface AthenaRuntimeLimits {
 
 export interface AthenaRuntimeHttpSecurity {
   allowCrossOrigin?: boolean;
-  allowUnboundedMutations?: boolean;
   allowedOrigins?: readonly string[];
+  allowUnboundedMutations?: boolean;
   csrf?: "origin" | "disabled";
 }
 
 export interface AthenaRuntimeHttpProfile {
-  allowUnboundedMutations: boolean;
   allowedOrigins: readonly string[];
+  allowUnboundedMutations: boolean;
   enabled: boolean;
   limits: {
     maxBodyBytes: number;
@@ -154,15 +161,21 @@ export interface AthenaServerRuntime {
   readonly allowsUnauthenticatedHttp: boolean;
   /** Server-side Auth material. Not a public client API. */
   readonly authMaterial: AthenaRuntimeAuthMaterial;
-  readonly policyRegistry?: AthenaPolicyRegistry;
-  readonly httpProfile: AthenaRuntimeHttpProfile;
+  readonly authorizationConfig?: NormalizedAthenaAuthorizationConfig;
+  readonly authorizationModelIndex?: AthenaAuthorizationModelIndex;
   readonly capabilities: AthenaRuntimeCapabilities;
+  readonly capabilitiesIr?: AthenaCapabilitiesIr;
+  /** Root client internals for Billing DevTools (never serialized). */
+  readonly devtoolsClientInternals?: unknown;
+  /** Client-shaped input for DevTools snapshot production (Node/local only). */
+  readonly devtoolsProduceInput?: Record<string, unknown>;
   /** Optional 1.1 Next runtime-capability overlay. Standalone Data stays 1.0. */
   readonly discoveryDocument?: AthenaRuntimeDiscoveryDocument;
   execute(
     request: AthenaRuntimeRequest,
     context?: AthenaRuntimeRequestContext
   ): Promise<AthenaGatewayResponse<unknown>>;
+  readonly httpProfile: AthenaRuntimeHttpProfile;
   readonly lifecycle?: { data?: AthenaDataLifecycleConfig };
   readonly modelIndex?: {
     readonly enforcement: AthenaRuntimeModelEnforcement;
@@ -170,6 +183,10 @@ export interface AthenaServerRuntime {
       | {
           canonicalResource: string;
           columns: ReadonlySet<string>;
+          columnIdentities?: ReadonlyMap<
+            string,
+            { logical: string; physical: string }
+          >;
           database?: string;
           model?: string;
           relations: ReadonlyMap<string, { kind: string }>;
@@ -178,41 +195,52 @@ export interface AthenaServerRuntime {
         }
       | undefined;
   };
-  readonly transport: AthenaGatewayClient;
-  readonly rpcExpose?: ReadonlySet<string>;
   readonly onExecutionEvent?: (event: AthenaRuntimeExecutionEvent) => void;
-  /** Client-shaped input for DevTools snapshot production (Node/local only). */
-  readonly devtoolsProduceInput?: Record<string, unknown>;
+  readonly oauthScopePolicy?: AthenaOAuthScopePolicy;
+  readonly policyRegistry?: AthenaPolicyRegistry;
+  readonly rpcExpose?: ReadonlySet<string>;
+  readonly transport: AthenaGatewayClient;
 }
 
 export interface CreateAthenaServerRuntimeConfig {
   auth?: AthenaRuntimeAuthConfig;
+  /** Internal root-client authorization state; never serialized. */
+  authorizationConfig?: NormalizedAthenaAuthorizationConfig;
+  authorizationModelIndex?: AthenaAuthorizationModelIndex;
   databaseUrl?: string | null;
   db?: {
     databaseUrl?: string | null;
   };
+  /** Root internals for Billing DevTools production (not JSON). */
+  devtoolsClientInternals?: unknown;
+  /** Optional extra facts for GET /api/athena/capabilities DevTools snapshot. */
+  devtoolsProduceInput?: Record<string, unknown>;
+  /** Next handlers pass protocol 1.1 ads; omitted for Data-only 1.0. */
+  discoveryDocument?: AthenaRuntimeDiscoveryDocument;
+  /** Canonical runtime capability snapshot from a root client. */
+  capabilitiesIr?: AthenaCapabilitiesIr;
+  /** Enable browser HTTP profile (CSRF, CORS, limits). Data handlers set this. */
+  http?: boolean;
+  lifecycle?: { data?: AthenaDataLifecycleConfig };
+  limits?: AthenaRuntimeLimits;
   modelEnforcement?: AthenaRuntimeModelEnforcement;
   models?: unknown;
+  onExecutionEvent?: (event: AthenaRuntimeExecutionEvent) => void;
   policies?: {
     definitions?: unknown;
     enforce?: boolean;
     mode?: AthenaPolicyMode;
   };
-  limits?: AthenaRuntimeLimits;
   rawSql?: boolean | { enabled: boolean };
+  oauth?: {
+    scopePolicy?: AthenaOAuthScopePolicy;
+  };
+  resource?: string;
   rpc?: boolean | { enabled: boolean; expose?: readonly string[] };
-  lifecycle?: { data?: AthenaDataLifecycleConfig };
-  onExecutionEvent?: (event: AthenaRuntimeExecutionEvent) => void;
   security: {
     http?: AthenaRuntimeHttpSecurity;
     mode: AthenaRuntimeSecurityMode;
   };
   transport?: AthenaGatewayClient;
   unsafeAllowUnauthenticated?: boolean;
-  /** Enable browser HTTP profile (CSRF, CORS, limits). Data handlers set this. */
-  http?: boolean;
-  /** Next handlers pass protocol 1.1 ads; omitted for Data-only 1.0. */
-  discoveryDocument?: AthenaRuntimeDiscoveryDocument;
-  /** Optional extra facts for GET /api/athena/capabilities DevTools snapshot. */
-  devtoolsProduceInput?: Record<string, unknown>;
 }

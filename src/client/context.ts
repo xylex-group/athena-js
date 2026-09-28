@@ -17,22 +17,15 @@ import type {
   AthenaAuthBindings,
   AthenaAuthClientConfig,
 } from "../auth/types.ts";
+import type {
+  InternalAuthSessionPersistence,
+  InternalAuthSessionPersistenceAuthority,
+} from "../auth/client/session-persistence.ts";
 import { createChatModule } from "../chat/module.ts";
 import type {
   AthenaChatModule,
   AthenaChatWebSocketFactory,
 } from "../chat/types.ts";
-import type {
-  AthenaRequestOptions,
-  AthenaRequestResponse,
-} from "../client-request.ts";
-import { createAthenaRequest } from "../client-request.ts";
-import type {
-  AthenaResult,
-  AthenaResultFormatter,
-} from "../client-result.ts";
-import { createResultFormatter } from "../client-result.ts";
-import { resolveTableNameForCall } from "../client-sql.ts";
 import type {
   AthenaFromOptions,
   AthenaRowShape,
@@ -41,34 +34,40 @@ import type {
   RpcQueryBuilder,
   TableQueryBuilder,
   UntypedTableName,
-} from "../client-fluent.ts";
+} from "./fluent/types.ts";
 import {
   createQueryBuilder,
   createRpcBuilder,
   createTableBuilder,
-} from "../client-fluent.ts";
+} from "./fluent/index.ts";
+import type {
+  AthenaRequestOptions,
+  AthenaRequestResponse,
+} from "../client-request.ts";
+import { createAthenaRequest } from "../client-request.ts";
+import type { AthenaResult, AthenaResultFormatter } from "../result/types.ts";
+import { createResultFormatter } from "../result/formatter.ts";
+import { resolveTableNameForCall } from "../client-sql.ts";
 import {
   type AthenaCompatibilityCache,
   type AthenaCompatibilityReport,
   createCompatibilityCache,
   discoverCompatibility,
 } from "../compatibility/report.ts";
-import type { AthenaDbModule, AthenaTransactionClient } from "../db/module.ts";
+import type { AthenaDbModule } from "../db/module.ts";
 import {
   beginInteractiveSession,
   executeAtomicTransaction,
   finishInteractiveSession,
-  nextInternalSavepointName,
 } from "../db/transaction/index.ts";
-import { AthenaTransactionError } from "../db/transaction/errors.ts";
 import { createInteractiveGatewayClient } from "../db/transaction/interactive-gateway.ts";
 import type { AthenaTransactionOptions } from "../db/transaction/types.ts";
+import { createTransactionScopedDb } from "./transactions.ts";
 import {
   type AthenaGatewayClient,
   createAthenaGatewayClient,
   createAthenaGatewayClientView,
 } from "../gateway/client.ts";
-import { normalizeAthenaGatewayBaseUrl } from "../gateway/url.ts";
 import type {
   AthenaGatewayCallOptions,
   AthenaGatewayConnectionOptions,
@@ -77,13 +76,12 @@ import type {
   AthenaRpcCallOptions,
   BackendConfig,
 } from "../gateway/types.ts";
+import { normalizeAthenaGatewayBaseUrl } from "../gateway/url.ts";
 import type { AthenaCacheContextDescriptor } from "../query/descriptor.ts";
+import { createQueryExecutionRuntime } from "../query/execution/operation.ts";
 import { peekSyncCacheContext } from "../query/descriptor.ts";
 import type { AthenaQueryTracer } from "../query-tracing.ts";
-import {
-  captureTraceCallsite,
-  createQueryTracer,
-} from "../query-tracing.ts";
+import { captureTraceCallsite, createQueryTracer } from "../query-tracing.ts";
 import type {
   AthenaNormalizedHealth,
   AthenaReleaseIdentity,
@@ -106,6 +104,8 @@ import type {
   AthenaStorageModule,
 } from "../storage/module.ts";
 import { createStorageModule } from "../storage/module.ts";
+import type { AthenaBillingModule } from "../billing/module.ts";
+import type { AthenaBillingRuntimeDispatch } from "../billing/runtime/dispatch.ts";
 import type { AthenaRequestHeaderOverrideFields } from "../utils/athena-request-headers.ts";
 
 /**
@@ -131,11 +131,6 @@ export interface AthenaClientSystemModule {
   /** Lazy cached compatibility report (health-backed when available). */
   compatibility: () => Promise<AthenaCompatibilityReport>;
   /**
-   * Redacted runtime plan (database / auth / storage / environment).
-   * Diagnostics only — not a configuration surface.
-   */
-  runtime: () => import("../runtime/resolve.ts").AthenaRuntimeDiagnostics;
-  /**
    * Safe auth routing / configuration snapshot (no secrets, tokens, or cookie values).
    * Always installed by `createClient` / `createClientView` (4.3+). Does not require db.
    */
@@ -144,6 +139,11 @@ export interface AthenaClientSystemModule {
   }) => import("../auth/resolve-routing.ts").AthenaAuthDiagnostics;
   /** Normalized release identity from health (Athena 4 synthesizes without codename). */
   release: () => Promise<AthenaReleaseIdentity>;
+  /**
+   * Redacted runtime plan (database / auth / storage / environment).
+   * Diagnostics only — not a configuration surface.
+   */
+  runtime: () => import("../runtime/resolve.ts").AthenaRuntimeDiagnostics;
 }
 
 export interface InternalAthenaClient<TModels = never> {
@@ -169,7 +169,7 @@ export interface InternalAthenaClient<TModels = never> {
   /**
    * Executes raw SQL through Athena's compatibility query surface.
    *
-   * @deprecated Prefer `admin.query()` with explicit `operation` and `expectedShape`.
+   * @deprecated Will be removed in Athena 6.0.0. Use `admin.query()` for explicit operation and expected-shape metadata, or `db.query()` for the compatibility result shape.
    */
   query: <Row = unknown>(
     query: string,
@@ -217,6 +217,7 @@ export interface InternalClientConfig<
   chatUrl?: string;
   chatWsUrl?: string;
   client?: string | null | undefined;
+  env?: Record<string, string | undefined>;
   /**
    * Optional prebuilt gateway transport (HTTP client, Cloudflare D1 local, or test fake).
    * When set, `createAthenaGatewayClient` is not constructed from baseUrl/apiKey.
@@ -225,6 +226,8 @@ export interface InternalClientConfig<
   gatewayTransport?: AthenaGatewayClient;
   headers?: Record<string, string>;
   jdbcUrl?: string | null | undefined;
+  /** Internal marker for an injected SQLite Local database. */
+  localDatabase?: boolean;
   models?: TModels;
   /** Direct PostgreSQL URI forwarded as `x-pg-uri` on gateway requests. */
   pgUri?: string | null | undefined;
@@ -257,6 +260,15 @@ export interface InternalAthenaClientCore<
   readonly gatewayTransport: AthenaGatewayClient;
   readonly normalizedAuthConfig: AthenaAuthClientConfig | undefined;
   readonly queryTracer: AthenaQueryTracer | undefined;
+  readonly runtimeBindings?: AthenaClientRuntimeBindings;
+}
+
+export interface AthenaClientRuntimeBindings {
+  billing?: AthenaBillingModule;
+  billingRuntime?: AthenaBillingRuntimeDispatch;
+  ownedResourceClose?: () => Promise<void>;
+  sessionPersistence?: InternalAuthSessionPersistence;
+  sessionPersistenceAuthority?: InternalAuthSessionPersistenceAuthority;
 }
 
 function buildContextHeaders(
@@ -330,7 +342,10 @@ function normalizeAuthClientConfig(
 
 export function createInternalClientCore<
   TModels extends AthenaClientModelsInput | never = never,
->(config: InternalClientConfig<TModels>): InternalAthenaClientCore<TModels> {
+>(
+  config: InternalClientConfig<TModels>,
+  runtimeBindings?: AthenaClientRuntimeBindings
+): InternalAthenaClientCore<TModels> {
   const normalizedAuthConfig = normalizeAuthClientConfig(
     config.auth,
     config.authUrl
@@ -352,6 +367,7 @@ export function createInternalClientCore<
     gatewayTransport,
     normalizedAuthConfig,
     queryTracer: createQueryTracer(config.behavior),
+    ...(runtimeBindings ? { runtimeBindings } : {}),
   });
 }
 
@@ -381,11 +397,18 @@ export function createInternalClientView<
         : undefined;
     }
   );
+  const queryRuntime = createQueryExecutionRuntime({
+    behavior: config.behavior,
+    formatGatewayResult,
+    gateway,
+    tracer: queryTracer,
+  });
   const auth = createAuthModule(
     {
       ...(normalizedAuthConfig ?? {}),
     },
     {
+      compatibilityWarnings: config.behavior?.rawQueryDiagnostics === true,
       async resolveCallOptions() {
         const context = await resolveContext();
         return context
@@ -398,6 +421,9 @@ export function createInternalClientView<
             }
           : undefined;
       },
+      sessionPersistence: core.runtimeBindings?.sessionPersistence,
+      sessionPersistenceAuthority:
+        core.runtimeBindings?.sessionPersistenceAuthority,
     }
   );
   // Single implementation + cast avoids TS2589 deep overload expansion during dts.
@@ -413,10 +439,7 @@ export function createInternalClientView<
       }
       return createTableBuilder(
         resolveAthenaModelTargetTableName(tableOrModel),
-        gateway,
-        formatGatewayResult,
-        queryTracer,
-        config.behavior,
+        queryRuntime,
         {
           cacheContext: cacheContext ?? peekSyncCacheContext(resolveContext),
           model: tableOrModel,
@@ -430,10 +453,7 @@ export function createInternalClientView<
     );
     return createTableBuilder(
       resolvedTableName,
-      gateway,
-      formatGatewayResult,
-      queryTracer,
-      config.behavior,
+      queryRuntime,
       {
         cacheContext: cacheContext ?? peekSyncCacheContext(resolveContext),
       }
@@ -455,11 +475,8 @@ export function createInternalClientView<
       normalizedFn,
       args as AthenaJsonObject | undefined,
       options,
-      gateway,
-      formatGatewayResult,
-      queryTracer,
+      queryRuntime,
       captureTraceCallsite(queryTracer),
-      Boolean(config.behavior?.debugAst)
     );
   };
   const deprecationOwner = Object.create(null) as object;
@@ -473,12 +490,10 @@ export function createInternalClientView<
     query: adminQueryImpl,
   };
   const query = createQueryBuilder(
-    gateway,
-    formatGatewayResult,
-    config.behavior,
-    queryTracer,
+    queryRuntime,
     deprecationOwner
   ) as InternalAthenaClient<TModels>["query"];
+  const dbQuery = createQueryBuilder(queryRuntime);
   const health = async (): Promise<AthenaNormalizedHealth> => {
     const report = await discoverCompatibility({
       apiKey: config.apiKey,
@@ -507,14 +522,6 @@ export function createInternalClientView<
         headers: config.headers,
       });
     },
-    runtime() {
-      return {
-        auth: "remote",
-        database: "gateway",
-        runtime: "node",
-        storage: "none",
-      };
-    },
     /**
      * Internal/core path has no routing SSOT attachment; return empty diagnostics.
      * Public createClient views always supply a real inspectAuth via v3 createClientView.
@@ -528,6 +535,15 @@ export function createInternalClientView<
       const report = await system.compatibility();
       return report.release;
     },
+    runtime() {
+      return {
+        auth: "remote",
+        chat: "none",
+        database: config.localDatabase ? "sqlite-local" : "gateway",
+        runtime: "node",
+        storage: "none",
+      };
+    },
   };
   const untypedDbFrom = from as unknown as <
     Row = AthenaRowShape,
@@ -537,104 +553,6 @@ export function createInternalClientView<
     table: string,
     options?: AthenaFromOptions
   ) => TableQueryBuilder<Row, Insert, Update>;
-
-  const createTransactionScopedDb = (
-    txGateway: ReturnType<typeof createAthenaGatewayClient>,
-    session: import("../db/transaction/coordinator.ts").InteractiveTransactionSession
-  ): AthenaTransactionClient<TModels> => {
-    const txFrom = ((
-      tableOrModel: string | AthenaModelTarget,
-      options?: AthenaFromOptions
-    ) => {
-      if (isAthenaModelTarget(tableOrModel)) {
-        return createTableBuilder(
-          resolveAthenaModelTargetTableName(tableOrModel),
-          txGateway,
-          formatGatewayResult,
-          queryTracer,
-          config.behavior,
-          { model: tableOrModel }
-        );
-      }
-      return createTableBuilder(
-        resolveTableNameForCall(tableOrModel, options?.schema),
-        txGateway,
-        formatGatewayResult,
-        queryTracer,
-        config.behavior
-      );
-    }) as AthenaDbModule<TModels>["from"];
-    const txUntypedFrom = txFrom as unknown as typeof untypedDbFrom;
-    const scoped = {
-      abort() {
-        session.abort();
-      },
-      delete(table: string, options?: AthenaGatewayCallOptions & { resourceId?: string }) {
-        return txUntypedFrom(table).delete(options);
-      },
-      from: txFrom,
-      insert(table: string, values: unknown, options?: AthenaGatewayCallOptions) {
-        return Array.isArray(values)
-          ? txUntypedFrom(table).insert(values as never, options)
-          : txUntypedFrom(table).insert(values as never, options);
-      },
-      select(
-        table: string,
-        first?: AthenaGatewayCallOptions | AthenaSelectInput,
-        second?: AthenaGatewayCallOptions
-      ) {
-        if (first && typeof first === "object" && !Array.isArray(first)) {
-          return txUntypedFrom(table).select(
-            undefined,
-            first as AthenaGatewayCallOptions
-          );
-        }
-        return txUntypedFrom(table).select(
-          first as AthenaSelectInput | undefined,
-          second
-        );
-      },
-      update(table: string, values: unknown, options?: AthenaGatewayCallOptions) {
-        return txUntypedFrom(table).update(values as never, options);
-      },
-      upsert(table: string, values: unknown, options?: AthenaGatewayCallOptions) {
-        return Array.isArray(values)
-          ? txUntypedFrom(table).upsert(values as never, options)
-          : txUntypedFrom(table).upsert(values as never, options);
-      },
-      async withSavepoint(callback: (tx: unknown) => Promise<unknown>) {
-        if (!session.transport.createSavepoint) {
-          throw new AthenaTransactionError(
-            "ATHENA_TRANSACTION_SAVEPOINT_UNSUPPORTED",
-            `Savepoints are not supported by backend "${session.capabilities.backend}"`,
-            { backend: session.capabilities.backend }
-          );
-        }
-        session.savepointIndex += 1;
-        const name = nextInternalSavepointName(session.savepointIndex);
-        await session.transport.createSavepoint(name);
-        try {
-          const value = await callback(scoped);
-          await session.transport.releaseSavepoint?.(name);
-          return value;
-        } catch (error) {
-          await session.transport.rollbackToSavepoint?.(name);
-          throw error;
-        }
-      },
-      async withTransaction(callback: (tx: unknown) => Promise<unknown>) {
-        if (!session.capabilities.savepoints) {
-          throw new AthenaTransactionError(
-            "ATHENA_TRANSACTION_NESTING_UNSUPPORTED",
-            `Nested withTransaction is not supported by backend "${session.capabilities.backend}"`,
-            { backend: session.capabilities.backend }
-          );
-        }
-        return scoped.withSavepoint(callback) as Promise<unknown>;
-      },
-    };
-    return scoped as unknown as AthenaTransactionClient<TModels>;
-  };
 
   const db = {
     delete<Row = AthenaRowShape>(
@@ -659,7 +577,7 @@ export function createInternalClientView<
             options
           );
     },
-    query,
+    query: dbQuery,
     rpc,
     select<Row = AthenaRowShape>(
       table: string,
@@ -676,6 +594,14 @@ export function createInternalClientView<
         first as AthenaSelectInput | undefined,
         second
       );
+    },
+    transaction(operations, options?: AthenaTransactionOptions) {
+      return executeAtomicTransaction({
+        formatGatewayResult,
+        gateway,
+        operations,
+        options,
+      });
     },
     update<
       Row = AthenaRowShape,
@@ -700,21 +626,19 @@ export function createInternalClientView<
         ? untypedDbFrom<Row, Insert, Update>(table).upsert(values, options)
         : untypedDbFrom<Row, Insert, Update>(table).upsert(values, options);
     },
-    transaction(operations, options?: AthenaTransactionOptions) {
-      return executeAtomicTransaction({
-        formatGatewayResult,
-        gateway,
-        operations,
-        options,
-      });
-    },
     async withTransaction(callback, options?: AthenaTransactionOptions) {
       const session = await beginInteractiveSession({
         gateway,
         options,
       });
       const txGateway = createInteractiveGatewayClient(gateway, session);
-      const tx = createTransactionScopedDb(txGateway, session);
+      const tx = createTransactionScopedDb<TModels>({
+        behavior: config.behavior,
+        formatGatewayResult,
+        gateway: txGateway,
+        session,
+        tracer: queryTracer,
+      });
       try {
         const value = await callback(tx);
         await finishInteractiveSession({
@@ -758,7 +682,9 @@ export function createInternalClientView<
               cookie: context.cookie,
               forceNoCache: context.forceNoCache,
               headers: buildContextHeaders(context),
+              organizationId: context.organizationId,
               sessionToken: context.sessionToken,
+              userId: context.userId,
             }
           : undefined;
       },

@@ -33,7 +33,7 @@ test("resolvePostgresColumnType covers scalar families and advanced postgres dat
     { expected: "boolean", input: column("boolean", "bool") },
     { expected: "Buffer", input: column("bytea", "bytea") },
     { expected: "string", input: column("uuid", "uuid") },
-    { expected: "Record<string, unknown>", input: column("jsonb", "jsonb") },
+    { expected: "unknown", input: column("jsonb", "jsonb") },
     {
       expected: "string",
       input: column("timestamp with time zone", "timestamptz"),
@@ -41,6 +41,8 @@ test("resolvePostgresColumnType covers scalar families and advanced postgres dat
     { expected: "string", input: column("inet", "inet") },
     { expected: "string", input: column("point", "point") },
     { expected: "string", input: column("bit varying", "varbit") },
+    { expected: "string", input: column("bit(8)", "bit") },
+    { expected: "string", input: column("varbit(12)", "varbit") },
     { expected: "string", input: column("xml", "xml") },
     { expected: "string", input: column("tsvector", "tsvector") },
     { expected: "string", input: column("int4range", "int4range", "range") },

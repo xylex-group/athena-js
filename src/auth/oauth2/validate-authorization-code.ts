@@ -1,4 +1,9 @@
-import { createRemoteJWKSet, customFetch, jwtVerify } from "jose";
+import {
+  createRemoteJWKSet,
+  customFetch,
+  type FetchImplementation,
+  jwtVerify,
+} from "jose";
 import type { AwaitableFunction } from "../types/index.ts";
 import { base64 } from "../utils/base64.ts";
 import type { ProviderOptions } from "./index.ts";
@@ -10,6 +15,18 @@ import {
 } from "./reject-redirects.ts";
 import { getPrimaryClientId } from "./utils.ts";
 
+/**
+ * @param code - OAuth 2.0 code
+ * @param codeVerifier - OAuth 2.0 code verifier
+ * @param redirectURI - OAuth 2.0 redirect URI
+ * @param options - Provider options (awaitable)
+ * @param authentication - OAuth 2.0 authentication method
+ * @param deviceId - OAuth 2.0 device ID
+ * @param headers - OAuth 2.0 headers
+ * @param additionalParams - Additional OAuth 2.0 parameters
+ * @param resource - OAuth 2.0 resource parameter
+ * @returns Authorization code request
+ */
 export async function authorizationCodeRequest({
   code,
   codeVerifier,
@@ -132,6 +149,18 @@ export function createAuthorizationCodeRequest({
  * Builds the form body via {@link authorizationCodeRequest}, posts with
  * redirect-refusing fetch, and normalizes the JSON via {@link getOAuth2Tokens}.
  *
+ * @param code - OAuth 2.0 code
+ * @param codeVerifier - OAuth 2.0 code verifier
+ * @param redirectURI - OAuth 2.0 redirect URI
+ * @param options - Provider options (awaitable)
+ * @param tokenEndpoint - OAuth 2.0 token endpoint
+ * @param authentication - OAuth 2.0 authentication method
+ * @param deviceId - OAuth 2.0 device ID
+ * @param headers - OAuth 2.0 headers
+ * @param additionalParams - Additional OAuth 2.0 parameters
+ * @param resource - OAuth 2.0 resource parameter
+ * @returns OAuth 2.0 tokens
+ *
  * @throws When the token endpoint returns an error response body
  */
 export async function validateAuthorizationCode({
@@ -181,6 +210,14 @@ export async function validateAuthorizationCode({
   return tokens;
 }
 
+/**
+ * @param token - OAuth 2.0 token
+ * @param jwksEndpoint - OAuth 2.0 JWKS endpoint
+ * @param options - OAuth 2.0 options
+ * @param audience - OAuth 2.0 audience
+ * @param issuer - OAuth 2.0 issuer
+ * @returns Verified token
+ */
 export async function validateToken(
   token: string,
   jwksEndpoint: string,
@@ -189,12 +226,13 @@ export async function validateToken(
     issuer?: string | string[];
   }
 ) {
+  const fetchRemoteJwks: FetchImplementation = async (url, options) => {
+    const response = await fetch(url, { ...options, ...NO_FOLLOW_REDIRECT });
+    assertResponseNotRedirect(String(url), response);
+    return response;
+  };
   const jwks = createRemoteJWKSet(new URL(jwksEndpoint), {
-    [customFetch]: async (url, init) => {
-      const response = await fetch(url, { ...init, ...NO_FOLLOW_REDIRECT });
-      assertResponseNotRedirect(String(url), response);
-      return response;
-    },
+    [customFetch]: fetchRemoteJwks,
   });
   const verified = await jwtVerify(token, jwks, {
     audience: options?.audience,

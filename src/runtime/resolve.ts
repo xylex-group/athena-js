@@ -7,9 +7,13 @@
  */
 
 import { athenaAuthConfig } from "../auth/config.ts";
+import { resolveChatMode } from "../chat/config.ts";
+import type { AthenaChatConfig } from "../chat/types.ts";
 import { AthenaConfigurationError } from "../config/errors.ts";
 
-function normalizeOptional(value: string | null | undefined): string | undefined {
+function normalizeOptional(
+  value: string | null | undefined
+): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
@@ -20,8 +24,21 @@ interface ResolveAuthInput {
 
 export interface ResolveConfigInput {
   auth?: false | ResolveAuthInput | null;
+  billing?: {
+    endpoint?: string | null;
+    mode?: string | null;
+    providers?: Record<string, unknown> | null;
+    url?: string | null;
+  };
+  chat?: boolean | AthenaChatConfig;
   databaseUrl?: string | null;
-  db?: { d1?: unknown; pgUri?: string | null; pool?: unknown };
+  db?: {
+    d1?: unknown;
+    pgUri?: string | null;
+    pool?: unknown;
+    sqlite?: unknown;
+    url?: string | null;
+  };
   env?: Record<string, string | undefined>;
   mode?: string | null;
   storage?: {
@@ -42,12 +59,14 @@ export type AthenaRuntimeEnvironment =
   | "react-native"
   | "cloudflare";
 
-export type AthenaDbTransport = "postgres" | "gateway" | "d1";
+export type AthenaDbTransport = "postgres" | "gateway" | "d1" | "sqlite";
 export type AthenaAuthRuntime = "embedded" | "remote" | "disabled";
 export type AthenaStorageTransport = "http" | "r2" | "local" | "s3" | "none";
+export type AthenaChatTransport = "local" | "remote" | "none";
 
 export interface ResolvedAthenaRuntime {
   auth: { runtime: AthenaAuthRuntime };
+  chat: { transport: AthenaChatTransport };
   db: { transport: AthenaDbTransport };
   runtime: { environment: AthenaRuntimeEnvironment };
   storage: { transport: AthenaStorageTransport };
@@ -56,7 +75,8 @@ export interface ResolvedAthenaRuntime {
 /** Redacted public snapshot. Not a config surface. */
 export interface AthenaRuntimeDiagnostics {
   auth: AthenaAuthRuntime;
-  database: "postgres-direct" | "gateway" | "d1";
+  chat: AthenaChatTransport;
+  database: "postgres-direct" | "gateway" | "d1" | "sqlite-local";
   runtime: AthenaRuntimeEnvironment;
   storage: AthenaStorageTransport;
 }
@@ -66,7 +86,13 @@ export function toAthenaRuntimeDiagnostics(
 ): AthenaRuntimeDiagnostics {
   return {
     auth: plan.auth.runtime,
-    database: plan.db.transport === "postgres" ? "postgres-direct" : plan.db.transport,
+    chat: plan.chat.transport,
+    database:
+      plan.db.transport === "postgres"
+        ? "postgres-direct"
+        : plan.db.transport === "sqlite"
+          ? "sqlite-local"
+          : plan.db.transport,
     runtime: plan.runtime.environment,
     storage: plan.storage.transport,
   };
@@ -100,20 +126,21 @@ function isExplicitGatewayMode(
     (typeof mode === "string" ? mode : undefined) ?? env?.ATHENA_EXECUTION_MODE;
   const key = raw?.trim().toLowerCase();
   return (
-    key === "gateway" ||
-    key === "http" ||
-    key === "remote" ||
-    key === "server"
+    key === "gateway" || key === "http" || key === "remote" || key === "server"
   );
 }
 
 export function detectAthenaRuntimeEnvironment(): AthenaRuntimeEnvironment {
-  const nav = (globalThis as { navigator?: { product?: string; userAgent?: string } })
-    .navigator;
+  const nav = (
+    globalThis as { navigator?: { product?: string; userAgent?: string } }
+  ).navigator;
   if (nav?.product === "ReactNative") {
     return "react-native";
   }
-  if (typeof nav?.userAgent === "string" && /Cloudflare-Workers/i.test(nav.userAgent)) {
+  if (
+    typeof nav?.userAgent === "string" &&
+    /Cloudflare-Workers/i.test(nav.userAgent)
+  ) {
     return "cloudflare";
   }
   if (typeof (globalThis as { window?: unknown }).window !== "undefined") {
@@ -123,9 +150,10 @@ export function detectAthenaRuntimeEnvironment(): AthenaRuntimeEnvironment {
 }
 
 /**
- * Trusted Node/server only: omitted auth.mode + database URI (`db.pgUri`,
- * `databaseUrl`, or `env.DATABASE_URL`) + no auth.url means embedded Auth.
- * Explicit mode and auth.url always win. `auth: false` stays disabled.
+ * Trusted Node/server only: omitted auth.mode + database input (`db.pgUri`,
+ * `databaseUrl`, `env.DATABASE_URL`, or `db.pool`) + no auth.url means
+ * embedded Auth. Explicit mode and auth.url always win. `auth: false` stays
+ * disabled.
  */
 export function inferEmbeddedAuthMode<T extends ResolveConfigInput>(
   config: T
@@ -143,7 +171,7 @@ export function inferEmbeddedAuthMode<T extends ResolveConfigInput>(
   if (normalizeOptional(authObject?.url as string | null | undefined)) {
     return config;
   }
-  if (!resolveDatabaseUri(config)) {
+  if (!resolveDatabaseUri(config) && !hasBinding(config.db?.pool)) {
     return config;
   }
   return {
@@ -159,11 +187,17 @@ export function resolveAthenaRuntime(
   config: ResolveConfigInput,
   options: ResolveAthenaRuntimeOptions = {}
 ): ResolvedAthenaRuntime {
-  const environment =
-    options.environment ?? detectAthenaRuntimeEnvironment();
+  const environment = options.environment ?? detectAthenaRuntimeEnvironment();
   const trustedNode = options.trustedNode ?? environment === "node";
   const pgUri = resolveDatabaseUri(config);
+  const hasPool = hasBinding(config.db?.pool);
+  const chatMode = resolveChatMode({
+    chat: config.chat,
+    clusterUrl: config.url,
+    databaseUrl: pgUri,
+  });
   const hasD1 = hasBinding(config.db?.d1);
+  const hasSqlite = hasBinding(config.db?.sqlite);
   const hasR2 = hasBinding(config.storage?.r2);
   const hasStorageUrl = Boolean(normalizeOptional(config.storage?.url));
   const gatewayForced = isExplicitGatewayMode(config.mode, config.env);
@@ -171,7 +205,9 @@ export function resolveAthenaRuntime(
   let dbTransport: AthenaDbTransport = "gateway";
   if (hasD1 && !gatewayForced) {
     dbTransport = "d1";
-  } else if (pgUri && trustedNode && !gatewayForced) {
+  } else if (hasSqlite && !gatewayForced) {
+    dbTransport = "sqlite";
+  } else if ((pgUri || hasPool) && trustedNode && !gatewayForced) {
     dbTransport = "postgres";
   }
 
@@ -196,7 +232,7 @@ export function resolveAthenaRuntime(
       authRuntime = "embedded";
     } else if (explicit === "remote" || normalizeOptional(authUrl)) {
       authRuntime = "remote";
-    } else if (pgUri && trustedNode) {
+    } else if ((pgUri || hasPool) && trustedNode) {
       authRuntime = "embedded";
     }
   }
@@ -231,6 +267,9 @@ export function resolveAthenaRuntime(
 
   return {
     auth: { runtime: authRuntime },
+    chat: {
+      transport: chatMode === "disabled" ? "none" : chatMode,
+    },
     db: { transport: dbTransport },
     runtime: { environment },
     storage: { transport: storageTransport },

@@ -1,0 +1,393 @@
+{
+  "analyzerId": "athena-migration-analyzer@4",
+  "analyzerSemanticsVersion": 4,
+  "irVersion": 1,
+  "parserId": "pgsql-parser@18.2.6",
+  "records": {
+    "athena-migration-analyzer@4:bd90f4c905e0aa234835fdfb8f201edb3ecec149c5920aa088f9431001b2564e:0001_next_minimal_auth_directory.sql": {
+      "checksum": "bd90f4c905e0aa234835fdfb8f201edb3ecec149c5920aa088f9431001b2564e",
+      "declaredRequires": [],
+      "dependencies": [
+        {
+          "category": "REQUIRES_TABLE",
+          "confidence": "certain",
+          "explicitlyQualified": true,
+          "location": {
+            "end": {
+              "column": 1,
+              "line": 8
+            },
+            "filename": "0001_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 8
+            }
+          },
+          "object": {
+            "kind": "table",
+            "name": "users",
+            "schema": "athena"
+          },
+          "resolution": "exact",
+          "snippet": "",
+          "owner": {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          },
+          "statementIndex": 0
+        },
+        {
+          "category": "READS",
+          "confidence": "certain",
+          "explicitlyQualified": true,
+          "location": {
+            "end": {
+              "column": 1,
+              "line": 8
+            },
+            "filename": "0001_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 8
+            }
+          },
+          "object": {
+            "kind": "table",
+            "name": "users",
+            "schema": "athena"
+          },
+          "resolution": "exact",
+          "snippet": "",
+          "owner": {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          },
+          "statementIndex": 0
+        },
+        {
+          "category": "REQUIRES_SCHEMA",
+          "confidence": "certain",
+          "explicitlyQualified": true,
+          "location": {
+            "end": {
+              "column": 1,
+              "line": 8
+            },
+            "filename": "0001_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 8
+            }
+          },
+          "object": {
+            "kind": "schema",
+            "name": "athena"
+          },
+          "resolution": "exact",
+          "snippet": "",
+          "owner": {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          },
+          "statementIndex": 0
+        },
+        {
+          "category": "REQUIRES_COLUMN",
+          "confidence": "certain",
+          "explicitlyQualified": true,
+          "location": {
+            "end": {
+              "column": 1,
+              "line": 8
+            },
+            "filename": "0001_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 8
+            }
+          },
+          "object": {
+            "kind": "column",
+            "name": "id",
+            "schema": "athena",
+            "table": "users"
+          },
+          "resolution": "exact",
+          "snippet": "",
+          "owner": {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          },
+          "statementIndex": 0
+        },
+        {
+          "category": "REQUIRES_COLUMN",
+          "confidence": "certain",
+          "explicitlyQualified": true,
+          "location": {
+            "end": {
+              "column": 1,
+              "line": 8
+            },
+            "filename": "0001_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 8
+            }
+          },
+          "object": {
+            "kind": "column",
+            "name": "email",
+            "schema": "athena",
+            "table": "users"
+          },
+          "resolution": "exact",
+          "snippet": "",
+          "owner": {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          },
+          "statementIndex": 0
+        }
+      ],
+      "effects": {
+        "creates": [
+          {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          }
+        ],
+        "drops": [],
+        "modifies": []
+      },
+      "filename": "0001_next_minimal_auth_directory.sql",
+      "name": "next_minimal_auth_directory",
+      "parserId": "pgsql-parser@18.2.6",
+      "statements": [
+        {
+          "dependencies": [
+            {
+              "category": "REQUIRES_TABLE",
+              "confidence": "certain",
+              "explicitlyQualified": true,
+              "location": {
+                "end": {
+                  "column": 1,
+                  "line": 8
+                },
+                "filename": "0001_next_minimal_auth_directory.sql",
+                "start": {
+                  "column": 1,
+                  "line": 8
+                }
+              },
+              "object": {
+                "kind": "table",
+                "name": "users",
+                "schema": "athena"
+              },
+              "resolution": "exact",
+              "snippet": "",
+              "owner": {
+                "kind": "view",
+                "name": "next_minimal_auth_directory",
+                "schema": "public"
+              },
+              "statementIndex": 0
+            },
+            {
+              "category": "READS",
+              "confidence": "certain",
+              "explicitlyQualified": true,
+              "location": {
+                "end": {
+                  "column": 1,
+                  "line": 8
+                },
+                "filename": "0001_next_minimal_auth_directory.sql",
+                "start": {
+                  "column": 1,
+                  "line": 8
+                }
+              },
+              "object": {
+                "kind": "table",
+                "name": "users",
+                "schema": "athena"
+              },
+              "resolution": "exact",
+              "snippet": "",
+              "owner": {
+                "kind": "view",
+                "name": "next_minimal_auth_directory",
+                "schema": "public"
+              },
+              "statementIndex": 0
+            },
+            {
+              "category": "REQUIRES_SCHEMA",
+              "confidence": "certain",
+              "explicitlyQualified": true,
+              "location": {
+                "end": {
+                  "column": 1,
+                  "line": 8
+                },
+                "filename": "0001_next_minimal_auth_directory.sql",
+                "start": {
+                  "column": 1,
+                  "line": 8
+                }
+              },
+              "object": {
+                "kind": "schema",
+                "name": "athena"
+              },
+              "resolution": "exact",
+              "snippet": "",
+              "owner": {
+                "kind": "view",
+                "name": "next_minimal_auth_directory",
+                "schema": "public"
+              },
+              "statementIndex": 0
+            },
+            {
+              "category": "REQUIRES_COLUMN",
+              "confidence": "certain",
+              "explicitlyQualified": true,
+              "location": {
+                "end": {
+                  "column": 1,
+                  "line": 8
+                },
+                "filename": "0001_next_minimal_auth_directory.sql",
+                "start": {
+                  "column": 1,
+                  "line": 8
+                }
+              },
+              "object": {
+                "kind": "column",
+                "name": "id",
+                "schema": "athena",
+                "table": "users"
+              },
+              "resolution": "exact",
+              "snippet": "",
+              "owner": {
+                "kind": "view",
+                "name": "next_minimal_auth_directory",
+                "schema": "public"
+              },
+              "statementIndex": 0
+            },
+            {
+              "category": "REQUIRES_COLUMN",
+              "confidence": "certain",
+              "explicitlyQualified": true,
+              "location": {
+                "end": {
+                  "column": 1,
+                  "line": 8
+                },
+                "filename": "0001_next_minimal_auth_directory.sql",
+                "start": {
+                  "column": 1,
+                  "line": 8
+                }
+              },
+              "object": {
+                "kind": "column",
+                "name": "email",
+                "schema": "athena",
+                "table": "users"
+              },
+              "resolution": "exact",
+              "snippet": "",
+              "owner": {
+                "kind": "view",
+                "name": "next_minimal_auth_directory",
+                "schema": "public"
+              },
+              "statementIndex": 0
+            }
+          ],
+          "effects": {
+            "creates": [
+              {
+                "kind": "view",
+                "name": "next_minimal_auth_directory",
+                "schema": "public"
+              }
+            ],
+            "drops": [],
+            "modifies": []
+          },
+          "kind": "create_view",
+          "location": {
+            "end": {
+              "column": 23,
+              "line": 7
+            },
+            "filename": "0001_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 3
+            }
+          },
+          "object": {
+            "kind": "view",
+            "name": "next_minimal_auth_directory",
+            "schema": "public"
+          }
+        }
+      ],
+      "version": 1,
+      "warnings": []
+    },
+    "athena-migration-analyzer@4:39592cab13d7361379fba498088f76f84562ba825a9960671548716cb70ad96f:0002_drop_next_minimal_auth_directory.sql": {
+      "checksum": "39592cab13d7361379fba498088f76f84562ba825a9960671548716cb70ad96f",
+      "declaredRequires": [],
+      "dependencies": [],
+      "effects": {
+        "creates": [],
+        "drops": [],
+        "modifies": []
+      },
+      "filename": "0002_drop_next_minimal_auth_directory.sql",
+      "name": "drop_next_minimal_auth_directory",
+      "parserId": "pgsql-parser@18.2.6",
+      "statements": [
+        {
+          "dependencies": [],
+          "effects": {
+            "creates": [],
+            "drops": [],
+            "modifies": []
+          },
+          "kind": "other",
+          "location": {
+            "end": {
+              "column": 55,
+              "line": 2
+            },
+            "filename": "0002_drop_next_minimal_auth_directory.sql",
+            "start": {
+              "column": 1,
+              "line": 2
+            }
+          }
+        }
+      ],
+      "version": 2,
+      "warnings": []
+    }
+  }
+}

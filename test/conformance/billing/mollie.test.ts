@@ -6,9 +6,9 @@ import { FetchMollieSdk } from "../../helpers/fetch-mollie-sdk.ts";
 import { runBillingProviderConformance } from "./contract.ts";
 
 runBillingProviderConformance({
-	provider: "mollie",
-	runtime: createMollieBillingProviderRuntime({
-		sdk: FetchMollieSdk,
-		testKey: "test_xxx",
-	}),
+  provider: "mollie",
+  runtime: createMollieBillingProviderRuntime({
+    sdk: FetchMollieSdk,
+    testKey: "test_xxx",
+  }),
 });

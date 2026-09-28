@@ -13,26 +13,26 @@
 import { AthenaConfigurationError } from "../../config/errors.ts";
 import { requireAthenaRootClientInternals } from "../../runtime/client-internals.ts";
 import {
-	ATHENA_AUTH_PATH,
-	type AthenaAuthUpstreamEnv,
-	resolveAthenaAuthUpstreamUrl,
+  ATHENA_AUTH_PATH,
+  type AthenaAuthUpstreamEnv,
+  resolveAthenaAuthUpstreamUrl,
 } from "../../utils/athena-auth-url.ts";
 import { getAttachedAthenaAuthRouting } from "../resolve-routing.ts";
 
 /** Options for a single proxy hop (no client). */
 export interface AthenaAuthProxyTransportOptions {
-	fetchImplementation?: typeof fetch;
-	/**
-	 * When true (default for handler factories), strip Domain and relax Secure/SameSite
-	 * for local http so the browser stores cookies on the app host.
-	 */
-	rewriteSetCookiesToRequestOrigin?: boolean;
-	/** Local route prefix to strip before appending to upstream (default `/api/auth`). */
-	routePrefix?: string;
-	/** Absolute upstream base (preferred explicit advanced form). */
-	upstreamUrl?: string | AthenaAuthUpstreamEnv;
-	/** Already-resolved upstream origin/base (advanced). */
-	upstreamBaseUrl?: string;
+  fetchImplementation?: typeof fetch;
+  /**
+   * When true (default for handler factories), strip Domain and relax Secure/SameSite
+   * for local http so the browser stores cookies on the app host.
+   */
+  rewriteSetCookiesToRequestOrigin?: boolean;
+  /** Local route prefix to strip before appending to upstream (default `/api/auth`). */
+  routePrefix?: string;
+  /** Already-resolved upstream origin/base (advanced). */
+  upstreamBaseUrl?: string;
+  /** Absolute upstream base (preferred explicit advanced form). */
+  upstreamUrl?: string | AthenaAuthUpstreamEnv;
 }
 
 /**
@@ -40,142 +40,142 @@ export interface AthenaAuthProxyTransportOptions {
  * Do not pass upstreamUrl alongside client — dual authorities are rejected.
  */
 export interface AthenaAuthProxyFromClientOptions {
-	client: object;
-	fetchImplementation?: typeof fetch;
-	rewriteSetCookiesToRequestOrigin?: boolean;
-	routePrefix?: string;
+  client: object;
+  fetchImplementation?: typeof fetch;
+  rewriteSetCookiesToRequestOrigin?: boolean;
+  routePrefix?: string;
 }
 
 export type AthenaAuthProxyOptions =
-	| AthenaAuthProxyFromClientOptions
-	| AthenaAuthProxyTransportOptions;
+  | AthenaAuthProxyFromClientOptions
+  | AthenaAuthProxyTransportOptions;
 
 type AthenaAuthProxyHandler = (request: Request) => Promise<Response>;
 
 type HeadersWithGetSetCookie = Headers & {
-	getSetCookie?: () => string[];
+  getSetCookie?: () => string[];
 };
 
 const ATHENA_AUTH_SESSION_COOKIE_NAMES = [
-	"athena-auth.session_token",
-	"athena-auth.session-token",
+  "athena-auth.session_token",
+  "athena-auth.session-token",
 ] as const;
 
 const STRIP_PROXY_RESPONSE_HEADERS = new Set([
-	"connection",
-	"content-encoding",
-	"content-length",
-	"keep-alive",
-	"proxy-authenticate",
-	"proxy-authorization",
-	"set-cookie",
-	"te",
-	"trailer",
-	"transfer-encoding",
-	"upgrade",
+  "connection",
+  "content-encoding",
+  "content-length",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "set-cookie",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
 ]);
 
 function stripTrailingSlashes(value: string) {
-	return value.replace(/\/+$/g, "");
+  return value.replace(/\/+$/g, "");
 }
 
 function isLocalProxyHostname(hostname: string) {
-	return (
-		hostname === "localhost" ||
-		hostname === "127.0.0.1" ||
-		hostname === "::1" ||
-		hostname.endsWith(".localhost") ||
-		hostname.endsWith(".local")
-	);
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
+  );
 }
 
 function escapeRegex(value: string) {
-	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function stripRoutePrefix(pathname: string, routePrefix: string) {
-	const normalizedPrefix = stripTrailingSlashes(routePrefix.trim()) || "/";
-	const prefixPattern = new RegExp(`^${escapeRegex(normalizedPrefix)}\\/?`);
-	return pathname.replace(prefixPattern, "").replace(/^\/+/, "");
+  const normalizedPrefix = stripTrailingSlashes(routePrefix.trim()) || "/";
+  const prefixPattern = new RegExp(`^${escapeRegex(normalizedPrefix)}\\/?`);
+  return pathname.replace(prefixPattern, "").replace(/^\/+/, "");
 }
 
 function isFromClientOptions(
-	options: AthenaAuthProxyOptions,
+  options: AthenaAuthProxyOptions
 ): options is AthenaAuthProxyFromClientOptions {
-	return (
-		typeof options === "object" &&
-		options !== null &&
-		"client" in options &&
-		(options as AthenaAuthProxyFromClientOptions).client != null
-	);
+  return (
+    typeof options === "object" &&
+    options !== null &&
+    "client" in options &&
+    (options as AthenaAuthProxyFromClientOptions).client != null
+  );
 }
 
 /**
  * Resolve proxy upstream base. Enforces mutual exclusion of client vs explicit upstream.
  */
 export function resolveAthenaAuthProxyUpstreamBaseUrl(
-	options: AthenaAuthProxyOptions = {},
+  options: AthenaAuthProxyOptions = {}
 ): string {
-	if (isFromClientOptions(options)) {
-		if ("upstreamUrl" in options || "upstreamBaseUrl" in options) {
-			const transport = options as AthenaAuthProxyFromClientOptions &
-				AthenaAuthProxyTransportOptions;
-			if (
-				transport.upstreamBaseUrl?.trim() ||
-				(typeof transport.upstreamUrl === "string"
-					? transport.upstreamUrl.trim()
-					: transport.upstreamUrl)
-			) {
-				throw new AthenaConfigurationError(
-					"ATHENA_AUTH_PROXY_CONFIGURATION_INVALID",
-					"createAthenaAuthProxyHandlers accepts either { client } or { upstreamUrl }, not both. " +
-						"Configure upstream on the Athena client (auth.upstreamUrl / env) and pass only { client }.",
-					"auth",
-				);
-			}
-		}
+  if (isFromClientOptions(options)) {
+    if ("upstreamUrl" in options || "upstreamBaseUrl" in options) {
+      const transport = options as AthenaAuthProxyFromClientOptions &
+        AthenaAuthProxyTransportOptions;
+      if (
+        transport.upstreamBaseUrl?.trim() ||
+        (typeof transport.upstreamUrl === "string"
+          ? transport.upstreamUrl.trim()
+          : transport.upstreamUrl)
+      ) {
+        throw new AthenaConfigurationError(
+          "ATHENA_AUTH_PROXY_CONFIGURATION_INVALID",
+          "createAthenaAuthProxyHandlers accepts either { client } or { upstreamUrl }, not both. " +
+            "Configure upstream on the Athena client (auth.upstreamUrl / env) and pass only { client }.",
+          "auth"
+        );
+      }
+    }
 
-		const routing = getAttachedAthenaAuthRouting(options.client);
-		if (routing?.proxyUpstreamBaseUrl) {
-			return stripTrailingSlashes(routing.proxyUpstreamBaseUrl);
-		}
-		// Prefer fail-closed: client is the authority. Do not silently proxy to the
-		// hosted default when same-origin was chosen without an upstream.
-		throw new AthenaConfigurationError(
-			"ATHENA_AUTH_UPSTREAM_REQUIRED",
-			"createAthenaAuthProxyHandlers({ client }) needs a proxy upstream on the client. " +
-				'Configure auth: { routing: "same-origin", upstreamUrl: "https://auth.example.com" } ' +
-				"or set ATHENA_AUTH_UPSTREAM_URL (or aliases) before createClient.",
-			"auth",
-		);
-	}
+    const routing = getAttachedAthenaAuthRouting(options.client);
+    if (routing?.proxyUpstreamBaseUrl) {
+      return stripTrailingSlashes(routing.proxyUpstreamBaseUrl);
+    }
+    // Prefer fail-closed: client is the authority. Do not silently proxy to the
+    // hosted default when same-origin was chosen without an upstream.
+    throw new AthenaConfigurationError(
+      "ATHENA_AUTH_UPSTREAM_REQUIRED",
+      "createAthenaAuthProxyHandlers({ client }) needs a proxy upstream on the client. " +
+        'Configure auth: { routing: "same-origin", upstreamUrl: "https://auth.example.com" } ' +
+        "or set ATHENA_AUTH_UPSTREAM_URL (or aliases) before createClient.",
+      "auth"
+    );
+  }
 
-	const transport = options;
-	if (transport.upstreamBaseUrl?.trim()) {
-		return stripTrailingSlashes(transport.upstreamBaseUrl.trim());
-	}
-	if (
-		transport.upstreamUrl !== undefined &&
-		transport.upstreamUrl !== null &&
-		!(
-			typeof transport.upstreamUrl === "string" && !transport.upstreamUrl.trim()
-		)
-	) {
-		return stripTrailingSlashes(
-			resolveAthenaAuthUpstreamUrl(transport.upstreamUrl),
-		);
-	}
-	// Empty advanced options: env + hosted default (scaffold DX).
-	return stripTrailingSlashes(resolveAthenaAuthUpstreamUrl());
+  const transport = options;
+  if (transport.upstreamBaseUrl?.trim()) {
+    return stripTrailingSlashes(transport.upstreamBaseUrl.trim());
+  }
+  if (
+    transport.upstreamUrl !== undefined &&
+    transport.upstreamUrl !== null &&
+    !(
+      typeof transport.upstreamUrl === "string" && !transport.upstreamUrl.trim()
+    )
+  ) {
+    return stripTrailingSlashes(
+      resolveAthenaAuthUpstreamUrl(transport.upstreamUrl)
+    );
+  }
+  // Empty advanced options: env + hosted default (scaffold DX).
+  return stripTrailingSlashes(resolveAthenaAuthUpstreamUrl());
 }
 
 /** Decode a single cookie value; returns the raw string if decoding fails. */
 export function decodeCookieValue(value: string) {
-	try {
-		return decodeURIComponent(value);
-	} catch {
-		return value;
-	}
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 /**
@@ -183,238 +183,235 @@ export function decodeCookieValue(value: string) {
  * Values are URI-decoded when possible.
  */
 export function readCookieValue(
-	cookieHeader: string | null | undefined,
-	name: string,
+  cookieHeader: string | null | undefined,
+  name: string
 ): string | undefined {
-	if (!cookieHeader) {
-		return undefined;
-	}
+  if (!cookieHeader) {
+    return;
+  }
 
-	for (const cookie of cookieHeader.split(";")) {
-		const separatorIndex = cookie.indexOf("=");
+  for (const cookie of cookieHeader.split(";")) {
+    const separatorIndex = cookie.indexOf("=");
 
-		if (separatorIndex === -1) {
-			continue;
-		}
+    if (separatorIndex === -1) {
+      continue;
+    }
 
-		const cookieName = cookie.slice(0, separatorIndex).trim();
-		if (cookieName !== name) {
-			continue;
-		}
+    const cookieName = cookie.slice(0, separatorIndex).trim();
+    if (cookieName !== name) {
+      continue;
+    }
 
-		return decodeCookieValue(cookie.slice(separatorIndex + 1).trim());
-	}
-
-	return undefined;
+    return decodeCookieValue(cookie.slice(separatorIndex + 1).trim());
+  }
 }
 
 /** Convenience: read a cookie from a `Request`'s `cookie` header. */
 export function readCookieValueFromRequest(request: Request, name: string) {
-	return readCookieValue(request.headers.get("cookie"), name);
+  return readCookieValue(request.headers.get("cookie"), name);
 }
 
 function readAthenaAuthSessionTokenCookie(
-	cookieHeader: string | null | undefined,
+  cookieHeader: string | null | undefined
 ): string | undefined {
-	for (const cookieName of ATHENA_AUTH_SESSION_COOKIE_NAMES) {
-		const value = readCookieValue(cookieHeader, cookieName);
-		const trimmedValue = value?.trim();
+  for (const cookieName of ATHENA_AUTH_SESSION_COOKIE_NAMES) {
+    const value = readCookieValue(cookieHeader, cookieName);
+    const trimmedValue = value?.trim();
 
-		if (trimmedValue) {
-			return trimmedValue;
-		}
-	}
-	return undefined;
+    if (trimmedValue) {
+      return trimmedValue;
+    }
+  }
 }
 
 function applySessionCookieAuthorizationHeader(headers: Headers) {
-	if (headers.has("authorization")) {
-		return;
-	}
+  if (headers.has("authorization")) {
+    return;
+  }
 
-	const sessionToken = readAthenaAuthSessionTokenCookie(headers.get("cookie"));
+  const sessionToken = readAthenaAuthSessionTokenCookie(headers.get("cookie"));
 
-	if (sessionToken) {
-		headers.set("authorization", `Bearer ${sessionToken}`);
-	}
+  if (sessionToken) {
+    headers.set("authorization", `Bearer ${sessionToken}`);
+  }
 }
 
 function rewriteSetCookieForRequestOrigin(cookie: string, requestUrl: URL) {
-	const parts = cookie
-		.split(";")
-		.map((part) => part.trim())
-		.filter(Boolean);
+  const parts = cookie
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
 
-	if (parts.length === 0) {
-		return cookie;
-	}
+  if (parts.length === 0) {
+    return cookie;
+  }
 
-	const rewrittenParts = [parts[0]];
-	const isInsecureLocalRequest =
-		requestUrl.protocol === "http:" &&
-		isLocalProxyHostname(requestUrl.hostname);
+  const rewrittenParts = [parts[0]];
+  const isInsecureLocalRequest =
+    requestUrl.protocol === "http:" &&
+    isLocalProxyHostname(requestUrl.hostname);
 
-	for (const part of parts.slice(1)) {
-		const separatorIndex = part.indexOf("=");
-		const attributeName =
-			separatorIndex === -1 ? part : part.slice(0, separatorIndex);
-		const attributeValue =
-			separatorIndex === -1 ? "" : part.slice(separatorIndex + 1);
-		const normalizedAttributeName = attributeName.trim().toLowerCase();
+  for (const part of parts.slice(1)) {
+    const separatorIndex = part.indexOf("=");
+    const attributeName =
+      separatorIndex === -1 ? part : part.slice(0, separatorIndex);
+    const attributeValue =
+      separatorIndex === -1 ? "" : part.slice(separatorIndex + 1);
+    const normalizedAttributeName = attributeName.trim().toLowerCase();
 
-		if (normalizedAttributeName === "domain") {
-			continue;
-		}
+    if (normalizedAttributeName === "domain") {
+      continue;
+    }
 
-		if (isInsecureLocalRequest && normalizedAttributeName === "secure") {
-			continue;
-		}
+    if (isInsecureLocalRequest && normalizedAttributeName === "secure") {
+      continue;
+    }
 
-		if (
-			isInsecureLocalRequest &&
-			normalizedAttributeName === "samesite" &&
-			attributeValue.trim().toLowerCase() === "none"
-		) {
-			rewrittenParts.push("SameSite=Lax");
-			continue;
-		}
+    if (
+      isInsecureLocalRequest &&
+      normalizedAttributeName === "samesite" &&
+      attributeValue.trim().toLowerCase() === "none"
+    ) {
+      rewrittenParts.push("SameSite=Lax");
+      continue;
+    }
 
-		rewrittenParts.push(part);
-	}
+    rewrittenParts.push(part);
+  }
 
-	return rewrittenParts.join("; ");
+  return rewrittenParts.join("; ");
 }
 
 function buildProxyResponseHeaders(
-	source: Headers,
-	requestUrl: URL,
-	rewriteSetCookiesToRequestOrigin: boolean,
+  source: Headers,
+  requestUrl: URL,
+  rewriteSetCookiesToRequestOrigin: boolean
 ) {
-	const headers = new Headers();
+  const headers = new Headers();
 
-	// Avoid Headers.entries() — not present on all DOM lib typings used by fixture tsc.
-	source.forEach((value, key) => {
-		if (STRIP_PROXY_RESPONSE_HEADERS.has(key.toLowerCase())) {
-			return;
-		}
-		headers.set(key, value);
-	});
+  // Avoid Headers.entries() — not present on all DOM lib typings used by fixture tsc.
+  source.forEach((value, key) => {
+    if (STRIP_PROXY_RESPONSE_HEADERS.has(key.toLowerCase())) {
+      return;
+    }
+    headers.set(key, value);
+  });
 
-	const getSetCookie = (source as HeadersWithGetSetCookie).getSetCookie;
-	const setCookies =
-		typeof getSetCookie === "function"
-			? getSetCookie.call(source as HeadersWithGetSetCookie)
-			: [];
+  const getSetCookie = (source as HeadersWithGetSetCookie).getSetCookie;
+  const setCookies =
+    typeof getSetCookie === "function"
+      ? getSetCookie.call(source as HeadersWithGetSetCookie)
+      : [];
 
-	if (setCookies.length > 0) {
-		for (const cookie of setCookies) {
-			headers.append(
-				"set-cookie",
-				rewriteSetCookiesToRequestOrigin
-					? rewriteSetCookieForRequestOrigin(cookie, requestUrl)
-					: cookie,
-			);
-		}
-	} else {
-		const setCookie = source.get("set-cookie");
-		if (setCookie) {
-			headers.append(
-				"set-cookie",
-				rewriteSetCookiesToRequestOrigin
-					? rewriteSetCookieForRequestOrigin(setCookie, requestUrl)
-					: setCookie,
-			);
-		}
-	}
+  if (setCookies.length > 0) {
+    for (const cookie of setCookies) {
+      headers.append(
+        "set-cookie",
+        rewriteSetCookiesToRequestOrigin
+          ? rewriteSetCookieForRequestOrigin(cookie, requestUrl)
+          : cookie
+      );
+    }
+  } else {
+    const setCookie = source.get("set-cookie");
+    if (setCookie) {
+      headers.append(
+        "set-cookie",
+        rewriteSetCookiesToRequestOrigin
+          ? rewriteSetCookieForRequestOrigin(setCookie, requestUrl)
+          : setCookie
+      );
+    }
+  }
 
-	return headers;
+  return headers;
 }
 
 function resolveRewriteFlag(options: AthenaAuthProxyOptions): boolean {
-	if (isFromClientOptions(options)) {
-		return options.rewriteSetCookiesToRequestOrigin ?? true;
-	}
-	return options.rewriteSetCookiesToRequestOrigin ?? true;
+  if (isFromClientOptions(options)) {
+    return options.rewriteSetCookiesToRequestOrigin ?? true;
+  }
+  return options.rewriteSetCookiesToRequestOrigin ?? true;
 }
 
 function resolveRoutePrefix(options: AthenaAuthProxyOptions): string {
-	if (isFromClientOptions(options)) {
-		return options.routePrefix ?? ATHENA_AUTH_PATH;
-	}
-	return options.routePrefix ?? ATHENA_AUTH_PATH;
+  if (isFromClientOptions(options)) {
+    return options.routePrefix ?? ATHENA_AUTH_PATH;
+  }
+  return options.routePrefix ?? ATHENA_AUTH_PATH;
 }
 
 function resolveFetch(options: AthenaAuthProxyOptions): typeof fetch {
-	if (isFromClientOptions(options)) {
-		return options.fetchImplementation ?? fetch;
-	}
-	return options.fetchImplementation ?? fetch;
+  if (isFromClientOptions(options)) {
+    return options.fetchImplementation ?? fetch;
+  }
+  return options.fetchImplementation ?? fetch;
 }
 
 /** Proxies one incoming request to the Athena Auth upstream and normalizes browser-facing headers. */
 export async function proxyAthenaAuthRequest(
-	request: Request,
-	options: AthenaAuthProxyOptions = {},
+  request: Request,
+  options: AthenaAuthProxyOptions = {}
 ) {
-	const url = new URL(request.url);
-	const upstreamBaseUrl = resolveAthenaAuthProxyUpstreamBaseUrl(options);
-	const routePrefix = resolveRoutePrefix(options);
-	const rewrite = resolveRewriteFlag(options);
-	const pathname = stripRoutePrefix(url.pathname, routePrefix);
-	const targetBase = `${stripTrailingSlashes(upstreamBaseUrl)}/`;
-	const targetPathWithQuery = pathname
-		? `${pathname}${url.search}`
-		: url.search;
-	const target = new URL(targetPathWithQuery || "", targetBase);
-	const headers = new Headers(request.headers);
-	const fetchImplementation = resolveFetch(options);
-	headers.delete("host");
-	// Prevent compressed upstream bodies from being mis-forwarded as decoded JSON
-	// (Formations / PR #337 class regression). Always request identity encoding.
-	headers.set("accept-encoding", "identity");
-	applySessionCookieAuthorizationHeader(headers);
+  const url = new URL(request.url);
+  const upstreamBaseUrl = resolveAthenaAuthProxyUpstreamBaseUrl(options);
+  const routePrefix = resolveRoutePrefix(options);
+  const rewrite = resolveRewriteFlag(options);
+  const pathname = stripRoutePrefix(url.pathname, routePrefix);
+  const targetBase = `${stripTrailingSlashes(upstreamBaseUrl)}/`;
+  const targetPathWithQuery = pathname
+    ? `${pathname}${url.search}`
+    : url.search;
+  const target = new URL(targetPathWithQuery || "", targetBase);
+  const headers = new Headers(request.headers);
+  const fetchImplementation = resolveFetch(options);
+  headers.delete("host");
+  // Prevent compressed upstream bodies from being mis-forwarded as decoded JSON
+  // (Formations / PR #337 class regression). Always request identity encoding.
+  headers.set("accept-encoding", "identity");
+  applySessionCookieAuthorizationHeader(headers);
 
-	const canHaveBody = request.method !== "GET" && request.method !== "HEAD";
-	const body = canHaveBody ? await request.text() : undefined;
+  const canHaveBody = request.method !== "GET" && request.method !== "HEAD";
+  const body = canHaveBody ? await request.text() : undefined;
 
-	try {
-		const upstreamResponse = await fetchImplementation(target, {
-			body,
-			headers,
-			method: request.method,
-		});
+  try {
+    const upstreamResponse = await fetchImplementation(target, {
+      body,
+      headers,
+      method: request.method,
+    });
 
-		return new Response(upstreamResponse.body, {
-			headers: buildProxyResponseHeaders(
-				upstreamResponse.headers,
-				url,
-				rewrite,
-			),
-			status: upstreamResponse.status,
-			statusText: upstreamResponse.statusText,
-		});
-	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Unknown upstream proxy error";
-		return new Response(
-			JSON.stringify({
-				error: "Athena auth proxy request failed",
-				message,
-				target: target.toString(),
-				upstream: upstreamBaseUrl,
-			}),
-			{
-				headers: {
-					"content-type": "application/json",
-				},
-				status: 502,
-			},
-		);
-	}
+    return new Response(upstreamResponse.body, {
+      headers: buildProxyResponseHeaders(
+        upstreamResponse.headers,
+        url,
+        rewrite
+      ),
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown upstream proxy error";
+    return new Response(
+      JSON.stringify({
+        error: "Athena auth proxy request failed",
+        message,
+        target: target.toString(),
+        upstream: upstreamBaseUrl,
+      }),
+      {
+        headers: {
+          "content-type": "application/json",
+        },
+        status: 502,
+      }
+    );
+  }
 }
 
 type AthenaAuthProxyHandlersResolver = (
-	request: Request,
+  request: Request
 ) => AthenaAuthProxyOptions | Promise<AthenaAuthProxyOptions>;
 
 /**
@@ -423,8 +420,8 @@ type AthenaAuthProxyHandlersResolver = (
  * Prefer the client form so upstream is a single authority on the Athena client.
  */
 export type AthenaAuthProxyHandlersOptions =
-	| AthenaAuthProxyOptions
-	| AthenaAuthProxyHandlersResolver;
+  | AthenaAuthProxyOptions
+  | AthenaAuthProxyHandlersResolver;
 
 /**
  * Creates HTTP method handlers for Next.js route modules that proxy Athena Auth.
@@ -446,39 +443,39 @@ export type AthenaAuthProxyHandlersOptions =
  * ```
  */
 export function createAthenaAuthProxyHandlers(
-	options: AthenaAuthProxyHandlersOptions = {},
+  options: AthenaAuthProxyHandlersOptions = {}
 ) {
-	// Eager validation for static preferred/advanced forms (not function resolvers).
-	if (typeof options !== "function") {
-		if (isFromClientOptions(options)) {
-			requireAthenaRootClientInternals(
-				options.client,
-				"createAthenaAuthProxyHandlers",
-			);
-		}
-		resolveAthenaAuthProxyUpstreamBaseUrl(options);
-	}
+  // Eager validation for static preferred/advanced forms (not function resolvers).
+  if (typeof options !== "function") {
+    if (isFromClientOptions(options)) {
+      requireAthenaRootClientInternals(
+        options.client,
+        "createAthenaAuthProxyHandlers"
+      );
+    }
+    resolveAthenaAuthProxyUpstreamBaseUrl(options);
+  }
 
-	const handle: AthenaAuthProxyHandler = async (request) => {
-		const resolved =
-			typeof options === "function" ? await options(request) : options;
-		if (isFromClientOptions(resolved)) {
-			requireAthenaRootClientInternals(
-				resolved.client,
-				"createAthenaAuthProxyHandlers",
-			);
-		}
-		return proxyAthenaAuthRequest(request, resolved);
-	};
+  const handle: AthenaAuthProxyHandler = async (request) => {
+    const resolved =
+      typeof options === "function" ? await options(request) : options;
+    if (isFromClientOptions(resolved)) {
+      requireAthenaRootClientInternals(
+        resolved.client,
+        "createAthenaAuthProxyHandlers"
+      );
+    }
+    return proxyAthenaAuthRequest(request, resolved);
+  };
 
-	return {
-		DELETE: handle,
-		GET: handle,
-		HEAD: handle,
-		PATCH: handle,
-		POST: handle,
-		PUT: handle,
-	};
+  return {
+    DELETE: handle,
+    GET: handle,
+    HEAD: handle,
+    PATCH: handle,
+    POST: handle,
+    PUT: handle,
+  };
 }
 
 /**
@@ -498,37 +495,37 @@ export const athenaAuthHandlers = createAthenaAuthProxyHandlers;
  * ```
  */
 export function createAthenaAuthHandlers(
-	client: object,
-	extras?: Omit<
-		AthenaAuthProxyFromClientOptions,
-		"client" | "upstreamUrl" | "upstreamBaseUrl"
-	>,
+  client: object,
+  extras?: Omit<
+    AthenaAuthProxyFromClientOptions,
+    "client" | "upstreamUrl" | "upstreamBaseUrl"
+  >
 ) {
-	requireAthenaRootClientInternals(client, "createAthenaAuthHandlers");
-	const localHandlers = (
-		client as {
-			auth?: {
-				server?: {
-					handlers?: Record<string, (request: Request) => Promise<Response>>;
-				};
-			};
-		}
-	).auth?.server?.handlers;
-	if (localHandlers?.GET && localHandlers.POST) {
-		return localHandlers;
-	}
+  requireAthenaRootClientInternals(client, "createAthenaAuthHandlers");
+  const localHandlers = (
+    client as {
+      auth?: {
+        server?: {
+          handlers?: Record<string, (request: Request) => Promise<Response>>;
+        };
+      };
+    }
+  ).auth?.server?.handlers;
+  if (localHandlers?.GET && localHandlers.POST) {
+    return localHandlers;
+  }
 
-	if (extras && ("upstreamUrl" in extras || "upstreamBaseUrl" in extras)) {
-		throw new AthenaConfigurationError(
-			"ATHENA_AUTH_PROXY_CONFIGURATION_INVALID",
-			"createAthenaAuthHandlers(client) derives upstream solely from the client. " +
-				"Do not pass upstreamUrl. Use createAthenaAuthProxyHandlers for advanced transport.",
-			"auth",
-		);
-	}
+  if (extras && ("upstreamUrl" in extras || "upstreamBaseUrl" in extras)) {
+    throw new AthenaConfigurationError(
+      "ATHENA_AUTH_PROXY_CONFIGURATION_INVALID",
+      "createAthenaAuthHandlers(client) derives upstream solely from the client. " +
+        "Do not pass upstreamUrl. Use createAthenaAuthProxyHandlers for advanced transport.",
+      "auth"
+    );
+  }
 
-	return createAthenaAuthProxyHandlers({
-		...(extras ?? {}),
-		client,
-	});
+  return createAthenaAuthProxyHandlers({
+    ...(extras ?? {}),
+    client,
+  });
 }

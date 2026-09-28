@@ -12,14 +12,14 @@
  * segment `forget-password` is accepted as a legacy alias and maps to that view.
  */
 export type AuthView =
-	| "sign-in"
-	| "sign-up"
-	| "forgot-password"
-	| "reset-password"
-	| "reset-email-sent"
-	| "check-email"
-	| "accept-invitation"
-	| "logout";
+  | "sign-in"
+  | "sign-up"
+  | "forgot-password"
+  | "reset-password"
+  | "reset-email-sent"
+  | "check-email"
+  | "accept-invitation"
+  | "logout";
 
 /** Default view when no path segment is present. */
 export const AUTH_DEFAULT_VIEW = "sign-in" satisfies AuthView;
@@ -33,15 +33,15 @@ export const AUTH_TWO_FACTOR_SEGMENT = "two-factor";
  * Includes `forget-password` as a legacy alias for `forgot-password`.
  */
 export const AUTH_VIEW_BY_SEGMENT: Readonly<Record<string, AuthView>> = {
-	"accept-invitation": "accept-invitation",
-	"check-email": "check-email",
-	"forget-password": "forgot-password",
-	"forgot-password": "forgot-password",
-	logout: "logout",
-	"reset-email-sent": "reset-email-sent",
-	"reset-password": "reset-password",
-	"sign-in": "sign-in",
-	"sign-up": "sign-up",
+  "accept-invitation": "accept-invitation",
+  "check-email": "check-email",
+  "forget-password": "forgot-password",
+  "forgot-password": "forgot-password",
+  logout: "logout",
+  "reset-email-sent": "reset-email-sent",
+  "reset-password": "reset-password",
+  "sign-in": "sign-in",
+  "sign-up": "sign-up",
 } as const;
 
 /**
@@ -49,9 +49,9 @@ export const AUTH_VIEW_BY_SEGMENT: Readonly<Record<string, AuthView>> = {
  * Reset/check-email/logout stay reachable while signed in.
  */
 export const AUTHENTICATED_REDIRECT_VIEW_SET = new Set<AuthView>([
-	"sign-in",
-	"sign-up",
-	"forgot-password",
+  "sign-in",
+  "sign-up",
+  "forgot-password",
 ]);
 
 /**
@@ -68,12 +68,12 @@ export const AUTHENTICATED_REDIRECT_VIEW_SET = new Set<AuthView>([
  * ```
  */
 export function resolveAuthViewFromSegment(
-	segment: string | undefined,
+  segment: string | undefined
 ): AuthView | null {
-	if (!segment) {
-		return AUTH_DEFAULT_VIEW;
-	}
-	return AUTH_VIEW_BY_SEGMENT[segment] ?? null;
+  if (!segment) {
+    return AUTH_DEFAULT_VIEW;
+  }
+  return AUTH_VIEW_BY_SEGMENT[segment] ?? null;
 }
 
 /**
@@ -82,23 +82,23 @@ export function resolveAuthViewFromSegment(
  * @param view - Resolved auth view
  */
 export function shouldRedirectAuthenticatedAuthView(view: AuthView): boolean {
-	return AUTHENTICATED_REDIRECT_VIEW_SET.has(view);
+  return AUTHENTICATED_REDIRECT_VIEW_SET.has(view);
 }
 
 /**
  * Default page routes under `/auth/*` for Next.js (or similar) apps.
  */
 export const AUTH_ROUTES = {
-	acceptInvitation: "/auth/accept-invitation",
-	appHome: "/",
-	checkEmail: "/auth/check-email",
-	forgotPassword: "/auth/forgot-password",
-	logout: "/auth/logout",
-	resetEmailSent: "/auth/reset-email-sent",
-	resetPassword: "/auth/reset-password",
-	signIn: "/auth/sign-in",
-	signUp: "/auth/sign-up",
-	socialCallback: "/auth/social-callback",
+  acceptInvitation: "/auth/accept-invitation",
+  appHome: "/",
+  checkEmail: "/auth/check-email",
+  forgotPassword: "/auth/forgot-password",
+  logout: "/auth/logout",
+  resetEmailSent: "/auth/reset-email-sent",
+  resetPassword: "/auth/reset-password",
+  signIn: "/auth/sign-in",
+  signUp: "/auth/sign-up",
+  socialCallback: "/auth/social-callback",
 } as const;
 
 export type AuthRoutes = Record<keyof typeof AUTH_ROUTES, string>;
@@ -107,35 +107,35 @@ export type AuthRoutes = Record<keyof typeof AUTH_ROUTES, string>;
  * Build an auth route map with optional path overrides.
  */
 export function createAuthRoutes(
-	overrides: Partial<AuthRoutes> = {},
+  overrides: Partial<AuthRoutes> = {}
 ): AuthRoutes {
-	return {
-		...AUTH_ROUTES,
-		...overrides,
-	};
+  return {
+    ...AUTH_ROUTES,
+    ...overrides,
+  };
 }
 
 /**
  * Query/mode → path redirects used by legacy `?mode=` style entrypoints.
  */
 export interface AuthModeRedirects {
-	readonly "forgot-password": string;
-	readonly login: string;
-	readonly logout: string;
-	readonly "reset-password": string;
-	readonly signup: string;
+  readonly "forgot-password": string;
+  readonly login: string;
+  readonly logout: string;
+  readonly "reset-password": string;
+  readonly signup: string;
 }
 
 export function createAuthModeRedirects(
-	routes: AuthRoutes = AUTH_ROUTES,
+  routes: AuthRoutes = AUTH_ROUTES
 ): AuthModeRedirects {
-	return {
-		"forgot-password": routes.forgotPassword,
-		login: routes.signIn,
-		logout: routes.logout,
-		"reset-password": routes.resetPassword,
-		signup: routes.signUp,
-	};
+  return {
+    "forgot-password": routes.forgotPassword,
+    login: routes.signIn,
+    logout: routes.logout,
+    "reset-password": routes.resetPassword,
+    signup: routes.signUp,
+  };
 }
 
 export const AUTH_MODE_REDIRECTS = createAuthModeRedirects();
@@ -145,23 +145,23 @@ export type AuthMode = keyof AuthModeRedirects;
 export const AUTH_MODE_SET = new Set<string>(Object.keys(AUTH_MODE_REDIRECTS));
 
 export const AUTHENTICATED_REDIRECT_MODE_SET = new Set<AuthMode>([
-	"login",
-	"signup",
-	"forgot-password",
+  "login",
+  "signup",
+  "forgot-password",
 ]);
 
 /**
  * Type guard for legacy auth `mode` query values (`login`, `signup`, …).
  */
 export function isAuthMode(value: string): value is AuthMode {
-	return AUTH_MODE_SET.has(value);
+  return AUTH_MODE_SET.has(value);
 }
 
 /**
  * Whether an authenticated user should be redirected away from this auth mode.
  */
 export function shouldRedirectAuthenticatedAuthMode(mode: AuthMode): boolean {
-	return AUTHENTICATED_REDIRECT_MODE_SET.has(mode);
+  return AUTHENTICATED_REDIRECT_MODE_SET.has(mode);
 }
 
 /**
@@ -170,11 +170,11 @@ export function shouldRedirectAuthenticatedAuthMode(mode: AuthMode): boolean {
  * @returns Path from {@link AUTH_MODE_REDIRECTS}, or `null` if unknown
  */
 export function resolveAuthModeRedirect(
-	mode: string | undefined,
-	redirects: AuthModeRedirects = AUTH_MODE_REDIRECTS,
+  mode: string | undefined,
+  redirects: AuthModeRedirects = AUTH_MODE_REDIRECTS
 ): string | null {
-	if (!(mode && isAuthMode(mode))) {
-		return null;
-	}
-	return redirects[mode];
+  if (!(mode && isAuthMode(mode))) {
+    return null;
+  }
+  return redirects[mode];
 }

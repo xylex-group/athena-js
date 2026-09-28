@@ -14,7 +14,10 @@ if (!process.env.ATHENA_AUTH_URL) {
 
 process.env.ATHENA_PARITY_REQUIRE_RUST = "1";
 
-const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packageRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  ".."
+);
 const result = spawnSync(
   process.execPath,
   [

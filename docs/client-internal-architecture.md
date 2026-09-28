@@ -33,10 +33,12 @@ Façades must not implement a second transport core, cache request-bound clients
 | --- | --- | --- |
 | `src/v3-client.ts` | Node `createClient`: `prepareNodeRuntimePlan` → `assembleAthenaClient`; root `close()`, trusted-node asserts | fluent SQL, browser graphs, `storage/local.ts` / `postgres/transport.ts` / billing providers / `chat/local/database.ts` |
 | `src/runtime/plan/**` | Internal `AthenaRuntimePlan` (`normalize` / `resolve` / `validate` / `materialize`). Not a public config | package `exports`, provider SDK handles as config |
-| `src/runtime/authority/**` | Request→`AthenaResolvedPrincipal` (server-only). Types stay in `runtime/data/principal.ts` | public `./authority`, minting identity from `x-user-id` / `x-rights` |
+| `src/runtime/authority/**` | Request→`AthenaResolvedPrincipal` (Node-ok; **not** Next `server-only` — ADR 0064). Types stay in `runtime/data/principal.ts` | public `./authority`, minting identity from `x-user-id` / `x-rights`, browser / Next client / RN graphs |
 | `src/runtime/finality/matrix.ts` | Cross-domain finality SSOT (Data / Auth / Storage-R2 / Storage-S3 / Billing-Mollie). Not a package export | topology transport matrix, Rights evaluation, provider SDKs |
 | `src/runtime/materializers/**` | Node backends: database, storage, auth, chat, billing | browser graphs, public constructors |
-| `src/v3-client-core.ts` | public `AthenaClient` / config types, `createClientWithNormalizer`, `createClientView`, D1/R2 wiring | `pg`, `node:fs`, `server-only`, Node materializers, `createInternalClientCore` body |
+| `src/client/contracts.ts` | public `AthenaClient` / config contracts | construction implementation, Node-only adapters |
+| `src/v3-client-assembly.ts` | browser-safe `createClientWithNormalizer`, `createClientView`, D1/R2 wiring | `pg`, `node:fs`, `server-only`, Node materializers |
+| `src/v3-client-core.ts` | stable compatibility re-exports for the browser-safe assembly and contracts | parallel contracts, construction implementation |
 | `src/client/context.ts` | `InternalAthenaClientCore` / `AthenaClientRuntimeContext`, `createInternalClientCore`, `createInternalClientView` | public constructor overloads, Node-only adapters |
 | `src/client/create-client.ts` | browser-safe `createClient` wrappers re-exported by the façade barrel | Node `v3-client.ts` |
 | `src/client.ts` | public re-export façade (builder/result/request types + universal `createClient`) | factory implementation, Node `close` |
@@ -71,12 +73,13 @@ index.ts (Node) / server.ts
        -> v3-client-core.ts
 
 browser.ts / next/client.ts / react-native
-  -> v3-client-core.ts     (browser-safe createClient)
+  -> src/client/create-client.ts
+       -> v3-client-assembly.ts     browser-safe construction
        -> src/client/context.ts     InternalAthenaClientCore factories
-       -> client-fluent.ts          fluent builders (via context view)
+       -> client-fluent.ts           fluent builders (via context view)
 
 src/client.ts
-  -> src/client/create-client.ts    wraps v3-client-core createClient
+  -> src/client/create-client.ts    universal construction entry
   -> src/client/context.ts          re-export types/factories
   -> src/client-fluent.ts           re-export builder types
 
@@ -177,27 +180,6 @@ Good future candidates are builder-state reducers and mutation execution plannin
 6. Keep the root and browser declarations identical.
 7. Update the closest focused tests, API reference, method generator when relevant, and migration docs only if the public contract changes.
 
-## Documentation dual-publish
-
-Consumer Markdown under `docs/` is the narrative source of truth. A curated
-allowlist is projected into the monorepo product site:
-
-```text
-docs/** + site-publish.manifest.json
-  → apps/docs/scripts/sync-athena-js-docs.mts
-  → apps/docs/content/docs/sdks/athena-js/**
-```
-
-Full operator guide: [site-publish.md](./site-publish.md).
-
-When public contract docs change, re-run:
-
-```powershell
-pnpm --dir packages/athena-js docs:methods   # if method catalog changed
-pnpm --dir packages/athena-js docs:site:sync
-pnpm --dir packages/athena-js docs:site:check
-```
-
 ## Validation gates
 
 For internal refactors that should not change the public API, run:
@@ -207,7 +189,6 @@ pnpm --dir packages/athena-js typecheck
 pnpm --dir packages/athena-js test
 pnpm --dir packages/athena-js build
 pnpm --dir packages/athena-js docs:methods
-pnpm --dir packages/athena-js docs:site:sync
 pnpm --dir packages/athena-js pack --dry-run
 ```
 
@@ -217,7 +198,5 @@ Also inspect root and browser declaration output and search for removed v2 ident
 
 - [ADR 0006: immutable client core and context views](./adr/0006-immutable-client-core-and-context-views.md)
 - [ADR 0010: module ownership and artifact governance](./adr/0010-client-module-ownership-and-artifact-governance.md)
-- [site-publish dual-publish pipeline](./site-publish.md)
 - [v2.16.0 to v3.0.0 migration guide](./migration-v2-to-v3.md)
 - [single-client consolidation report](./client-v3-consolidation-report.md)
-

@@ -7,7 +7,9 @@
  * are still routed in some environments.
  */
 
-export function parseIpv4(value: string): [number, number, number, number] | null {
+export function parseIpv4(
+  value: string
+): [number, number, number, number] | null {
   const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(value);
   if (!match) {
     return null;
@@ -19,7 +21,9 @@ export function parseIpv4(value: string): [number, number, number, number] | nul
   return octets;
 }
 
-export function isBlockedIpv4(octets: [number, number, number, number]): boolean {
+export function isBlockedIpv4(
+  octets: [number, number, number, number]
+): boolean {
   const [a, b, c, d] = octets;
   if (a === 0 || a === 10 || a === 127) {
     return true;

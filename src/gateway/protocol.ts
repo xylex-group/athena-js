@@ -4,10 +4,10 @@ export const ATHENA_RUNTIME_PROTOCOL = {
   minor: 0,
 } as const;
 
-/** Next runtime-capability discovery (Auth + Data). Same major as 1.0. */
+/** Next runtime-capability discovery (Auth + Data + Storage + Billing transports). Same major as 1.0. */
 export const ATHENA_NEXT_RUNTIME_PROTOCOL = {
   major: 1,
-  minor: 1,
+  minor: 2,
 } as const;
 
 /** Client accepts the same major and runtime minor >= this value. */

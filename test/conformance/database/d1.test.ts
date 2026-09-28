@@ -4,9 +4,9 @@ import { compileD1Ast } from "../../../src/cloudflare/d1/compile-ast.ts";
 import { createCloudflareD1GatewayTransport } from "../../../src/cloudflare/index.ts";
 import { createClient } from "../../../src/index.ts";
 import {
+  type AthenaRelationCatalog,
   normalizeFindManyInput,
   resolveQueryPlan,
-  type AthenaRelationCatalog,
 } from "../../../src/query/engine/index.ts";
 import { createMockD1 } from "../../helpers/d1-r2-mocks.ts";
 import { runDatabaseConformance } from "./contract.ts";

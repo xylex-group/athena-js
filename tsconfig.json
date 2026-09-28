@@ -9,7 +9,13 @@
     "noImplicitReturns": false,
     "types": ["node"]
   },
-  "include": ["src/**/*", "test/**/*.ts", "test-sdk/src/**/*.ts"],
+  "include": [
+    "src/**/*",
+    "test/**/*.ts",
+    "test-sdk/src/**/*.ts",
+    "scripts/verify-auth-schema-release.d.mts",
+    "bin/bootstrap-logging.d.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",

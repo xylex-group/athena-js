@@ -25,130 +25,151 @@ const pkgRoot = join(here, "..", "..");
 const repoRoot = join(pkgRoot, "..", "..");
 const authUiSrc = join(repoRoot, "packages", "athena-auth-ui", "src");
 const nextMinimal = join(
-	repoRoot,
-	"packages",
-	"athena-auth-ui",
-	"examples",
-	"next-minimal",
+  repoRoot,
+  "packages",
+  "athena-auth-ui",
+  "examples",
+  "next-minimal"
 );
 
 function collectTsFiles(dir: string): string[] {
-	const out: string[] = [];
-	if (!existsSync(dir)) {
-		return out;
-	}
-	for (const entry of readdirSync(dir, { withFileTypes: true })) {
-		const full = join(dir, entry.name);
-		if (entry.isDirectory()) {
-			out.push(...collectTsFiles(full));
-			continue;
-		}
-		if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
-			out.push(full);
-		}
-	}
-	return out;
+  const out: string[] = [];
+  if (!existsSync(dir)) {
+    return out;
+  }
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...collectTsFiles(full));
+      continue;
+    }
+    if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
+      out.push(full);
+    }
+  }
+  return out;
 }
 
 function readUi(rel: string): string {
-	return readFileSync(join(authUiSrc, rel), "utf8");
+  return readFileSync(join(authUiSrc, rel), "utf8");
 }
 
 test("T-SOU-USE-ATHENA-SOCIAL-AUTH: P?: useAthenaSocialAuth owns sign-in, link, and unlink mutations", () => {
-	const files = collectTsFiles(authUiSrc);
-	const hits = files.filter((file) =>
-		/\buseAthenaSocialAuth\b/.test(readFileSync(file, "utf8")),
-	);
-	assert.ok(
-		hits.length > 0,
-		"useAthenaSocialAuth must exist under packages/athena-auth-ui/src",
-	);
-	const blob = hits.map((file) => readFileSync(file, "utf8")).join("\n");
-	assert.match(blob, /export function useAthenaSocialAuth/);
-	assert.match(blob, /signIn|sign-in|signInSocial/i);
-	assert.match(blob, /\blink\b/i);
-	assert.match(blob, /\bunlink\b/i);
+  const files = collectTsFiles(authUiSrc);
+  const hits = files.filter((file) =>
+    /\buseAthenaSocialAuth\b/.test(readFileSync(file, "utf8"))
+  );
+  assert.ok(
+    hits.length > 0,
+    "useAthenaSocialAuth must exist under packages/athena-auth-ui/src"
+  );
+  const blob = hits.map((file) => readFileSync(file, "utf8")).join("\n");
+  assert.match(blob, /export function useAthenaSocialAuth/);
+  assert.match(blob, /signIn|sign-in|signInSocial/i);
+  assert.match(blob, /\blink\b/i);
+  assert.match(blob, /\bunlink\b/i);
 });
 
 test("T-SOU-PROVIDER-BUTTON: P?: ProviderButton does not own Better Auth useSignInSocial", () => {
-	const src = readUi("components/auth/provider-button.tsx");
-	assert.match(src, /\buseAthenaSocialAuth\b/);
-	assert.equal(
-		/\buseSignInSocial\b/.test(src),
-		false,
-		"ProviderButton must not own useSignInSocial",
-	);
+  const src = readUi("components/auth/provider-button.tsx");
+  assert.match(src, /\buseAthenaSocialAuth\b/);
+  assert.equal(
+    /\buseSignInSocial\b/.test(src),
+    false,
+    "ProviderButton must not own useSignInSocial"
+  );
 });
 
 test("T-SOU-LINK-UNLINK: P?: settings link/unlink do not own useLinkSocial / useUnlinkAccount", () => {
-	const src = readUi("components/auth/settings/security/linked-account.tsx");
-	assert.match(src, /\buseAthenaSocialAuth\b/);
-	assert.equal(/\buseLinkSocial\b/.test(src), false);
-	assert.equal(/\buseUnlinkAccount\b/.test(src), false);
+  const src = readUi("components/auth/settings/security/linked-account.tsx");
+  assert.match(src, /\buseAthenaSocialAuth\b/);
+  assert.equal(/\buseLinkSocial\b/.test(src), false);
+  assert.equal(/\buseUnlinkAccount\b/.test(src), false);
 });
 
 test("T-SOU-NO-EXTRA-CONFIG: P?: Auth UI has no extra OAuth clientSecret / store / encryption config", () => {
-	const files = collectTsFiles(authUiSrc);
-	assert.ok(files.length > 0);
-	const blob = files.map((file) => readFileSync(file, "utf8")).join("\n");
-	assert.equal(/\bOAuthTransactionStore\b/.test(blob), false);
-	assert.equal(/\bencryptPkceVerifier\b/.test(blob), false);
-	assert.equal(/\bpkce_verifier_ciphertext\b/.test(blob), false);
-	assert.equal(/\bcreateAthenaSocialServerEngine\b/.test(blob), false);
-	for (const file of files) {
-		const src = readFileSync(file, "utf8");
-		assert.equal(
-			/clientSecret[\s\S]{0,80}(google|github|social)/i.test(src) &&
-				/createClient\(/.test(src),
-			false,
-			`${relative(repoRoot, file)} must not add social clientSecret to Auth UI createClient`,
-		);
-	}
+  const files = collectTsFiles(authUiSrc);
+  assert.ok(files.length > 0);
+  const blob = files.map((file) => readFileSync(file, "utf8")).join("\n");
+  assert.equal(/\bOAuthTransactionStore\b/.test(blob), false);
+  assert.equal(/\bencryptPkceVerifier\b/.test(blob), false);
+  assert.equal(/\bpkce_verifier_ciphertext\b/.test(blob), false);
+  assert.equal(/\bcreateAthenaSocialServerEngine\b/.test(blob), false);
+  for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    assert.equal(
+      /clientSecret[\s\S]{0,80}(google|github|social)/i.test(src) &&
+        /createClient\(/.test(src),
+      false,
+      `${relative(repoRoot, file)} must not add social clientSecret to Auth UI createClient`
+    );
+  }
 });
 
 test("T-SOU-SETTINGS-LIST: P?: settings lists linked accounts via list-accounts hydrate", () => {
-	const src = readUi("components/auth/settings/security/linked-accounts.tsx");
-	assert.match(src, /\buseSafeListAccounts\b/);
-	assert.match(
-		readFileSync(
-			join(authUiSrc, "lib/auth/social/use-safe-list-accounts.ts"),
-			"utf8",
-		),
-		/list-accounts|listAccounts/,
-	);
+  const src = readUi("components/auth/settings/security/linked-accounts.tsx");
+  assert.match(src, /\buseSafeListAccounts\b/);
+  assert.match(
+    readFileSync(
+      join(authUiSrc, "lib/auth/social/use-safe-list-accounts.ts"),
+      "utf8"
+    ),
+    /list-accounts|listAccounts/
+  );
 });
 
 test("T-SOU-FIREWALL: P?: Auth UI cannot import src/auth/social/server", () => {
-	const files = collectTsFiles(authUiSrc);
-	assert.ok(files.length > 0);
-	for (const file of files) {
-		const rel = relative(repoRoot, file).replace(/\\/g, "/");
-		const src = readFileSync(file, "utf8");
-		assert.equal(
-			/from ["'][^"']*auth\/social\/server[^"']*["']/.test(src),
-			false,
-			`${rel} must not import social/server`,
-		);
-		assert.equal(
-			/from ["'][^"']*auth\/local\/social[^"']*["']/.test(src),
-			false,
-			`${rel} must not import local/social`,
-		);
-	}
+  const files = collectTsFiles(authUiSrc);
+  assert.ok(files.length > 0);
+  for (const file of files) {
+    const rel = relative(repoRoot, file).replace(/\\/g, "/");
+    const src = readFileSync(file, "utf8");
+    assert.equal(
+      /from ["'][^"']*auth\/social\/server[^"']*["']/.test(src),
+      false,
+      `${rel} must not import social/server`
+    );
+    assert.equal(
+      /from ["'][^"']*auth\/local\/social[^"']*["']/.test(src),
+      false,
+      `${rel} must not import local/social`
+    );
+  }
 });
 
 test("T-SOU-NEXT-MINIMAL: P?: next-minimal canary specifies createClient social.providers google+github", () => {
-	assert.equal(existsSync(nextMinimal), true);
-	const files = [
-		join(nextMinimal, "src/lib/athena/root.ts"),
-		join(nextMinimal, "src/lib/athena.ts"),
-		join(nextMinimal, "src/lib/athena/browser.ts"),
-	].filter((file) => existsSync(file));
-	assert.ok(files.length > 0, "next-minimal createClient files must exist");
-	const blob = files.map((file) => readFileSync(file, "utf8")).join("\n");
-	assert.match(blob, /createClient\(/);
-	assert.match(blob, /social:\s*\{/);
-	assert.match(blob, /providers:\s*\{/);
-	assert.match(blob, /\bgoogle:/);
-	assert.match(blob, /\bgithub:/);
+  assert.equal(existsSync(nextMinimal), true);
+  const files = [
+    join(nextMinimal, "src/lib/athena/root.ts"),
+    join(nextMinimal, "src/lib/athena/create-client.ts"),
+    join(nextMinimal, "src/lib/athena.ts"),
+    join(nextMinimal, "src/lib/athena-browser.ts"),
+  ].filter((file) => existsSync(file));
+  assert.ok(files.length > 0, "next-minimal createClient files must exist");
+  const blob = files.map((file) => readFileSync(file, "utf8")).join("\n");
+  assert.match(blob, /createClient\(/);
+  assert.match(blob, /social:\s*\{/);
+  assert.match(blob, /providers:\s*\{/);
+  assert.match(blob, /\bgoogle:/);
+  assert.match(blob, /\bgithub:/);
+});
+
+test("T-SOU-CAPABILITY-CANARY: P?: Auth UI renders social from capabilities without socialProviders prop", () => {
+  const providersTsx = join(nextMinimal, "src/components/providers.tsx");
+  assert.equal(existsSync(providersTsx), true);
+  const src = readFileSync(providersTsx, "utf8");
+  assert.equal(
+    /socialProviders\s*=\s*\{\s*\[\s*["']github["']/.test(src),
+    false,
+    'next-minimal must not pass socialProviders={["github"]}'
+  );
+  const presentation = readUi(
+    "components/auth/resolve-presentation-from-capabilities.ts"
+  );
+  assert.match(presentation, /resolveSocialProvidersForUi/);
+  assert.match(presentation, /socialProvidersFromCapabilities/);
+  const linked = readUi("components/auth/settings/security/linked-account.tsx");
+  assert.match(linked, /\buseAthenaSocialAuth\b/);
+  assert.equal(/\buseLinkSocial\b/.test(linked), false);
+  assert.equal(/\buseUnlinkAccount\b/.test(linked), false);
 });

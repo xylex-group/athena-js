@@ -176,6 +176,8 @@ The root package now exports:
 interface AthenaRelationSelectNode<TSelect extends AthenaSelectShape = AthenaSelectShape> {
   select: TSelect
   as?: string
+  constraint?: string
+  join?: "inner"
   via?: string
   schema?: string
 }
@@ -548,6 +550,17 @@ type Result = Array<{
 }>
 ```
 
+Use `constraint` instead when selecting a specific foreign-key constraint:
+
+```ts
+select: {
+  users: {
+    select: { id: true },
+    constraint: "posts_author_id_fkey",
+  },
+}
+```
+
 ### 4. Filtering with scalar values and operators
 
 Compatibility:
@@ -709,7 +722,8 @@ Relation typing rules are:
 - `one-to-many` and `many-to-many` become arrays
 - `one-to-one` and `many-to-one` become `T | null`
 - relation names resolve through `meta.relations`
-- `via` can disambiguate when relation names are not enough
+- `via` preserves the legacy embed-token grammar, including `via` without `as`
+- `constraint` explicitly selects a foreign-key constraint when relation names are ambiguous
 
 ### 8. Plain `from<Row>(...)` behavior
 

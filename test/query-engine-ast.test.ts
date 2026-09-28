@@ -9,15 +9,15 @@ import {
 
 test("normalizeFindManyInput builds a semantic select AST", () => {
   const ast = normalizeFindManyInput({
+    limit: 10,
     select: {
-      name: true,
       instruments: {
         select: { name: true },
       },
+      name: true,
     },
     table: "orchestral_sections",
     where: { name: { eq: "Brass" } },
-    limit: 10,
   });
 
   assert.equal(ast.kind, "select");
@@ -40,7 +40,6 @@ test("normalizeFindManyInput builds a semantic select AST", () => {
 test("normalizeFindManyInput lifts nested relation where/order/limit", () => {
   const ast = normalizeFindManyInput({
     select: {
-      name: true,
       instruments: {
         limit: 3,
         offset: 1,
@@ -48,6 +47,7 @@ test("normalizeFindManyInput lifts nested relation where/order/limit", () => {
         select: { name: true },
         where: { name: { eq: "Tuba" } },
       },
+      name: true,
     },
     table: "orchestral_sections",
   });
@@ -69,7 +69,10 @@ test("parseSourceName normalizes schema-qualified tables once", () => {
     table: "users",
   });
   assert.throws(() => parseSourceName("a.b.c"), /too deeply qualified/);
-  assert.throws(() => parseSourceName("users;drop"), /Invalid table identifier/);
+  assert.throws(
+    () => parseSourceName("users;drop"),
+    /Invalid table identifier/
+  );
 });
 
 test("normalizeTransportPayload lifts relation select strings", () => {
@@ -84,7 +87,7 @@ test("normalizeTransportPayload lifts relation select strings", () => {
 test("selectPayloadHasRelations detects nested findMany trees", () => {
   assert.equal(
     selectPayloadHasRelations({
-      select: { name: true, instruments: { select: { name: true } } },
+      select: { instruments: { select: { name: true } }, name: true },
       table_name: "orchestral_sections",
     }),
     true

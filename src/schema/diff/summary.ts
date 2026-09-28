@@ -1,28 +1,25 @@
-import type {
-  SchemaDiffOperation,
-  SchemaDiffSummary,
-} from "./types.ts";
+import type { SchemaDiffOperation, SchemaDiffSummary } from "./types.ts";
 
 const EMPTY_SUMMARY: SchemaDiffSummary = {
+  columnsAdded: 0,
+  columnsChanged: 0,
+  columnsRemoved: 0,
+  columnsRenamed: 0,
+  foreignKeysAdded: 0,
+  foreignKeysChanged: 0,
+  foreignKeysRemoved: 0,
+  indexesAdded: 0,
+  indexesRemoved: 0,
+  primaryKeysAdded: 0,
+  primaryKeysRemoved: 0,
   schemasAdded: 0,
   schemasRemoved: 0,
   tablesAdded: 0,
   tablesRemoved: 0,
   tablesRenamed: 0,
-  columnsAdded: 0,
-  columnsRemoved: 0,
-  columnsRenamed: 0,
-  columnsChanged: 0,
-  primaryKeysAdded: 0,
-  primaryKeysRemoved: 0,
+  totalOperations: 0,
   uniquesAdded: 0,
   uniquesRemoved: 0,
-  foreignKeysAdded: 0,
-  foreignKeysRemoved: 0,
-  foreignKeysChanged: 0,
-  indexesAdded: 0,
-  indexesRemoved: 0,
-  totalOperations: 0,
 };
 
 /** Derive a lightweight summary from operations (no duplicate mutable state). */

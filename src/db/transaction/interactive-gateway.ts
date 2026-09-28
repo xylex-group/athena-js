@@ -10,11 +10,11 @@ import type {
   AthenaRpcPayload,
   AthenaUpdatePayload,
 } from "../../gateway/types.ts";
-import { AthenaTransactionError } from "./errors.ts";
-import { nextTransactionOperationId } from "./compile.ts";
-import type { InteractiveTransactionSession } from "./coordinator.ts";
 import type { AthenaQueryDescriptor } from "../../query/descriptor.ts";
 import { compileAthenaQueryDescriptor } from "../../query/descriptor.ts";
+import { nextTransactionOperationId } from "./compile.ts";
+import type { InteractiveTransactionSession } from "./coordinator.ts";
+import { AthenaTransactionError } from "./errors.ts";
 import type { AthenaTransactionOperation } from "./types.ts";
 
 function descriptorFor(
@@ -60,16 +60,26 @@ export function createInteractiveGatewayClient(
     buildHeaders(options) {
       return base.buildHeaders(options);
     },
-    deleteGateway(payload: AthenaDeletePayload, _options?: AthenaGatewayCallOptions) {
-      return execute("delete", payload) as Promise<AthenaGatewayResponse<never>>;
+    deleteGateway(
+      payload: AthenaDeletePayload,
+      _options?: AthenaGatewayCallOptions
+    ) {
+      return execute("delete", payload) as Promise<
+        AthenaGatewayResponse<never>
+      >;
     },
     fetchGateway(payload, _options?: AthenaGatewayCallOptions) {
       return execute("fetch", payload as AthenaFetchPayload) as Promise<
         AthenaGatewayResponse<never>
       >;
     },
-    insertGateway(payload: AthenaInsertPayload, _options?: AthenaGatewayCallOptions) {
-      return execute("insert", payload) as Promise<AthenaGatewayResponse<never>>;
+    insertGateway(
+      payload: AthenaInsertPayload,
+      _options?: AthenaGatewayCallOptions
+    ) {
+      return execute("insert", payload) as Promise<
+        AthenaGatewayResponse<never>
+      >;
     },
     async queryGateway(
       _payload: AthenaQueryPayload,
@@ -98,10 +108,15 @@ export function createInteractiveGatewayClient(
         { backend: session.capabilities.backend }
       );
     },
-    updateGateway(payload: AthenaUpdatePayload, _options?: AthenaGatewayCallOptions) {
-      return execute("update", payload) as Promise<AthenaGatewayResponse<never>>;
-    },
     transactions: base.transactions,
+    updateGateway(
+      payload: AthenaUpdatePayload,
+      _options?: AthenaGatewayCallOptions
+    ) {
+      return execute("update", payload) as Promise<
+        AthenaGatewayResponse<never>
+      >;
+    },
     verifyConnection(options) {
       return base.verifyConnection(options);
     },

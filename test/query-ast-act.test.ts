@@ -22,6 +22,7 @@ import {
   resolveQueryPlan,
   validatePlanAgainstCapabilities,
 } from "../src/query/index.ts";
+import { createCanonicalSelect } from "../src/query/execution/canonical-select.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "../../..");
@@ -31,7 +32,7 @@ type FindManyInput = Parameters<typeof normalizeFindManyInput>[0];
 
 function findManyInput(
   base: FindManyInput,
-  override: Partial<FindManyInput> = {},
+  override: Partial<FindManyInput> = {}
 ): FindManyInput {
   return { ...base, ...override };
 }
@@ -55,8 +56,8 @@ const catalog: AthenaRelationCatalog = {
 const fixture = JSON.parse(
   readFileSync(
     join(repoRoot, "test/fixtures/query-ast/orchestral-find-many.json"),
-    "utf8",
-  ),
+    "utf8"
+  )
 ) as { input: FindManyInput };
 
 test("ACT-QRY-01: no second client constructors", () => {
@@ -77,7 +78,7 @@ test("ACT-QRY-02/04/05: same findMany input normalizes and resolves for every ba
   assert.equal(plan.kind, "resolved-select");
   assert.equal(
     plan.selection.some((field) => field.kind === "relation"),
-    true,
+    true
   );
   assert.doesNotThrow(() => compilePostgresAst(plan));
   assert.doesNotThrow(() => compileD1Ast(plan));
@@ -85,7 +86,18 @@ test("ACT-QRY-02/04/05: same findMany input normalizes and resolves for every ba
 });
 
 test("ACT-QRY-03: public builders do not branch on backend", () => {
-  const source = readSrc("client.ts");
+  const source = [
+    "client/fluent/types.ts",
+    "client/fluent/state.ts",
+    "client/fluent/filters.ts",
+    "client/fluent/mutation-query.ts",
+    "client/fluent/rpc-builder.ts",
+    "client/fluent/table-builder.ts",
+    "query/execution/operation.ts",
+    "query/execution/select.ts",
+  ]
+    .map(readSrc)
+    .join("\n");
   assert.equal(/if\s*\([^)]*\bpostgres\b/i.test(source), false);
   assert.equal(/if\s*\([^)]*\bd1\b/i.test(source), false);
   assert.equal(/if\s*\([^)]*\bgateway\b/i.test(source), false);
@@ -97,14 +109,14 @@ test("ACT-QRY-06: compilers consume a resolved plan, not a public select bag", (
   });
   assert.equal(plan.kind, "resolved-select");
   assert.throws(() =>
-    compilePostgresAst({ select: fixture.input.select } as never),
+    compilePostgresAst({ select: fixture.input.select } as never)
   );
 });
 
 test("ACT-QRY-07: AST fixture is SQL-free", () => {
   const raw = readFileSync(
     join(repoRoot, "test/fixtures/query-ast/orchestral-find-many.json"),
-    "utf8",
+    "utf8"
   );
   assert.equal(/\$\d/.test(raw), false);
   assert.equal(raw.includes("JOIN "), false);
@@ -116,7 +128,7 @@ test("ACT-QRY-08: user values only appear in bind arrays", () => {
   const ast = normalizeFindManyInput(
     findManyInput(fixture.input, {
       where: { name: { eq: "Brass'; drop table instruments;--" } },
-    }),
+    })
   );
   const plan = resolveQueryPlan(ast, { catalog });
   const pg = compilePostgresAst(plan);
@@ -136,7 +148,7 @@ test("ACT-QRY-09: poisoned identifiers fail closed", () => {
         select: { name: true },
         table: 'users"; drop',
       }),
-    AthenaQueryError,
+    AthenaQueryError
   );
 });
 
@@ -153,14 +165,14 @@ test("ACT-QRY-11: unsupported capability is typed", () => {
       }),
     (error: unknown) =>
       error instanceof AthenaQueryError &&
-      error.code === "ATHENA_QUERY_UNSUPPORTED_CAPABILITY",
+      error.code === "ATHENA_QUERY_UNSUPPORTED_CAPABILITY"
   );
 });
 
 test("ACT-QRY-12: nested to-many is one statement", () => {
   resetQueryPlanAliases();
   const compiled = compilePostgresAst(
-    resolveQueryPlan(normalizeFindManyInput(fixture.input), { catalog }),
+    resolveQueryPlan(normalizeFindManyInput(fixture.input), { catalog })
   );
   assert.match(compiled.text, /json_agg/);
   assert.doesNotMatch(compiled.text, /for\s*\(/);
@@ -179,4 +191,38 @@ test("serializeGatewayAst stays a valid fetch body for the same AST", () => {
   assert.equal(wire.table_name, "orchestral_sections");
   assert.equal(typeof wire.select, "string");
   assert.match(String(wire.select), /instruments/);
+});
+
+test("canonical fluent reads preserve supported semantics across adapters", () => {
+  const canonical = createCanonicalSelect({
+    columns: "id,name",
+    state: {
+      conditions: [
+        {
+          column: "name",
+          eq_column: "name",
+          eq_value: "Brass",
+          operator: "eq",
+          value: "Brass",
+        },
+      ],
+      limit: 2,
+      offset: 1,
+      order: { direction: "ascending", field: "name" },
+    },
+    tableName: "orchestral_sections",
+  });
+
+  assert.ok(canonical);
+  const plan = resolveQueryPlan(canonical.ast);
+  const postgres = compilePostgresAst(plan);
+  const d1 = compileD1Ast(plan);
+  const gateway = serializeGatewayAst(canonical.ast);
+
+  assert.deepEqual(postgres.values, ["Brass"]);
+  assert.deepEqual(d1.params, ["Brass"]);
+  assert.equal(gateway.table_name, "orchestral_sections");
+  assert.deepEqual(gateway.where, { name: { eq: "Brass" } });
+  assert.equal(gateway.limit, 2);
+  assert.equal(gateway.offset, 1);
 });

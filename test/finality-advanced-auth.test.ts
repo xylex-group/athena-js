@@ -54,7 +54,7 @@ test("P11: object auth.oauth provider maps are not a JS-only OAuth stack", () =>
       error instanceof AthenaConfigurationError &&
         error.code === "ATHENA_AUTH_FEATURE_UNSUPPORTED",
       false,
-      "object auth.oauth must not throw ATHENA_AUTH_FEATURE_UNSUPPORTED",
+      "object auth.oauth must not throw ATHENA_AUTH_FEATURE_UNSUPPORTED"
     );
     throw error;
   }

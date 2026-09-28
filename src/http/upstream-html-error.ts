@@ -11,7 +11,10 @@ export const UPSTREAM_UNAVAILABLE_MESSAGE =
 export const UPSTREAM_UNAVAILABLE_HINT =
   "The auth worker returned an HTML error page (often Cloudflare 1101). Retry, then check Workers Logs.";
 
-export function isHtmlErrorPage(body: string, contentType?: string | null): boolean {
+export function isHtmlErrorPage(
+  body: string,
+  contentType?: string | null
+): boolean {
   const type = (contentType ?? "").toLowerCase();
   const sample = body.slice(0, 12_000);
   const lower = sample.toLowerCase();

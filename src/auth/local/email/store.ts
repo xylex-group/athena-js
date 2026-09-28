@@ -4,13 +4,15 @@ import type {
   AthenaAuthEmailTemplateRow,
 } from "../../email/contract.ts";
 import {
-  AUTH_EMAIL_EVENT_CATALOG,
   type AthenaAuthEmailEventDefinition,
+  AUTH_EMAIL_EVENT_CATALOG,
 } from "../../email/events.ts";
 
 export interface AthenaAuthEmailStore {
   createEmail(row: AthenaAuthEmailRecordRow): Promise<AthenaAuthEmailRecordRow>;
-  createFailure(row: AthenaAuthEmailFailureRow): Promise<AthenaAuthEmailFailureRow>;
+  createFailure(
+    row: AthenaAuthEmailFailureRow
+  ): Promise<AthenaAuthEmailFailureRow>;
   createTemplate(
     row: AthenaAuthEmailTemplateRow
   ): Promise<AthenaAuthEmailTemplateRow>;
@@ -64,7 +66,10 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
   }): Promise<AthenaAuthEmailTemplateRow[]> {
     return [...this.templates.values()]
       .filter((row) => {
-        if (filters?.template_key && row.template_key !== filters.template_key) {
+        if (
+          filters?.template_key &&
+          row.template_key !== filters.template_key
+        ) {
           return false;
         }
         if (filters?.event_type && row.event_type !== filters.event_type) {
@@ -73,7 +78,10 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
         if (filters?.locale && row.locale !== filters.locale) {
           return false;
         }
-        if (filters?.is_active !== undefined && row.is_active !== filters.is_active) {
+        if (
+          filters?.is_active !== undefined &&
+          row.is_active !== filters.is_active
+        ) {
           return false;
         }
         return true;
@@ -81,7 +89,9 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
       .map((row) => clone(row));
   }
 
-  async getTemplate(id: string): Promise<AthenaAuthEmailTemplateRow | undefined> {
+  async getTemplate(
+    id: string
+  ): Promise<AthenaAuthEmailTemplateRow | undefined> {
     const row = this.templates.get(id);
     return row ? clone(row) : undefined;
   }
@@ -99,9 +109,14 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailTemplateRow | undefined> {
     const existing = this.templates.get(id);
     if (!existing) {
-      return undefined;
+      return;
     }
-    const next = { ...existing, ...patch, id, updated_at: new Date().toISOString() };
+    const next = {
+      ...existing,
+      ...patch,
+      id,
+      updated_at: new Date().toISOString(),
+    };
     this.templates.set(id, next);
     return clone(next);
   }
@@ -132,9 +147,14 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailFailureRow | undefined> {
     const existing = this.failures.get(id);
     if (!existing) {
-      return undefined;
+      return;
     }
-    const next = { ...existing, ...patch, id, updated_at: new Date().toISOString() };
+    const next = {
+      ...existing,
+      ...patch,
+      id,
+      updated_at: new Date().toISOString(),
+    };
     this.failures.set(id, next);
     return clone(next);
   }
@@ -152,7 +172,9 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
     return row ? clone(row) : undefined;
   }
 
-  async createEmail(row: AthenaAuthEmailRecordRow): Promise<AthenaAuthEmailRecordRow> {
+  async createEmail(
+    row: AthenaAuthEmailRecordRow
+  ): Promise<AthenaAuthEmailRecordRow> {
     this.emails.set(row.id, clone(row));
     return clone(row);
   }
@@ -163,9 +185,14 @@ export class MemoryAuthEmailStore implements AthenaAuthEmailStore {
   ): Promise<AthenaAuthEmailRecordRow | undefined> {
     const existing = this.emails.get(id);
     if (!existing) {
-      return undefined;
+      return;
     }
-    const next = { ...existing, ...patch, id, updated_at: new Date().toISOString() };
+    const next = {
+      ...existing,
+      ...patch,
+      id,
+      updated_at: new Date().toISOString(),
+    };
     this.emails.set(id, next);
     return clone(next);
   }

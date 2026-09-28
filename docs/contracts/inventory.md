@@ -77,7 +77,7 @@ Publish consumes a generated machine report, not a public SDK type. Schema is no
 
 | name | module | classification | notes |
 | --- | --- | --- | --- |
-| `athena-finality.json` | `.tmp/athena-finality.json` (generated) | release gate | Keys: `package`, `version`, `commit`, `passed`, `checks.{unit,ownership,exports,browserIsolation,tarballConsumer,postgres,embeddedAuth,nextE2E}`. `publish.js` requires SHA + version match. |
+| `athena-finality.json` | `.tmp/athena-finality.json` (generated) | release gate | Keys: `package`, `version`, `commit`, `passed`, `checks.{unit,ownership,exports,browserIsolation,tarballConsumer,postgres,embeddedAuth,nextE2E,nextMinimalGolden}`. `publish.js` requires SHA + version match. |
 
 ## Refresh process
 

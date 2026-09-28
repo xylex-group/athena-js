@@ -50,20 +50,20 @@ export function parseMigrationFilename(
 ): { name: string; version: number } | undefined {
   const match = MIGRATION_FILENAME_RE.exec(filename);
   if (!match) {
-    return undefined;
+    return;
   }
   const version = Number.parseInt(match[1] ?? "", 10);
   const name = match[2] ?? "";
   if (!Number.isFinite(version) || version < 0 || name.length === 0) {
-    return undefined;
+    return;
   }
   return { name, version };
 }
 
 export interface DiscoverMigrationsOptions {
+  cwd?: string;
   /** Absolute or cwd-relative directory path. */
   directory: string;
-  cwd?: string;
 }
 
 /**
@@ -81,7 +81,7 @@ export async function discoverMigrations(
   const cwd = options.cwd ?? process.cwd();
   const absoluteDirectory = resolve(cwd, options.directory);
 
-  let directoryStat;
+  let directoryStat: Awaited<ReturnType<typeof stat>>;
   try {
     directoryStat = await stat(absoluteDirectory);
   } catch (error) {
@@ -133,25 +133,25 @@ export async function discoverMigrations(
   const malformedSql: string[] = [];
 
   for (const filename of entries) {
-      // Ignore README/.gitkeep/dotfiles and other non-SQL incidental files.
-      if (shouldIgnoreEntry(filename)) {
-        continue;
-      }
-
-      // Remaining entries are *.sql (shouldIgnore filters non-sql).
-      const identity = parseMigrationFilename(filename);
-      if (!identity) {
-        malformedSql.push(join(options.directory, filename).replace(/\\/g, "/"));
-        continue;
-      }
-
-      parsed.push({
-        filename,
-        name: identity.name,
-        path: join(absoluteDirectory, filename),
-        version: identity.version,
-      });
+    // Ignore README/.gitkeep/dotfiles and other non-SQL incidental files.
+    if (shouldIgnoreEntry(filename)) {
+      continue;
     }
+
+    // Remaining entries are *.sql (shouldIgnore filters non-sql).
+    const identity = parseMigrationFilename(filename);
+    if (!identity) {
+      malformedSql.push(join(options.directory, filename).replace(/\\/g, "/"));
+      continue;
+    }
+
+    parsed.push({
+      filename,
+      name: identity.name,
+      path: join(absoluteDirectory, filename),
+      version: identity.version,
+    });
+  }
 
   if (malformedSql.length > 0) {
     throw new MigrationError(
@@ -195,7 +195,9 @@ export async function discoverMigrations(
     );
   }
 
-  parsed.sort((a, b) => a.version - b.version || a.filename.localeCompare(b.filename));
+  parsed.sort(
+    (a, b) => a.version - b.version || a.filename.localeCompare(b.filename)
+  );
 
   const migrations: MigrationFile[] = [];
   for (const item of parsed) {
@@ -214,15 +216,15 @@ export async function discoverMigrations(
 
     assertMigrationSqlAllowsOuterTransaction(sql, item.filename);
 
-        migrations.push({
-          checksum: checksumMigrationSql(sql),
-          filename: item.filename,
-          name: item.name,
-          path: item.path,
-          sql,
-          version: item.version,
-        });
-      }
+    migrations.push({
+      checksum: checksumMigrationSql(sql),
+      filename: item.filename,
+      name: item.name,
+      path: item.path,
+      sql,
+      version: item.version,
+    });
+  }
 
   return migrations;
 }

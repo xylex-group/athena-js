@@ -31,7 +31,7 @@ function formatScope(descriptor: AthenaQueryDescriptor): string {
 }
 
 export function explainAthenaQuery(
-  input: AthenaExecutable<unknown> | AthenaQueryDescriptor,
+  input: AthenaExecutable<unknown> | AthenaQueryDescriptor
 ): AthenaQueryExplanation {
   const descriptor = "getDescriptor" in input ? input.getDescriptor() : input;
   const target = [descriptor.target.schema, descriptor.target.table]
@@ -43,7 +43,7 @@ export function explainAthenaQuery(
   const filters = (descriptor.filters ?? [])
     .map(
       (filter) =>
-        `${filter.column ?? "?"} ${filter.operator} ${JSON.stringify(filter.value)}`,
+        `${filter.column ?? "?"} ${filter.operator} ${JSON.stringify(filter.value)}`
     )
     .join(" AND ");
 

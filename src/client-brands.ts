@@ -8,12 +8,12 @@ declare const athenaRequestClientBrand: unique symbol;
 
 /** Phantom brand carried only by `createClient` from `@xylex-group/athena/server`. */
 export type AthenaRootClientBrand = {
-	readonly [athenaRootClientBrand]: true;
+  readonly [athenaRootClientBrand]: true;
 };
 
 /** Phantom brand carried by `withContext` / `createAthenaServerClient` views. */
 export type AthenaRequestClientBrand = {
-	readonly [athenaRequestClientBrand]: true;
+  readonly [athenaRequestClientBrand]: true;
 };
 
 export type AthenaRootClient<TClient> = TClient & AthenaRootClientBrand;
@@ -23,4 +23,4 @@ export type AthenaRootClient<TClient> = TClient & AthenaRootClientBrand;
  * expose `close()` — only the root owns lifecycle.
  */
 export type AthenaRequestClient<TClient> = Omit<TClient, "close"> &
-	AthenaRequestClientBrand;
+  AthenaRequestClientBrand;

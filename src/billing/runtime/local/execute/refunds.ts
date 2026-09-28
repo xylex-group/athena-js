@@ -1,120 +1,101 @@
+import type { AthenaPrincipal } from "../../../../runtime/data/principal.ts";
 import type { BillingProviderConfigMap } from "../../../providers/types.ts";
-import { prepareBillingCommand } from "../../../safety/prepare.ts";
 import type {
-	BillingCancelRefundInput,
-	BillingCreateRefundInput,
-	BillingGetRefundInput,
-	BillingListRefundsInput,
-	BillingRefund,
+  BillingCancelRefundInput,
+  BillingCreateRefundInput,
+  BillingGetRefundInput,
+  BillingListRefundsInput,
+  BillingRefund,
 } from "../../../types.ts";
 import type { BillingPage } from "../../types.ts";
 import type { BillingProviderRegistry } from "../providers/registry.ts";
-import {
-	rejectUnsupportedListOffset,
-	requireProviderPort,
-	resolveLocalBillingProviderExecution,
-} from "./shared.ts";
+import { executeLocalBillingOperation } from "./invoke.ts";
+import { rejectUnsupportedListOffset } from "./shared.ts";
 
 export async function executeLocalBillingRefundCreate(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingCreateRefundInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingCreateRefundInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingRefund> {
-	const prepared = prepareBillingCommand({
-		idempotency: "defer",
-		operation: "refunds.create",
-		payload: input.payload,
-		testMode: input.testMode,
-	});
-	const payload = prepared.payload as unknown as BillingCreateRefundInput;
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		idempotencyKey: payload.idempotencyKey,
-		operation: "refunds.create",
-		principal: input.principal,
-		registry: input.registry,
-		target: payload,
-		testMode: input.testMode,
-	});
-	prepareBillingCommand({
-		operation: "refunds.create",
-		payload,
-		testMode: input.testMode,
-	});
-	const refunds = requireProviderPort(runtime.refunds, "refunds.create");
-	return refunds.create(context, {
-		amount: payload.amount,
-		description: payload.description,
-		idempotencyKey: payload.idempotencyKey,
-		paymentId: payload.paymentId,
-	});
+  return executeLocalBillingOperation({
+    invoke: (refunds, context, payload) =>
+      refunds.create(context, {
+        amount: payload.amount,
+        description: payload.description,
+        idempotencyKey: payload.idempotencyKey,
+        paymentId: payload.paymentId,
+      }),
+    operation: "refunds.create",
+    port: "refunds",
+    request: input,
+    safety: "defer-then-finalize",
+  });
 }
 
 export async function executeLocalBillingRefundGet(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingGetRefundInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingGetRefundInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingRefund> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "refunds.get",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const refunds = requireProviderPort(runtime.refunds, "refunds.get");
-	return refunds.get(context, {
-		paymentId: input.payload.paymentId,
-		refundId: input.payload.refundId,
-	});
+  return executeLocalBillingOperation({
+    invoke: (refunds, context, payload) =>
+      refunds.get(context, {
+        paymentId: payload.paymentId,
+        refundId: payload.refundId,
+      }),
+    operation: "refunds.get",
+    port: "refunds",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingRefundCancel(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingCancelRefundInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingCancelRefundInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingRefund> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "refunds.cancel",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const refunds = requireProviderPort(runtime.refunds, "refunds.cancel");
-	return refunds.cancel(context, {
-		paymentId: input.payload.paymentId,
-		refundId: input.payload.refundId,
-	});
+  return executeLocalBillingOperation({
+    invoke: (refunds, context, payload) =>
+      refunds.cancel(context, {
+        ...(typeof payload.idempotencyKey === "string"
+          ? { idempotencyKey: payload.idempotencyKey }
+          : {}),
+        paymentId: payload.paymentId,
+        refundId: payload.refundId,
+      }),
+    operation: "refunds.cancel",
+    port: "refunds",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingRefundList(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingListRefundsInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingListRefundsInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPage<BillingRefund>> {
-	rejectUnsupportedListOffset("refunds.list", input.payload.offset);
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "refunds.list",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const refunds = requireProviderPort(runtime.refunds, "refunds.list");
-	return refunds.list(context, {
-		cursor: input.payload.cursor,
-		limit: input.payload.limit,
-	});
+  return executeLocalBillingOperation({
+    before: (payload) =>
+      rejectUnsupportedListOffset("refunds.list", payload.offset),
+    invoke: (refunds, context, payload) =>
+      refunds.list(context, {
+        cursor: payload.cursor,
+        limit: payload.limit,
+      }),
+    operation: "refunds.list",
+    port: "refunds",
+    request: input,
+  });
 }

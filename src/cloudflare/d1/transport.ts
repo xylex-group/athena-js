@@ -1,6 +1,5 @@
 import type { AthenaGatewayClient } from "../../gateway/client.ts";
 import { AthenaGatewayError } from "../../gateway/errors.ts";
-import { resolveMutationAffectedRows } from "../../result/mutation-meta.ts";
 import type {
   AthenaDeletePayload,
   AthenaFetchPayload,
@@ -14,18 +13,23 @@ import type {
   AthenaRpcPayload,
   AthenaUpdatePayload,
 } from "../../gateway/types.ts";
+import { resolveMutationAffectedRows } from "../../result/mutation-meta.ts";
+import {
+  keepNullKeysFromFindManySelect,
+  maybeStripNullRows,
+} from "../../result/strip-null-properties.ts";
 import type { D1DatabaseLike } from "../types.ts";
 import { CLOUDFLARE_EDGE_BASE_URL } from "../types.ts";
+import {
+  compileD1StructuredFetch,
+  needsD1AstPipeline,
+} from "./compile-fetch.ts";
 import {
   type D1RunnerBatchResult,
   type D1RunnerQueryResult,
   executeD1Batch,
   executeD1Query,
 } from "./runner.ts";
-import {
-  compileD1StructuredFetch,
-  needsD1AstPipeline,
-} from "./compile-fetch.ts";
 import {
   compileD1Count,
   compileD1Delete,
@@ -206,18 +210,18 @@ function parseColumnCollationFromCreateSql(
     let segmentStart = 0;
     const trySegment = (from: number, to: number) => {
       if (nameMatchAbs >= 0) {
-        return undefined;
+        return;
       }
       const segment = listSlice.slice(from, to);
       const m = nameRe.exec(segment);
       if (!m) {
-        return undefined;
+        return;
       }
       // Column defs start at segment start (optional whitespace); reject mid-segment
       // matches inside expressions that are not leading column names.
       const leading = segment.slice(0, m.index).trim();
       if (leading.length > 0) {
-        return undefined;
+        return;
       }
       nameMatchAbs = listStart + from + m.index;
       nameMatchLen = m[0].length;
@@ -780,11 +784,11 @@ async function compileOptionsForBoundedMutation(
   session?: { bookmark?: string | null; sessionMode?: string | null }
 ): Promise<D1CompileOptions | undefined> {
   if (!(hasPaginationBounds(payload) || payload.sort_by)) {
-    return undefined;
+    return;
   }
   if (!hasPaginationBounds(payload)) {
     // order_without_bounds is raised by the compiler
-    return undefined;
+    return;
   }
   const identityColumn = await resolveD1BoundedIdentityColumn(
     d1,
@@ -800,7 +804,7 @@ function headerValue(
 ): string | undefined {
   const headers = options?.headers;
   if (!headers) {
-    return undefined;
+    return;
   }
   const lower = name.toLowerCase();
   for (const [key, value] of Object.entries(headers)) {
@@ -808,7 +812,6 @@ function headerValue(
       return value.trim();
     }
   }
-  return undefined;
 }
 
 function sessionFromOptions(
@@ -842,25 +845,6 @@ function resolveStripNulls(
   return defaultValue;
 }
 
-function stripNullPropertiesFromRows(rows: unknown[]): unknown[] {
-  return rows.map((row) => {
-    if (row === null || typeof row !== "object" || Array.isArray(row)) {
-      return row;
-    }
-    const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
-      if (value !== null) {
-        out[key] = value;
-      }
-    }
-    return out;
-  });
-}
-
-function maybeStripNullRows(rows: unknown[], strip: boolean): unknown[] {
-  return strip ? stripNullPropertiesFromRows(rows) : rows;
-}
-
 function successResponse<T>(
   data: T,
   count: number | null | undefined,
@@ -874,7 +858,7 @@ function successResponse<T>(
     raw,
   });
   const response: AthenaGatewayResponse<T> = {
-    ...(affectedRows !== undefined ? { affectedRows } : {}),
+    ...(affectedRows === undefined ? {} : { affectedRows }),
     count: count ?? null,
     data,
     error: undefined,
@@ -960,7 +944,8 @@ export function createCloudflareD1GatewayTransport(
       rows: unknown[],
       count: number
     ) => { data: T; count: number | null },
-    stripNulls = true
+    stripNulls = true,
+    keepNullKeys?: ReadonlySet<string>
   ): Promise<AthenaGatewayResponse<T>> {
     try {
       const session = sessionFromOptions(callOptions, options);
@@ -987,7 +972,8 @@ export function createCloudflareD1GatewayTransport(
           batch.results.flatMap((item) =>
             Array.isArray(item.results) ? item.results : []
           ),
-          stripNulls
+          stripNulls,
+          keepNullKeys
         );
         const changes = batch.results.reduce((sum, item) => {
           const meta = item?.meta;
@@ -1025,7 +1011,7 @@ export function createCloudflareD1GatewayTransport(
           method
         );
       }
-      const rows = maybeStripNullRows(result.rows, stripNulls);
+      const rows = maybeStripNullRows(result.rows, stripNulls, keepNullKeys);
       const mapped = mapResult?.(rows, result.count) ?? {
         count: result.count,
         data: rows as T,
@@ -1062,7 +1048,6 @@ export function createCloudflareD1GatewayTransport(
     buildHeaders(callOptions) {
       return { ...(callOptions?.headers ?? {}) };
     },
-    transactions,
     async deleteGateway<T>(
       payload: AthenaDeletePayload,
       callOptions?: AthenaGatewayCallOptions
@@ -1107,6 +1092,7 @@ export function createCloudflareD1GatewayTransport(
           callOptions,
           true
         );
+        const keepNullKeys = keepNullKeysFromFindManySelect(payload);
         if (fetchPayload.head === true) {
           return runCompiled(
             compiled,
@@ -1192,7 +1178,7 @@ export function createCloudflareD1GatewayTransport(
             ? countItem.results
             : [];
           const total = extractAthenaCount(countRows);
-          const rows = maybeStripNullRows(dataRows, stripNulls);
+          const rows = maybeStripNullRows(dataRows, stripNulls, keepNullKeys);
           return successResponse(
             rows as T,
             total,
@@ -1208,7 +1194,8 @@ export function createCloudflareD1GatewayTransport(
           "/gateway/fetch",
           "POST",
           undefined,
-          stripNulls
+          stripNulls,
+          keepNullKeys
         );
       } catch (error) {
         return compileErrorResponse(error, "/gateway/fetch", "POST");
@@ -1295,6 +1282,7 @@ export function createCloudflareD1GatewayTransport(
         "Use flat CRUD or raw query SQL instead"
       );
     },
+    transactions,
     async updateGateway<T>(
       payload: AthenaUpdatePayload,
       callOptions?: AthenaGatewayCallOptions

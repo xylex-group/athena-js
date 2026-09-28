@@ -15,6 +15,8 @@ import { normalizeAthenaGatewayBaseUrl } from "../gateway/url.ts";
 import { parseAthenaRightKey } from "../rights/key.ts";
 import { PACKAGE_VERSION } from "../sdk-version.ts";
 import { loadProjectEnv } from "./commands/env/project-env.ts";
+import { getCliActiveSpanId } from "./logging/tracer.ts";
+import type { AthenaCliLogger, CliTraceContext } from "./logging/types.ts";
 
 export const ADMIN_KEY_ENV_KEYS = [
   "ATHENA_KEY_12",
@@ -75,7 +77,6 @@ function pickEnv(
       return { sourceKey: key, value: hit.value };
     }
   }
-  return undefined;
 }
 
 /**
@@ -128,6 +129,8 @@ export function resolveGatewayAdminCredentials(
 
 export interface GatewayAdminClientOptions extends GatewayAdminCredentials {
   fetchImpl?: typeof fetch;
+  logger?: AthenaCliLogger;
+  trace?: CliTraceContext;
 }
 
 export interface GatewayApiKeyRecord {
@@ -162,9 +165,9 @@ export interface CreateGatewayApiKeyInput {
 
 export interface CreateGatewayApiKeyResult {
   api_key?: string;
-  record?: GatewayApiKeyRecord;
   /** Raw envelope when shape differs. */
   raw: unknown;
+  record?: GatewayApiKeyRecord;
 }
 
 export interface RightsCatalogEntry {
@@ -237,45 +240,79 @@ export async function gatewayAdminRequest(
   }
 
   const url = `${options.baseUrl}${options.path.startsWith("/") ? "" : "/"}${options.path}`;
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    "User-Agent": `athena-js-cli/${PACKAGE_VERSION}`,
-    "X-Athena-Key": options.adminKey,
-    apikey: options.adminKey,
+  const execute = async (): Promise<unknown> => {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      apikey: options.adminKey,
+      "Content-Type": "application/json",
+      "User-Agent": `athena-js-cli/${PACKAGE_VERSION}`,
+      "X-Athena-Key": options.adminKey,
+    };
+    if (options.trace) {
+      const requestSpanId = getCliActiveSpanId(
+        options.trace.invocationId,
+        options.trace.traceId
+      );
+      if (!requestSpanId) {
+        throw new Error("Gateway request trace context is unavailable.");
+      }
+      headers.traceparent = `00-${options.trace.traceId}-${requestSpanId}-01`;
+      headers["x-athena-invocation-id"] = options.trace.invocationId;
+    }
+    const response = await fetchImpl(url, {
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+      headers,
+      method: options.method,
+    });
+
+    const text = await response.text();
+    let parsed: unknown;
+    if (text.trim()) {
+      try {
+        parsed = JSON.parse(text) as unknown;
+      } catch {
+        parsed = text;
+      }
+    }
+    options.logger?.record({
+      data: {
+        contentType: response.headers.get("content-type"),
+        method: options.method,
+        operation: "gateway.admin.request",
+        remoteRequestId:
+          response.headers.get("x-athena-request-id") ?? undefined,
+        remoteTraceId: response.headers.get("x-athena-trace-id") ?? undefined,
+        route: options.path,
+        statusCode: response.status,
+      },
+      kind: "diagnostic",
+      level: response.ok ? "info" : "error",
+    });
+
+    if (!response.ok) {
+      throw new GatewayAdminError({
+        body: parsed,
+        endpoint: options.path,
+        message: extractErrorMessage(
+          parsed,
+          `Gateway admin ${options.method} ${options.path} failed (${response.status})`
+        ),
+        method: options.method,
+        status: response.status,
+      });
+    }
+
+    return parsed;
   };
 
-  const response = await fetchImpl(url, {
-    body:
-      options.body === undefined ? undefined : JSON.stringify(options.body),
-    headers,
-    method: options.method,
-  });
-
-  const text = await response.text();
-  let parsed: unknown = undefined;
-  if (text.trim()) {
-    try {
-      parsed = JSON.parse(text) as unknown;
-    } catch {
-      parsed = text;
-    }
-  }
-
-  if (!response.ok) {
-    throw new GatewayAdminError({
-      body: parsed,
-      endpoint: options.path,
-      message: extractErrorMessage(
-        parsed,
-        `Gateway admin ${options.method} ${options.path} failed (${response.status})`
-      ),
-      method: options.method,
-      status: response.status,
-    });
-  }
-
-  return parsed;
+  return options.trace
+    ? options.trace.span(
+        "gateway.admin.request",
+        { method: options.method, route: options.path },
+        execute
+      )
+    : execute();
 }
 
 export async function listGatewayApiKeys(
@@ -348,8 +385,7 @@ export async function createGatewayApiKey(
   if (body && typeof body === "object") {
     const record = body as Record<string, unknown>;
     return {
-      api_key:
-        typeof record.api_key === "string" ? record.api_key : undefined,
+      api_key: typeof record.api_key === "string" ? record.api_key : undefined,
       raw: body,
       record:
         record.record && typeof record.record === "object"
@@ -459,9 +495,7 @@ export function formatApiKeyRecords(records: GatewayApiKeyRecord[]): string {
   return lines.join("\n");
 }
 
-export function formatApiKeyRights(
-  rights: GatewayApiKeyRightRecord[]
-): string {
+export function formatApiKeyRights(rights: GatewayApiKeyRightRecord[]): string {
   if (rights.length === 0) {
     return "No API key rights found in the auth store.";
   }
@@ -500,11 +534,13 @@ export function formatRightsCatalog(catalog: RightsCatalogData): string {
       ].join("\t")
     );
   }
-  lines.push("", `Dynamic API key rights (${dynamic.length})`, "key\tsource\tid");
+  lines.push(
+    "",
+    `Dynamic API key rights (${dynamic.length})`,
+    "key\tsource\tid"
+  );
   for (const entry of dynamic) {
-    lines.push(
-      [entry.key, entry.source ?? "-", entry.id ?? "-"].join("\t")
-    );
+    lines.push([entry.key, entry.source ?? "-", entry.id ?? "-"].join("\t"));
   }
   return lines.join("\n");
 }

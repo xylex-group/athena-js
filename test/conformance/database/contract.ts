@@ -5,8 +5,8 @@
  */
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-import type { AthenaClientCapabilities } from "../../../src/cloudflare/types.ts";
 import type { AthenaResult } from "../../../src/client-result.ts";
+import type { AthenaClientCapabilities } from "../../../src/cloudflare/types.ts";
 import type { AthenaRpcPayload } from "../../../src/gateway/types.ts";
 
 export interface DatabaseConformanceCompileProof {
@@ -124,10 +124,7 @@ export function runDatabaseConformance(
         function: "score",
         schema: "app",
       });
-      assert.equal(
-        compiled.text,
-        'SELECT * FROM "app"."score"("seed" => $1)'
-      );
+      assert.equal(compiled.text, 'SELECT * FROM "app"."score"("seed" => $1)');
       assert.equal(compiled.text.includes("DROP TABLE"), false);
       assert.deepEqual(compiled.values, ["1); DROP TABLE users;--"]);
     });

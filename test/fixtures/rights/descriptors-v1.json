@@ -155,6 +155,132 @@
       "source": "billing"
     },
     {
+      "action": "read",
+      "description": "Read Chat room membership.",
+      "isPattern": false,
+      "key": "chat.members.read",
+      "kind": "capability",
+      "resource": "chat.members",
+      "source": "chat"
+    },
+    {
+      "action": "write",
+      "description": "Add, remove, or change Chat room members.",
+      "isPattern": false,
+      "key": "chat.members.write",
+      "kind": "capability",
+      "resource": "chat.members",
+      "source": "chat"
+    },
+    {
+      "action": "delete",
+      "description": "Delete Chat messages.",
+      "isPattern": false,
+      "key": "chat.messages.delete",
+      "kind": "capability",
+      "resource": "chat.messages",
+      "source": "chat"
+    },
+    {
+      "action": "read",
+      "description": "Read Chat messages.",
+      "isPattern": false,
+      "key": "chat.messages.read",
+      "kind": "capability",
+      "resource": "chat.messages",
+      "source": "chat"
+    },
+    {
+      "action": "write",
+      "description": "Create or update Chat messages.",
+      "isPattern": false,
+      "key": "chat.messages.write",
+      "kind": "capability",
+      "resource": "chat.messages",
+      "source": "chat"
+    },
+    {
+      "action": "write",
+      "description": "Add or remove Chat reactions.",
+      "isPattern": false,
+      "key": "chat.reactions.write",
+      "kind": "capability",
+      "resource": "chat.reactions",
+      "source": "chat"
+    },
+    {
+      "action": "write",
+      "description": "Advance a Chat read cursor.",
+      "isPattern": false,
+      "key": "chat.read.write",
+      "kind": "capability",
+      "resource": "chat.read",
+      "source": "chat"
+    },
+    {
+      "action": "presence",
+      "description": "Send Chat presence signals.",
+      "isPattern": false,
+      "key": "chat.realtime.presence",
+      "kind": "capability",
+      "resource": "chat.realtime",
+      "source": "chat"
+    },
+    {
+      "action": "subscribe",
+      "description": "Subscribe to committed Chat events.",
+      "isPattern": false,
+      "key": "chat.realtime.subscribe",
+      "kind": "capability",
+      "resource": "chat.realtime",
+      "source": "chat"
+    },
+    {
+      "action": "typing",
+      "description": "Send Chat typing signals.",
+      "isPattern": false,
+      "key": "chat.realtime.typing",
+      "kind": "capability",
+      "resource": "chat.realtime",
+      "source": "chat"
+    },
+    {
+      "action": "admin",
+      "description": "Update or archive Chat rooms.",
+      "isPattern": false,
+      "key": "chat.rooms.admin",
+      "kind": "capability",
+      "resource": "chat.rooms",
+      "source": "chat"
+    },
+    {
+      "action": "read",
+      "description": "Read Chat rooms visible to the principal.",
+      "isPattern": false,
+      "key": "chat.rooms.read",
+      "kind": "capability",
+      "resource": "chat.rooms",
+      "source": "chat"
+    },
+    {
+      "action": "write",
+      "description": "Create or resolve Chat rooms.",
+      "isPattern": false,
+      "key": "chat.rooms.write",
+      "kind": "capability",
+      "resource": "chat.rooms",
+      "source": "chat"
+    },
+    {
+      "action": "read",
+      "description": "Search Chat messages.",
+      "isPattern": false,
+      "key": "chat.search.read",
+      "kind": "capability",
+      "resource": "chat.search",
+      "source": "chat"
+    },
+    {
       "action": "*",
       "description": "Global wildcard right that satisfies every runtime right check.",
       "isPattern": true,

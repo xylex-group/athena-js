@@ -1,18 +1,27 @@
 import { AthenaConfigurationError } from "../../config/errors.ts";
 import {
+  type AthenaResolvedResource,
   athenaResourceKeys,
   parseAthenaResourceRef,
   resolvedAthenaResource,
-  type AthenaResolvedResource,
 } from "../../schema/resource.ts";
 import type { ModelRelationMetadata } from "../../schema/types.ts";
 import type { AthenaRuntimeModelEnforcement } from "./types.ts";
 
 export interface AthenaRuntimeModelDescriptor extends AthenaResolvedResource {
+  readonly columnIdentities: ReadonlyMap<
+    string,
+    AthenaRuntimeModelColumnIdentity
+  >;
   readonly columns: ReadonlySet<string>;
   readonly primaryKey?: readonly string[];
   readonly relations: ReadonlyMap<string, ModelRelationMetadata>;
   readonly uniqueKeys: readonly (readonly string[])[];
+}
+
+export interface AthenaRuntimeModelColumnIdentity {
+  readonly logical: string;
+  readonly physical: string;
 }
 
 export interface AthenaRuntimeModelIndex {
@@ -42,7 +51,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isModelLike(value: unknown): value is ModelLike {
-  if (!isRecord(value) || !isRecord(value.meta)) {
+  if (!(isRecord(value) && isRecord(value.meta))) {
     return false;
   }
   return Array.isArray(value.meta.primaryKey);
@@ -72,7 +81,10 @@ function collectModels(input: unknown, found: ModelLike[]): void {
   }
 }
 
-function physicalTable(meta: ModelMetaLike, model: ModelLike): {
+function physicalTable(
+  meta: ModelMetaLike,
+  model: ModelLike
+): {
   schema?: string;
   table: string;
 } {
@@ -95,29 +107,64 @@ function physicalTable(meta: ModelMetaLike, model: ModelLike): {
   };
 }
 
-function columnNames(meta: ModelMetaLike): Set<string> {
-  const columns = new Set<string>();
+function columnIdentities(
+  meta: ModelMetaLike
+): Map<string, AthenaRuntimeModelColumnIdentity> {
+  const identities = new Map<string, AthenaRuntimeModelColumnIdentity>();
+  const add = (
+    alias: string,
+    identity: AthenaRuntimeModelColumnIdentity
+  ) => {
+    const existing = identities.get(alias);
+    if (
+      existing &&
+      (existing.logical !== identity.logical ||
+        existing.physical !== identity.physical)
+    ) {
+      throw invalidRegistry(
+        `ambiguous column alias "${alias}" maps to both "${existing.physical}" and "${identity.physical}"`
+      );
+    }
+    identities.set(alias, identity);
+  };
   if (meta.columns) {
     for (const [key, value] of Object.entries(meta.columns)) {
-      if (!value || typeof value !== "object") {
-        columns.add(key);
-        continue;
-      }
-      const columnName = (value as { columnName?: unknown }).columnName;
-      columns.add(
-        typeof columnName === "string" && columnName.trim()
-          ? columnName.trim()
-          : key
-      );
-      columns.add(key);
+      const physical =
+        value && typeof value === "object"
+          ? (value as { columnName?: unknown }).columnName
+          : undefined;
+      const identity = Object.freeze({
+        logical: key,
+        physical:
+          typeof physical === "string" && physical.trim()
+            ? physical.trim()
+            : key,
+      });
+      add(identity.logical, identity);
+      add(identity.physical, identity);
     }
   }
   if (Array.isArray(meta.primaryKey)) {
     for (const key of meta.primaryKey) {
-      if (typeof key === "string" && key.trim()) {
-        columns.add(key.trim());
+      if (typeof key !== "string" || !key.trim()) {
+        continue;
+      }
+      const token = key.trim();
+      if (!identities.has(token)) {
+        add(token, Object.freeze({ logical: token, physical: token }));
       }
     }
+  }
+  return identities;
+}
+
+function columnNames(
+  identities: ReadonlyMap<string, AthenaRuntimeModelColumnIdentity>
+): Set<string> {
+  const columns = new Set<string>();
+  for (const identity of identities.values()) {
+    columns.add(identity.logical);
+    columns.add(identity.physical);
   }
   return columns;
 }
@@ -125,10 +172,11 @@ function columnNames(meta: ModelMetaLike): Set<string> {
 function toDescriptor(model: ModelLike): AthenaRuntimeModelDescriptor {
   const meta = model.meta ?? {};
   const { schema, table } = physicalTable(meta, model);
+  const identities = columnIdentities(meta);
   const parsedQualified = parseAthenaResourceRef(
     (typeof model.qualifiedName === "string" && model.qualifiedName.trim()) ||
       (typeof meta.tableName === "string" && meta.tableName.trim()) ||
-      "",
+      ""
   );
   const database =
     (typeof meta.database === "string" && meta.database.trim()
@@ -159,7 +207,8 @@ function toDescriptor(model: ModelLike): AthenaRuntimeModelDescriptor {
   }
   return {
     ...resolved,
-    columns: columnNames(meta),
+    columnIdentities: identities,
+    columns: columnNames(identities),
     primaryKey: primaryKey.length > 0 ? primaryKey : undefined,
     relations,
     uniqueKeys: primaryKey.length > 0 ? [primaryKey] : [],
@@ -226,7 +275,7 @@ export function buildAthenaRuntimeModelIndex(
     get(resource: string) {
       const trimmed = resource.trim();
       if (!trimmed) {
-        return undefined;
+        return;
       }
       const found = byAlias.get(trimmed);
       return found === ambiguous ? undefined : found;
@@ -237,6 +286,7 @@ export function buildAthenaRuntimeModelIndex(
 export function resolveModelEnforcement(options: {
   explicit?: AthenaRuntimeModelEnforcement;
   hasModels: boolean;
+  http?: boolean;
   securityMode: "trusted" | "authenticated" | "policy";
 }): AthenaRuntimeModelEnforcement {
   if (options.explicit) {
@@ -244,6 +294,13 @@ export function resolveModelEnforcement(options: {
   }
   if (options.securityMode === "policy" && options.hasModels) {
     return "strict";
+  }
+  if (
+    options.http === true &&
+    options.hasModels &&
+    options.securityMode !== "trusted"
+  ) {
+    return "known-only";
   }
   return "off";
 }
@@ -255,7 +312,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 export function resourceNameFromPayload(payload: unknown): string | undefined {
   const record = asRecord(payload);
   if (!record) {
-    return undefined;
+    return;
   }
   const table =
     typeof record.table_name === "string" ? record.table_name.trim() : "";
@@ -336,7 +393,7 @@ export function referencedFields(payload: unknown): readonly string[] {
 
 export function referencedRelations(payload: unknown): readonly string[] {
   const record = asRecord(payload);
-  if (!record || !isRecord(record.select)) {
+  if (!(record && isRecord(record.select))) {
     return [];
   }
   return Object.keys(record.select);

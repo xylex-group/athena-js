@@ -1,0 +1,14 @@
+{
+  "backend": "sqlite-local",
+  "layers": {
+    "engine": { "flatCrud": true, "nestedRelations": true, "transactions": true },
+    "rustCompiler": { "flatCrud": true, "nestedRelations": true, "transactions": "n/a" },
+    "rustExecutor": { "flatCrud": true, "nestedRelations": true, "transactions": true, "interrupt": true, "prepareCached": true, "walConcurrency": true },
+    "athenaJs": {
+      "flatCrud": true,
+      "nestedRelations": false,
+      "transactions": { "atomic": true, "interactive": true, "isolationLevels": [], "savepoints": false, "readOnly": false },
+      "requiresCompiler": true
+    }
+  }
+}

@@ -1,10 +1,10 @@
 export type AthenaChatMigrationModules = {
-	auth?: boolean;
-	chat?: boolean;
+  auth?: boolean;
+  chat?: boolean;
 };
 
 export function shouldApplyEmbeddedChatMigrations(
-	modules: AthenaChatMigrationModules | undefined,
+  modules: AthenaChatMigrationModules | undefined
 ): boolean {
-	return modules?.chat === true;
+  return modules?.chat === true;
 }

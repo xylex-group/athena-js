@@ -1,12 +1,15 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-
+import type { AthenaAuthMigrationPlan } from "../src/auth/local/schema.ts";
+import {
+  collectEmbeddedSchemaDatabaseChecks,
+  collectLocalBillingValidationChecks,
+} from "../src/cli/commands/validate/validate-billing.ts";
 import { parseCommand, runCLI, usage } from "../src/cli/index.ts";
 import {
   formatValidationReport,
   validateLocalRuntime,
 } from "../src/cli/validate-local.ts";
-import type { AthenaAuthMigrationPlan } from "../src/auth/local/schema.ts";
 import type { MigrationPlan } from "../src/migrations/types.ts";
 
 function emptyAuthPlan(
@@ -96,13 +99,6 @@ test("validateLocalRuntime fails closed on application checksum conflicts", asyn
     inspect: {
       applicationPlan: async () => emptyAppPlan(0, 2),
       authPlan: async () => emptyAuthPlan(0, 13),
-      ping: async () => undefined,
-      tables: async () => [
-        "users",
-        "sessions",
-        "passkeys",
-        "verifications",
-      ],
       columns: async () => [
         "credential_id",
         "counter",
@@ -110,6 +106,8 @@ test("validateLocalRuntime fails closed on application checksum conflicts", asyn
         "public_key",
         "updated_at",
       ],
+      ping: async () => undefined,
+      tables: async () => ["users", "sessions", "passkeys", "verifications"],
       target: async () => ({
         database: "neondb",
         directory: "athena/migrations",
@@ -130,7 +128,6 @@ test("validateLocalRuntime fails closed on application checksum conflicts", asyn
 
 test("strict treats pending migrations as errors", async () => {
   const report = await validateLocalRuntime({
-    strict: true,
     inspect: {
       applicationPlan: async () => emptyAppPlan(1),
       ping: async () => undefined,
@@ -141,12 +138,104 @@ test("strict treats pending migrations as errors", async () => {
         provider: "postgres/direct",
       }),
     },
+    strict: true,
   });
   assert.equal(report.ok, false);
   assert.equal(
     report.checks.find((check) => check.id === "data.migrations")?.status,
     "error"
   );
+});
+
+test("modules.billing without createClient catalog is skip not not-configured", () => {
+  const checks = collectLocalBillingValidationChecks({});
+  assert.equal(checks.length, 1);
+  assert.equal(checks[0]?.id, "billing.runtime.createClient");
+  assert.equal(checks[0]?.status, "skip");
+  assert.equal(checks[0]?.detail?.includes("createClient({ billing })"), true);
+});
+
+test("explicit Mollie + catalog still reports capabilities", () => {
+  const checks = collectLocalBillingValidationChecks({
+    catalog: {
+      prices: [
+        {
+          amount: { currency: "EUR", value: "9.00" },
+          id: "starter-monthly",
+          interval: "month",
+          productId: "starter",
+        },
+      ],
+      products: [{ id: "starter", name: "Starter" }],
+    },
+    providers: { mollie: {} },
+  });
+  assert.equal(
+    checks.find((check) => check.id === "billing.provider.mollie")?.status,
+    "ok"
+  );
+  assert.equal(
+    checks.find((check) => check.id === "billing.catalog.products")?.status,
+    "ok"
+  );
+  assert.equal(
+    checks.find((check) => check.id === "billing.capability.products.list")
+      ?.status,
+    "ok"
+  );
+});
+
+test("embedded Billing validation detects missing subscription timestamp columns", () => {
+  const checks = collectEmbeddedSchemaDatabaseChecks({
+    athenaTables: [],
+    billingEnabled: true,
+    billingLedgerVersions: [32],
+    billingSubscriptionColumns: ["row_version"],
+    billingTables: [],
+    chatEnabled: false,
+    chatLedgerVersions: [],
+    eventIngressEnabled: false,
+    eventIngressLedgerVersions: [],
+    publicTables: ["athena_billing_migrations"],
+  });
+  assert.deepEqual(
+    checks.find((check) => check.id === "billing.schema.columns"),
+    {
+      detail: "missing updated_at",
+      group: "billing",
+      id: "billing.schema.columns",
+      status: "error",
+      title: "Database · billing subscription columns",
+    }
+  );
+});
+
+test("formatValidationReport includes a Billing group", () => {
+  const text = formatValidationReport({
+    checks: [
+      {
+        detail: "2 configured",
+        group: "billing",
+        id: "billing.catalog.prices",
+        status: "ok",
+        title: "Catalog · Prices",
+      },
+      {
+        detail: "unavailable · billing.catalog.prices is not configured",
+        group: "billing",
+        id: "billing.capability.prices.list",
+        status: "warn",
+        title: "Capabilities · prices.list",
+      },
+    ],
+    errorCount: 0,
+    ok: true,
+    title: "Athena JS · validate local",
+    warnCount: 1,
+  });
+  assert.equal(text.includes("Billing"), true);
+  assert.equal(text.includes("Catalog · Prices"), true);
+  assert.equal(text.includes("billing.catalog.prices is not configured"), true);
 });
 
 test("formatValidationReport includes result line", () => {
@@ -164,9 +253,9 @@ test("formatValidationReport includes result line", () => {
     title: "Athena JS · validate local",
     warnCount: 0,
   });
-  assert.match(text, /Athena JS · validate local/);
-  assert.match(text, /result: OK/);
-  assert.match(text, /Data runtime/);
+  assert.equal(text.includes("Athena JS · validate local"), true);
+  assert.equal(text.includes("result: OK"), true);
+  assert.equal(text.includes("Data runtime"), true);
 });
 
 test("runCLI validate --json uses injected inspector", async () => {

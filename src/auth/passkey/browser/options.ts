@@ -87,7 +87,7 @@ function mapDescriptors(
   value: unknown
 ): PublicKeyCredentialDescriptor[] | undefined {
   if (!Array.isArray(value)) {
-    return undefined;
+    return;
   }
   return value
     .map((entry) => asRecord(entry))
@@ -135,15 +135,15 @@ export function toPublicKeyCredentialCreationOptions(
     timeout: typeof options.timeout === "number" ? options.timeout : undefined,
     user: {
       displayName:
-        trimmedString(user?.displayName) ??
-        trimmedString(user?.name) ??
-        "User",
+        trimmedString(user?.displayName) ?? trimmedString(user?.name) ?? "User",
       id: userId,
       name: trimmedString(user?.name) ?? "user",
     },
   };
   const hints = Array.isArray(options.hints)
-    ? options.hints.filter((entry): entry is string => typeof entry === "string")
+    ? options.hints.filter(
+        (entry): entry is string => typeof entry === "string"
+      )
     : undefined;
   if (hints && hints.length > 0) {
     mapped.hints = hints;

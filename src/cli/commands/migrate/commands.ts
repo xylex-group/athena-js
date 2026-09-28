@@ -11,15 +11,15 @@ import { migrateStatusCommand } from "./status.ts";
 import { migrateVerifyCommand } from "./verify.ts";
 
 export const migrateCommands = [
-	migrateAuthSyncCommand,
-	migrateStatusCommand,
-	migratePlanCommand,
-	migrateCheckCommand,
-	migrateGraphCommand,
-	migrateExplainCommand,
-	migrateDriftCommand,
-	migrateReconcileCommand,
-	migrateRepairCommand,
-	migrateVerifyCommand,
-	migrateApplyCommand,
+  migrateAuthSyncCommand,
+  migrateStatusCommand,
+  migratePlanCommand,
+  migrateCheckCommand,
+  migrateGraphCommand,
+  migrateExplainCommand,
+  migrateDriftCommand,
+  migrateReconcileCommand,
+  migrateRepairCommand,
+  migrateVerifyCommand,
+  migrateApplyCommand,
 ] as const;

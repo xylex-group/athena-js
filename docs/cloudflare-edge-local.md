@@ -167,7 +167,11 @@ export default {
         : {}),
     })
 
-    const { data, error } = await athena.query<{ ok: number }>('SELECT 1 AS ok')
+    const { data, error } = await athena.admin.query<Array<{ ok: number }>>({
+      expectedShape: "rows",
+      operation: "select",
+      sql: "SELECT 1 AS ok",
+    })
     if (error) {
       return Response.json({ error: error.message }, { status: 500 })
     }
@@ -232,7 +236,7 @@ athena.capabilities
 
 | Layer | Surface | Notes |
 | --- | --- | --- |
-| **L0** | `athena.query(sql, { params? })` | SQLite-safe SQL + bind params |
+| **L0** | `athena.admin.query({ sql, params?, operation, expectedShape })` | SQLite-safe SQL + bind params |
 | **L1** | Flat `from` / `db` CRUD + upsert | Filters, order, limit/offset, pages |
 | **L1** | Head-only select | `{ head: true }` → COUNT; empty data |
 | **L1** | Paged update/delete | `rowid IN (SELECT rowid … LIMIT/OFFSET)` |

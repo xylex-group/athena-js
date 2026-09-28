@@ -124,9 +124,7 @@ const BROWSER_ARTIFACTS = [
 ];
 
 const SERVER_ARTIFACTS = ["server.js", "server.cjs"];
-const SERVER_REQUIRED = [
-  { id: "server-only", re: /server-only/ },
-];
+const SERVER_REQUIRED = [{ id: "server-only", re: /server-only/ }];
 
 function maybeBuild(args) {
   if (!args.includes("--build")) {
@@ -163,7 +161,9 @@ function scanArtifact(name) {
     (rule) => rule.id
   );
   if (hits.length > 0) {
-    console.error(`FAIL: dist/${name} contains forbidden runtime dependencies:`);
+    console.error(
+      `FAIL: dist/${name} contains forbidden runtime dependencies:`
+    );
     for (const id of hits) {
       console.error(`  - ${id}`);
     }

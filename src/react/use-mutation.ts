@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import { useSyncExternalStore } from "use-sync-external-store/shim";
+import { useLatestRef } from "./internal/use-latest-ref.ts";
 import { useAthenaQueryClient } from "./provider.ts";
 import type { UseMutationOptions, UseMutationResult } from "./types.ts";
 
@@ -11,33 +12,15 @@ export function useMutation<
   options: UseMutationOptions<TVariables, TMutationFnData, TData>
 ): UseMutationResult<TVariables, TData> {
   const client = useAthenaQueryClient();
-
-  const mutationKeyRef = useRef(options.mutationKey);
-  mutationKeyRef.current = options.mutationKey;
-
-  const mutationFnRef = useRef(options.mutationFn);
-  mutationFnRef.current = options.mutationFn;
-
-  const selectRef = useRef(options.select);
-  selectRef.current = options.select;
-
-  const retryRef = useRef(options.retry);
-  retryRef.current = options.retry;
-
-  const retryDelayRef = useRef(options.retryDelay);
-  retryDelayRef.current = options.retryDelay;
-
-  const onMutateRef = useRef(options.onMutate);
-  onMutateRef.current = options.onMutate;
-
-  const onSuccessRef = useRef(options.onSuccess);
-  onSuccessRef.current = options.onSuccess;
-
-  const onErrorRef = useRef(options.onError);
-  onErrorRef.current = options.onError;
-
-  const onSettledRef = useRef(options.onSettled);
-  onSettledRef.current = options.onSettled;
+  const mutationKeyRef = useLatestRef(options.mutationKey);
+  const mutationFnRef = useLatestRef(options.mutationFn);
+  const selectRef = useLatestRef(options.select);
+  const retryRef = useLatestRef(options.retry);
+  const retryDelayRef = useLatestRef(options.retryDelay);
+  const onMutateRef = useLatestRef(options.onMutate);
+  const onSuccessRef = useLatestRef(options.onSuccess);
+  const onErrorRef = useLatestRef(options.onError);
+  const onSettledRef = useLatestRef(options.onSettled);
 
   const mutationKeyToken = useMemo(
     () => client.getMutationKeyToken(options.mutationKey),
@@ -101,7 +84,7 @@ export function useMutation<
 
   const reset = useCallback(() => {
     client.resetMutation(mutationKeyRef.current);
-  }, [client]);
+  }, [client, mutationKeyRef]);
 
   return {
     data: snapshot.data,

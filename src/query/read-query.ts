@@ -90,7 +90,7 @@ export interface AthenaReadQueryDefinition {
 }
 
 export function normalizeAthenaReadQueryOrderBy(
-  orderBy: AthenaReadQueryOrderByInput | undefined,
+  orderBy: AthenaReadQueryOrderByInput | undefined
 ): AthenaReadQueryOrder[] {
   if (!orderBy) {
     return [];
@@ -100,7 +100,7 @@ export function normalizeAthenaReadQueryOrderBy(
     (entry) =>
       entry &&
       typeof entry.column === "string" &&
-      entry.column.trim().length > 0,
+      entry.column.trim().length > 0
   );
 }
 
@@ -157,39 +157,6 @@ export interface AthenaReadQueryExecutionResult {
   totalItems: number;
 }
 
-// ---------------------------------------------------------------------------
-// Back-compat table-oriented aliases (athena-auth-ui and existing consumers)
-// ---------------------------------------------------------------------------
-
-/** @deprecated Prefer {@link AthenaReadQueryMode}. */
-export type AthenaTableQueryMode = AthenaReadQueryMode;
-/** @deprecated Prefer {@link AthenaReadQueryFilterOperator}. */
-export type AthenaTableFilterOperator = AthenaReadQueryFilterOperator;
-/** @deprecated Prefer {@link AthenaReadQueryOrderDirection}. */
-export type AthenaTableOrderDirection = AthenaReadQueryOrderDirection;
-/** @deprecated Prefer {@link AthenaReadQueryRelationRef}. */
-export type AthenaTableRelationRef = AthenaReadQueryRelationRef;
-/** @deprecated Prefer {@link AthenaReadQueryColumn}. */
-export type AthenaTableQueryColumn = AthenaReadQueryColumn;
-/** @deprecated Prefer {@link AthenaReadQueryFilterValue}. */
-export type AthenaTableFilterValue = AthenaReadQueryFilterValue;
-/** @deprecated Prefer {@link AthenaReadQueryFilter}. */
-export type AthenaTableFilter = AthenaReadQueryFilter;
-/** @deprecated Prefer {@link AthenaReadQueryOrder}. */
-export type AthenaTableOrder = AthenaReadQueryOrder;
-/** @deprecated Prefer {@link AthenaReadQueryOrderByInput}. */
-export type AthenaTableOrderByInput = AthenaReadQueryOrderByInput;
-/** @deprecated Prefer {@link AthenaReadQueryDefinition}. */
-export type AthenaTableQueryDefinition = AthenaReadQueryDefinition;
-/** @deprecated Prefer {@link AthenaReadQueryFlatRow}. */
-export type AthenaTableFlatRow = AthenaReadQueryFlatRow;
-/** @deprecated Prefer {@link AthenaReadQueryClient}. */
-export type AthenaTableQueryClient = AthenaReadQueryClient;
-/** @deprecated Prefer {@link AthenaReadQueryExecutionInput}. */
-export type AthenaTableQueryExecutionInput = AthenaReadQueryExecutionInput;
-/** @deprecated Prefer {@link AthenaReadQueryExecutionResult}. */
-export type AthenaTableQueryExecutionResult = AthenaReadQueryExecutionResult;
-
 interface AthenaSelectRelationNode {
   schema?: string;
   select: AthenaSelectShape;
@@ -203,7 +170,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function flattenAthenaRowValue(
   row: Record<string, unknown>,
-  column: AthenaReadQueryColumn,
+  column: AthenaReadQueryColumn
 ) {
   if (!column.relation) {
     return row[column.column];
@@ -220,13 +187,12 @@ function flattenAthenaRowValue(
   if (isRecord(relationValue)) {
     return relationValue[column.column];
   }
-  return undefined;
 }
 
 function resolveFlatRowKey(
   row: AthenaReadQueryFlatRow,
   index: number,
-  preferredKey: string | undefined,
+  preferredKey: string | undefined
 ) {
   const preferredValue =
     preferredKey && preferredKey in row ? row[preferredKey] : undefined;
@@ -269,7 +235,7 @@ function resolveFlatRowKey(
 export function flattenAthenaReadQueryRows(
   rows: readonly unknown[],
   columns: readonly AthenaReadQueryColumn[],
-  preferredKey: string | undefined,
+  preferredKey: string | undefined
 ) {
   return rows.map((entry, index) => {
     const sourceRow = isRecord(entry) ? entry : {};
@@ -278,7 +244,7 @@ export function flattenAthenaReadQueryRows(
         currentRow[column.key] = flattenAthenaRowValue(sourceRow, column);
         return currentRow;
       },
-      { __rowKey: "" },
+      { __rowKey: "" }
     );
 
     flatRow.__rowKey = resolveFlatRowKey(flatRow, index, preferredKey);
@@ -287,11 +253,8 @@ export function flattenAthenaReadQueryRows(
   });
 }
 
-/** @deprecated Prefer {@link flattenAthenaReadQueryRows}. */
-export const flattenAthenaRows = flattenAthenaReadQueryRows;
-
 export function buildAthenaReadQuerySelectString(
-  columns: readonly AthenaReadQueryColumn[],
+  columns: readonly AthenaReadQueryColumn[]
 ) {
   const baseColumns = columns
     .filter((column) => !column.relation)
@@ -333,17 +296,14 @@ export function buildAthenaReadQuerySelectString(
         : relation.table;
 
       return `${relation.name}:${relationTarget}(${relationColumns.join(",")})`;
-    },
+    }
   );
 
   return [...baseColumns, ...relationColumns].join(",");
 }
 
-/** @deprecated Prefer {@link buildAthenaReadQuerySelectString}. */
-export const buildAthenaTableSelectString = buildAthenaReadQuerySelectString;
-
 export function buildAthenaReadQueryFindManySelect(
-  columns: readonly AthenaReadQueryColumn[],
+  columns: readonly AthenaReadQueryColumn[]
 ) {
   const select: AthenaSelectShape = {};
 
@@ -375,15 +335,11 @@ export function buildAthenaReadQueryFindManySelect(
   return select;
 }
 
-/** @deprecated Prefer {@link buildAthenaReadQueryFindManySelect}. */
-export const buildAthenaTableFindManySelect =
-  buildAthenaReadQueryFindManySelect;
-
 export function buildAthenaReadQueryFindManyWhere(
-  filters: readonly AthenaReadQueryFilter[] | undefined,
+  filters: readonly AthenaReadQueryFilter[] | undefined
 ) {
   if (!filters?.length) {
-    return undefined;
+    return;
   }
 
   return filters.reduce<Record<string, AthenaReadQueryFilterValue | object>>(
@@ -395,32 +351,29 @@ export function buildAthenaReadQueryFindManyWhere(
 
       return where;
     },
-    {},
+    {}
   );
 }
-
-/** @deprecated Prefer {@link buildAthenaReadQueryFindManyWhere}. */
-export const buildAthenaTableFindManyWhere = buildAthenaReadQueryFindManyWhere;
 
 /**
  * Builds findMany `orderBy` in the Athena SDK object shape.
  * Single-order keeps the legacy `{ column, ascending }` form for back-compat.
  */
 export function buildAthenaReadQueryFindManyOrderBy(
-  orderBy: AthenaReadQueryOrderByInput | undefined,
+  orderBy: AthenaReadQueryOrderByInput | undefined
 ):
   | Record<string, "asc" | "desc" | { ascending: boolean }>
   | { ascending: boolean; column: string }
   | undefined {
   const normalized = normalizeAthenaReadQueryOrderBy(orderBy);
   if (normalized.length === 0) {
-    return undefined;
+    return;
   }
 
   if (normalized.length === 1) {
     const primary = normalized[0];
     if (!primary) {
-      return undefined;
+      return;
     }
     return {
       ascending: primary.direction !== "desc",
@@ -432,20 +385,13 @@ export function buildAthenaReadQueryFindManyOrderBy(
     normalized.map((entry) => [
       entry.column,
       entry.direction === "desc" ? "desc" : "asc",
-    ]),
+    ])
   );
 }
 
-/** @deprecated Prefer {@link buildAthenaReadQueryFindManyOrderBy}. */
-export const buildAthenaTableFindManyOrderBy =
-  buildAthenaReadQueryFindManyOrderBy;
-
-/** @deprecated Prefer {@link normalizeAthenaReadQueryOrderBy}. */
-export const normalizeAthenaTableOrderBy = normalizeAthenaReadQueryOrderBy;
-
 export function applyAthenaReadQueryFilters<T extends object>(
   queryBuilder: T,
-  filters: readonly AthenaReadQueryFilter[] | undefined,
+  filters: readonly AthenaReadQueryFilter[] | undefined
 ) {
   if (!filters?.length) {
     return queryBuilder;
@@ -463,12 +409,9 @@ export function applyAthenaReadQueryFilters<T extends object>(
   }, queryBuilder);
 }
 
-/** @deprecated Prefer {@link applyAthenaReadQueryFilters}. */
-export const applyAthenaTableFilters = applyAthenaReadQueryFilters;
-
 export function applyAthenaReadQuerySelectOrder<T extends object>(
   queryBuilder: T,
-  orderBy: AthenaReadQueryOrderByInput | undefined,
+  orderBy: AthenaReadQueryOrderByInput | undefined
 ): T {
   const normalized = normalizeAthenaReadQueryOrderBy(orderBy);
   if (normalized.length === 0) {
@@ -476,9 +419,11 @@ export function applyAthenaReadQuerySelectOrder<T extends object>(
   }
 
   return normalized.reduce((builder, entry) => {
-    const order = (builder as {
-      order?: (column: string, options: { ascending: boolean }) => T;
-    }).order;
+    const order = (
+      builder as {
+        order?: (column: string, options: { ascending: boolean }) => T;
+      }
+    ).order;
     if (typeof order !== "function") {
       return builder;
     }
@@ -487,9 +432,6 @@ export function applyAthenaReadQuerySelectOrder<T extends object>(
     });
   }, queryBuilder);
 }
-
-/** @deprecated Prefer {@link applyAthenaReadQuerySelectOrder}. */
-export const applyAthenaTableSelectOrder = applyAthenaReadQuerySelectOrder;
 
 export function applyAthenaReadQuerySelectLimit<
   T extends { limit: (value: number) => T },
@@ -501,12 +443,9 @@ export function applyAthenaReadQuerySelectLimit<
   return queryBuilder.limit(limit);
 }
 
-/** @deprecated Prefer {@link applyAthenaReadQuerySelectLimit}. */
-export const applyAthenaTableSelectLimit = applyAthenaReadQuerySelectLimit;
-
 export function clampAthenaReadQueryTotalItems(
   totalItems: number,
-  limit: number | undefined,
+  limit: number | undefined
 ) {
   if (!limit || limit < 1) {
     return totalItems;
@@ -514,9 +453,6 @@ export function clampAthenaReadQueryTotalItems(
 
   return Math.min(totalItems, limit);
 }
-
-/** @deprecated Prefer {@link clampAthenaReadQueryTotalItems}. */
-export const clampAthenaTableTotalItems = clampAthenaReadQueryTotalItems;
 
 function resolveCountValue(
   ...candidates: Array<number | null | undefined>
@@ -613,7 +549,7 @@ export async function executeAthenaReadQuery({
   });
   const countBuilder = applyAthenaReadQueryFilters(
     db.from(query.table, { schema: query.schema }),
-    query.filters,
+    query.filters
   );
   const countResult = await countBuilder.select(query.countColumn, {
     count: "exact",
@@ -644,7 +580,7 @@ export async function executeAthenaReadQuery({
     // query.limit only caps totalItems / shortens the last page via pageFetch.
     const selectBuilder = applyAthenaReadQuerySelectOrder(
       applyAthenaReadQueryFilters(baseBuilder, query.filters),
-      query.orderBy,
+      query.orderBy
     );
     const result = await selectBuilder
       .currentPage(pageFetch.page)
@@ -655,7 +591,7 @@ export async function executeAthenaReadQuery({
     const rows = flattenAthenaReadQueryRows(
       Array.isArray(result.data) ? result.data : [],
       query.columns,
-      query.rowKey,
+      query.rowKey
     );
 
     return {
@@ -689,7 +625,7 @@ export async function executeAthenaReadQuery({
   const rows = flattenAthenaReadQueryRows(
     Array.isArray(result.data) ? result.data : [],
     query.columns,
-    query.rowKey,
+    query.rowKey
   );
 
   return {
@@ -705,7 +641,4 @@ export async function executeAthenaReadQuery({
   };
 }
 
-/**
- * @deprecated Prefer {@link executeAthenaReadQuery}. Same implementation.
- */
-export const executeAthenaTableQuery = executeAthenaReadQuery;
+export * from "./read-query-compat.ts";

@@ -72,7 +72,9 @@ export function createMemorySmtpTransport(
   const remaining = replies ? [...replies] : null;
   const awaitingData = { value: false };
 
-  const connect: MemorySmtpTransport = async (_input: AthenaSmtpConnectInput) => {
+  const connect: MemorySmtpTransport = async (
+    _input: AthenaSmtpConnectInput
+  ) => {
     const connection: AthenaSmtpConnection = {
       async close() {},
       async readReply() {

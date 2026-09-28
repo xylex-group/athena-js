@@ -1,7 +1,4 @@
-import {
-  ATHENA_EMAIL_MESSAGE_INVALID,
-  AthenaEmailError,
-} from "../errors.ts";
+import { ATHENA_EMAIL_MESSAGE_INVALID, AthenaEmailError } from "../errors.ts";
 import type {
   AthenaEmailAttachment,
   AthenaResolvedEmailMessage,
@@ -25,9 +22,13 @@ export function selectAttachments(
       attachment.content !== undefined &&
       (typeof attachment.content !== "string" ||
         attachment.content.length > 0) &&
-      !(attachment.content instanceof Uint8Array && attachment.content.byteLength === 0);
+      !(
+        attachment.content instanceof Uint8Array &&
+        attachment.content.byteLength === 0
+      );
     const hasUrl =
-      typeof attachment.fileUrl === "string" && attachment.fileUrl.trim().length > 0;
+      typeof attachment.fileUrl === "string" &&
+      attachment.fileUrl.trim().length > 0;
     if (hasContent || hasUrl) {
       selected.push(attachment);
       continue;

@@ -1,5 +1,5 @@
-import type { AthenaAppIdentity } from "../../app-identity.ts";
 import { AthenaConfigurationError } from "../../../config/errors.ts";
+import type { AthenaAppIdentity } from "../../app-identity.ts";
 import type { NormalizedAthenaAuthConfig } from "../../config.ts";
 import type { AthenaPasskeyRelyingParty } from "./types.ts";
 
@@ -30,7 +30,7 @@ export const ATHENA_PASSKEY_DEV_DEFAULT_RELYING_PARTY: AthenaPasskeyRelyingParty
     relatedOrigins: EMPTY_RELATED_ORIGINS,
   });
 
-export type PasskeyRelyingPartySnapshotInput = {
+export interface PasskeyRelyingPartySnapshotInput {
   appIdentity?: AthenaAppIdentity | null;
   environment: "production" | "development";
   passkey: Pick<
@@ -40,14 +40,14 @@ export type PasskeyRelyingPartySnapshotInput = {
   /** Production + passkeys + no origin uses ATHENA_PASSKEY_APP_ORIGIN_REQUIRED. */
   required?: boolean;
   trustedOrigins: readonly string[];
-};
+}
 
 function passkeyRpConfigError(
   message: string,
   code:
     | "ATHENA_RUNTIME_CONFIG_INVALID"
     | "ATHENA_PASSKEY_APP_ORIGIN_REQUIRED"
-    | "ATHENA_PASSKEY_RP_AMBIGUOUS" = "ATHENA_RUNTIME_CONFIG_INVALID",
+    | "ATHENA_PASSKEY_RP_AMBIGUOUS" = "ATHENA_RUNTIME_CONFIG_INVALID"
 ): AthenaConfigurationError {
   return new AthenaConfigurationError(code, message, "auth");
 }
@@ -102,7 +102,7 @@ function uniqueTrustedHostname(
 
 function trimmedNonEmpty(value: string | null | undefined): string | undefined {
   if (typeof value !== "string") {
-    return undefined;
+    return;
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
@@ -129,7 +129,8 @@ export function createPasskeyRelyingPartySnapshot(
   }
 
   let id = trimmedNonEmpty(passkey.rpId);
-  let name = trimmedNonEmpty(passkey.rpName) ?? trimmedNonEmpty(appIdentity?.name);
+  let name =
+    trimmedNonEmpty(passkey.rpName) ?? trimmedNonEmpty(appIdentity?.name);
   let origins: readonly string[] =
     explicitOrigins.length > 0
       ? explicitOrigins
@@ -155,7 +156,7 @@ export function createPasskeyRelyingPartySnapshot(
     } else if (hosts.size > 1) {
       throw passkeyRpConfigError(
         "Passkey relying party is ambiguous: multiple WebAuthn hostnames require an explicit passkey.rpId.",
-        "ATHENA_PASSKEY_RP_AMBIGUOUS",
+        "ATHENA_PASSKEY_RP_AMBIGUOUS"
       );
     }
   }
@@ -175,7 +176,9 @@ export function createPasskeyRelyingPartySnapshot(
         required
           ? "Passkeys require a trusted application origin (createClient app.url or APP_URL). Production does not default to localhost."
           : "Passkey relying party requires a trusted rpId (explicit passkey.rpId or a unique hostname in security.trustedOrigins). Production does not default to localhost.",
-        required ? "ATHENA_PASSKEY_APP_ORIGIN_REQUIRED" : "ATHENA_RUNTIME_CONFIG_INVALID",
+        required
+          ? "ATHENA_PASSKEY_APP_ORIGIN_REQUIRED"
+          : "ATHENA_RUNTIME_CONFIG_INVALID"
       );
     }
     id = "localhost";
@@ -187,7 +190,9 @@ export function createPasskeyRelyingPartySnapshot(
         required
           ? "Passkeys require a trusted application origin (createClient app.url or APP_URL)."
           : "Passkey relying party requires at least one exact origin in production.",
-        required ? "ATHENA_PASSKEY_APP_ORIGIN_REQUIRED" : "ATHENA_RUNTIME_CONFIG_INVALID",
+        required
+          ? "ATHENA_PASSKEY_APP_ORIGIN_REQUIRED"
+          : "ATHENA_RUNTIME_CONFIG_INVALID"
       );
     }
     origins = ATHENA_PASSKEY_DEV_DEFAULT_ORIGINS;

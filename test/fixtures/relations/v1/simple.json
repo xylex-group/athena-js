@@ -1,0 +1,70 @@
+{
+  "schema": "athena/relations-fixture/v1",
+  "tables": [
+    { "table": "users", "primaryKey": ["id"] },
+    { "table": "posts", "primaryKey": ["id"] },
+    { "table": "profiles", "primaryKey": ["id"] }
+  ],
+  "relations": [
+    {
+      "id": "public.users.posts",
+      "name": "posts",
+      "cardinality": "one-to-many",
+      "from": { "table": "users", "columns": ["id"] },
+      "to": { "table": "posts", "columns": ["user_id"] }
+    },
+    {
+      "id": "public.users.profile",
+      "name": "profile",
+      "cardinality": "one-to-one",
+      "from": { "table": "users", "columns": ["id"] },
+      "to": { "table": "profiles", "columns": ["user_id"] }
+    }
+  ],
+  "cases": [
+    {
+      "name": "forward direct one-to-many",
+      "request": { "source": { "table": "users" }, "relation": "posts" },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "one-to-many",
+        "fromColumns": ["id"],
+        "toColumns": ["user_id"]
+      }
+    },
+    {
+      "name": "reverse direct many-to-one",
+      "request": { "source": { "table": "posts" }, "relation": "users" },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "reverse",
+        "cardinality": "many-to-one",
+        "fromColumns": ["user_id"],
+        "toColumns": ["id"]
+      }
+    },
+    {
+      "name": "forward direct one-to-one",
+      "request": { "source": { "table": "users" }, "relation": "profile" },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "one-to-one",
+        "fromColumns": ["id"],
+        "toColumns": ["user_id"]
+      }
+    },
+    {
+      "name": "reverse direct one-to-one",
+      "request": { "source": { "table": "profiles" }, "relation": "users" },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "reverse",
+        "cardinality": "one-to-one",
+        "fromColumns": ["user_id"],
+        "toColumns": ["id"]
+      }
+    }
+  ]
+}

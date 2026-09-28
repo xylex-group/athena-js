@@ -52,6 +52,21 @@ test("compileSelectShape rejects schema targeting when the relation key is alrea
   );
 });
 
+test("compileSelectShape rejects relation first-selection for the gateway string", () => {
+  assert.throws(
+    () =>
+      compileSelectShape({
+        latest_attempt: {
+          as: "latest_attempt",
+          select: { failure_kind: true },
+          selection: "first",
+        },
+        node_id: true,
+      }),
+    /Gateway cannot represent relation "latest_attempt" first selection/
+  );
+});
+
 test("ATHENA_FILTER_OPERATORS is the findMany AST allowlist without fluent extras", () => {
   assert.deepEqual(
     [...ATHENA_FILTER_OPERATORS],

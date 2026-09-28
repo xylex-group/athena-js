@@ -1,134 +1,141 @@
-import { findCatalogEntry, NOTIFICATION_CATALOG } from "./catalog.ts";
+import { findCatalogEntry } from "./catalog.ts";
+import {
+  ATHENA_NOTIFICATIONS_UNAVAILABLE,
+  throwNotificationsError,
+} from "./errors.ts";
 import type {
-	AthenaEffectiveNotificationPreference,
-	NotificationCatalogEntry,
-	NotificationChannelId,
-	NotificationDigest,
-	NotificationPreferenceOverride,
-	NotificationPreferenceSource,
-	NotificationTopicId,
+  AthenaEffectiveNotificationPreference,
+  NotificationCatalogEntry,
+  NotificationChannelId,
+  NotificationDigest,
+  NotificationPreferenceOverride,
+  NotificationPreferenceSource,
 } from "./types.ts";
 
 function isCatalogArray(
-	value: unknown,
+  value: unknown
 ): value is readonly NotificationCatalogEntry[] {
-	return Array.isArray(value);
+  return Array.isArray(value) && value.length > 0;
 }
 
 function isUserScope(organizationId: string | null | undefined): boolean {
-	return organizationId === null || organizationId === undefined;
+  return organizationId === null || organizationId === undefined;
 }
 
 function overrideMatchesScope(
-	override: NotificationPreferenceOverride,
-	organizationId: string | null | undefined,
+  override: NotificationPreferenceOverride,
+  organizationId: string | null | undefined
 ): NotificationPreferenceSource | null {
-	const overrideOrg = override.organizationId ?? null;
-	if (overrideOrg === null) {
-		return "user";
-	}
-	if (!isUserScope(organizationId) && overrideOrg === organizationId) {
-		return "organization";
-	}
-	return null;
+  const overrideOrg = override.organizationId ?? null;
+  if (overrideOrg === null) {
+    return "user";
+  }
+  if (!isUserScope(organizationId) && overrideOrg === organizationId) {
+    return "organization";
+  }
+  return null;
 }
 
 function pickOverride(
-	overrides: readonly NotificationPreferenceOverride[],
-	topic: NotificationTopicId,
-	channel: NotificationChannelId,
-	organizationId: string | null | undefined,
+  overrides: readonly NotificationPreferenceOverride[],
+  topic: string,
+  channel: NotificationChannelId,
+  organizationId: string | null | undefined
 ): {
-	digest: NotificationDigest | null;
-	enabled: boolean;
-	source: NotificationPreferenceSource;
+  digest: NotificationDigest | null;
+  enabled: boolean;
+  source: NotificationPreferenceSource;
 } | null {
-	let userMatch: NotificationPreferenceOverride | undefined;
-	let orgMatch: NotificationPreferenceOverride | undefined;
-	for (const override of overrides) {
-		if (override.topic !== topic || override.channel !== channel) {
-			continue;
-		}
-		const source = overrideMatchesScope(override, organizationId);
-		if (source === "organization") {
-			orgMatch = override;
-		} else if (source === "user") {
-			userMatch = override;
-		}
-	}
-	if (!isUserScope(organizationId) && orgMatch) {
-		return {
-			digest: orgMatch.digest ?? null,
-			enabled: orgMatch.enabled,
-			source: "organization",
-		};
-	}
-	if (userMatch) {
-		return {
-			digest: userMatch.digest ?? null,
-			enabled: userMatch.enabled,
-			source: "user",
-		};
-	}
-	return null;
+  let userMatch: NotificationPreferenceOverride | undefined;
+  let orgMatch: NotificationPreferenceOverride | undefined;
+  for (const override of overrides) {
+    if (override.topic !== topic || override.channel !== channel) {
+      continue;
+    }
+    const source = overrideMatchesScope(override, organizationId);
+    if (source === "organization") {
+      orgMatch = override;
+    } else if (source === "user") {
+      userMatch = override;
+    }
+  }
+  if (!isUserScope(organizationId) && orgMatch) {
+    return {
+      digest: orgMatch.digest ?? null,
+      enabled: orgMatch.enabled,
+      source: "organization",
+    };
+  }
+  if (userMatch) {
+    return {
+      digest: userMatch.digest ?? null,
+      enabled: userMatch.enabled,
+      source: "user",
+    };
+  }
+  return null;
 }
 
 export function resolveEffectiveNotificationPreferences(input: {
-	catalog?: unknown;
-	organizationId?: string | null;
-	overrides: readonly NotificationPreferenceOverride[];
+  catalog?: unknown;
+  organizationId?: string | null;
+  overrides: readonly NotificationPreferenceOverride[];
 }): AthenaEffectiveNotificationPreference[] {
-	const catalog = isCatalogArray(input.catalog)
-		? input.catalog
-		: NOTIFICATION_CATALOG;
-	const items: AthenaEffectiveNotificationPreference[] = [];
-	for (const entry of catalog) {
-		const matched = pickOverride(
-			input.overrides,
-			entry.topic,
-			entry.channel,
-			input.organizationId,
-		);
-		items.push({
-			channel: entry.channel,
-			description: entry.description,
-			digest: matched?.digest ?? null,
-			enabled: matched?.enabled ?? entry.defaultEnabled,
-			label: entry.label,
-			source: matched?.source ?? "catalog",
-			topic: entry.topic,
-		});
-	}
-	return items;
+  if (!isCatalogArray(input.catalog)) {
+    throwNotificationsError(ATHENA_NOTIFICATIONS_UNAVAILABLE);
+  }
+  const catalog = input.catalog;
+  const items: AthenaEffectiveNotificationPreference[] = [];
+  for (const entry of catalog) {
+    const matched = pickOverride(
+      input.overrides,
+      entry.topic,
+      entry.channel,
+      input.organizationId
+    );
+    items.push({
+      channel: entry.channel,
+      description: entry.description ?? entry.label,
+      digest: matched?.digest ?? null,
+      enabled: matched?.enabled ?? entry.defaultEnabled,
+      group: entry.group,
+      groupOrder: entry.groupOrder,
+      label: entry.label,
+      order: entry.order,
+      source: matched?.source ?? "catalog",
+      topic: entry.topic,
+    });
+  }
+  return items;
 }
 
 export function resolveOneEffectivePreference(input: {
-	channel: NotificationChannelId;
-	organizationId?: string | null;
-	overrides: readonly NotificationPreferenceOverride[];
-	topic: NotificationTopicId;
+  catalog: readonly NotificationCatalogEntry[];
+  channel: NotificationChannelId;
+  organizationId?: string | null;
+  overrides: readonly NotificationPreferenceOverride[];
+  topic: string;
 }): AthenaEffectiveNotificationPreference {
-	const entry = findCatalogEntry(input.topic, input.channel);
-	const fallback: NotificationCatalogEntry = entry ?? {
-		channel: input.channel,
-		defaultEnabled: true,
-		description: input.topic,
-		label: input.topic,
-		topic: input.topic,
-	};
-	const matched = pickOverride(
-		input.overrides,
-		input.topic,
-		input.channel,
-		input.organizationId,
-	);
-	return {
-		channel: fallback.channel,
-		description: fallback.description,
-		digest: matched?.digest ?? null,
-		enabled: matched?.enabled ?? fallback.defaultEnabled,
-		label: fallback.label,
-		source: matched?.source ?? "catalog",
-		topic: fallback.topic,
-	};
+  const entry = findCatalogEntry(input.catalog, input.topic, input.channel);
+  if (!entry) {
+    throwNotificationsError(ATHENA_NOTIFICATIONS_UNAVAILABLE);
+  }
+  const matched = pickOverride(
+    input.overrides,
+    input.topic,
+    input.channel,
+    input.organizationId
+  );
+  return {
+    channel: entry.channel,
+    description: entry.description ?? entry.label,
+    digest: matched?.digest ?? null,
+    enabled: matched?.enabled ?? entry.defaultEnabled,
+    group: entry.group,
+    groupOrder: entry.groupOrder,
+    label: entry.label,
+    order: entry.order,
+    source: matched?.source ?? "catalog",
+    topic: entry.topic,
+  };
 }

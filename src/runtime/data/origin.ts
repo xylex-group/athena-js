@@ -2,7 +2,9 @@
  * Same-origin helpers. Compare `URL.origin` only — never startsWith/substring.
  */
 
-export function parseWebOrigin(value: string | null | undefined): string | null {
+export function parseWebOrigin(
+  value: string | null | undefined
+): string | null {
   if (value == null) {
     return null;
   }
@@ -29,22 +31,51 @@ export function headerOrigin(request: Request): string | null {
   return parseWebOrigin(request.headers.get("origin"));
 }
 
-export function originsMatch(left: string | null, right: string | null): boolean {
+export function originsMatch(
+  left: string | null,
+  right: string | null
+): boolean {
   return left != null && right != null && left === right;
 }
 
+export type AllowedRequestOriginOptions = {
+  /**
+   * Same-origin GET/HEAD often omit `Origin`. Cross-origin CORS GET still
+   * sends `Origin`. Do not enable this on mutating Data/Billing POST.
+   */
+  allowMissingOriginOnSafeMethods?: boolean;
+};
+
 export function isAllowedRequestOrigin(
   request: Request,
-  extraAllowed: readonly string[] = []
+  extraAllowed: readonly string[] = [],
+  options?: AllowedRequestOriginOptions
 ): boolean {
   const incoming = headerOrigin(request);
-  if (!incoming) {
+  const target = requestOrigin(request);
+  if (incoming) {
+    if (originsMatch(incoming, target)) {
+      return true;
+    }
+    return extraAllowed.some((candidate) =>
+      originsMatch(incoming, parseWebOrigin(candidate))
+    );
+  }
+  if (!options?.allowMissingOriginOnSafeMethods) {
     return false;
   }
-  if (originsMatch(incoming, requestOrigin(request))) {
-    return true;
+  const method = request.method.toUpperCase();
+  if (method !== "GET" && method !== "HEAD") {
+    return false;
   }
-  return extraAllowed.some((candidate) =>
-    originsMatch(incoming, parseWebOrigin(candidate))
-  );
+  const referer = parseWebOrigin(request.headers.get("referer"));
+  if (referer) {
+    if (originsMatch(referer, target)) {
+      return true;
+    }
+    return extraAllowed.some((candidate) =>
+      originsMatch(referer, parseWebOrigin(candidate))
+    );
+  }
+  return true;
 }

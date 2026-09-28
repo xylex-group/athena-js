@@ -4,7 +4,9 @@ import type { AthenaEmailProvider } from "./types.ts";
  * Type guard for root email adapters. SMTP and other transports implement
  * {@link AthenaEmailProvider} and enter the client only through `createClient({ email })`.
  */
-export function isAthenaEmailProvider(value: unknown): value is AthenaEmailProvider {
+export function isAthenaEmailProvider(
+  value: unknown
+): value is AthenaEmailProvider {
   if (!value || typeof value !== "object") {
     return false;
   }

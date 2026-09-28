@@ -123,6 +123,31 @@ Nested `headers` objects are deep-merged.
 
 ---
 
+## Server session repair
+
+`createServerSessionResolver` resolves request credentials once for each session
+operation. When `organization.ensureActive` repairs a missing active
+organization, the same cookie, bearer token, and request headers are forwarded
+to `organization.list`, `organization.setActive`, and the session refresh
+triggered by `setActive`.
+
+```text
+request context
+      |
+      +--> get-session
+      +--> organization.list
+      +--> organization.setActive
+                 |
+                 +--> session refresh
+```
+
+Request credentials are passed as operation options. The root client is never
+mutated, so concurrent requests cannot replace one another's authentication
+context. Injected `ensureActiveOrganization` callbacks remain authoritative and
+are not rewritten.
+
+---
+
 ## Service behavior
 
 - HTTP database, auth, chat, storage, billing, and raw-request operations

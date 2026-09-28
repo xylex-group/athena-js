@@ -51,7 +51,7 @@ export function toPosix(path: string): string {
 
 export function isPathInside(parent: string, child: string): boolean {
   const rel = relative(parent, child);
-  return rel === "" || (!rel.startsWith("..") && !rel.startsWith(`..${sep}`));
+  return rel === "" || !(rel.startsWith("..") || rel.startsWith(`..${sep}`));
 }
 
 export interface PorcelainV2Record {
@@ -78,7 +78,9 @@ export function parsePorcelainV2(buffer: string): PorcelainV2Record[] {
       continue;
     }
     if (token.startsWith("u ")) {
-      const match = /^u (\S{2}) \S+ \S+ \S+ \S+ \S+ \S+ \S+ \S+ (.*)$/.exec(token);
+      const match = /^u (\S{2}) \S+ \S+ \S+ \S+ \S+ \S+ \S+ \S+ (.*)$/.exec(
+        token
+      );
       records.push({
         kind: "unmerged",
         path: match?.[2] ?? token.slice(2),
@@ -87,8 +89,7 @@ export function parsePorcelainV2(buffer: string): PorcelainV2Record[] {
       continue;
     }
     if (token.startsWith("2 ")) {
-      const match =
-        /^2 (\S{2}) \S+ \S+ \S+ \S+ \S+ \S+ \S+ (.*)$/.exec(token);
+      const match = /^2 (\S{2}) \S+ \S+ \S+ \S+ \S+ \S+ \S+ (.*)$/.exec(token);
       const path = match?.[2] ?? token.slice(2);
       const origPath = tokens[index + 1] ?? "";
       index += 1;
@@ -115,7 +116,7 @@ export function parsePorcelainV2(buffer: string): PorcelainV2Record[] {
 export function gitShowToplevel(cwd: string): string | undefined {
   const result = runGit(cwd, ["rev-parse", "--show-toplevel"]);
   if (result.status !== 0) {
-    return undefined;
+    return;
   }
   const root = result.stdout.trim();
   return root.length > 0 ? resolve(root) : undefined;
@@ -124,13 +125,16 @@ export function gitShowToplevel(cwd: string): string | undefined {
 export function gitHeadCommit(cwd: string): string | undefined {
   const result = runGit(cwd, ["rev-parse", "HEAD"]);
   if (result.status !== 0) {
-    return undefined;
+    return;
   }
   const sha = result.stdout.trim();
   return sha.length > 0 ? sha : undefined;
 }
 
-export function gitBranchName(cwd: string): { branch?: string; detached: boolean } {
+export function gitBranchName(cwd: string): {
+  branch?: string;
+  detached: boolean;
+} {
   const result = runGit(cwd, ["symbolic-ref", "--short", "-q", "HEAD"]);
   if (result.status !== 0) {
     return { detached: true };
@@ -140,7 +144,12 @@ export function gitBranchName(cwd: string): { branch?: string; detached: boolean
 }
 
 export function gitLsTracked(cwd: string, relativePath: string): boolean {
-  const result = runGit(cwd, ["ls-files", "--error-unmatch", "--", relativePath]);
+  const result = runGit(cwd, [
+    "ls-files",
+    "--error-unmatch",
+    "--",
+    relativePath,
+  ]);
   return result.status === 0;
 }
 
@@ -151,7 +160,7 @@ export function gitBlobSha(
 ): string | undefined {
   const result = runGit(cwd, ["rev-parse", `${commit}:${relativePath}`]);
   if (result.status !== 0) {
-    return undefined;
+    return;
   }
   const sha = result.stdout.trim();
   return sha.length > 0 ? sha : undefined;

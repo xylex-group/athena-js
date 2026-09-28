@@ -6,6 +6,10 @@ import {
   refreshAccessToken,
   validateAuthorizationCode,
 } from "../oauth2/index.ts";
+import {
+  type ResolvedOidcProviderMetadata,
+  resolveOidcProviderEndpoints,
+} from "../oidc-discovery.ts";
 import { trimTrailingSlash } from "./helpers/trim-trailing-slash.ts";
 
 /**
@@ -34,7 +38,8 @@ export interface AthenaProfile {
 
 export interface AthenaOptions extends ProviderOptions<AthenaProfile> {
   /**
-   * Override the authorization endpoint. Defaults to `{issuer}/oauth2/authorize`.
+   * Override the authorization endpoint. When omitted, Athena discovery
+   * supplies `/oauth/authorize`.
    */
   authorizationEndpoint?: string | undefined;
   clientId: string;
@@ -43,15 +48,17 @@ export interface AthenaOptions extends ProviderOptions<AthenaProfile> {
    * (e.g. `https://auth.example.com` or a tenant-specific auth root).
    *
    * Defaults for authorization, token, userinfo, and JWKS endpoints are
-   * derived from this issuer when the explicit endpoint overrides are omitted.
+   * derived from validated issuer discovery when the explicit endpoint
+   * overrides are omitted.
    */
   issuer?: string | undefined;
   /**
-   * Override the token endpoint. Defaults to `{issuer}/oauth2/token`.
+   * Override the token endpoint. When omitted, Athena discovery supplies
+   * `/oauth/token`.
    */
   tokenEndpoint?: string | undefined;
   /**
-   * Override the userinfo endpoint. Defaults to `{issuer}/oauth2/userinfo`.
+   * Override the userinfo endpoint. UserInfo remains optional for this lane.
    */
   userInfoEndpoint?: string | undefined;
 }
@@ -60,7 +67,6 @@ function resolveIssuer(options: AthenaOptions): string {
   if (options.issuer) {
     return trimTrailingSlash(options.issuer);
   }
-  // Allow deriving issuer from an explicit authorization endpoint host.
   if (options.authorizationEndpoint) {
     try {
       const url = new URL(options.authorizationEndpoint);
@@ -77,23 +83,27 @@ function resolveIssuer(options: AthenaOptions): string {
 /**
  * Athena first-party OAuth / OIDC social provider factory.
  *
- * Athena Auth will expose an Athena identity provider; this client module is
- * ready so apps can configure `socialProviders.athena` the same way as Google,
- * GitHub, etc. Defaults endpoints to `{issuer}/oauth2/authorize|token|userinfo`.
+ * Resolves authorization and token endpoints from validated issuer discovery
+ * (`/.well-known/openid-configuration`) unless both endpoints are overridden.
+ * Athena authorization-server defaults are `/oauth/authorize` and `/oauth/token`.
  *
  * @param options - Client credentials and issuer (or full endpoint overrides)
  */
 export const athena = (options: AthenaOptions) => {
-  const issuer = () => resolveIssuer(options);
-  const authorizationEndpoint = () =>
-    options.authorizationEndpoint || `${issuer()}/oauth2/authorize`;
-  const tokenEndpoint = () =>
-    options.tokenEndpoint || `${issuer()}/oauth2/token`;
-  const userInfoEndpoint = () =>
-    options.userInfoEndpoint || `${issuer()}/oauth2/userinfo`;
+  const cache = new Map<string, ResolvedOidcProviderMetadata>();
+  const resolveEndpoints = () =>
+    resolveOidcProviderEndpoints({
+      cache,
+      issuer: resolveIssuer(options),
+      overrides: {
+        authorizationEndpoint: options.authorizationEndpoint,
+        tokenEndpoint: options.tokenEndpoint,
+        userInfoEndpoint: options.userInfoEndpoint,
+      },
+    });
 
   return {
-    createAuthorizationURL({
+    async createAuthorizationURL({
       state,
       scopes,
       codeVerifier,
@@ -108,6 +118,7 @@ export const athena = (options: AthenaOptions) => {
       display?: string | undefined;
       loginHint?: string | undefined;
     }) {
+      const endpoints = await resolveEndpoints();
       const _scopes = options.disableDefaultScope
         ? []
         : ["openid", "profile", "email"];
@@ -118,7 +129,7 @@ export const athena = (options: AthenaOptions) => {
         _scopes.push(...scopes);
       }
       return createAuthorizationURL({
-        authorizationEndpoint: authorizationEndpoint(),
+        authorizationEndpoint: endpoints.authorizationEndpoint,
         codeVerifier,
         display,
         id: "athena",
@@ -137,8 +148,12 @@ export const athena = (options: AthenaOptions) => {
       if (!token.accessToken) {
         return null;
       }
+      const endpoints = await resolveEndpoints();
+      if (!endpoints.userinfoEndpoint) {
+        return null;
+      }
       const { data: profile, error } = await betterFetch<AthenaProfile>(
-        userInfoEndpoint(),
+        endpoints.userinfoEndpoint,
         {
           headers: {
             Accept: "application/json",
@@ -169,16 +184,18 @@ export const athena = (options: AthenaOptions) => {
     options,
     refreshAccessToken: options.refreshAccessToken
       ? options.refreshAccessToken
-      : async (refreshToken: string) =>
-          refreshAccessToken({
+      : async (refreshToken: string) => {
+          const endpoints = await resolveEndpoints();
+          return refreshAccessToken({
             options: {
               clientId: options.clientId,
               clientKey: options.clientKey,
               clientSecret: options.clientSecret,
             },
             refreshToken,
-            tokenEndpoint: tokenEndpoint(),
-          }),
+            tokenEndpoint: endpoints.tokenEndpoint,
+          });
+        },
     validateAuthorizationCode: async ({
       code,
       codeVerifier,
@@ -188,13 +205,15 @@ export const athena = (options: AthenaOptions) => {
       redirectURI: string;
       codeVerifier?: string | undefined;
       deviceId?: string | undefined;
-    }) =>
-      validateAuthorizationCode({
+    }) => {
+      const endpoints = await resolveEndpoints();
+      return validateAuthorizationCode({
         code,
         codeVerifier,
         options,
         redirectURI,
-        tokenEndpoint: tokenEndpoint(),
-      }),
+        tokenEndpoint: endpoints.tokenEndpoint,
+      });
+    },
   } satisfies OAuthProvider<AthenaProfile, AthenaOptions>;
 };

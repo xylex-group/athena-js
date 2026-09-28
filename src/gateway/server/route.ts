@@ -1,5 +1,5 @@
-import { ATHENA_GATEWAY_ROUTES } from "../routes.ts";
 import type { AthenaRuntimeOperation } from "../../runtime/data/types.ts";
+import { ATHENA_GATEWAY_ROUTES } from "../routes.ts";
 
 export type AthenaGatewayServerRoute =
   | { kind: "gateway"; operation: AthenaRuntimeOperation }
@@ -24,17 +24,15 @@ const GATEWAY_OPERATIONS: ReadonlyArray<{
 export function resolveAthenaGatewayServerRoute(
   pathname: string
 ): AthenaGatewayServerRoute {
-  const normalized = pathname.endsWith("/") && pathname.length > 1
-    ? pathname.slice(0, -1)
-    : pathname;
+  const normalized =
+    pathname.endsWith("/") && pathname.length > 1
+      ? pathname.slice(0, -1)
+      : pathname;
 
   if (normalized === "/health" || normalized.endsWith("/health")) {
     return { kind: "health" };
   }
-  if (
-    normalized === "/capabilities" ||
-    normalized.endsWith("/capabilities")
-  ) {
+  if (normalized === "/capabilities" || normalized.endsWith("/capabilities")) {
     return { kind: "capabilities" };
   }
   if (
@@ -51,10 +49,7 @@ export function resolveAthenaGatewayServerRoute(
   }
 
   for (const entry of GATEWAY_OPERATIONS) {
-    if (
-      normalized === entry.path ||
-      normalized.endsWith(entry.path)
-    ) {
+    if (normalized === entry.path || normalized.endsWith(entry.path)) {
       return { kind: "gateway", operation: entry.operation };
     }
   }

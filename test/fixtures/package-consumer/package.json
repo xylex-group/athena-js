@@ -4,6 +4,6 @@
   "type": "module",
   "description": "Node consumer of packed @xylex-group/athena from .tmp/packages/*.tgz",
   "dependencies": {
-    "@xylex-group/athena": "file:../../../.tmp/packages/xylex-group-athena.tgz"
+    "@xylex-group/athena": "file:C:/Users/floris/Documents/GitHub/athena/packages/athena-js/.tmp/packages/xylex-group-athena-5.6.2.tgz"
   }
 }

@@ -18,7 +18,7 @@ test("toSessionData freezes snapshot and maps org ids", () => {
   assert.equal(data.organization.activeId, "org_fixed");
   assert.equal(data.organization.rawActiveId, "org_raw");
   assert.throws(() => {
-    (data as { user: { id: string } }).user = { id: "x", email: "" } as never;
+    (data as { user: { id: string } }).user = { email: "", id: "x" } as never;
   });
   assert.throws(() => {
     (data.user as { name?: string }).name = "mutated";
@@ -61,22 +61,28 @@ test("isAbortError detects Chrome abort-without-reason strings", () => {
   );
 });
 
-
 test("toSessionData freezes session fields", () => {
   const data = toSessionData(transport);
   assert.throws(() => {
-    (data.session as { activeOrganizationId?: string | null }).activeOrganizationId =
-      "mutated";
+    (
+      data.session as { activeOrganizationId?: string | null }
+    ).activeOrganizationId = "mutated";
   });
 });
 
 test("toAthenaSessionError maps all kinds", () => {
-  assert.equal(toAthenaSessionError("upstream").name, "AthenaAuthUpstreamError");
+  assert.equal(
+    toAthenaSessionError("upstream").name,
+    "AthenaAuthUpstreamError"
+  );
   assert.equal(
     toAthenaSessionError("configuration").name,
     "AthenaAuthConfigurationError"
   );
-  assert.equal(toAthenaSessionError("protocol").name, "AthenaAuthProtocolError");
+  assert.equal(
+    toAthenaSessionError("protocol").name,
+    "AthenaAuthProtocolError"
+  );
   assert.equal(
     toAthenaSessionError("no_organization").name,
     "AthenaSessionOrganizationError"
@@ -88,4 +94,3 @@ test("isAbortError detects TimeoutError", () => {
   t.name = "TimeoutError";
   assert.equal(isAbortError(t), true);
 });
-

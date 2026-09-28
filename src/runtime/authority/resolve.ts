@@ -1,5 +1,7 @@
-import "server-only";
-
+/**
+ * HTTP principal resolution (internal). Node-ok; not a Next `server-only` edge.
+ * Browser / Next-client / RN must not import this module (graph + bundle audits).
+ */
 import { AthenaConfigurationError } from "../../config/errors.ts";
 import {
   createDeferredPostgresAuthStores,
@@ -7,14 +9,16 @@ import {
   createMembershipVerifierFromAuthStores,
 } from "../data/athena-session.ts";
 import {
-  anonymousResolvedPrincipal,
-  normalizeAthenaPrincipal,
   type AthenaPrincipalResolutionInput,
   type AthenaResolvedPrincipal,
   type AthenaRuntimeAuthConfig,
   type AthenaRuntimeAuthMaterial,
+  type AthenaRuntimeJwtVerifier,
   type AthenaRuntimeSessionLookup,
+  anonymousResolvedPrincipal,
+  normalizeAthenaPrincipal,
 } from "../data/principal.ts";
+import { validateAthenaRightsProjection } from "../data/rights-resolution.ts";
 import type {
   AthenaRuntimeAuthMode,
   AthenaRuntimeErrorCode,
@@ -24,6 +28,7 @@ import type {
 import {
   headersFromContext,
   readOrganizationHint,
+  readPresentedBearerToken,
   readPresentedSessionToken,
 } from "./headers.ts";
 
@@ -59,7 +64,7 @@ export function normalizeAthenaRuntimeAuth(
   if (auth === undefined || auth === false) {
     if (security === "authenticated") {
       throw authConfigInvalid(
-        "security.mode \"authenticated\" requires a configured Auth resolver."
+        'security.mode "authenticated" requires a configured Auth resolver.'
       );
     }
     return { mode: false };
@@ -69,18 +74,21 @@ export function normalizeAthenaRuntimeAuth(
     throw authConfigInvalid("auth must be false or an object with a mode.");
   }
 
-  if (auth.mode === "jwt") {
-    throw authConfigInvalid(
-      "JWT principal resolution is not implemented. Use athena-session, custom, or service."
-    );
-  }
-
   const configured = auth as AthenaRuntimeAuthConfig;
   if (configured === false) {
     return { mode: false };
   }
 
   if (configured.mode === "athena-session") {
+    if (configured.authorization?.strictRoles === true) {
+      const projection = validateAthenaRightsProjection(
+        configured.authorization
+      );
+      const first = projection.issues[0];
+      if (!projection.ok && first) {
+        throw authConfigInvalid(first.message);
+      }
+    }
     const stores =
       configured.stores ??
       (options.databaseUrl
@@ -88,7 +96,11 @@ export function normalizeAthenaRuntimeAuth(
         : undefined);
     const lookupSession =
       configured.lookupSession ??
-      (stores ? createLookupSessionFromAuthStores(stores) : undefined);
+      (stores
+        ? createLookupSessionFromAuthStores(stores, {
+            authorization: configured.authorization,
+          })
+        : undefined);
     if (typeof lookupSession !== "function") {
       throw authConfigInvalid(
         'auth.mode "athena-session" requires Athena Auth stores, lookupSession, or databaseUrl.'
@@ -98,19 +110,28 @@ export function normalizeAthenaRuntimeAuth(
       configured.verifyOrganizationMembership ??
       (stores ? createMembershipVerifierFromAuthStores(stores) : undefined);
     return {
+      ...(configured.jwtVerifier
+        ? { jwtVerifier: configured.jwtVerifier }
+        : {}),
       lookupSession,
       mode: "athena-session",
-      ...(verifyOrganizationMembership
-        ? { verifyOrganizationMembership }
-        : {}),
+      ...(verifyOrganizationMembership ? { verifyOrganizationMembership } : {}),
+    };
+  }
+
+  if (configured.mode === "jwt") {
+    if (typeof configured.verifyToken !== "function") {
+      throw authConfigInvalid('auth.mode "jwt" requires verifyToken.');
+    }
+    return {
+      mode: "jwt",
+      verifyToken: configured.verifyToken,
     };
   }
 
   if (configured.mode === "custom") {
     if (typeof configured.resolvePrincipal !== "function") {
-      throw authConfigInvalid(
-        "auth.mode \"custom\" requires resolvePrincipal."
-      );
+      throw authConfigInvalid('auth.mode "custom" requires resolvePrincipal.');
     }
     return {
       mode: "custom",
@@ -121,13 +142,13 @@ export function normalizeAthenaRuntimeAuth(
   if (configured.mode === "service") {
     if (!isRecord(configured.principal)) {
       throw authConfigInvalid(
-        "auth.mode \"service\" requires a server-configured principal."
+        'auth.mode "service" requires a server-configured principal.'
       );
     }
     const principal = normalizeAthenaPrincipal(configured.principal, {
       source: "service",
     });
-    if (!principal.authenticated || !principal.service) {
+    if (!(principal.authenticated && principal.service)) {
       throw authConfigInvalid(
         "service principal must be authenticated and include principal.service."
       );
@@ -174,7 +195,18 @@ async function resolveSessionPrincipal(
   material: Extract<AthenaRuntimeAuthMaterial, { mode: "athena-session" }>,
   input: AthenaPrincipalResolutionInput
 ): Promise<AthenaPrincipalResolutionOutcome> {
-  const token = readPresentedSessionToken(input.headers);
+  const bearer = readPresentedBearerToken(input.headers);
+  if (bearer && bearer.split(".").length === 3) {
+    if (!material.jwtVerifier) {
+      return deny(
+        "ATHENA_AUTH_INVALID_SESSION",
+        "Athena access token is missing or invalid.",
+        401
+      );
+    }
+    return resolveJwtPrincipal(material.jwtVerifier, input);
+  }
+  const token = bearer ?? readPresentedSessionToken(input.headers);
   if (!token) {
     return allow(anonymousResolvedPrincipal());
   }
@@ -276,6 +308,34 @@ async function resolveSessionPrincipal(
   });
 }
 
+async function resolveJwtPrincipal(
+  verifyToken: AthenaRuntimeJwtVerifier,
+  input: AthenaPrincipalResolutionInput
+): Promise<AthenaPrincipalResolutionOutcome> {
+  try {
+    const resolved = await verifyToken(input);
+    if (!resolved) {
+      return deny(
+        "ATHENA_AUTH_INVALID_SESSION",
+        "Athena access token is missing or invalid.",
+        401
+      );
+    }
+    return allow({
+      authority: "jwt",
+      principal: normalizeAthenaPrincipal(resolved.principal, {
+        source: "jwt",
+      }),
+    });
+  } catch {
+    return deny(
+      "ATHENA_AUTH_INVALID_SESSION",
+      "Athena access token is missing or invalid.",
+      401
+    );
+  }
+}
+
 async function resolveCustomPrincipal(
   material: Extract<AthenaRuntimeAuthMaterial, { mode: "custom" }>,
   input: AthenaPrincipalResolutionInput
@@ -324,6 +384,11 @@ export async function resolveAthenaRuntimePrincipal(
       });
     } else if (material.mode === "athena-session") {
       outcome = await resolveSessionPrincipal(material, input);
+    } else if (material.mode === "jwt") {
+      const bearer = readPresentedBearerToken(input.headers);
+      outcome = bearer
+        ? await resolveJwtPrincipal(material.verifyToken, input)
+        : allow(anonymousResolvedPrincipal());
     } else {
       outcome = await resolveCustomPrincipal(material, input);
     }

@@ -19,14 +19,14 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/passkey-challenge-authority.target.test.ts";
+  "test/sdd/passkey-challenge-authority.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-CHAL-PORT",
-	"B-CHAL-CONSUME-SHAPE",
-	"B-CHAL-NO-ADAPTER",
-	"B-CHAL-NO-ID-VALUE",
-	"B-CHAL-MEMORY-TOCTOU",
-	"B-CHAL-NO-CONSUMED-AT",
-	"B-CHAL-FAIL-CLOSED",
+  "B-CHAL-PORT",
+  "B-CHAL-CONSUME-SHAPE",
+  "B-CHAL-NO-ADAPTER",
+  "B-CHAL-NO-ID-VALUE",
+  "B-CHAL-MEMORY-TOCTOU",
+  "B-CHAL-NO-CONSUMED-AT",
+  "B-CHAL-FAIL-CLOSED",
 ] as const;

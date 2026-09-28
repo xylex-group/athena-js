@@ -2,7 +2,7 @@ import type {
   AthenaQueryTraceCallsite,
   AthenaQueryTraceEvent,
   InternalClientBehaviorOptions,
-} from "./client-fluent.ts";
+} from "./query/contracts.ts";
 import type { AthenaResult } from "./client-result.ts";
 import type {
   AthenaGatewayCallOptions,
@@ -20,12 +20,24 @@ const QUERY_TRACE_STACK_SKIP_PATTERNS = [
   "src/client/context.ts",
   "src\\client\\create-client.ts",
   "src/client/create-client.ts",
+  "src\\client\\fluent\\table-builder.ts",
+  "src/client/fluent/table-builder.ts",
+  "src\\client\\fluent\\mutation-query.ts",
+  "src/client/fluent/mutation-query.ts",
+  "src\\client\\fluent\\rpc-builder.ts",
+  "src/client/fluent/rpc-builder.ts",
+  "src\\query\\execution\\mutation.ts",
+  "src/query/execution/mutation.ts",
+  "src\\compatibility\\query-builder.ts",
+  "src/compatibility/query-builder.ts",
   "src\\query-tracing.ts",
   "src/query-tracing.ts",
   "src\\v3-client.ts",
   "src/v3-client.ts",
   "src\\v3-client-core.ts",
   "src/v3-client-core.ts",
+  "src\\v3-client-assembly.ts",
+  "src/v3-client-assembly.ts",
   "dist\\client.",
   "dist/client.",
   "dist\\query-tracing.",

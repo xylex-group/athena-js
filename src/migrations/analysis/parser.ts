@@ -23,13 +23,12 @@ function asRecord(value: unknown): PgAstNode | undefined {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as PgAstNode;
   }
-  return undefined;
 }
 
 function unwrapStmt(wrapped: unknown): ParsedStatement | undefined {
   const wrapper = asRecord(wrapped);
   if (!wrapper) {
-    return undefined;
+    return;
   }
   const stmt = asRecord(wrapper.stmt) ?? wrapper;
   const keys = Object.keys(stmt);
@@ -38,7 +37,8 @@ function unwrapStmt(wrapped: unknown): ParsedStatement | undefined {
   return {
     kind,
     length: typeof wrapper.stmt_len === "number" ? wrapper.stmt_len : 0,
-    location: typeof wrapper.stmt_location === "number" ? wrapper.stmt_location : 0,
+    location:
+      typeof wrapper.stmt_location === "number" ? wrapper.stmt_location : 0,
     node,
   };
 }
@@ -68,7 +68,7 @@ export async function parsePostgresSql(sql: string): Promise<ParseSqlResult> {
 export function pgString(node: unknown): string | undefined {
   const record = asRecord(node);
   if (!record) {
-    return undefined;
+    return;
   }
   const inner = asRecord(record.String);
   if (inner && typeof inner.sval === "string") {
@@ -80,7 +80,6 @@ export function pgString(node: unknown): string | undefined {
   if (typeof record.str === "string") {
     return record.str;
   }
-  return undefined;
 }
 
 export function pgNameList(nodes: unknown): string[] {
@@ -94,7 +93,11 @@ export function pgNameList(nodes: unknown): string[] {
 
 export function walkAst(
   node: unknown,
-  visit: (kind: string, value: PgAstNode, parent: PgAstNode | undefined) => void,
+  visit: (
+    kind: string,
+    value: PgAstNode,
+    parent: PgAstNode | undefined
+  ) => void,
   parent?: PgAstNode
 ): void {
   if (!node) {

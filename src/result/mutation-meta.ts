@@ -28,7 +28,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function asFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function readKeys(
@@ -41,7 +43,6 @@ function readKeys(
       return direct;
     }
   }
-  return undefined;
 }
 
 function readAlias(
@@ -49,7 +50,7 @@ function readAlias(
   keys: readonly string[] = PRIMARY_ALIAS_KEYS
 ): number | undefined {
   if (!isRecord(raw)) {
-    return undefined;
+    return;
   }
   const direct = readKeys(raw, keys);
   if (direct !== undefined) {
@@ -67,7 +68,6 @@ function readAlias(
       return nested;
     }
   }
-  return undefined;
 }
 
 export function isMutationGatewayEndpoint(
@@ -102,7 +102,7 @@ export function resolveMutationAffectedRows(input: {
     isMutationOperation || isMutationGatewayEndpoint(input.endpoint);
 
   if (!isMutation) {
-    return undefined;
+    return;
   }
 
   const fromPrimary = readAlias(input.raw, PRIMARY_ALIAS_KEYS);

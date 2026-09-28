@@ -22,15 +22,15 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/passkey-runtime-finality.repository.target.test.ts";
+  "test/sdd/passkey-runtime-finality.repository.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-REPO-PORT",
-	"B-REPO-NO-ADAPTER",
-	"B-REPO-NO-MEMORY-MAP",
-	"B-REPO-NO-PG-CRUD",
-	"B-REPO-NO-ROW-TYPE",
-	"B-REPO-FAIL-CLOSED",
-	"B-REPO-005-CHECKSUM",
-	"B-REPO-CHALLENGE-UNCHANGED",
+  "B-REPO-PORT",
+  "B-REPO-NO-ADAPTER",
+  "B-REPO-NO-MEMORY-MAP",
+  "B-REPO-NO-PG-CRUD",
+  "B-REPO-NO-ROW-TYPE",
+  "B-REPO-FAIL-CLOSED",
+  "B-REPO-005-CHECKSUM",
+  "B-REPO-CHALLENGE-UNCHANGED",
 ] as const;

@@ -40,6 +40,56 @@ test("select defaults to * when columns omitted", async () => {
   }
 });
 
+test("root query warns while db.query stays undecorated", async () => {
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(" "));
+  };
+  const { restore } = mockFetch();
+  try {
+    const client = createClient({
+      db: { url: "https://athena-db.com" },
+      env: { NODE_ENV: "development" },
+      key: "secret",
+    });
+    await client.query("select 1");
+    await client.db.query("select 1");
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? "", /athena\.query\(\) is deprecated/);
+  } finally {
+    console.warn = originalWarn;
+    restore();
+  }
+});
+
+test("raw query diagnostics use configured environment and stay quiet in production or unknown environments", async () => {
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(" "));
+  };
+  const { restore } = mockFetch();
+  try {
+    const productionClient = createClient({
+      db: { url: "https://athena-db.com" },
+      env: { NODE_ENV: "production" },
+      key: "secret",
+    });
+    const unknownClient = createClient({
+      db: { url: "https://athena-db.com" },
+      env: {},
+      key: "secret",
+    });
+    await productionClient.query("select 1");
+    await unknownClient.query("select 1");
+    assert.equal(warnings.length, 0);
+  } finally {
+    console.warn = originalWarn;
+    restore();
+  }
+});
+
 test("select accepts array columns", async () => {
   const { calls, restore } = mockFetch();
   try {
@@ -892,6 +942,67 @@ test("P0: relation some() filters parents without Gateway", async () => {
   }
 });
 
+test("findManyAst keeps first-selection on the AST path", async () => {
+  const { calls, restore } = mockFetch();
+  const astClient = createClient({
+    db: { url: "https://athena-db.com" },
+    findManyAst: true,
+    key: "secret",
+  });
+  try {
+    const { error } = await astClient.from("execution_nodes").findMany({
+      select: {
+        latest_attempt: {
+          as: "latest_attempt",
+          orderBy: { claimed_at: "desc" },
+          select: { failure_kind: true },
+          selection: "first",
+        },
+        node_id: true,
+      },
+    } as never);
+
+    assert.equal(error == null, true, String(error ?? ""));
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].url.endsWith("/gateway/fetch"));
+    const payload = JSON.parse(calls[0].init?.body as string);
+    assert.equal(
+      payload.select.latest_attempt.selection,
+      "first"
+    );
+    assert.equal(payload.table_name, "execution_nodes");
+  } finally {
+    restore();
+  }
+});
+
+test("gateway findMany still rejects first-selection", async () => {
+  const { restore } = mockFetch();
+  const gatewayClient = createClient({
+    db: { url: "https://athena-db.com" },
+    findManyAst: false,
+    key: "secret",
+  });
+  try {
+    await assert.rejects(
+      () =>
+        gatewayClient.from("execution_nodes").findMany({
+          select: {
+            latest_attempt: {
+              as: "latest_attempt",
+              select: { failure_kind: true },
+              selection: "first",
+            },
+            node_id: true,
+          },
+        } as never),
+      /Gateway cannot represent relation "latest_attempt" first selection/
+    );
+  } finally {
+    restore();
+  }
+});
+
 test("findManyAst normalizes shorthand where filters before fetch", async () => {
   const { calls, restore } = mockFetch();
   const client = createClient({
@@ -1206,7 +1317,7 @@ test("update chain forwards currentPage/pageSize/totalPages", async () => {
       .totalPages(5)
       .select("id");
     const payload = JSON.parse(calls[0].init?.body as string);
-    assert.deepEqual(payload.update_body, { level: 10 });
+    assert.deepEqual(payload.data, { level: 10 });
     assert.equal(payload.current_page, 2);
     assert.equal(payload.page_size, 10);
     assert.equal(payload.total_pages, 5);
@@ -1346,7 +1457,7 @@ test("update chain supports .order() and serializes sort_by", async () => {
       .order("created_at", { ascending: false })
       .select("id");
     const payload = JSON.parse(calls[0].init?.body as string);
-    assert.deepEqual(payload.update_body, { name: "Renamed" });
+    assert.deepEqual(payload.data, { name: "Renamed" });
     assert.deepEqual(payload.sort_by, {
       direction: "descending",
       field: "created_at",

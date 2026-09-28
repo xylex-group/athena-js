@@ -8,105 +8,123 @@ import { generateCodeChallenge } from "./utils.ts";
  * Resolves awaitable `options`, applies client id, scopes, redirect URI,
  * optional PKCE (`code_challenge` S256), claims, and provider-specific params.
  *
+ * @param id - Internal ID used for logging/error tracking
+ * @param options - Provider options (awaitable)
+ * @param authorizationEndpoint - OAuth 2.0 authorization endpoint
+ * @param state - OAuth 2.0 state parameter
+ * @param codeVerifier - OAuth 2.0 code verifier
+ * @param scopes - OAuth 2.0 scopes
+ * @param claims - OAuth 2.0 claims
+ * @param redirectURI - OAuth 2.0 redirect URI
+ * @param duration - OAuth 2.0 duration parameter
+ * @param prompt - OAuth 2.0 prompt parameter
+ * @param accessType - OAuth 2.0 access type parameter
+ * @param responseType - OAuth 2.0 response type parameter
+ * @param display - OAuth 2.0 display parameter
+ * @param loginHint - OAuth 2.0 login hint parameter
+ * @param hd - OAuth 2.0 hd parameter
+ * @param responseMode - OAuth 2.0 response mode parameter
+ * @param additionalParams - Additional OAuth 2.0 parameters
+ * @param scopeJoiner - OAuth 2.0 scope joiner parameter
  * @returns Absolute authorize URL ready for browser redirect
  */
 export async function createAuthorizationURL({
-	id: _id,
-	options,
-	authorizationEndpoint,
-	state,
-	codeVerifier,
-	scopes,
-	claims,
-	redirectURI,
-	duration,
-	prompt,
-	accessType,
-	responseType,
-	display,
-	loginHint,
-	hd,
-	responseMode,
-	additionalParams,
-	scopeJoiner,
+  id: _id,
+  options,
+  authorizationEndpoint,
+  state,
+  codeVerifier,
+  scopes,
+  claims,
+  redirectURI,
+  duration,
+  prompt,
+  accessType,
+  responseType,
+  display,
+  loginHint,
+  hd,
+  responseMode,
+  additionalParams,
+  scopeJoiner,
 }: {
-	id: string;
-	options: AwaitableFunction<ProviderOptions>;
-	redirectURI: string;
-	authorizationEndpoint: string;
-	state: string;
-	codeVerifier?: string | undefined;
-	scopes?: string[] | undefined;
-	claims?: string[] | undefined;
-	duration?: string | undefined;
-	prompt?: string | undefined;
-	accessType?: string | undefined;
-	responseType?: string | undefined;
-	display?: string | undefined;
-	loginHint?: string | undefined;
-	hd?: string | undefined;
-	responseMode?: string | undefined;
-	additionalParams?: Record<string, string> | undefined;
-	scopeJoiner?: string | undefined;
+  id: string;
+  options: AwaitableFunction<ProviderOptions>;
+  redirectURI: string;
+  authorizationEndpoint: string;
+  state: string;
+  codeVerifier?: string | undefined;
+  scopes?: string[] | undefined;
+  claims?: string[] | undefined;
+  duration?: string | undefined;
+  prompt?: string | undefined;
+  accessType?: string | undefined;
+  responseType?: string | undefined;
+  display?: string | undefined;
+  loginHint?: string | undefined;
+  hd?: string | undefined;
+  responseMode?: string | undefined;
+  additionalParams?: Record<string, string> | undefined;
+  scopeJoiner?: string | undefined;
 }) {
-	void _id;
-	options = typeof options === "function" ? await options() : options;
-	const url = new URL(options.authorizationEndpoint || authorizationEndpoint);
-	url.searchParams.set("response_type", responseType || "code");
-	const primaryClientId = Array.isArray(options.clientId)
-		? options.clientId[0]
-		: options.clientId;
-	url.searchParams.set("client_id", primaryClientId);
-	url.searchParams.set("state", state);
-	if (scopes) {
-		url.searchParams.set("scope", scopes.join(scopeJoiner || " "));
-	}
-	url.searchParams.set("redirect_uri", options.redirectURI || redirectURI);
-	if (duration) {
-		url.searchParams.set("duration", duration);
-	}
-	if (display) {
-		url.searchParams.set("display", display);
-	}
-	if (loginHint) {
-		url.searchParams.set("login_hint", loginHint);
-	}
-	if (prompt) {
-		url.searchParams.set("prompt", prompt);
-	}
-	if (hd) {
-		url.searchParams.set("hd", hd);
-	}
-	if (accessType) {
-		url.searchParams.set("access_type", accessType);
-	}
-	if (responseMode) {
-		url.searchParams.set("response_mode", responseMode);
-	}
-	if (codeVerifier) {
-		const codeChallenge = await generateCodeChallenge(codeVerifier);
-		url.searchParams.set("code_challenge_method", "S256");
-		url.searchParams.set("code_challenge", codeChallenge);
-	}
-	if (claims) {
-		const claimsObj = claims.reduce(
-			(acc, claim) => {
-				acc[claim] = null;
-				return acc;
-			},
-			{} as Record<string, null>,
-		);
-		url.searchParams.set(
-			"claims",
-			JSON.stringify({
-				id_token: { email: null, email_verified: null, ...claimsObj },
-			}),
-		);
-	}
-	if (additionalParams) {
-		Object.entries(additionalParams).forEach(([key, value]) => {
-			url.searchParams.set(key, value);
-		});
-	}
-	return url;
+  void _id;
+  options = typeof options === "function" ? await options() : options;
+  const url = new URL(options.authorizationEndpoint || authorizationEndpoint);
+  url.searchParams.set("response_type", responseType || "code");
+  const primaryClientId = Array.isArray(options.clientId)
+    ? options.clientId[0]
+    : options.clientId;
+  url.searchParams.set("client_id", primaryClientId);
+  url.searchParams.set("state", state);
+  if (scopes) {
+    url.searchParams.set("scope", scopes.join(scopeJoiner || " "));
+  }
+  url.searchParams.set("redirect_uri", options.redirectURI || redirectURI);
+  if (duration) {
+    url.searchParams.set("duration", duration);
+  }
+  if (display) {
+    url.searchParams.set("display", display);
+  }
+  if (loginHint) {
+    url.searchParams.set("login_hint", loginHint);
+  }
+  if (prompt) {
+    url.searchParams.set("prompt", prompt);
+  }
+  if (hd) {
+    url.searchParams.set("hd", hd);
+  }
+  if (accessType) {
+    url.searchParams.set("access_type", accessType);
+  }
+  if (responseMode) {
+    url.searchParams.set("response_mode", responseMode);
+  }
+  if (codeVerifier) {
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("code_challenge", codeChallenge);
+  }
+  if (claims) {
+    const claimsObj = claims.reduce(
+      (acc, claim) => {
+        acc[claim] = null;
+        return acc;
+      },
+      {} as Record<string, null>
+    );
+    url.searchParams.set(
+      "claims",
+      JSON.stringify({
+        id_token: { email: null, email_verified: null, ...claimsObj },
+      })
+    );
+  }
+  if (additionalParams) {
+    Object.entries(additionalParams).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+  }
+  return url;
 }

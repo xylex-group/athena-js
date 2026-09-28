@@ -1227,7 +1227,7 @@ The repository already contains consumers that prove why a staged migration gate
 - `packages/athena-auth-ui/examples/next-heroui-example/src/lib/athena.ts` stores `AthenaSdkClientWithAuth`.
 - `packages/athena-auth-ui/examples/next-heroui-example/src/components/chat-showcase/use-chat-showcase.ts` casts through `unknown` to `AthenaSdkClientWithStorage`.
 - browser-facing examples import `createClient` through `@xylex-group/athena/browser` and still use the positional overload.
-- generated documentation under `apps/docs/content/docs/sdks/athena-js` reproduces builder, positional-constructor, strictness, typed-client, and capability-type contracts.
+- generated documentation under `apps/docs-athena-js/docs/` reproduces builder, positional-constructor, strictness, typed-client, and capability-type contracts.
 - `packages/athena-js/test/type-compatibility.ts`, builder tests, adapter tests, and the method-reference generator intentionally encode the current v2 surface.
 
 These are migration targets, not reasons to retain the old model. The `unknown as AthenaSdkClientWithStorage` cast is especially useful evidence: the capability return type is already forcing consumers to lie to TypeScript about a runtime namespace the SDK controls.

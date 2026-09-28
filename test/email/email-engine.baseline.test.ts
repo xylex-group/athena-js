@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
-import { createAthenaAuthRuntime } from "../../src/auth/local/runtime.ts";
-import { passwordHashNeedsRehash } from "../../src/auth/local/password.ts";
 import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../../src/auth/contract/index.ts";
+import { passwordHashNeedsRehash } from "../../src/auth/local/password.ts";
+import { createAthenaAuthRuntime } from "../../src/auth/local/runtime.ts";
 
 function createTestHasher() {
   return {
@@ -19,7 +18,9 @@ function createTestHasher() {
   };
 }
 
-test("B-EML-02 embedded runtime has no admin email-template list handler", { skip: "superseded by target suite test/email/email-engine.target.test.ts" }, async () => {
+test("B-EML-02 embedded runtime has no admin email-template list handler", {
+  skip: "superseded by target suite test/email/email-engine.target.test.ts",
+}, async () => {
   const runtime = createAthenaAuthRuntime({
     autoMigrate: false,
     hasher: createTestHasher(),

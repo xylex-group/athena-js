@@ -1,15 +1,15 @@
 import type { SchemaObjectId } from "./identity.ts";
 
 export interface SchemaIndexColumn {
-	readonly name: string;
-	readonly direction?: "asc" | "desc" | null;
+  readonly direction?: "asc" | "desc" | null;
+  readonly name: string;
 }
 
 export interface SchemaIndex {
-	readonly id: SchemaObjectId;
-	readonly columns: readonly SchemaIndexColumn[];
-	readonly unique: boolean;
-	readonly name?: string | null;
-	readonly predicate?: string | null;
-	readonly method?: string | null;
+  readonly columns: readonly SchemaIndexColumn[];
+  readonly id: SchemaObjectId;
+  readonly method?: string | null;
+  readonly name?: string | null;
+  readonly predicate?: string | null;
+  readonly unique: boolean;
 }

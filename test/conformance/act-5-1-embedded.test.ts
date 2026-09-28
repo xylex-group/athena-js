@@ -10,11 +10,7 @@ import {
   isSocialCapabilityEnabled,
 } from "../../src/auth/capabilities.ts";
 import { createAuthModule } from "../../src/auth/client.ts";
-import {
-  createAthenaRuntimeExecutionEvent,
-  redactAthenaRuntimeExecutionEvent,
-} from "../../src/runtime/data/execution-event.ts";
-import { createAthenaDataHandlers } from "../../src/next/data-handlers.ts";
+import { ATHENA_AUTH_SESSION_COOKIE_NAME } from "../../src/auth/contract/index.ts";
 import type { AthenaGatewayClient } from "../../src/gateway/client.ts";
 import type {
   AthenaDeletePayload,
@@ -25,7 +21,11 @@ import type {
   AthenaRpcPayload,
   AthenaUpdatePayload,
 } from "../../src/gateway/types.ts";
-import { ATHENA_AUTH_SESSION_COOKIE_NAME } from "../../src/auth/contract/index.ts";
+import { createAthenaDataHandlers } from "../../src/next/data-handlers.ts";
+import {
+  createAthenaRuntimeExecutionEvent,
+  redactAthenaRuntimeExecutionEvent,
+} from "../../src/runtime/data/execution-event.ts";
 import { string, table } from "../../src/schema/index.ts";
 
 const users = table("users")

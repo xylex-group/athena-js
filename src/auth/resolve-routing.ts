@@ -9,17 +9,17 @@
  *   createClient / Next proxy / inspectAuth
  */
 
-import type { AthenaAuthCredentials } from "./types.ts";
 import { AthenaConfigurationError } from "../config/errors.ts";
 import { isNodeProductionEnv } from "../node-env.ts";
 import {
   ATHENA_AUTH_PATH,
   DEFAULT_ATHENA_AUTH_ORIGIN,
+  type EnvLike,
   isAbsoluteUrl,
   normalizeAthenaAuthBaseUrl,
   readAthenaAuthUpstreamUrlFromEnv,
-  type EnvLike,
 } from "../utils/athena-auth-url.ts";
+import type { AthenaAuthCredentials } from "./types.ts";
 
 export type AthenaAuthRoutingMode =
   | "same-origin"
@@ -34,32 +34,24 @@ export type AthenaAuthRoutingIntent = "same-origin" | "direct" | "custom";
  * Names are consumer-oriented to avoid "client" ambiguity.
  */
 export interface ResolvedAthenaAuthRouting {
-  mode: AthenaAuthRoutingMode;
   /** Browser auth module base (e.g. `/api/auth` or absolute direct host). */
   browserRequestBaseUrl: string;
-  /** Absolute app-origin auth base when request origin is known. */
-  serverRequestBaseUrl?: string;
+  credentials: AthenaAuthCredentials;
+  mode: AthenaAuthRoutingMode;
   /** Upstream origin for the same-origin proxy (no trailing slash). */
   proxyUpstreamBaseUrl?: string;
-  credentials: AthenaAuthCredentials;
+  /** Absolute app-origin auth base when request origin is known. */
+  serverRequestBaseUrl?: string;
   warnings: string[];
 }
 
 export interface ResolveAthenaAuthRoutingInput {
+  credentials?: AthenaAuthCredentials;
+  /** Emit console warnings for deprecations (default: non-production). */
+  emitWarnings?: boolean;
+  env?: EnvLike;
   /** Execution runtime. Local mode is same-origin without a remote upstream. */
   execution?: "local" | "remote";
-  /** Explicit auth.url from createClient config. */
-  url?: string | null;
-  /** Explicit same-origin proxy upstream. */
-  upstreamUrl?: string | null;
-  routing?: AthenaAuthRoutingIntent;
-  credentials?: AthenaAuthCredentials;
-  env?: EnvLike;
-  /**
-   * Unified gateway root used by legacy resolveService path
-   * (`${root}/auth` when no explicit auth url/env).
-   */
-  rootUrl?: string | null;
   /**
    * When true, explicit absolute root wins over env service URLs
    * (matches createClient resolveCore).
@@ -67,12 +59,19 @@ export interface ResolveAthenaAuthRoutingInput {
   explicitRootWinsOverEnvServices?: boolean;
   /** Public app origin for serverRequestBaseUrl (e.g. https://app.example.com). */
   requestOrigin?: string | null;
-  /** Emit console warnings for deprecations (default: non-production). */
-  emitWarnings?: boolean;
+  /**
+   * Unified gateway root used by legacy resolveService path
+   * (`${root}/auth` when no explicit auth url/env).
+   */
+  rootUrl?: string | null;
+  routing?: AthenaAuthRoutingIntent;
+  /** Explicit same-origin proxy upstream. */
+  upstreamUrl?: string | null;
+  /** Explicit auth.url from createClient config. */
+  url?: string | null;
 }
 
-const DUPLICATE_AUTH_PATH =
-  /(?:\/api\/auth){2,}|\/auth\/auth(?:\/|$)/i;
+const DUPLICATE_AUTH_PATH = /(?:\/api\/auth){2,}|\/auth\/auth(?:\/|$)/i;
 const LEADING_SLASHES = /^\/+/;
 
 function stripTrailingSlashes(value: string): string {
@@ -104,7 +103,7 @@ function readFirstEnvHttpUrl(
   keys: readonly string[]
 ): string | undefined {
   if (!env) {
-    return undefined;
+    return;
   }
   for (const key of keys) {
     const value = env[key]?.trim();
@@ -112,7 +111,6 @@ function readFirstEnvHttpUrl(
       return value;
     }
   }
-  return undefined;
 }
 
 /** createClient legacy auth env keys (absolute only). */
@@ -135,7 +133,9 @@ export function hasDuplicateAthenaAuthPath(urlOrPath: string): boolean {
   try {
     if (isAbsoluteUrl(trimmed)) {
       const path = new URL(trimmed).pathname;
-      return DUPLICATE_AUTH_PATH.test(path) || /(?:\/api\/auth){2,}/i.test(path);
+      return (
+        DUPLICATE_AUTH_PATH.test(path) || /(?:\/api\/auth){2,}/i.test(path)
+      );
     }
   } catch {
     return true;
@@ -185,17 +185,12 @@ export function assertValidAthenaAuthUrlShape(
       "auth"
     );
   }
-  if (isAbsoluteUrl(trimmed)) {
-    try {
-      // eslint-disable-next-line no-new
-      new URL(trimmed);
-    } catch {
-      throw new AthenaConfigurationError(
-        "ATHENA_AUTH_INVALID_URL",
-        `${label} is not a valid absolute URL. Received ${JSON.stringify(value)}.`,
-        "auth"
-      );
-    }
+  if (isAbsoluteUrl(trimmed) && !URL.canParse(trimmed)) {
+    throw new AthenaConfigurationError(
+      "ATHENA_AUTH_INVALID_URL",
+      `${label} is not a valid absolute URL. Received ${JSON.stringify(value)}.`,
+      "auth"
+    );
   }
 }
 
@@ -221,7 +216,9 @@ export function toProxyUpstreamBaseUrl(raw: string): string {
     url.hash = "";
     return stripTrailingSlashes(url.toString());
   }
-  return stripTrailingSlashes(trimmed.startsWith("/") ? trimmed : `/${trimmed}`);
+  return stripTrailingSlashes(
+    trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+  );
 }
 
 /**
@@ -245,7 +242,11 @@ export function resolveLegacyCreateClientAuthUrl(input: {
     return explicit;
   }
   const root = normalizeOptional(input.rootUrl);
-  if (input.explicitRootWinsOverEnvServices && root && isAbsoluteHttpUrl(root)) {
+  if (
+    input.explicitRootWinsOverEnvServices &&
+    root &&
+    isAbsoluteHttpUrl(root)
+  ) {
     return appendPath(root, "auth");
   }
   const fromEnv = readFirstEnvHttpUrl(
@@ -258,7 +259,6 @@ export function resolveLegacyCreateClientAuthUrl(input: {
   if (root && isAbsoluteHttpUrl(root)) {
     return appendPath(root, "auth");
   }
-  return undefined;
 }
 
 function resolveUpstreamCandidate(input: ResolveAthenaAuthRoutingInput): {
@@ -291,7 +291,7 @@ function buildServerRequestBaseUrl(
 ): string | undefined {
   const origin = normalizeOptional(requestOrigin);
   if (!origin) {
-    return undefined;
+    return;
   }
   if (isAbsoluteHttpUrl(browserRequestBaseUrl)) {
     return stripTrailingSlashes(browserRequestBaseUrl);
@@ -326,8 +326,7 @@ export function resolveAthenaAuthRouting(
   input: ResolveAthenaAuthRoutingInput = {}
 ): ResolvedAthenaAuthRouting {
   const warnings: string[] = [];
-  const emit =
-    input.emitWarnings ?? !isNodeProductionEnv();
+  const emit = input.emitWarnings ?? !isNodeProductionEnv();
   const credentials = defaultCredentials(input.credentials);
 
   if (input.execution === "local") {
@@ -349,7 +348,10 @@ export function resolveAthenaAuthRouting(
 
   if (mode === "same-origin") {
     const browserRequestBaseUrl = ATHENA_AUTH_PATH;
-    assertValidAthenaAuthUrlShape(browserRequestBaseUrl, "Same-origin auth base");
+    assertValidAthenaAuthUrlShape(
+      browserRequestBaseUrl,
+      "Same-origin auth base"
+    );
 
     const upstream = resolveUpstreamCandidate(input);
     let proxyUpstreamBaseUrl: string | undefined;
@@ -366,14 +368,14 @@ export function resolveAthenaAuthRouting(
         emitWarning(message, emit);
       }
     } else {
-      // No silent hosted default: same-origin without upstream is a config gap.
-      // Browser can still call `/api/auth`; the proxy fails with
-      // ATHENA_AUTH_UPSTREAM_REQUIRED until upstreamUrl / env is set.
-      const message =
+      // Same-origin `/api/auth` is valid without a remote proxy (embedded Auth /
+      // Next discovery). Keep the gap on `warnings` for inspectAuth; do not
+      // console.warn on every createClient — proxy handlers fail closed with
+      // ATHENA_AUTH_UPSTREAM_REQUIRED if they are actually mounted.
+      warnings.push(
         'auth.routing "same-origin" has no proxy upstream. Set auth.upstreamUrl ' +
-        "or ATHENA_AUTH_UPSTREAM_URL (or aliases) before mounting createAthenaAuthProxyHandlers.";
-      warnings.push(message);
-      emitWarning(message, emit);
+          "or ATHENA_AUTH_UPSTREAM_URL (or aliases) before mounting createAthenaAuthProxyHandlers."
+      );
     }
 
     const serverRequestBaseUrl = buildServerRequestBaseUrl(
@@ -484,7 +486,8 @@ export function resolveAthenaAuthRouting(
       if (
         error instanceof AthenaConfigurationError &&
         (error.code === "ATHENA_AUTH_DUPLICATE_PATH" ||
-          (isAbsoluteUrl(legacyUrl) && error.code === "ATHENA_AUTH_INVALID_URL"))
+          (isAbsoluteUrl(legacyUrl) &&
+            error.code === "ATHENA_AUTH_INVALID_URL"))
       ) {
         throw error;
       }
@@ -534,7 +537,8 @@ export function getAttachedAthenaAuthRouting(
   client: object
 ): ResolvedAthenaAuthRouting | undefined {
   return (
-    authRoutingByClient.get(client) ?? (client as ClientWithRouting)[AUTH_ROUTING]
+    authRoutingByClient.get(client) ??
+    (client as ClientWithRouting)[AUTH_ROUTING]
   );
 }
 
@@ -543,15 +547,16 @@ export function getAttachedAthenaAuthRouting(
  */
 export interface AthenaAuthDiagnostics {
   authConfigured: boolean;
+  bearerDetected: boolean;
   browserRequestBaseUrl: string | null;
+  cookieDetected: boolean;
   credentials: AthenaAuthCredentials | null;
   mode: AthenaAuthRoutingMode | null;
   proxyUpstreamBaseUrl: string | null;
   requestOrigin: string | null;
   serverRequestBaseUrl: string | null;
-  bearerDetected: boolean;
-  cookieDetected: boolean;
   sessionTokenDetected: boolean;
+  source: "resolved-client" | "unresolved";
   warnings: string[];
 }
 
@@ -570,9 +575,12 @@ export function toAthenaAuthDiagnostics(
     : null;
   const server =
     routing && requestOrigin
-      ? buildServerRequestBaseUrl(routing.browserRequestBaseUrl, requestOrigin) ??
+      ? (buildServerRequestBaseUrl(
+          routing.browserRequestBaseUrl,
+          requestOrigin
+        ) ??
         routing.serverRequestBaseUrl ??
-        null
+        null)
       : (routing?.serverRequestBaseUrl ?? null);
 
   return {
@@ -586,6 +594,7 @@ export function toAthenaAuthDiagnostics(
     requestOrigin,
     serverRequestBaseUrl: server,
     sessionTokenDetected: Boolean(normalizeOptional(context?.sessionToken)),
+    source: routing ? "resolved-client" : "unresolved",
     warnings: routing?.warnings ? [...routing.warnings] : [],
   };
 }
@@ -606,7 +615,7 @@ export function resolveExplicitAuthRouting(
     | null
 ): ResolvedAthenaAuthRouting | undefined {
   if (auth === false || auth == null || typeof auth !== "object") {
-    return undefined;
+    return;
   }
   if (
     auth.routing === "same-origin" ||
@@ -623,7 +632,7 @@ export function resolveExplicitAuthRouting(
   }
   const explicitUrl = normalizeOptional(auth.url);
   if (!explicitUrl) {
-    return undefined;
+    return;
   }
   return resolveAthenaAuthRouting({
     credentials: auth.credentials,

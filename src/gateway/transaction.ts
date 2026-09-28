@@ -1,7 +1,3 @@
-import type {
-  AthenaGatewayCallOptions,
-  AthenaGatewayResponse,
-} from "./types.ts";
 import { AthenaTransactionError } from "../db/transaction/errors.ts";
 import type {
   AthenaResolvedTransactionOptions,
@@ -11,24 +7,25 @@ import type {
   AthenaTransactionTransportResult,
 } from "../db/transaction/types.ts";
 import { GATEWAY_POSTGRES_TRANSACTION_CAPABILITIES } from "../db/transaction/types.ts";
+import type {
+  AthenaGatewayCallOptions,
+  AthenaGatewayResponse,
+} from "./types.ts";
+import { serializeGatewayOperation } from "./serialize-update.ts";
 
-export interface GatewayTransactionHttpCaller {
-  (
-    payload: unknown,
-    options?: AthenaGatewayCallOptions
-  ): Promise<AthenaGatewayResponse<unknown>>;
-}
+export type GatewayTransactionHttpCaller = (
+  payload: unknown,
+  options?: AthenaGatewayCallOptions
+) => Promise<AthenaGatewayResponse<unknown>>;
 
-function asResults(
-  raw: unknown
-): AthenaGatewayResponse<unknown>[] | undefined {
+function asResults(raw: unknown): AthenaGatewayResponse<unknown>[] | undefined {
   if (!raw || typeof raw !== "object") {
-    return undefined;
+    return;
   }
   const record = raw as Record<string, unknown>;
   const results = record.results;
   if (!Array.isArray(results)) {
-    return undefined;
+    return;
   }
   return results.map((item) => {
     if (item && typeof item === "object") {
@@ -80,11 +77,7 @@ export function createGatewayHttpTransactionTransport(input: {
       const response = await input.postTransaction(
         {
           idempotency_key: options?.idempotencyKey ?? null,
-          operations: operations.map((operation) => ({
-            id: operation.id,
-            kind: operation.kind,
-            payload: operation.payload,
-          })),
+          operations: operations.map(serializeGatewayOperation),
           options: {
             deferrable: options?.deferrable ?? false,
             isolation_level: options?.isolationLevel ?? null,

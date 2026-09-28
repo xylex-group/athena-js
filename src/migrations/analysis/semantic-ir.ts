@@ -1,6 +1,10 @@
 import type { SchemaObjectRef, SqlSourceLocation } from "./ast.ts";
 
-export type DependencyConfidence = "certain" | "probable" | "dynamic" | "unknown";
+export type DependencyConfidence =
+  | "certain"
+  | "probable"
+  | "dynamic"
+  | "unknown";
 
 export type DependencyCategory =
   | "CREATES"
@@ -17,14 +21,35 @@ export type DependencyCategory =
   | "REQUIRES_COLUMN"
   | "REQUIRES_TYPE"
   | "REQUIRES_FUNCTION"
-  | "REQUIRES_EXTENSION";
+  | "REQUIRES_EXTENSION"
+  | "REQUIRES_SEQUENCE";
+
+export type NameResolution =
+  | "exact"
+  | "search_path"
+  | "cte"
+  | "alias"
+  | "temporary"
+  | "catalog_builtin"
+  | "unverified";
+
+export type ExpectedDependencySource =
+  | "baseline"
+  | "migration"
+  | "embedded"
+  | "unknown";
 
 export interface SemanticDependency {
   category: DependencyCategory;
   confidence: DependencyConfidence;
+  expectedSource?: ExpectedDependencySource;
+  explicitlyQualified?: boolean;
   location?: SqlSourceLocation;
   object: SchemaObjectRef;
+  owner?: SchemaObjectRef;
+  resolution?: NameResolution;
   snippet?: string;
+  statementIndex?: number;
 }
 
 export interface SchemaMutation {
@@ -78,6 +103,7 @@ export interface SemanticStatement {
 
 export interface MigrationAnalysis {
   checksum: string;
+  declaredRequires?: SchemaObjectRef[];
   dependencies: SemanticDependency[];
   effects: MigrationEffects;
   filename: string;

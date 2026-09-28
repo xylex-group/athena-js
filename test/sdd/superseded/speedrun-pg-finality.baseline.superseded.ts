@@ -8,5 +8,4 @@
  *
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
-export const SUPERSEDED_BY =
-  "test/sdd/speedrun-pg-finality.target.test.ts";
+export const SUPERSEDED_BY = "test/sdd/speedrun-pg-finality.target.test.ts";

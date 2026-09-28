@@ -45,11 +45,11 @@ If you want normal gateway/query requests to carry Athena Auth session or bearer
 - `client.auth.resetPassword()` -> `POST /reset-password`
 - `client.auth.resetPassword.token()` -> `GET /reset-password/{token}`
 - `client.auth.setPassword()` -> `POST /set-password`
-- `client.auth.verifyEmail()` -> `GET /verify-email`
-- `client.auth.sendVerificationEmail()` -> `POST /send-verification-email`
-- `client.auth.changeEmail()` -> `POST /change-email`
-- `client.auth.changeEmailVerify()` -> `GET /change-email/verify`
-- `client.auth.deleteUserVerify()` -> `GET /delete-user/verify`
+- `client.auth.verificationEmail.verify()` -> `GET /verify-email`
+- `client.auth.verificationEmail.send()` -> `POST /send-verification-email`
+- `client.auth.email.change()` -> `POST /change-email`
+- `client.auth.email.change.verify()` -> `GET /change-email/verify`
+- `client.auth.user.delete.verify()` -> `GET /delete-user/verify`
 - `client.auth.changePassword()` -> `POST /change-password`
 - `client.auth.user.update()` -> `POST /update-user`
 - `client.auth.user.delete()` -> `POST /delete-user`
@@ -92,9 +92,9 @@ If you want normal gateway/query requests to carry Athena Auth session or bearer
 - `client.auth.passkey.generateAuthenticateOptions()` -> `POST /passkey/generate-authenticate-options`
 - `client.auth.passkey.verifyRegistration()` -> `POST /passkey/verify-registration`
 - `client.auth.passkey.verifyAuthentication()` -> `POST /passkey/verify-authentication`
-- `client.auth.passkey.listUserPasskeys()` -> `GET /passkey/list-user-passkeys`
-- `client.auth.passkey.deletePasskey()` -> `POST /passkey/delete-passkey`
-- `client.auth.passkey.updatePasskey()` -> `POST /passkey/update-passkey`
+- `client.auth.passkey.listUser()` -> `GET /passkey/list-user-passkeys`
+- `client.auth.passkey.delete()` -> `POST /passkey/delete-passkey`
+- `client.auth.passkey.update()` -> `POST /passkey/update-passkey`
 - `client.auth.passkey.getRelatedOrigins()` -> `GET /.well-known/webauthn`
 - `client.auth.passkey.register()` — browser ceremony (`generateRegisterOptions` → `credentials.create` → `verifyRegistration`)
 - `client.auth.passkey.signIn()` — browser ceremony (`generateAuthenticateOptions` → `credentials.get` → `verifyAuthentication`)

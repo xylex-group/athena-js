@@ -68,7 +68,6 @@ export function parseContractOrThrow<TSchema extends z.ZodTypeAny>(
         : err instanceof Error
           ? err.message
           : "Contract validation failed";
-    // biome-ignore lint/style/useErrorCause: AthenaContractParseError forwards cause via Error options
     throw new AthenaContractParseError(
       `Contract validation failed at ${path}`,
       [{ code: "invalid_type", message, path: [] }],

@@ -1,6 +1,13 @@
 /** Schema object identities and source locations for migration analysis. */
 
+/** Shape of serialized `MigrationAnalysis` (fields, kinds), not analyzer semantics. */
 export const ANALYSIS_IR_VERSION = 1;
+/**
+ * Name-resolution / dependency-extraction algorithm. Bump when query-deps,
+ * CTE scope, function search_path, or equivalent verifier inputs change.
+ */
+export const ANALYZER_SEMANTICS_VERSION = 4;
+export const ANALYZER_ID = `athena-migration-analyzer@${ANALYZER_SEMANTICS_VERSION}`;
 export const PARSER_ID = "pgsql-parser@18.2.6";
 
 export interface SqlPosition {
@@ -51,6 +58,7 @@ export interface ColumnRef {
 }
 
 export interface FunctionRef {
+  identityArguments?: string[];
   kind: "function" | "procedure";
   name: string;
   schema: string;
@@ -135,7 +143,20 @@ export function objectKey(ref: SchemaObjectRef): string {
       return ref.table
         ? `${ref.kind}:${ref.schema}.${ref.table}.${ref.name}`
         : `${ref.kind}:${ref.schema}.${ref.name}`;
+    case "function":
+    case "procedure": {
+      const args = ref.identityArguments?.length
+        ? `(${ref.identityArguments.join(",")})`
+        : "";
+      if (!ref.schema) {
+        return `${ref.kind}:${ref.name}${args}`;
+      }
+      return `${ref.kind}:${ref.schema}.${ref.name}${args}`;
+    }
     default:
+      if (!("schema" in ref && ref.schema)) {
+        return `${ref.kind}:${ref.name}`;
+      }
       return `${ref.kind}:${ref.schema}.${ref.name}`;
   }
 }
@@ -155,7 +176,20 @@ export function formatObjectRef(ref: SchemaObjectRef): string {
       return ref.table
         ? `${ref.schema}.${ref.table}.${ref.name}`
         : `${ref.schema}.${ref.name}`;
+    case "function":
+    case "procedure": {
+      const args = ref.identityArguments?.length
+        ? `(${ref.identityArguments.join(",")})`
+        : "";
+      if (!ref.schema) {
+        return `${ref.name}${args}`;
+      }
+      return `${ref.schema}.${ref.name}${args}`;
+    }
     default:
+      if (!("schema" in ref && ref.schema)) {
+        return ref.name;
+      }
       return `${ref.schema}.${ref.name}`;
   }
 }
@@ -182,8 +216,8 @@ export function locationFromOffset(
   length = 0
 ): SqlSourceLocation {
   return {
+    end: offsetToPosition(sql, startOffset + Math.max(0, length)),
     filename,
     start: offsetToPosition(sql, startOffset),
-    end: offsetToPosition(sql, startOffset + Math.max(0, length)),
   };
 }

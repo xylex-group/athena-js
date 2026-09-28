@@ -1,4 +1,5 @@
 import type { AthenaAuthCapabilitiesResult } from "../capabilities.ts";
+import type { AuthSessionMutationController } from "../client/session-mutations.ts";
 import type { AthenaAuthSessionController } from "../session-controller.ts";
 import type {
   AthenaAuthBindings,
@@ -13,9 +14,9 @@ export const CANONICAL_PASSKEY_METHODS = [
   "generateAuthenticateOptions",
   "verifyRegistration",
   "verifyAuthentication",
-  "listUserPasskeys",
-  "deletePasskey",
-  "updatePasskey",
+  "listUser",
+  "delete",
+  "update",
   "getRelatedOrigins",
 ] as const;
 
@@ -43,4 +44,9 @@ export interface CreatePasskeyModuleDeps {
   capabilities: PasskeyModuleCapabilities;
   request: PasskeyModuleRequest;
   sessionController: PasskeyModuleSessionController;
+  warnOnCompatibilityAlias?: boolean;
+  sessionMutations?: Pick<
+    AuthSessionMutationController,
+    "applyAuthMutationToSessionStore" | "sessionStore"
+  >;
 }

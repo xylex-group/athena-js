@@ -38,7 +38,9 @@ For the full command matrix and troubleshooting, see
 
 ## Config discovery
 
-`loadAthenaConfig()` and `loadGeneratorConfig()` share the same discovery order. `loadGeneratorConfig()` is used when `--config` is not passed to generate/migrate:
+Canonical `athena.config.ts` imports `defineAthenaConfig` and `generatorEnv` from `@xylex-group/athena/config`. That leaf does not evaluate Auth or WebAuthn. Root re-exports remain for ordinary `createClient` use. Real config-module import failures surface as `ATHENA_CONFIG_IMPORT_FAILED`. `loadAthenaConfig()` / `loadGeneratorConfig()` parse and normalize; they do not instantiate `createClient` or open Postgres.
+
+`loadAthenaConfig()` and `loadGeneratorConfig()` share the same discovery order. `loadGeneratorConfig()` is used when `--config` is not passed to generate/migrate. Node 18 and 20 cannot `import()` `.ts` files natively; the loader then registers `tsx` (a runtime dependency of the CLI) and retries.
 
 - `athena.config.ts`
 - `athena.config.js`
@@ -160,7 +162,7 @@ without manual `process.env`, non-null assertions, string splits, or boolean par
 Smallest direct-mode config:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -173,7 +175,7 @@ export default defineAthenaConfig({
 Smallest gateway-mode config:
 
 ```ts
-import { defineAthenaConfig } from "@xylex-group/athena";
+import { defineAthenaConfig } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -186,7 +188,7 @@ export default defineAthenaConfig({
 Both examples rely on the documented env fallback keys below.
 
 ```ts
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -281,7 +283,7 @@ Use the helper that matches the field type you are filling:
 Examples:
 
 ```ts
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -693,7 +695,7 @@ Successful merges print `[merge]`; unchanged files print `[ok] … (already curr
 ### Local development (direct DB)
 
 ```ts
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {
@@ -745,7 +747,7 @@ export default defineAthenaConfig({
 ### Gateway-only environment
 
 ```ts
-import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena";
+import { defineAthenaConfig, generatorEnv } from "@xylex-group/athena/config";
 
 export default defineAthenaConfig({
   provider: {

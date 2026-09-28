@@ -12,9 +12,14 @@ import {
   type AthenaClientConfig,
   type AthenaClientConfigWithR2,
   type AthenaClientWithR2Storage,
+} from "./contracts.ts";
+import {
   createClientWithNormalizer as createClientWithNormalizerImpl,
+} from "../v3-client-assembly.ts";
+import {
   normalizeUniversalCreateClientConfig,
-} from "../v3-client-core.ts";
+} from "./config/normalize.ts";
+import type { AthenaClientRuntimeBindings } from "./context.ts";
 
 export type {
   AthenaClient,
@@ -33,17 +38,19 @@ export function createClientWithNormalizer<
   TModels extends AthenaClientModelsInput | undefined,
 >(
   config: AthenaClientConfig<TModels>,
-  normalize: (input: AthenaClientConfig<TModels>) => AthenaClientConfig<TModels>
+  normalize: (input: AthenaClientConfig<TModels>) => AthenaClientConfig<TModels>,
+  runtimeBindings?: AthenaClientRuntimeBindings
 ): AthenaClient<TModels> | AthenaClientWithR2Storage<TModels> {
   // Nuclear casts: forwarding the generic impl re-instantiates AthenaClient
   // (TS2589 during declaration emit). Keep the public return types; erase
   // the body the same way v3-client-core createClient does.
   const factory = createClientWithNormalizerImpl as unknown as (
     input: unknown,
-    normalizer: (c: unknown) => unknown
+    normalizer: (c: unknown) => unknown,
+    runtimeBindings?: AthenaClientRuntimeBindings
   ) => unknown;
   const pipeline = normalize as (c: unknown) => unknown;
-  const client: unknown = factory(config, pipeline);
+  const client: unknown = factory(config, pipeline, runtimeBindings);
   return client as AthenaClient<TModels> | AthenaClientWithR2Storage<TModels>;
 }
 

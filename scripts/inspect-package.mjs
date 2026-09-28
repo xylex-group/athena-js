@@ -17,7 +17,17 @@ if (!pkg.exports || typeof pkg.exports !== "object") {
   process.exit(1);
 }
 
-const required = [".", "./server", "./next/server", "./next/session", "./next/client", "./browser", "./email", "./email/node"];
+const required = [
+  ".",
+  "./config",
+  "./server",
+  "./next/server",
+  "./next/session",
+  "./next/client",
+  "./browser",
+  "./email",
+  "./email/node",
+];
 for (const key of required) {
   if (!(key in pkg.exports)) {
     console.error(`inspect-package: missing export "${key}"`);

@@ -1,9 +1,11 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-
-import { createClient } from "../src/index.ts";
+import {
+  ATHENA_EMAIL_PROVIDER_INVALID,
+  AthenaEmailError,
+} from "../src/email/errors.ts";
 import { createMemorySmtpTransport, smtp } from "../src/email-node/smtp.ts";
-import { ATHENA_EMAIL_PROVIDER_INVALID, AthenaEmailError } from "../src/email/errors.ts";
+import { createClient } from "../src/index.ts";
 
 const message = {
   attachmentFailureMode: "fail" as const,
@@ -78,11 +80,24 @@ test("smtp STARTTLS session sends multipart MIME through an injectable transport
   assert.ok(transport.commands.some((line) => line.startsWith("AUTH PLAIN ")));
   assert.ok(transport.commands.includes("MAIL FROM:<no-reply@example.com>"));
   assert.ok(transport.commands.includes("RCPT TO:<user@example.com>"));
-  assert.ok(transport.payloads.some((payload) => payload.includes("multipart/")));
-  assert.ok(transport.payloads.some((payload) => payload.includes("text/html")));
-  assert.ok(transport.payloads.some((payload) => payload.includes("text/plain")));
-  assert.ok(transport.payloads.some((payload) => payload.includes("filename=\"note.txt\"")));
-  assert.equal(transport.payloads.some((payload) => payload.includes("secret")), false);
+  assert.ok(
+    transport.payloads.some((payload) => payload.includes("multipart/"))
+  );
+  assert.ok(
+    transport.payloads.some((payload) => payload.includes("text/html"))
+  );
+  assert.ok(
+    transport.payloads.some((payload) => payload.includes("text/plain"))
+  );
+  assert.ok(
+    transport.payloads.some((payload) =>
+      payload.includes('filename="note.txt"')
+    )
+  );
+  assert.equal(
+    transport.payloads.some((payload) => payload.includes("secret")),
+    false
+  );
 });
 
 test("smtp does not silently skip a failed SMTP reply", async () => {

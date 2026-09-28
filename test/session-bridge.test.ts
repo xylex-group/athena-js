@@ -125,8 +125,10 @@ test("GET native bridge exchanges bridge_code and ignores query token", async ()
   assert.ok(
     replayCookies.every(
       (cookie) =>
-        !cookie.includes("sess_from_code") &&
-        !cookie.includes(encodeURIComponent("sess_from_code"))
+        !(
+          cookie.includes("sess_from_code") ||
+          cookie.includes(encodeURIComponent("sess_from_code"))
+        )
     )
   );
 });

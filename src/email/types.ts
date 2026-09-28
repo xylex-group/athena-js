@@ -80,6 +80,10 @@ export interface AthenaEmailAttachmentPolicy {
   failureMode?: AthenaEmailAttachmentFailureMode;
 }
 
+export interface AthenaEmailTemplatesConfig {
+  store?: AthenaEmailTemplateStore | null;
+}
+
 export interface AthenaEmailConfig {
   attachments?: AthenaEmailAttachmentPolicy;
   defaults?: AthenaEmailDefaults;
@@ -89,6 +93,82 @@ export interface AthenaEmailConfig {
    * `ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED`.
    */
   provider?: AthenaEmailProvider | null;
+  templates?: AthenaEmailTemplatesConfig;
+}
+
+export interface AthenaEmailTemplateVariableBinding {
+  name: string;
+  required?: boolean;
+}
+
+export interface AthenaEmailTemplate {
+  attachmentFailureMode?: AthenaEmailAttachmentFailureMode;
+  attachments?: readonly AthenaEmailAttachment[];
+  eventType?: string;
+  html?: string;
+  htmlTemplate?: string;
+  id?: string;
+  isActive?: boolean;
+  locale: string;
+  subject?: string;
+  subjectTemplate?: string;
+  templateKey?: string;
+  text?: string;
+  textTemplate?: string;
+  variableBindings?: readonly AthenaEmailTemplateVariableBinding[];
+  variables?: readonly string[];
+}
+
+export interface AthenaEmailTemplateSelector {
+  eventType?: string;
+  locale?: string;
+  templateKey?: string;
+}
+
+export interface AthenaEmailTemplateStore {
+  listTemplates(
+    selector?: AthenaEmailTemplateSelector
+  ): Promise<readonly AthenaEmailTemplate[]>;
+}
+
+export interface AthenaEmailTemplateRenderInput
+  extends AthenaEmailTemplateSelector {
+  variables?: Readonly<Record<string, unknown>>;
+}
+
+export interface AthenaRenderedEmailTemplate {
+  eventType?: string;
+  html?: string;
+  locale: string;
+  subject: string;
+  template: AthenaEmailTemplate;
+  templateId?: string;
+  templateKey?: string;
+  text?: string;
+  variables: Readonly<Record<string, string>>;
+}
+
+export interface AthenaEmailTemplateSendInput
+  extends AthenaEmailTemplateRenderInput {
+  attachmentFailureMode?: AthenaEmailAttachmentFailureMode;
+  attachments?: AthenaEmailAttachment[];
+  bcc?: string | string[];
+  cc?: string | string[];
+  from?: string;
+  fromName?: string;
+  headers?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+  replyTo?: string;
+  to: string | string[];
+}
+
+export interface AthenaEmailTemplatesModule {
+  assertAvailable(input: AthenaEmailTemplateSelector): Promise<void>;
+  render(
+    input: AthenaEmailTemplateRenderInput
+  ): Promise<AthenaRenderedEmailTemplate>;
+  resolve(input: AthenaEmailTemplateSelector): Promise<AthenaEmailTemplate>;
+  send(input: AthenaEmailTemplateSendInput): Promise<AthenaEmailDeliveryResult>;
 }
 
 export type AthenaEmailProviderRuntime = "node" | "browser" | "edge";
@@ -121,6 +201,7 @@ export interface AthenaEmailModule {
   readonly diagnostics: AthenaEmailDiagnostics;
   /** Deliver one message through the root provider. Does not persist Auth records. */
   send(message: AthenaEmailMessage): Promise<AthenaEmailDeliveryResult>;
+  readonly templates: AthenaEmailTemplatesModule;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   resolvePagination,
   toFindManyAstOrder,
 } from "../src/query-transport.ts";
+import { createCanonicalSelect } from "../src/query/execution/canonical-select.ts";
 
 test("resolvePagination derives limit and offset from currentPage/pageSize", () => {
   assert.deepEqual(
@@ -33,6 +34,45 @@ test("resolvePagination preserves explicit limit while deriving a missing offset
       limit: 10,
       offset: 5,
     }
+  );
+});
+
+test("canonical fluent selection falls back when cast semantics are present", () => {
+  assert.equal(
+    createCanonicalSelect({
+      columns: "*",
+      state: {
+        conditions: [
+          {
+            column: "id",
+            column_cast: "text",
+            eq_column: "id",
+            eq_column_cast: "text",
+            eq_value: "550e8400-e29b-41d4-a716-446655440000",
+            eq_value_cast: "uuid",
+            operator: "eq",
+            value: "550e8400-e29b-41d4-a716-446655440000",
+            value_cast: "uuid",
+          },
+        ],
+      },
+      tableName: "users",
+    }),
+    undefined
+  );
+});
+
+test("canonical fluent selection falls back when totalPages is present", () => {
+  assert.equal(
+    createCanonicalSelect({
+      columns: "*",
+      state: {
+        conditions: [],
+        totalPages: 10,
+      },
+      tableName: "users",
+    }),
+    undefined
   );
 });
 

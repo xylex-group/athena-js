@@ -2,30 +2,71 @@
 
 ## Unreleased
 
-- `AthenaLayeredServerClient.withContext` now returns `unknown` so strongly typed model roots assign into `createAthenaServerClient({ client })` without comparing the full `AthenaClient` database surface (TS2589 / assignability).
+### Notes
 
-## [5.2.0](https://github.com/xylex-group/athena/compare/athena-js-5.1.1...athena-js-5.2.0) (2026-08-18)
+- Keep Embedded Auth schema generation browser-safe (`schema/generation.ts`); the SQL catalog stays Node/CLI-only.
+- Keep the internal config implementation private; package consumers use the documented root and policy exports.
+
+## [5.6.9](https://github.com/xylex-group/athena/compare/athena-js-5.6.8...athena-js-5.6.9) (2026-09-24)
 
 - Service: `athena-js`
 - Release channel: stable
-- Tag: `athena-js-5.2.0`
+- Tag: `athena-js-5.6.9`
 
-### Notes
+## [5.6.8](https://github.com/xylex-group/athena/compare/athena-js-5.6.7...athena-js-5.6.8) (2026-09-24)
 
-- Next discovery is runtime-capability protocol **1.1** (`runtime: "next-local"`).
-  `createAthenaNextHandlers({ client })` advertises Auth from
-  `AthenaClientInternals.plan` only — it does not re-run `inferEmbeddedAuthMode()`.
-  Browser `createClient({ topology: { discover: "next" } })` resolves
-  `ResolvedNextAthenaTopology` and attaches same-origin `/api/auth` without
-  `auth.routing`. Explicit `auth: false` / `auth.mode: "remote"` + `auth.url` still win.
-- **Migration:** drop `createAthenaBrowserClient`, `auth.routing: "same-origin"`,
-  and Auth UI `basePath` / `ATHENA_AUTH_URL` from the Local Runtime golden path.
-  Protocol 1.0 Data-only documents remain Data-compatible and never imply Auth.
-- **Diagnostics:** `ATHENA_DISCOVERY_UNAVAILABLE` is a Data probe failure;
-  `ATHENA_AUTH_NOT_AVAILABLE` is Data-ok / Auth-off. Do not collapse these.
-- Constructor inference is unchanged: Node `createClient({ databaseUrl })` still
-  folds embedded Auth via `inferEmbeddedAuthMode()`.
-- ADR: [0020](../../docs/adr/technical/0020-athena-next-runtime-capability-discovery.md).
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.6.8`
+- Cast Billing connection-supersession `jsonb_build_object` parameters as `text` so PostgreSQL does not reject environment cutover with `42P18`.
+
+## [5.5.2](https://github.com/xylex-group/athena/compare/athena-js-5.5.1...athena-js-5.5.2) (2026-08-31)
+
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.5.2`
+
+## [5.5.1](https://github.com/xylex-group/athena/compare/athena-js-5.5.0...athena-js-5.5.1) (2026-08-31)
+
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.5.1`
+
+## [5.5.0](https://github.com/xylex-group/athena/compare/athena-js-5.4.0...athena-js-5.5.0) (2026-08-31)
+
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.5.0`
+
+## [5.4.0](https://github.com/xylex-group/athena/compare/next-heroui-example-4.4.1...athena-js-5.4.0) (2026-08-27)
+
+- Service: `athena-js`
+- Release channel: stable
+- Tag: `athena-js-5.4.0`
+
+## [4.4.1](https://github.com/xylex-group/athena/compare/athena-auth-ui-4.4.1...next-heroui-example-4.4.1) (2026-08-23)
+
+- Service: `next-heroui-example`
+- Release channel: stable
+- Tag: `next-heroui-example-4.4.1`
+
+## [4.4.1](https://github.com/xylex-group/athena/compare/athena-auth-ui-4.4.0...athena-auth-ui-4.4.1) (2026-08-23)
+
+- Service: `athena-auth-ui`
+- Release channel: stable
+- Tag: `athena-auth-ui-4.4.1`
+
+## [4.4.0](https://github.com/xylex-group/athena/compare/xylex-group-athena-mcp-0.9.0...athena-auth-ui-4.4.0) (2026-08-23)
+
+- Service: `athena-auth-ui`
+- Release channel: stable
+- Tag: `athena-auth-ui-4.4.0`
+
+## [0.9.0](https://github.com/xylex-group/athena/compare/athena-js-5.1.1...xylex-group-athena-mcp-0.9.0) (2026-08-20)
+
+- Service: `xylex-group-athena-mcp`
+- Release channel: stable
+- Tag: `xylex-group-athena-mcp-0.9.0`
 
 ## [5.1.1](https://github.com/xylex-group/athena/compare/athena-js-5.0.0...athena-js-5.1.1) (2026-08-18)
 
@@ -1418,4 +1459,3 @@
 - Service: `repository`
 - Release channel: stable
 - Tag: `v0.71.0`
-

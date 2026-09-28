@@ -27,6 +27,17 @@ const snapshot: IntrospectionSnapshot = {
               typeKind: "scalar",
               udtName: "int4",
             },
+            list_price: {
+              arrayDimensions: 0,
+              dataType: "money",
+              hasDefault: false,
+              isGenerated: false,
+              isNullable: false,
+              isPrimaryKey: false,
+              name: "list_price",
+              typeKind: "scalar",
+              udtName: "money",
+            },
             price: {
               arrayDimensions: 0,
               dataType: "numeric(12,2)",
@@ -40,28 +51,6 @@ const snapshot: IntrospectionSnapshot = {
               typeKind: "scalar",
               udtName: "numeric",
             },
-            unit_cost: {
-              arrayDimensions: 0,
-              dataType: "decimal",
-              hasDefault: false,
-              isGenerated: false,
-              isNullable: false,
-              isPrimaryKey: false,
-              name: "unit_cost",
-              typeKind: "scalar",
-              udtName: "decimal",
-            },
-            list_price: {
-              arrayDimensions: 0,
-              dataType: "money",
-              hasDefault: false,
-              isGenerated: false,
-              isNullable: false,
-              isPrimaryKey: false,
-              name: "list_price",
-              typeKind: "scalar",
-              udtName: "money",
-            },
             quantity: {
               arrayDimensions: 0,
               dataType: "bigint",
@@ -72,6 +61,17 @@ const snapshot: IntrospectionSnapshot = {
               name: "quantity",
               typeKind: "scalar",
               udtName: "int8",
+            },
+            unit_cost: {
+              arrayDimensions: 0,
+              dataType: "decimal",
+              hasDefault: false,
+              isGenerated: false,
+              isNullable: false,
+              isPrimaryKey: false,
+              name: "unit_cost",
+              typeKind: "scalar",
+              udtName: "decimal",
             },
             weight: {
               arrayDimensions: 0,
@@ -95,7 +95,7 @@ const snapshot: IntrospectionSnapshot = {
   },
 };
 
-test("generator emits decimal() for NUMERIC/DECIMAL/MONEY and number() for floats/ints", () => {
+test("generator emits decimal() for NUMERIC/DECIMAL/MONEY and width-aware builders for numeric columns", () => {
   const artifacts = generateArtifactsFromSnapshot(
     snapshot,
     defineAthenaConfig({
@@ -116,7 +116,7 @@ test("generator emits decimal() for NUMERIC/DECIMAL/MONEY and number() for float
   const model = artifacts.files.find((file) => file.kind === "model");
   assert.ok(model);
 
-  assert.match(model.content, /id: number\(\)/);
+  assert.match(model.content, /id: integer\(\)/);
   assert.match(model.content, /weight: number\(\)/);
   assert.match(
     model.content,
@@ -124,11 +124,11 @@ test("generator emits decimal() for NUMERIC/DECIMAL/MONEY and number() for float
   );
   assert.match(model.content, /unit_cost: decimal\(\)/);
   assert.match(model.content, /list_price: decimal\(\)/);
-  assert.match(model.content, /quantity: string\(\)/);
+  assert.match(model.content, /quantity: bigint\(\)/);
   assert.doesNotMatch(model.content, /price: string\(\)/);
   assert.match(
     model.content,
-    /import \{ decimal, number, string, table \} from/
+    /import \{ bigint, decimal, integer, number, table \} from/
   );
 });
 
@@ -141,7 +141,6 @@ test("generator derives precision/scale from format_type when numericPrecision i
         tables: {
           products: {
             columns: {
-              id: snapshot.schemas.public.tables.products.columns.id,
               amount: {
                 arrayDimensions: 0,
                 dataType: "numeric(8,3)",
@@ -153,6 +152,7 @@ test("generator derives precision/scale from format_type when numericPrecision i
                 typeKind: "scalar",
                 udtName: "numeric",
               },
+              id: snapshot.schemas.public.tables.products.columns.id,
             },
             name: "products",
             primaryKey: ["id"],

@@ -1,4 +1,3 @@
-import { resolvePasskeyAuthenticatorDisplay } from "./metadata/index.ts";
 import type {
   AthenaAuthCallOptions,
   AthenaAuthFetchCompatibleInput,
@@ -9,6 +8,7 @@ import type {
   AthenaPasskeyRecord,
   AthenaPasskeyRegistrationOptions,
 } from "../types.ts";
+import { resolvePasskeyAuthenticatorDisplay } from "./metadata/index.ts";
 
 export function extractPasskeyFetchOptions<
   T extends AthenaAuthFetchCompatibleInput | undefined,
@@ -32,10 +32,11 @@ export function extractPasskeyQuery(
   input?: AthenaAuthFetchCompatibleInput
 ): Record<string, AthenaAuthQueryValue> | undefined {
   const { payload } = extractPasskeyFetchOptions(input);
-  const query = (payload as { query?: Record<string, AthenaAuthQueryValue> } | undefined)
-    ?.query;
+  const query = (
+    payload as { query?: Record<string, AthenaAuthQueryValue> } | undefined
+  )?.query;
   if (!query || typeof query !== "object") {
-    return undefined;
+    return;
   }
   return query;
 }
@@ -56,7 +57,7 @@ export function normalizePasskeyAuthenticationOptions(
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
+    return;
   }
   return value as Record<string, unknown>;
 }
@@ -64,7 +65,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 function asTransportList(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.filter(
-      (entry): entry is string => typeof entry === "string" && entry.length > 0,
+      (entry): entry is string => typeof entry === "string" && entry.length > 0
     );
   }
   if (typeof value === "string" && value.trim()) {
@@ -73,7 +74,7 @@ function asTransportList(value: unknown): string[] {
       if (Array.isArray(parsed)) {
         return parsed.filter(
           (entry): entry is string =>
-            typeof entry === "string" && entry.length > 0,
+            typeof entry === "string" && entry.length > 0
         );
       }
     } catch {
@@ -88,7 +89,7 @@ function asTransportList(value: unknown): string[] {
  * Drops publicKey / credentialID / challenge / attestation.
  */
 export function normalizePasskeyRecord(
-  value: AthenaPasskeyRecord | Record<string, unknown>,
+  value: AthenaPasskeyRecord | Record<string, unknown>
 ): AthenaPasskeyRecord {
   const record = asRecord(value) ?? {};
   const nested = asRecord(record.authenticator);
@@ -97,9 +98,7 @@ export function normalizePasskeyRecord(
       ? "multiDevice"
       : "singleDevice";
   const backedUp = Boolean(nested?.backedUp ?? record.backedUp);
-  const transports = asTransportList(
-    nested?.transports ?? record.transports,
-  );
+  const transports = asTransportList(nested?.transports ?? record.transports);
   const name =
     typeof record.name === "string" && record.name.trim()
       ? record.name

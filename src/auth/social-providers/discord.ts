@@ -111,7 +111,7 @@ export const discord = (options: DiscordOptions) => {
         url.searchParams.set("code_challenge_method", "S256");
         url.searchParams.set(
           "code_challenge",
-          await generateCodeChallenge(codeVerifier),
+          await generateCodeChallenge(codeVerifier)
         );
       }
       return url;

@@ -1,100 +1,100 @@
 import type { CliCapabilities, CliOutputMode } from "./types.ts";
 
 export interface ResolveCliCapabilitiesOptions {
-	/** Explicit --json */
-	json?: boolean;
-	/** Explicit --plain */
-	plain?: boolean;
-	/** Explicit --no-color */
-	noColor?: boolean;
-	/** Explicit --color / --force-color / FORCE_COLOR */
-	forceColor?: boolean;
-	quiet?: boolean;
-	verbose?: boolean;
-	/** Injectable stdout TTY detection (tests). */
-	isTty?: boolean;
-	env?: Record<string, string | undefined>;
+  env?: Record<string, string | undefined>;
+  /** Explicit --color / --force-color / FORCE_COLOR */
+  forceColor?: boolean;
+  /** Injectable stdout TTY detection (tests). */
+  isTty?: boolean;
+  /** Explicit --json */
+  json?: boolean;
+  /** Explicit --no-color */
+  noColor?: boolean;
+  /** Explicit --plain */
+  plain?: boolean;
+  quiet?: boolean;
+  verbose?: boolean;
 }
 
 function readEnv(
-	env: Record<string, string | undefined> | undefined,
+  env: Record<string, string | undefined> | undefined
 ): Record<string, string | undefined> {
-	if (env) {
-		return env;
-	}
-	return (
-		(globalThis as { process?: { env?: Record<string, string | undefined> } })
-			.process?.env ?? {}
-	);
+  if (env) {
+    return env;
+  }
+  return (
+    (globalThis as { process?: { env?: Record<string, string | undefined> } })
+      .process?.env ?? {}
+  );
 }
 
 export function resolveCliOutputMode(
-	options: ResolveCliCapabilitiesOptions = {},
+  options: ResolveCliCapabilitiesOptions = {}
 ): CliOutputMode {
-	if (options.json) {
-		return "json";
-	}
-	if (options.plain || options.noColor) {
-		return "plain";
-	}
-	const env = readEnv(options.env);
-	if (env.NO_COLOR !== undefined && env.NO_COLOR !== "") {
-		return "plain";
-	}
-	if (env.ATHENA_JS_PLAIN === "1" || env.ATHENA_JS_PLAIN === "true") {
-		return "plain";
-	}
-	if (env.ATHENA_JS_JSON === "1" || env.ATHENA_JS_JSON === "true") {
-		return "json";
-	}
-	const isTty =
-		options.isTty ??
-		Boolean(
-			(globalThis as { process?: { stdout?: { isTTY?: boolean } } }).process
-				?.stdout?.isTTY,
-		);
-	if (!isTty) {
-		return "plain";
-	}
-	if (env.TERM === "dumb") {
-		return "plain";
-	}
-	return "interactive";
+  if (options.json) {
+    return "json";
+  }
+  if (options.plain || options.noColor) {
+    return "plain";
+  }
+  const env = readEnv(options.env);
+  if (env.NO_COLOR !== undefined && env.NO_COLOR !== "") {
+    return "plain";
+  }
+  if (env.ATHENA_JS_PLAIN === "1" || env.ATHENA_JS_PLAIN === "true") {
+    return "plain";
+  }
+  if (env.ATHENA_JS_JSON === "1" || env.ATHENA_JS_JSON === "true") {
+    return "json";
+  }
+  const isTty =
+    options.isTty ??
+    Boolean(
+      (globalThis as { process?: { stdout?: { isTTY?: boolean } } }).process
+        ?.stdout?.isTTY
+    );
+  if (!isTty) {
+    return "plain";
+  }
+  if (env.TERM === "dumb") {
+    return "plain";
+  }
+  return "interactive";
 }
 
 export function resolveCliCapabilities(
-	options: ResolveCliCapabilitiesOptions = {},
+  options: ResolveCliCapabilitiesOptions = {}
 ): CliCapabilities {
-	const env = readEnv(options.env);
-	const mode = resolveCliOutputMode(options);
-	const isTty =
-		options.isTty ??
-		Boolean(
-			(globalThis as { process?: { stdout?: { isTTY?: boolean } } }).process
-				?.stdout?.isTTY,
-		);
-	const envForceColor =
-		env.FORCE_COLOR === "1" ||
-		env.FORCE_COLOR === "2" ||
-		env.FORCE_COLOR === "3" ||
-		env.FORCE_COLOR === "true";
-	const forceColor = Boolean(options.forceColor) || envForceColor;
-	const colorDisabled =
-		options.noColor === true ||
-		(env.NO_COLOR !== undefined && env.NO_COLOR !== "") ||
-		env.FORCE_COLOR === "0";
-	const color =
-		mode !== "json" &&
-		mode !== "plain" &&
-		!colorDisabled &&
-		!options.plain &&
-		(mode === "interactive" || forceColor);
+  const env = readEnv(options.env);
+  const mode = resolveCliOutputMode(options);
+  const isTty =
+    options.isTty ??
+    Boolean(
+      (globalThis as { process?: { stdout?: { isTTY?: boolean } } }).process
+        ?.stdout?.isTTY
+    );
+  const envForceColor =
+    env.FORCE_COLOR === "1" ||
+    env.FORCE_COLOR === "2" ||
+    env.FORCE_COLOR === "3" ||
+    env.FORCE_COLOR === "true";
+  const forceColor = Boolean(options.forceColor) || envForceColor;
+  const colorDisabled =
+    options.noColor === true ||
+    (env.NO_COLOR !== undefined && env.NO_COLOR !== "") ||
+    env.FORCE_COLOR === "0";
+  const color =
+    mode !== "json" &&
+    mode !== "plain" &&
+    !colorDisabled &&
+    !options.plain &&
+    (mode === "interactive" || forceColor);
 
-	return {
-		mode,
-		color,
-		isTty,
-		quiet: Boolean(options.quiet),
-		verbose: Boolean(options.verbose),
-	};
+  return {
+    color,
+    isTty,
+    mode,
+    quiet: Boolean(options.quiet),
+    verbose: Boolean(options.verbose),
+  };
 }

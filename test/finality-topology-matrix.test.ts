@@ -2,8 +2,8 @@ import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
 
 import { AthenaConfigurationError } from "../src/config/errors.ts";
-import { ATHENA_TOPOLOGY_MATRIX } from "../src/runtime/topology-matrix.ts";
 import { resolveAthenaRuntime } from "../src/runtime/resolve.ts";
+import { ATHENA_TOPOLOGY_MATRIX } from "../src/runtime/topology-matrix.ts";
 
 test("ATHENA_TOPOLOGY_MATRIX is the executable topology authority", () => {
   assert.ok(ATHENA_TOPOLOGY_MATRIX.length >= 10);

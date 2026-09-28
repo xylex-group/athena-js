@@ -15,11 +15,11 @@
  * Kept as a record only (not a *.test.ts file so CI does not run it).
  */
 export const SUPERSEDED_BY =
-	"test/sdd/passkey-runtime-finality.server-contract.target.test.ts";
+  "test/sdd/passkey-runtime-finality.server-contract.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B-SRV-START-HASH",
-	"B-SRV-START-NO-RAW",
-	"B-SRV-CONSUME-NO-USER",
-	"B-SRV-PERSIST-HASH",
+  "B-SRV-START-HASH",
+  "B-SRV-START-NO-RAW",
+  "B-SRV-CONSUME-NO-USER",
+  "B-SRV-PERSIST-HASH",
 ] as const;

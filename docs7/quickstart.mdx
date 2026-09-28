@@ -1,0 +1,29 @@
+---
+title: Quickstart
+description: Install Athena JS and construct the root client
+---
+
+## Install
+
+```bash
+pnpm add @xylex-group/athena
+```
+
+## Create the client
+
+```ts
+import { createClient } from "@xylex-group/athena";
+
+export const athena = createClient({
+  url: process.env.ATHENA_URL,
+  key: process.env.ATHENA_API_KEY,
+});
+```
+
+Pass `env: process.env` when you want alias resolution (`ATHENA_API_KEY`, `NEXT_PUBLIC_ATHENA_API_KEY`, and related keys). Prefer generated `models` on `createClient` when you run `athena-js generate`.
+
+## Next
+
+- [createClient](https://athena.xbp.app/docs/create-client)
+- [Embedded Auth](https://athena.xbp.app/docs/auth/embedded)
+- [Migrations](https://athena.xbp.app/docs/database/migrations)

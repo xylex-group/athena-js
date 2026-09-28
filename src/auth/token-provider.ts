@@ -57,9 +57,9 @@ export function decodeJwtExpSeconds(token: string): number | null {
     return null;
   }
   try {
-    const payload = JSON.parse(
-      decodeJwtSegment(parts[1] ?? "")
-    ) as { exp?: unknown };
+    const payload = JSON.parse(decodeJwtSegment(parts[1] ?? "")) as {
+      exp?: unknown;
+    };
     return typeof payload.exp === "number" ? payload.exp : null;
   } catch {
     return null;
@@ -68,7 +68,8 @@ export function decodeJwtExpSeconds(token: string): number | null {
 
 function decodeJwtSegment(segment: string): string {
   const padded = segment.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
+  const pad =
+    padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
   if (typeof atob === "function") {
     return atob(`${padded}${pad}`);
   }
@@ -102,10 +103,7 @@ export function createAthenaAuthTokenProvider(
     if (inflight) {
       return inflight;
     }
-    inflight = issue(
-      { audience: providerOptions.audience },
-      options
-    )
+    inflight = issue({ audience: providerOptions.audience }, options)
       .then((result) => {
         cached = result.ok ? result.data : null;
         return result;

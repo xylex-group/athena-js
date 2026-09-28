@@ -9,11 +9,12 @@
  * Must stay RED on CURRENT HEAD until that closeout lands. Do not implement
  * product ownership here — src/runtime/ownership.ts is already the contract.
  */
+
+import { strict as assert } from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   createAthenaAuthHandlers,
@@ -334,7 +335,10 @@ test("P2: AthenaRequestClient still Omits close; no extra public client factorie
   const v3Src = readFileSync(join(srcRoot, "v3-client.ts"), "utf8");
   const indexSrc = readFileSync(join(srcRoot, "index.ts"), "utf8");
   const serverSrc = readFileSync(join(srcRoot, "server.ts"), "utf8");
-  const nextServerSrc = readFileSync(join(srcRoot, "next", "server.ts"), "utf8");
+  const nextServerSrc = readFileSync(
+    join(srcRoot, "next", "server.ts"),
+    "utf8"
+  );
   const migrationsSrc = readFileSync(
     join(srcRoot, "migrations", "index.ts"),
     "utf8"
@@ -385,7 +389,9 @@ test("P2: leftover inverted baseline is superseded or rewritten to landed contra
     ? readFileSync(supersededPath, "utf8")
     : readFileSync(leftoverPath, "utf8");
 
-  const invertedSilentClose = living.includes("P2: view.close is a silent no-op");
+  const invertedSilentClose = living.includes(
+    "P2: view.close is a silent no-op"
+  );
   const invertedViewOwnership = living.includes(
     'P2: internals ownership === "view"'
   );
@@ -402,7 +408,7 @@ test("P2: leftover inverted baseline is superseded or rewritten to landed contra
       invertedMissingCode ||
       invertedDiagnostics,
     false,
-    "leftover inverted baseline must be superseded or rewritten; pre-implement silent-close / ownership \"view\" must not remain GREEN on CURRENT"
+    'leftover inverted baseline must be superseded or rewritten; pre-implement silent-close / ownership "view" must not remain GREEN on CURRENT'
   );
   assert.equal(living.includes(OWNERSHIP_INVALID), true);
   assert.equal(living.includes('ownership: "request"') || leftoverMoved, true);
@@ -434,7 +440,7 @@ test('P2: stale product tests assert "request" + ATHENA_RUNTIME_OWNERSHIP_INVALI
       `${rel} must not lock internals ownership/source as "view"`
     );
     assert.equal(
-      src.includes("ownership, \"view\""),
+      src.includes('ownership, "view"'),
       false,
       `${rel} must not assert diagnostics ownership "view"`
     );

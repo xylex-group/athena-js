@@ -5,16 +5,20 @@
  *
  * Ordered steps:
  * 1. typecheck
- * 2. unit / regression
+ * 2. unit / regression and stabilization finality
  * 3. ownership
  * 4. package build
  * 5. package export tests
  * 6. browser bundle contamination
  * 7. create-athena-app fixture
  * 8. packed-tarball consumer / package-install
- * 9. ephemeral PostgreSQL
+ * 9. PostgreSQL release proofs
  * 10. Next.js embedded-next / next-embedded / nextE2E
- * 11. cleanup + leak / process checks
+ * 11. packed next-minimal golden-path / social / passkey
+ * 12. RN audit + Auth UI export graph + docs/contract drift
+ * 13. cleanup + leak / process checks
+ *
+ * Tracked cells: scripts/finality-matrix.mjs
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -27,6 +31,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertFinalityMatrixProofs } from "./finality-matrix.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const tmpDir = join(root, ".tmp");
@@ -36,6 +41,7 @@ const statePath = join(tmpDir, "finality-state.json");
 
 const CHECK_KEYS = [
 	"unit",
+	"stabilization",
 	"ownership",
 	"exports",
 	"browserIsolation",
@@ -43,6 +49,7 @@ const CHECK_KEYS = [
 	"postgres",
 	"embeddedAuth",
 	"nextE2E",
+	"nextMinimalGolden",
 ];
 
 /** @type {Record<string, boolean>} */
@@ -59,7 +66,9 @@ function gitCommit() {
 		shell: process.platform === "win32",
 	});
 	if (result.status !== 0) {
-		throw new Error(`git rev-parse HEAD failed: ${result.stderr || result.status}`);
+		throw new Error(
+			`git rev-parse HEAD failed: ${result.stderr || result.status}`,
+		);
 	}
 	return (result.stdout || "").trim();
 }
@@ -68,11 +77,11 @@ function writeReport(passed) {
 	mkdirSync(tmpDir, { recursive: true });
 	const pkg = readJson(join(root, "package.json"));
 	const body = {
-		"package": pkg.name,
-		"version": pkg.version,
-		"commit": gitCommit(),
-		"passed": passed,
-		"checks": { ...checks },
+		checks: { ...checks },
+		commit: gitCommit(),
+		package: pkg.name,
+		passed: passed,
+		version: pkg.version,
 	};
 	const tmp = `${reportPath}.${process.pid}.tmp`;
 	writeFileSync(tmp, `${JSON.stringify(body, null, 2)}\n`);
@@ -98,7 +107,14 @@ function resolveBin(name) {
 	) {
 		return name;
 	}
-	return process.platform === "win32" ? `${name}.cmd` : name;
+	if (process.platform !== "win32") {
+		return name;
+	}
+	// Corepack/npm shims are *.cmd; Bun's Windows binary is bun.exe.
+	if (name === "bun") {
+		return "bun.exe";
+	}
+	return `${name}.cmd`;
 }
 
 function windowsNeedsShell(bin) {
@@ -125,36 +141,80 @@ function run(bin, args, options = {}) {
 	return result;
 }
 
-function nodeTest(files) {
+function nodeTest(files, options = {}) {
+	const forceExit = options.forceExit !== false;
 	run(process.execPath, [
 		"--import",
 		"./test/register-server-only.mjs",
 		"--import",
 		"tsx",
+		...(process.platform === "win32"
+			? ["--import", "./test/windows-defer-force-exit.mjs"]
+			: []),
 		"--test",
-		"--test-force-exit",
+		...(forceExit ? ["--test-force-exit"] : []),
 		...files,
 	]);
 }
 
+function refreshAuthSchemaReleaseLock() {
+	run(process.execPath, [
+		join(root, "scripts", "verify-auth-schema-release.mjs"),
+		"--write",
+	]);
+}
+
+/** pnpm pack name for `@scope/name` + version → `scope-name-version.tgz`. */
+function expectedPackTarballName(pkg) {
+	const bare = String(pkg.name ?? "")
+		.replace(/^@/, "")
+		.replace(/\//g, "-");
+	if (!bare || typeof pkg.version !== "string" || pkg.version.length === 0) {
+		throw new Error(
+			"package.json name/version required to resolve packed tarball",
+		);
+	}
+	return `${bare}-${pkg.version}.tgz`;
+}
+
+function clearPackedTarballs() {
+	if (!existsSync(packDir)) {
+		mkdirSync(packDir, { recursive: true });
+		return;
+	}
+	for (const name of readdirSync(packDir)) {
+		if (name.endsWith(".tgz")) {
+			rmSync(join(packDir, name), { force: true });
+		}
+	}
+}
+
+/**
+ * Fail-closed: install the tarball that matches package.json version.
+ * Do not use lexicographic "last .tgz" — unversioned `xylex-group-athena.tgz`
+ * sorts after `…-5.4.0.tgz` and can leave fixtures on a stale pack.
+ */
 function latestTarball() {
 	if (!existsSync(packDir)) {
 		throw new Error("missing .tmp/packages after pnpm pack");
 	}
-	const tgz = readdirSync(packDir)
-		.filter((name) => name.endsWith(".tgz"))
-		.sort();
-	if (tgz.length === 0) {
-		throw new Error("pnpm pack produced no .tgz in .tmp/packages");
+	const pkg = readJson(join(root, "package.json"));
+	const expected = expectedPackTarballName(pkg);
+	const path = join(packDir, expected);
+	if (!existsSync(path)) {
+		const found = readdirSync(packDir).filter((name) => name.endsWith(".tgz"));
+		throw new Error(
+			`missing packed tarball ${expected} in .tmp/packages (found: ${found.join(", ") || "none"})`,
+		);
 	}
-	return join(packDir, tgz[tgz.length - 1]);
+	return path;
 }
 
 /** Committed fixture manifests restored after packed installs (avoid leftover churn). */
 const fixtureSnapshots = new Map();
 
 function snapshotFixtureTree(fixtureDir) {
-	const files = ["package.json", "pnpm-lock.yaml"];
+	const files = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"];
 	/** @type {Record<string, string | null>} */
 	const snapshot = {};
 	for (const name of files) {
@@ -178,27 +238,53 @@ function restoreFixtureTrees() {
 	fixtureSnapshots.clear();
 }
 
-function rewriteFileDep(manifestPath, tarballPath) {
+function rewriteFileDep(manifestPath, tarballPath, extraDeps = {}) {
 	const manifest = readJson(manifestPath);
 	manifest.dependencies = {
 		...manifest.dependencies,
 		"@xylex-group/athena": `file:${tarballPath.replace(/\\/g, "/")}`,
+		...extraDeps,
 	};
 	writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-function installPackedConsumer(fixtureDir, tarballPath) {
+/**
+ * Isolated fixture workspace. pnpm 11 reads allowBuilds from
+ * pnpm-workspace.yaml (not package.json / .npmrc). --ignore-workspace
+ * skips this file and fails with ERR_PNPM_IGNORED_BUILDS on esbuild
+ * (tsx → esbuild postinstall; strictDepBuilds defaults true).
+ */
+const FIXTURE_PNPM_WORKSPACE = `packages:
+  - "."
+allowBuilds:
+  esbuild: true
+shamefullyHoist: true
+ignoreWorkspaceRootCheck: true
+`;
+
+function installPackedConsumer(fixtureDir, tarballPath, extraDeps = {}) {
 	snapshotFixtureTree(fixtureDir);
-	rewriteFileDep(join(fixtureDir, "package.json"), tarballPath);
+	rewriteFileDep(join(fixtureDir, "package.json"), tarballPath, extraDeps);
+	writeFileSync(
+		join(fixtureDir, "pnpm-workspace.yaml"),
+		FIXTURE_PNPM_WORKSPACE,
+	);
 	rmSync(join(fixtureDir, "node_modules"), { force: true, recursive: true });
 	rmSync(join(fixtureDir, "pnpm-lock.yaml"), { force: true });
-	run("pnpm", ["install", "--ignore-workspace"], {
+	run("pnpm", ["install"], {
 		cwd: fixtureDir,
+		env: { CI: "true" },
 	});
 }
 
 function generateCreateAthenaAppFixture() {
 	const nextEmbedded = join(root, "test", "fixtures", "next-embedded");
+	const nextMinimalGolden = join(
+		root,
+		"test",
+		"fixtures",
+		"next-minimal-golden",
+	);
 	const required = [
 		"lib/athena/root.ts",
 		"lib/athena/server.ts",
@@ -210,6 +296,17 @@ function generateCreateAthenaAppFixture() {
 	for (const rel of required) {
 		if (!existsSync(join(nextEmbedded, rel))) {
 			failClosed(`create-athena-app fixture missing ${rel}`);
+		}
+	}
+	const goldenRequired = [
+		...required,
+		"athena.config.ts",
+		"athena/migrations/0001_next_minimal_auth_directory.sql",
+		"server.mjs",
+	];
+	for (const rel of goldenRequired) {
+		if (!existsSync(join(nextMinimalGolden, rel))) {
+			failClosed(`next-minimal golden-path fixture missing ${rel}`);
 		}
 	}
 	const generator = join(
@@ -250,8 +347,12 @@ function launchPostgres() {
 			`ephemeral PostgreSQL launch failed: ${result.stderr || result.stdout || result.status}`,
 		);
 	}
-	const url = (result.stdout || "").trim().split(/\r?\n/).filter(Boolean).at(-1);
-	if (!url || !/^postgres(ql)?:\/\//i.test(url)) {
+	const url = (result.stdout || "")
+		.trim()
+		.split(/\r?\n/)
+		.filter(Boolean)
+		.at(-1);
+	if (!(url && /^postgres(ql)?:\/\//i.test(url))) {
 		failClosed("postgres-runtime did not print a postgres:// URI");
 	}
 	return url;
@@ -297,7 +398,28 @@ function assertNoLeakedFixtureProcesses(serverPid) {
 	}
 }
 
+function runAuthUi(args) {
+	const authUi = join(root, "..", "athena-auth-ui");
+	run("bun", args, { cwd: authUi });
+}
+
+function runAuthUiExportTests() {
+	// Auth UI pins packageManager bun@1.2.15. pnpm exec in that cwd fails
+	// Corepack with "Unsupported package manager specification (bun@…)".
+	runAuthUi([
+		"x",
+		"vitest",
+		"run",
+		"--config",
+		"vitest.release.config.ts",
+		"tests/public-export-graph.test.ts",
+		"tests/export-boundary.test.ts",
+	]);
+}
+
 try {
+	refreshAuthSchemaReleaseLock();
+	assertFinalityMatrixProofs(root);
 	mkdirSync(tmpDir, { recursive: true });
 	mkdirSync(packDir, { recursive: true });
 
@@ -306,8 +428,19 @@ try {
 	checks.unit = false;
 
 	// 2. unit / regression
-	run("pnpm", ["test"]);
+	run("pnpm", ["test"], {
+		env: {
+			ATHENA_AUTH_FINALITY_DATABASE_URL: "",
+			ATHENA_BILLING_FINALITY_DATABASE_URL: "",
+			ATHENA_LOCAL_RUNTIME_PG_URI: "",
+			ATHENA_PG_DIRECT_URI: "",
+			ATHENA_TEST_DATABASE_URL: "",
+			DATABASE_URL: "",
+		},
+	});
 	checks.unit = true;
+	run("pnpm", ["test:stabilization-finality"]);
+	checks.stabilization = true;
 
 	// 3. ownership
 	nodeTest(["test/finality/ownership.test.ts"]);
@@ -323,32 +456,109 @@ try {
 
 	// 6. browser bundle contamination
 	nodeTest(["test/finality/browser-boundary.test.ts"]);
+	nodeTest(["test/finality/cli-boundary.test.ts"]);
 	run("pnpm", ["test:browser-bundle"]);
+	run(process.execPath, ["scripts/audit-runtime-boundaries.mjs"]);
+	run(process.execPath, ["scripts/test-package-node-import.mjs"]);
+	run("pnpm", ["audit:rn"]);
+	runAuthUiExportTests();
 	checks.browserIsolation = true;
 
 	// 7. create-athena-app fixture
 	generateCreateAthenaAppFixture();
 
 	// 8. packed-tarball consumer
-	run("pnpm", ["pack", "--pack-destination", packDir]);
+	clearPackedTarballs();
+	run(process.execPath, [
+		join(root, "scripts", "pack-self-link-manifest.mjs"),
+		"strip",
+	]);
+	try {
+		run("pnpm", ["pack", "--pack-destination", packDir], {
+			env: {
+				NPM_CONFIG_IGNORE_SCRIPTS: "false",
+				npm_config_ignore_scripts: "false",
+			},
+		});
+	} finally {
+		run(process.execPath, [
+			join(root, "scripts", "pack-self-link-manifest.mjs"),
+			"restore",
+		]);
+	}
 	const tarball = latestTarball();
-	installPackedConsumer(join(root, "test", "fixtures", "package-consumer"), tarball);
-	installPackedConsumer(join(root, "test", "fixtures", "next-embedded"), tarball);
+	const authUiRoot = join(root, "..", "athena-auth-ui");
+	runAuthUi(["run", "build"]);
+	runAuthUi(["pm", "pack", "--destination", packDir]);
+	const authUiPkg = readJson(join(authUiRoot, "package.json"));
+	const authUiTarball = join(packDir, expectedPackTarballName(authUiPkg));
+	if (!existsSync(authUiTarball)) {
+		failClosed(`missing packed Auth UI tarball ${authUiTarball}`);
+	}
+	const authUiFileDep = {
+		"@xylex-group/athena-auth-ui": `file:${authUiTarball.replace(/\\/g, "/")}`,
+	};
+	installPackedConsumer(
+		join(root, "test", "fixtures", "package-consumer"),
+		tarball,
+	);
+	installPackedConsumer(
+		join(root, "test", "fixtures", "next-embedded"),
+		tarball,
+	);
+	installPackedConsumer(
+		join(root, "test", "fixtures", "next-minimal-golden"),
+		tarball,
+		authUiFileDep,
+	);
+	const expoRn53 = join(root, "test", "fixtures", "expo-rn53");
+	installPackedConsumer(expoRn53, tarball);
+	run("pnpm", ["check"], { cwd: expoRn53 });
 	nodeTest(["test/finality/package-install.test.ts"]);
+	nodeTest(["test/finality/package-finality.test.ts"]);
+	nodeTest(["test/finality/next-webpack-package.test.ts"]);
+	run("pnpm", ["test:tarball"]);
 	checks.tarballConsumer = true;
 
 	// 9. ephemeral PostgreSQL (ATHENA_TEST_DATABASE_URL | DATABASE_URL | docker/podman)
 	const databaseUrl = launchPostgres();
 	process.env.ATHENA_TEST_DATABASE_URL = databaseUrl;
+	process.env.ATHENA_AUTH_FINALITY_DATABASE_URL = databaseUrl;
+	process.env.ATHENA_BILLING_FINALITY_DATABASE_URL = databaseUrl;
 	process.env.DATABASE_URL = databaseUrl;
 	checks.postgres = true;
+	run("pnpm", ["test:billing-release"]);
+	run("pnpm", ["test:auth-schema-release"]);
 
 	// 10. Next.js embedded-runtime E2E against the public packed package
 	nodeTest(["test/finality/embedded-next.test.ts"]);
 	checks.embeddedAuth = true;
 	checks.nextE2E = true;
 
-	// 11. cleanup + leak / process checks
+	// 11. packed next-minimal golden-path (empty Postgres, Auth-first migrate)
+	nodeTest(["test/finality/next-minimal-golden-path.test.ts"], {
+		forceExit: process.platform !== "win32",
+	});
+	nodeTest(["test/finality/next-minimal-golden-social.test.ts"], {
+		forceExit: process.platform !== "win32",
+	});
+	nodeTest(["test/finality/next-minimal-golden-passkey.test.ts"], {
+		forceExit: process.platform !== "win32",
+	});
+	nodeTest(["test/finality/next-minimal-golden-auth-ui-pack.test.ts"], {
+		forceExit: process.platform !== "win32",
+	});
+	nodeTest(["test/finality/packed-transport-topology.test.ts"], {
+		forceExit: process.platform !== "win32",
+	});
+	nodeTest(["test/finality/token-key-store-postgres.test.ts"], {
+		forceExit: process.platform !== "win32",
+	});
+	checks.nextMinimalGolden = true;
+
+	run("pnpm", ["docs:check"]);
+
+	// 12. cleanup + leak / process checks
 	destroyPostgres();
 	assertNoLeakedFixtureProcesses(undefined);
 	restoreFixtureTrees();

@@ -1,32 +1,49 @@
+export { createConfiguredProviderBinding } from "./binding.ts";
 export {
-	assertBillingProviderRuntimeEnvironment,
-	normalizeBillingProviderConfig,
-	normalizeMollieBillingProviderConfig,
-	toBillingProviderDiagnostics,
+  assertBillingProviderRuntimeEnvironment,
+  normalizeBillingProviderConfig,
+  normalizeMollieBillingProviderConfig,
+  toBillingProviderDiagnostics,
 } from "./config.ts";
-export { createBillingProviderRegistry } from "./create-registry.ts";
 export {
-	BillingProviderRegistry,
-	normalizeBillingProviderName,
+  createConnectionProviderExecutionContext,
+  createPersistedProviderBinding,
+  defaultBillingCredentialReference,
+  firstConfiguredMollieProvider,
+  mollieConfigForCredentialReference,
+  parseBillingCredentialReference,
+} from "./connection-binding.ts";
+export { createBillingProviderRegistry } from "./create-registry.ts";
+export { createBillingProviderDefinitionRegistry } from "./definition-registry.ts";
+export { BillingProviderDefinitionRegistry } from "./definitions.ts";
+export type { BillingProviderDefinition } from "./definition.ts";
+export {
+  configuredProviderNames,
+  configuredProviderSlot,
+  configuredProviderSlotEntries,
+  normalizeBillingProviderConfiguration,
+} from "./configuration/index.ts";
+export {
+  BillingProviderRegistry,
+  normalizeBillingProviderName,
 } from "./registry.ts";
-export { createBillingProviderExecutionContext } from "./execution-context.ts";
 export { resolveBillingExecutionTarget } from "./resolve-target.ts";
 export type {
-	BillingProviderBinding,
-	BillingProviderExecutionContext,
-	ConfiguredBillingProviderBinding,
-	PersistedBillingProviderBinding,
-	BillingCustomersPort,
-	BillingInvoicesPort,
-	BillingPaymentLinksPort,
-	BillingProviderCapabilities,
-	BillingProviderCreatePaymentInput,
-	BillingProviderPaymentPort,
-	BillingProviderRuntime,
-	BillingRefundsPort,
-	BillingSubscriptionsPort,
-	BillingWebhooksPort,
-	MollieBillingProviderRuntime,
-	ResolvedBillingExecutionTarget,
-	StripeBillingProviderRuntime,
+  BillingCustomersPort,
+  BillingInvoicesPort,
+  BillingPaymentLinksPort,
+  BillingProviderBinding,
+  BillingProviderCapabilities,
+  BillingProviderCreatePaymentInput,
+  BillingProviderExecutionContext,
+  BillingProviderPaymentPort,
+  BillingProviderRuntime,
+  BillingRefundsPort,
+  BillingSubscriptionsPort,
+  BillingWebhooksPort,
+  ConfiguredBillingProviderBinding,
+  MollieBillingProviderRuntime,
+  PersistedBillingProviderBinding,
+  ResolvedBillingExecutionTarget,
+  StripeBillingProviderRuntime,
 } from "./types.ts";

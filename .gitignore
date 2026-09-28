@@ -7,7 +7,10 @@ dist/
 .env.local
 coverage/
 .release-evidence/
+.package.json.publish-backup
 .tmp/
+test/fixtures/next-minimal-golden/.tmp-golden-storage/
+**/.next/
 .nyc_output/
 *.tsbuildinfo
 /test-sdk/mcps
@@ -15,3 +18,5 @@ coverage/
 mcps/
 agent-tools/
 
+.xbp
+architecture/

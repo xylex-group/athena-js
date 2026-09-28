@@ -1,3 +1,11 @@
+import { AthenaTransactionError } from "../../db/transaction/errors.ts";
+import type {
+  AthenaResolvedTransactionOptions,
+  AthenaTransactionOperation,
+  AthenaTransactionTransport,
+  AthenaTransactionTransportResult,
+} from "../../db/transaction/types.ts";
+import { D1_BATCH_TRANSACTION_CAPABILITIES } from "../../db/transaction/types.ts";
 import { AthenaGatewayError } from "../../gateway/errors.ts";
 import type {
   AthenaDeletePayload,
@@ -7,14 +15,10 @@ import type {
   AthenaInsertPayload,
   AthenaUpdatePayload,
 } from "../../gateway/types.ts";
-import { AthenaTransactionError } from "../../db/transaction/errors.ts";
-import type {
-  AthenaResolvedTransactionOptions,
-  AthenaTransactionOperation,
-  AthenaTransactionTransport,
-  AthenaTransactionTransportResult,
-} from "../../db/transaction/types.ts";
-import { D1_BATCH_TRANSACTION_CAPABILITIES } from "../../db/transaction/types.ts";
+import {
+  keepNullKeysFromFindManySelect,
+  maybeStripNullRows,
+} from "../../result/strip-null-properties.ts";
 import type { D1DatabaseLike, D1ResultLike } from "../types.ts";
 import { executeD1Batch } from "./runner.ts";
 import {
@@ -50,24 +54,6 @@ function d1ErrorResponse<T>(
   };
 }
 
-function stripNullsFromRows(rows: unknown[], strip: boolean): unknown[] {
-  if (!strip) {
-    return rows;
-  }
-  return rows.map((row) => {
-    if (row === null || typeof row !== "object" || Array.isArray(row)) {
-      return row;
-    }
-    const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
-      if (value !== null) {
-        out[key] = value;
-      }
-    }
-    return out;
-  });
-}
-
 function flattenCompiled(compiled: D1CompiledSql): {
   params?: unknown[];
   query: string;
@@ -95,10 +81,13 @@ function mapSlice(
     );
   }
   const strip =
-    typeof callOptions?.stripNulls === "boolean" ? callOptions.stripNulls : true;
-  const rows = stripNullsFromRows(
+    typeof callOptions?.stripNulls === "boolean"
+      ? callOptions.stripNulls
+      : true;
+  const rows = maybeStripNullRows(
     slice.flatMap((item) => (Array.isArray(item.results) ? item.results : [])),
-    strip
+    strip,
+    keepNullKeysFromFindManySelect(operation.payload)
   );
   const changes = slice.reduce((sum, item) => {
     const n =
@@ -163,7 +152,9 @@ export function createD1TransactionTransport(input: {
           let compiled: D1CompiledSql;
           switch (operation.kind) {
             case "fetch":
-              compiled = compileD1Fetch(operation.payload as AthenaFetchPayload);
+              compiled = compileD1Fetch(
+                operation.payload as AthenaFetchPayload
+              );
               break;
             case "insert":
               compiled = compileD1Insert(

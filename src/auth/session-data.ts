@@ -56,13 +56,13 @@ export function toSessionData(
   options: ToSessionDataOptions = {}
 ): AthenaSessionData {
   const rawActiveId =
-    options.rawActiveId !== undefined
-      ? normalizeId(options.rawActiveId)
-      : normalizeId(response.session?.activeOrganizationId);
+    options.rawActiveId === undefined
+      ? normalizeId(response.session?.activeOrganizationId)
+      : normalizeId(options.rawActiveId);
   const activeId =
-    options.activeId !== undefined
-      ? normalizeId(options.activeId)
-      : rawActiveId;
+    options.activeId === undefined
+      ? rawActiveId
+      : normalizeId(options.activeId);
 
   const user = Object.freeze({ ...response.user });
   const session = Object.freeze({ ...response.session });

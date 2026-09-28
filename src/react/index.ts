@@ -35,6 +35,7 @@ export type {
   AthenaUpdatePayload,
 } from "../gateway/types.ts";
 export { useAthenaGateway } from "../gateway/use-athena-gateway.ts";
+export type { AthenaNormalizedQueryPage } from "../query/entity-graph.ts";
 export type {
   ModelFormAdapter,
   ModelFormDefaults,
@@ -49,7 +50,6 @@ export {
   toModelPayload,
 } from "../schema/model-form.ts";
 export { AthenaQueryClientProvider, useAthenaQueryClient } from "./provider.ts";
-export type { AthenaNormalizedQueryPage } from "../query/entity-graph.ts";
 export {
   type AthenaCacheTransaction,
   type AthenaDehydratedCache,

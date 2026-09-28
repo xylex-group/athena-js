@@ -49,10 +49,7 @@ export function railStart(
   return `${paint(rail.start, "dim", capabilities)}  ${paint(title, "bold", capabilities)}`;
 }
 
-export function railBar(
-  text: string,
-  capabilities: CliCapabilities
-): string {
+export function railBar(text: string, capabilities: CliCapabilities): string {
   const rail = cliRail(usesRail(capabilities));
   if (!rail.bar) {
     return text;

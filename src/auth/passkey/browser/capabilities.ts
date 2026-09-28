@@ -15,8 +15,8 @@ export function inspectPasskeyBrowserCapabilities(input?: {
   const hasPublicKey =
     typeof globalThis === "object" &&
     "PublicKeyCredential" in globalThis &&
-    typeof (globalThis as { PublicKeyCredential?: unknown }).PublicKeyCredential !==
-      "undefined";
+    typeof (globalThis as { PublicKeyCredential?: unknown })
+      .PublicKeyCredential !== "undefined";
   const hasWindow =
     typeof globalThis === "object" &&
     "window" in globalThis &&

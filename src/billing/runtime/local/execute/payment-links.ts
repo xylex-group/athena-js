@@ -1,152 +1,114 @@
+import type { AthenaPrincipal } from "../../../../runtime/data/principal.ts";
 import type { BillingProviderConfigMap } from "../../../providers/types.ts";
-import { prepareBillingCommand } from "../../../safety/prepare.ts";
 import type {
-	BillingCreatePaymentLinkInput,
-	BillingDeletePaymentLinkInput,
-	BillingGetPaymentLinkInput,
-	BillingListPaymentLinksInput,
-	BillingPaymentLink,
-	BillingUpdatePaymentLinkInput,
+  BillingCreatePaymentLinkInput,
+  BillingDeletePaymentLinkInput,
+  BillingGetPaymentLinkInput,
+  BillingListPaymentLinksInput,
+  BillingPaymentLink,
+  BillingUpdatePaymentLinkInput,
 } from "../../../types.ts";
 import type { BillingPage } from "../../types.ts";
 import type { BillingProviderRegistry } from "../providers/registry.ts";
-import {
-	rejectUnsupportedListOffset,
-	requireProviderPort,
-	resolveLocalBillingProviderExecution,
-} from "./shared.ts";
+import { executeLocalBillingOperation } from "./invoke.ts";
+import { rejectUnsupportedListOffset } from "./shared.ts";
 
 export async function executeLocalBillingPaymentLinkCreate(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingCreatePaymentLinkInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingCreatePaymentLinkInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPaymentLink> {
-	const prepared = prepareBillingCommand({
-		idempotency: "defer",
-		operation: "paymentLinks.create",
-		payload: input.payload,
-		testMode: input.testMode,
-	});
-	const payload = prepared.payload as unknown as BillingCreatePaymentLinkInput;
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		idempotencyKey: payload.idempotencyKey,
-		operation: "paymentLinks.create",
-		principal: input.principal,
-		registry: input.registry,
-		target: payload,
-		testMode: input.testMode,
-	});
-	prepareBillingCommand({
-		operation: "paymentLinks.create",
-		payload,
-		testMode: input.testMode,
-	});
-	const paymentLinks = requireProviderPort(
-		runtime.paymentLinks,
-		"paymentLinks.create",
-	);
-	return paymentLinks.create(context, {
-		amount: payload.amount,
-		description: payload.description,
-		idempotencyKey: payload.idempotencyKey,
-		redirectUrl: payload.redirectUrl,
-	});
+  return executeLocalBillingOperation({
+    invoke: (paymentLinks, context, payload) =>
+      paymentLinks.create(context, {
+        amount: payload.amount,
+        description: payload.description,
+        idempotencyKey: payload.idempotencyKey,
+        redirectUrl: payload.redirectUrl,
+      }),
+    operation: "paymentLinks.create",
+    port: "paymentLinks",
+    request: input,
+    safety: "defer-then-finalize",
+  });
 }
 
 export async function executeLocalBillingPaymentLinkGet(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingGetPaymentLinkInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingGetPaymentLinkInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPaymentLink> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "paymentLinks.get",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const paymentLinks = requireProviderPort(
-		runtime.paymentLinks,
-		"paymentLinks.get",
-	);
-	return paymentLinks.get(context, { id: input.payload.id });
+  return executeLocalBillingOperation({
+    invoke: (paymentLinks, context, payload) =>
+      paymentLinks.get(context, { id: payload.id }),
+    operation: "paymentLinks.get",
+    port: "paymentLinks",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingPaymentLinkList(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingListPaymentLinksInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingListPaymentLinksInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPage<BillingPaymentLink>> {
-	rejectUnsupportedListOffset("paymentLinks.list", input.payload.offset);
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "paymentLinks.list",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const paymentLinks = requireProviderPort(
-		runtime.paymentLinks,
-		"paymentLinks.list",
-	);
-	return paymentLinks.list(context, {
-		cursor: input.payload.cursor,
-		limit: input.payload.limit,
-	});
+  return executeLocalBillingOperation({
+    before: (payload) =>
+      rejectUnsupportedListOffset("paymentLinks.list", payload.offset),
+    invoke: (paymentLinks, context, payload) =>
+      paymentLinks.list(context, {
+        cursor: payload.cursor,
+        limit: payload.limit,
+      }),
+    operation: "paymentLinks.list",
+    port: "paymentLinks",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingPaymentLinkUpdate(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingUpdatePaymentLinkInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingUpdatePaymentLinkInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<BillingPaymentLink> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "paymentLinks.update",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const paymentLinks = requireProviderPort(
-		runtime.paymentLinks,
-		"paymentLinks.update",
-	);
-	return paymentLinks.update(context, {
-		description: input.payload.description,
-		id: input.payload.id,
-	});
+  return executeLocalBillingOperation({
+    invoke: (paymentLinks, context, payload) =>
+      paymentLinks.update(context, {
+        description: payload.description,
+        id: payload.id,
+      }),
+    operation: "paymentLinks.update",
+    port: "paymentLinks",
+    request: input,
+  });
 }
 
 export async function executeLocalBillingPaymentLinkDelete(input: {
-	configuredProviders?: BillingProviderConfigMap;
-	payload: BillingDeletePaymentLinkInput;
-	principal?: import("../../../../runtime/data/principal.ts").AthenaPrincipal;
-	registry: BillingProviderRegistry;
-	testMode?: boolean;
+  authority: import("../../invocation-authority.ts").BillingInvocationAuthority;
+  configuredProviders?: BillingProviderConfigMap;
+  payload: BillingDeletePaymentLinkInput;
+  principal?: AthenaPrincipal;
+  registry: BillingProviderRegistry;
+  testMode?: boolean;
 }): Promise<void> {
-	const { context, runtime } = await resolveLocalBillingProviderExecution({
-		configuredProviders: input.configuredProviders,
-		operation: "paymentLinks.delete",
-		principal: input.principal,
-		registry: input.registry,
-		target: input.payload,
-		testMode: input.testMode,
-	});
-	const paymentLinks = requireProviderPort(
-		runtime.paymentLinks,
-		"paymentLinks.delete",
-	);
-	await paymentLinks.delete(context, { id: input.payload.id });
+  return executeLocalBillingOperation({
+    invoke: async (paymentLinks, context, payload) => {
+      await paymentLinks.delete(context, { id: payload.id });
+    },
+    operation: "paymentLinks.delete",
+    port: "paymentLinks",
+    request: input,
+  });
 }

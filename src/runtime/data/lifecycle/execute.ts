@@ -7,13 +7,13 @@ import type { AthenaDataLifecycleHooks } from "./types.ts";
  * The executor must not know Postgres vs Memory/D1.
  */
 export type ExecuteDataMutationOptions<TResult> = {
-	execute: (scope: AthenaDataMutationScope) => Promise<TResult>;
-	hooks?: AthenaDataLifecycleHooks;
+  execute: (scope: AthenaDataMutationScope) => Promise<TResult>;
+  hooks?: AthenaDataLifecycleHooks;
 };
 
 export async function executeDataMutation<TResult>(
-	options: ExecuteDataMutationOptions<TResult>,
+  options: ExecuteDataMutationOptions<TResult>
 ): Promise<TResult> {
-	const scope = createDataMutationScope();
-	return options.execute(scope);
+  const scope = createDataMutationScope();
+  return options.execute(scope);
 }

@@ -10,9 +10,9 @@ import {
 import type { AthenaAuthResult, AthenaAuthToken } from "../src/auth/types.ts";
 
 function encodeJwt(exp: number): string {
-  const header = Buffer.from(JSON.stringify({ alg: "ES256", kid: "k1" })).toString(
-    "base64url"
-  );
+  const header = Buffer.from(
+    JSON.stringify({ alg: "ES256", kid: "k1" })
+  ).toString("base64url");
   const payload = Buffer.from(
     JSON.stringify({
       aud: "neon",
@@ -100,7 +100,9 @@ test("token provider refreshes near expiry and invalidates cache", async () => {
   const provider = createAthenaAuthTokenProvider(
     async () => {
       issues += 1;
-      return tokenResult(Math.floor(Date.now() / 1000) + (issues === 1 ? 10 : 900));
+      return tokenResult(
+        Math.floor(Date.now() / 1000) + (issues === 1 ? 10 : 900)
+      );
     },
     { refreshSkewSeconds: 60 }
   );

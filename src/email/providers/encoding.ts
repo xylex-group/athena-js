@@ -19,7 +19,7 @@ function encodeUtf8Base64(value: string): string {
 
 function encodeBytesBase64(bytes: Uint8Array): string {
   let binary = "";
-  const chunk = 0x8000;
+  const chunk = 0x80_00;
   for (let index = 0; index < bytes.length; index += chunk) {
     const slice = bytes.subarray(index, index + chunk);
     binary += String.fromCharCode(...slice);

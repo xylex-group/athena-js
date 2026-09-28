@@ -36,7 +36,7 @@ test("ACT-POL-07 policy public surface has no Node importer/compiler graph", () 
     assert.equal(
       index.includes(token),
       false,
-      `index must not reference ${token}`,
+      `index must not reference ${token}`
     );
   }
 
@@ -73,7 +73,7 @@ test("ACT-POL-05 contracts/policy errors align with 7000 band", () => {
   assert.ok((errors.codes[0]?.description ?? "").length > 0);
   assert.equal(
     errors.codes.some((c) => c.code === "SUBJECT_REQUIRED"),
-    true,
+    true
   );
   assert.equal(errors.codes.length, 21);
 });

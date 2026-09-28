@@ -1,6 +1,10 @@
-import type { AthenaGatewayResponse } from "../types.ts";
-import { readRuntimeErrorCode } from "../../runtime/data/errors.ts";
+import {
+  readRuntimeErrorCode,
+  readRuntimeErrorNumber,
+} from "../../runtime/data/errors.ts";
 import { publicRuntimeErrorMessage } from "../../runtime/data/redact.ts";
+import { errorDescriptorForPublicCode } from "../../runtime/error/registry.ts";
+import type { AthenaGatewayResponse } from "../types.ts";
 
 function encodeBinaryAsPgHex(bytes: Uint8Array): string {
   return `\\x${Buffer.from(bytes).toString("hex")}`;
@@ -49,6 +53,7 @@ export function encodeAthenaGatewaySuccess(
 
 export function encodeAthenaGatewayFailure(options: {
   code: string;
+  errorNumber?: number;
   message: string;
   requestId: string;
   status: number;
@@ -57,6 +62,9 @@ export function encodeAthenaGatewayFailure(options: {
     JSON.stringify({
       error: {
         code: options.code,
+        ...(options.errorNumber === undefined
+          ? {}
+          : { errorNumber: options.errorNumber }),
         message: publicRuntimeErrorMessage(options.message),
         status: options.status,
       },
@@ -76,12 +84,13 @@ export function encodeAthenaGatewayResult(
   if (result.ok) {
     return encodeAthenaGatewaySuccess(result, requestId);
   }
-  const code =
-    readRuntimeErrorCode(result) ??
-    result.errorDetails?.code ??
-    "ATHENA_RUNTIME_UNAVAILABLE";
+  const code = readRuntimeErrorCode(result) ?? "ATHENA_RUNTIME_UNAVAILABLE";
+  const errorNumber =
+    readRuntimeErrorNumber(result) ??
+    errorDescriptorForPublicCode(code)?.errorNumber;
   return encodeAthenaGatewayFailure({
     code,
+    errorNumber,
     message: publicRuntimeErrorMessage(
       result.error ?? "Athena Local Runtime request failed."
     ),

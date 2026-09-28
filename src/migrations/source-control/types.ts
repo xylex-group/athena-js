@@ -52,6 +52,8 @@ export interface MigrationSourceProvenance {
 
 export interface PreparedMigration {
   checksum: string;
+  executionSql?: string;
+  executionTransform?: import("../types.ts").MigrationExecutionTransform;
   filename: string;
   name: string;
   provenance?: MigrationFileProvenance;

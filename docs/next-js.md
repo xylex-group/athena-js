@@ -1,7 +1,8 @@
 # Next.js integration
 
 Athena JS ships dedicated Next entrypoints so browser and server code stay
-separated without a second client implementation.
+separated without a second client implementation. Local Runtime browsers use
+`topology.discover: "next"` on `createClient` from `@xylex-group/athena/next/client`.
 
 | Import | Role |
 | --- | --- |
@@ -30,7 +31,7 @@ Use one path per surface. All data paths still call `createClient` under the hoo
 | Browser data client | `@xylex-group/athena/next/client` | `createClient({ topology: { discover: "next" } })` | Discovers `/api/athena` + `/api/auth`. No `DATABASE_URL` |
 | Server session lookup | `@xylex-group/athena/next/session` | `getServerSession({ appOrigin, requestHeaders })` | Cookie/header session fetch. Does not construct a client |
 | Server request view | `@xylex-group/athena/next/server` | `createAthenaServerClient({ client: athena, session?, scope? })` | **Per request** view via `withContext`; never a runtime owner |
-| Handlers | `@xylex-group/athena/next/server` | `createAthenaNextHandlers({ client: root })` | Mount at `/api/athena`, `/api/auth`, `/api/athena/storage`, and `/api/athena/billing` from the **root** |
+| Handlers | `@xylex-group/athena/next/server` | `createAthenaNextHandlers({ client: root })` | Mount Auth, Data, Storage, **Billing RPC**, and **Billing ingress** from the **root**. Webhook POST is never `billing.POST`. |
 | Hosted browser | `@xylex-group/athena/next/client` | `createAthenaBrowserClient({ url, key })` | Remote Gateway; keep when you are not embedding |
 | Auth UI | `@xylex-group/athena-auth-ui` | `<AuthProvider client={athena}>` | Consumes `athena.auth`; `createAthenaAuthClient` is legacy |
 
@@ -291,6 +292,55 @@ export const athena = createClient({
 ```
 
 ```ts
+// src/lib/athena/handlers.ts
+import { createAthenaNextHandlers } from '@xylex-group/athena/next/server'
+import { athena } from '@/lib/athena/root'
+
+export const { auth, billing, billingIngress, data, storage } =
+  createAthenaNextHandlers({
+    client: athena,
+  })
+```
+
+Split App Router mounts (Billing RPC and Billing ingress are separate trust
+boundaries):
+
+| Route | Handler | Trust |
+| --- | --- | --- |
+| `/api/athena/[[...path]]` | `data` | session |
+| `/api/athena/billing/[[...path]]` | `billing` | session + origin |
+| `/api/athena/billing/webhook/[[...path]]` | `billingIngress` | provider verification |
+| `/api/athena/storage/[[...path]]` | `storage` | session + origin |
+| `/api/auth/[...all]` | `auth` | session |
+
+```ts
+// app/api/athena/billing/[[...path]]/route.ts
+import { billing } from '@/lib/athena/handlers'
+export const { GET, POST } = billing
+```
+
+```ts
+// app/api/athena/billing/webhook/[[...path]]/route.ts
+import { billingIngress } from '@/lib/athena/handlers'
+export const { POST } = billingIngress
+```
+
+Prefer `createAthenaNextHandler({ client: athena })` on a unified
+`/api/athena/[...path]` catch-all when you can: it dispatches
+`/api/athena/billing/webhook/*` to `billingIngress` **before** Billing RPC.
+
+The route above is a mount, not necessarily the provider URL. Managed Mollie
+connections receive an opaque binding suffix, so the callable URL is the
+materialized connection URL:
+`/api/athena/billing/webhook/mollie/classic/<binding-token>` (and the
+corresponding `/events/<binding-token>` URL). Bare Classic/Events routes remain
+fail-closed unless an explicitly bound development handler is used. The exact
+URLs are returned by connection materialization and the authenticated Billing
+connection status; diagnostics use a safe `<binding-token>` template.
+
+Do not merge webhook POST handling into `billing.POST`.
+
+```ts
 // app/api/athena/[...path]/route.ts
 import { createAthenaNextHandlers } from '@xylex-group/athena/next/server'
 import { athena } from '@/lib/athena/root'
@@ -419,6 +469,12 @@ const athena = await createAthenaServerClient({
 2. Else `GET /api/auth/get-session?disableCookieCache=true` with request cookies/bearer
 3. Optional `resolveActiveOrganizationId` (product hook)
 4. Optional `organization.ensureActive` / `ensureActiveOrganization` injectables (`list` / `setActive`, `persist`, `onEmpty`)
+
+When `organization.ensureActive` uses the client-backed path, the resolver
+captures the request authentication context once and forwards it to
+`organization.list`, `organization.setActive`, and the session refresh started
+by `setActive`. This keeps cookie and bearer authentication consistent across
+the full repair operation without mutating the root client.
 
 Upstream/protocol failures are `ok: false` (not logged-out). Prefer
 `createServerSessionResolver` + `requireSession` / `getSessionOrNull` in apps.

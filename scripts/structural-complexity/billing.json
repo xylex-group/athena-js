@@ -1,0 +1,1502 @@
+{
+  "src/billing/admin/connections.ts": {
+    "branches": 0,
+    "loc": 9,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/canonical/document.ts": {
+    "branches": 21,
+    "loc": 125,
+    "maxFunctionLoc": 21,
+    "maxNesting": 2
+  },
+  "src/billing/canonical/status.ts": {
+    "branches": 2,
+    "loc": 72,
+    "maxFunctionLoc": 29,
+    "maxNesting": 2
+  },
+  "src/billing/canonical/transition.ts": {
+    "branches": 30,
+    "loc": 184,
+    "maxFunctionLoc": 59,
+    "maxNesting": 4
+  },
+  "src/billing/create-client-config.ts": {
+    "branches": 0,
+    "loc": 73,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/errors.ts": {
+    "branches": 36,
+    "loc": 351,
+    "maxFunctionLoc": 63,
+    "maxNesting": 2
+  },
+  "src/billing/import/apply.ts": {
+    "branches": 26,
+    "loc": 226,
+    "maxFunctionLoc": 79,
+    "maxNesting": 3
+  },
+  "src/billing/import/assemble.ts": {
+    "branches": 37,
+    "loc": 390,
+    "maxFunctionLoc": 184,
+    "maxNesting": 4
+  },
+  "src/billing/import/audit.ts": {
+    "branches": 23,
+    "loc": 223,
+    "maxFunctionLoc": 140,
+    "maxNesting": 3
+  },
+  "src/billing/import/automatic.ts": {
+    "branches": 3,
+    "loc": 31,
+    "maxFunctionLoc": 20,
+    "maxNesting": 2
+  },
+  "src/billing/import/candidate-resolver.ts": {
+    "branches": 13,
+    "loc": 65,
+    "maxFunctionLoc": 25,
+    "maxNesting": 2
+  },
+  "src/billing/import/confidence.ts": {
+    "branches": 7,
+    "loc": 34,
+    "maxFunctionLoc": 28,
+    "maxNesting": 2
+  },
+  "src/billing/import/conflicts.ts": {
+    "branches": 0,
+    "loc": 22,
+    "maxFunctionLoc": 3,
+    "maxNesting": 1
+  },
+  "src/billing/import/database.ts": {
+    "branches": 3,
+    "loc": 90,
+    "maxFunctionLoc": 35,
+    "maxNesting": 4
+  },
+  "src/billing/import/errors.ts": {
+    "branches": 2,
+    "loc": 49,
+    "maxFunctionLoc": 10,
+    "maxNesting": 1
+  },
+  "src/billing/import/importer.ts": {
+    "branches": 71,
+    "loc": 372,
+    "maxFunctionLoc": 175,
+    "maxNesting": 5
+  },
+  "src/billing/import/index.ts": {
+    "branches": 0,
+    "loc": 39,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/import/planner.ts": {
+    "branches": 40,
+    "loc": 343,
+    "maxFunctionLoc": 315,
+    "maxNesting": 3
+  },
+  "src/billing/import/postgres.ts": {
+    "branches": 74,
+    "loc": 561,
+    "maxFunctionLoc": 127,
+    "maxNesting": 6
+  },
+  "src/billing/import/project.ts": {
+    "branches": 15,
+    "loc": 87,
+    "maxFunctionLoc": 62,
+    "maxNesting": 4
+  },
+  "src/billing/import/providers/mollie.ts": {
+    "branches": 15,
+    "loc": 104,
+    "maxFunctionLoc": 56,
+    "maxNesting": 3
+  },
+  "src/billing/import/providers/types.ts": {
+    "branches": 0,
+    "loc": 35,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/import/report.ts": {
+    "branches": 16,
+    "loc": 87,
+    "maxFunctionLoc": 28,
+    "maxNesting": 3
+  },
+  "src/billing/import/subject-directory.ts": {
+    "branches": 6,
+    "loc": 60,
+    "maxFunctionLoc": 34,
+    "maxNesting": 3
+  },
+  "src/billing/import/types.ts": {
+    "branches": 0,
+    "loc": 136,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/index.ts": {
+    "branches": 0,
+    "loc": 109,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/admission.ts": {
+    "branches": 18,
+    "loc": 188,
+    "maxFunctionLoc": 83,
+    "maxNesting": 4
+  },
+  "src/billing/ingestion/application-id.ts": {
+    "branches": 3,
+    "loc": 23,
+    "maxFunctionLoc": 10,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/automatic.ts": {
+    "branches": 17,
+    "loc": 182,
+    "maxFunctionLoc": 146,
+    "maxNesting": 4
+  },
+  "src/billing/ingestion/config.ts": {
+    "branches": 35,
+    "loc": 201,
+    "maxFunctionLoc": 40,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/index.ts": {
+    "branches": 0,
+    "loc": 46,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/observability/delivery-health.ts": {
+    "branches": 39,
+    "loc": 324,
+    "maxFunctionLoc": 125,
+    "maxNesting": 4
+  },
+  "src/billing/ingestion/observability/from-internals.ts": {
+    "branches": 2,
+    "loc": 21,
+    "maxFunctionLoc": 13,
+    "maxNesting": 3
+  },
+  "src/billing/ingestion/observability/health.ts": {
+    "branches": 67,
+    "loc": 617,
+    "maxFunctionLoc": 212,
+    "maxNesting": 3
+  },
+  "src/billing/ingestion/observability/operational-status.ts": {
+    "branches": 17,
+    "loc": 133,
+    "maxFunctionLoc": 75,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/observability/stages.ts": {
+    "branches": 11,
+    "loc": 64,
+    "maxFunctionLoc": 9,
+    "maxNesting": 3
+  },
+  "src/billing/ingestion/ownership.ts": {
+    "branches": 4,
+    "loc": 38,
+    "maxFunctionLoc": 14,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/reconciliation/coordinator.ts": {
+    "branches": 107,
+    "loc": 718,
+    "maxFunctionLoc": 389,
+    "maxNesting": 7
+  },
+  "src/billing/ingestion/reconciliation/desired-state.ts": {
+    "branches": 6,
+    "loc": 65,
+    "maxFunctionLoc": 39,
+    "maxNesting": 1
+  },
+  "src/billing/ingestion/reconciliation/health.ts": {
+    "branches": 14,
+    "loc": 51,
+    "maxFunctionLoc": 47,
+    "maxNesting": 3
+  },
+  "src/billing/ingestion/reconciliation/index.ts": {
+    "branches": 0,
+    "loc": 25,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/reconciliation/lifecycle.ts": {
+    "branches": 7,
+    "loc": 106,
+    "maxFunctionLoc": 22,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/reconciliation/planner.ts": {
+    "branches": 14,
+    "loc": 106,
+    "maxFunctionLoc": 85,
+    "maxNesting": 4
+  },
+  "src/billing/ingestion/reconciliation/repository.ts": {
+    "branches": 61,
+    "loc": 294,
+    "maxFunctionLoc": 105,
+    "maxNesting": 3
+  },
+  "src/billing/ingestion/reconciliation/types.ts": {
+    "branches": 0,
+    "loc": 89,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/secrets/cache.ts": {
+    "branches": 7,
+    "loc": 41,
+    "maxFunctionLoc": 15,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/secrets/envelope.ts": {
+    "branches": 7,
+    "loc": 58,
+    "maxFunctionLoc": 27,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/secrets/index.ts": {
+    "branches": 0,
+    "loc": 18,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/secrets/master-key.ts": {
+    "branches": 6,
+    "loc": 20,
+    "maxFunctionLoc": 19,
+    "maxNesting": 2
+  },
+  "src/billing/ingestion/secrets/memory.ts": {
+    "branches": 7,
+    "loc": 71,
+    "maxFunctionLoc": 45,
+    "maxNesting": 4
+  },
+  "src/billing/ingestion/secrets/postgres.ts": {
+    "branches": 10,
+    "loc": 129,
+    "maxFunctionLoc": 86,
+    "maxNesting": 4
+  },
+  "src/billing/ingestion/secrets/types.ts": {
+    "branches": 0,
+    "loc": 18,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/types.ts": {
+    "branches": 0,
+    "loc": 140,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/ingestion/urls.ts": {
+    "branches": 33,
+    "loc": 158,
+    "maxFunctionLoc": 23,
+    "maxNesting": 2
+  },
+  "src/billing/live-http-routes.ts": {
+    "branches": 0,
+    "loc": 30,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/module.ts": {
+    "branches": 17,
+    "loc": 1086,
+    "maxFunctionLoc": 535,
+    "maxNesting": 3
+  },
+  "src/billing/observability/audit.ts": {
+    "branches": 23,
+    "loc": 141,
+    "maxFunctionLoc": 53,
+    "maxNesting": 3
+  },
+  "src/billing/observability/config.ts": {
+    "branches": 18,
+    "loc": 68,
+    "maxFunctionLoc": 43,
+    "maxNesting": 2
+  },
+  "src/billing/observability/contract.ts": {
+    "branches": 0,
+    "loc": 15,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/observability/events.ts": {
+    "branches": 7,
+    "loc": 182,
+    "maxFunctionLoc": 9,
+    "maxNesting": 2
+  },
+  "src/billing/observability/index.ts": {
+    "branches": 0,
+    "loc": 52,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/observability/retention.ts": {
+    "branches": 4,
+    "loc": 63,
+    "maxFunctionLoc": 58,
+    "maxNesting": 3
+  },
+  "src/billing/observability/schema-guard.ts": {
+    "branches": 19,
+    "loc": 98,
+    "maxFunctionLoc": 14,
+    "maxNesting": 3
+  },
+  "src/billing/observability/traces.ts": {
+    "branches": 43,
+    "loc": 339,
+    "maxFunctionLoc": 83,
+    "maxNesting": 3
+  },
+  "src/billing/observability/types.ts": {
+    "branches": 0,
+    "loc": 140,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/observability/validate.ts": {
+    "branches": 36,
+    "loc": 136,
+    "maxFunctionLoc": 76,
+    "maxNesting": 3
+  },
+  "src/billing/providers/types.ts": {
+    "branches": 0,
+    "loc": 200,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/reconciliation/context.ts": {
+    "branches": 3,
+    "loc": 67,
+    "maxFunctionLoc": 16,
+    "maxNesting": 1
+  },
+  "src/billing/reconciliation/coordinator.ts": {
+    "branches": 41,
+    "loc": 324,
+    "maxFunctionLoc": 240,
+    "maxNesting": 7
+  },
+  "src/billing/reconciliation/hints.ts": {
+    "branches": 4,
+    "loc": 40,
+    "maxFunctionLoc": 20,
+    "maxNesting": 2
+  },
+  "src/billing/reconciliation/index.ts": {
+    "branches": 0,
+    "loc": 42,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/reconciliation/lease.ts": {
+    "branches": 25,
+    "loc": 189,
+    "maxFunctionLoc": 82,
+    "maxNesting": 3
+  },
+  "src/billing/reconciliation/policy.ts": {
+    "branches": 6,
+    "loc": 30,
+    "maxFunctionLoc": 13,
+    "maxNesting": 1
+  },
+  "src/billing/reconciliation/resources.ts": {
+    "branches": 0,
+    "loc": 13,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/reconciliation/retry.ts": {
+    "branches": 38,
+    "loc": 138,
+    "maxFunctionLoc": 48,
+    "maxNesting": 3
+  },
+  "src/billing/reconciliation/scheduler.ts": {
+    "branches": 15,
+    "loc": 117,
+    "maxFunctionLoc": 48,
+    "maxNesting": 4
+  },
+  "src/billing/reconciliation/semantic-audit.ts": {
+    "branches": 10,
+    "loc": 122,
+    "maxFunctionLoc": 59,
+    "maxNesting": 2
+  },
+  "src/billing/reconciliation/types.ts": {
+    "branches": 0,
+    "loc": 84,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/reconciliation/webhook.ts": {
+    "branches": 2,
+    "loc": 19,
+    "maxFunctionLoc": 15,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/admin/execute.ts": {
+    "branches": 128,
+    "loc": 963,
+    "maxFunctionLoc": 314,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/admin/index.ts": {
+    "branches": 0,
+    "loc": 25,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/admin/operations.ts": {
+    "branches": 0,
+    "loc": 34,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/admin/types.ts": {
+    "branches": 0,
+    "loc": 173,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/admin/unavailable.ts": {
+    "branches": 0,
+    "loc": 29,
+    "maxFunctionLoc": 25,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/authority.ts": {
+    "branches": 31,
+    "loc": 221,
+    "maxFunctionLoc": 46,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/browser-transport.ts": {
+    "branches": 40,
+    "loc": 258,
+    "maxFunctionLoc": 126,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/capabilities.ts": {
+    "branches": 2,
+    "loc": 216,
+    "maxFunctionLoc": 13,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/capability-fixture.ts": {
+    "branches": 0,
+    "loc": 14,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/credentials.ts": {
+    "branches": 8,
+    "loc": 151,
+    "maxFunctionLoc": 32,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/diagnostics.ts": {
+    "branches": 3,
+    "loc": 64,
+    "maxFunctionLoc": 14,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/dispatch.ts": {
+    "branches": 3,
+    "loc": 150,
+    "maxFunctionLoc": 15,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/environment.ts": {
+    "branches": 1,
+    "loc": 30,
+    "maxFunctionLoc": 9,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/hal-link-href.ts": {
+    "branches": 12,
+    "loc": 41,
+    "maxFunctionLoc": 23,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/health.ts": {
+    "branches": 11,
+    "loc": 43,
+    "maxFunctionLoc": 28,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/http-error.ts": {
+    "branches": 43,
+    "loc": 200,
+    "maxFunctionLoc": 113,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/index.ts": {
+    "branches": 0,
+    "loc": 46,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/invocation-authority.ts": {
+    "branches": 4,
+    "loc": 53,
+    "maxFunctionLoc": 11,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/capability-decision.ts": {
+    "branches": 20,
+    "loc": 119,
+    "maxFunctionLoc": 42,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/catalog/normalize.ts": {
+    "branches": 21,
+    "loc": 102,
+    "maxFunctionLoc": 75,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/local/catalog/page.ts": {
+    "branches": 17,
+    "loc": 96,
+    "maxFunctionLoc": 28,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/catalog/prices.ts": {
+    "branches": 2,
+    "loc": 32,
+    "maxFunctionLoc": 10,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/catalog/products.ts": {
+    "branches": 0,
+    "loc": 28,
+    "maxFunctionLoc": 6,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/connections/identity.ts": {
+    "branches": 3,
+    "loc": 37,
+    "maxFunctionLoc": 14,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/connections/materialize.ts": {
+    "branches": 36,
+    "loc": 497,
+    "maxFunctionLoc": 112,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/local/execute/customers.ts": {
+    "branches": 1,
+    "loc": 116,
+    "maxFunctionLoc": 22,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/execute/index.ts": {
+    "branches": 0,
+    "loc": 50,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/execute/invoices.ts": {
+    "branches": 0,
+    "loc": 51,
+    "maxFunctionLoc": 21,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/execute/invoke.ts": {
+    "branches": 6,
+    "loc": 88,
+    "maxFunctionLoc": 47,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/execute/payment-links.ts": {
+    "branches": 0,
+    "loc": 115,
+    "maxFunctionLoc": 22,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/execute/payments.ts": {
+    "branches": 0,
+    "loc": 104,
+    "maxFunctionLoc": 27,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/execute/price-list.ts": {
+    "branches": 0,
+    "loc": 31,
+    "maxFunctionLoc": 22,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/execute/product-list.ts": {
+    "branches": 0,
+    "loc": 33,
+    "maxFunctionLoc": 21,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/execute/refunds.ts": {
+    "branches": 1,
+    "loc": 102,
+    "maxFunctionLoc": 22,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/execute/shared.ts": {
+    "branches": 21,
+    "loc": 282,
+    "maxFunctionLoc": 73,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/execute/subscriptions.ts": {
+    "branches": 0,
+    "loc": 127,
+    "maxFunctionLoc": 24,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/ingress/apply.ts": {
+    "branches": 2,
+    "loc": 78,
+    "maxFunctionLoc": 41,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/ingress/attach.ts": {
+    "branches": 31,
+    "loc": 307,
+    "maxFunctionLoc": 139,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/local/ingress/handler.ts": {
+    "branches": 38,
+    "loc": 359,
+    "maxFunctionLoc": 245,
+    "maxNesting": 6
+  },
+  "src/billing/runtime/local/ingress/memory.ts": {
+    "branches": 2,
+    "loc": 58,
+    "maxFunctionLoc": 30,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/ingress/replay.ts": {
+    "branches": 22,
+    "loc": 248,
+    "maxFunctionLoc": 82,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/local/ingress/repository.ts": {
+    "branches": 0,
+    "loc": 42,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/ingress/revision.ts": {
+    "branches": 9,
+    "loc": 53,
+    "maxFunctionLoc": 20,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/ingress/sql.ts": {
+    "branches": 26,
+    "loc": 180,
+    "maxFunctionLoc": 137,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/materialize.ts": {
+    "branches": 39,
+    "loc": 489,
+    "maxFunctionLoc": 347,
+    "maxNesting": 7
+  },
+  "src/billing/runtime/local/providers/binding.ts": {
+    "branches": 6,
+    "loc": 45,
+    "maxFunctionLoc": 35,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/config.ts": {
+    "branches": 68,
+    "loc": 373,
+    "maxFunctionLoc": 72,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/connection-binding.ts": {
+    "branches": 31,
+    "loc": 268,
+    "maxFunctionLoc": 33,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/create-registry.ts": {
+    "branches": 4,
+    "loc": 32,
+    "maxFunctionLoc": 22,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/execution-context.ts": {
+    "branches": 2,
+    "loc": 45,
+    "maxFunctionLoc": 34,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/index.ts": {
+    "branches": 0,
+    "loc": 41,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/inspect.ts": {
+    "branches": 16,
+    "loc": 84,
+    "maxFunctionLoc": 21,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/canonicalize-events.ts": {
+    "branches": 0,
+    "loc": 4,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/mollie/capabilities.ts": {
+    "branches": 0,
+    "loc": 59,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/mollie/channel.ts": {
+    "branches": 4,
+    "loc": 49,
+    "maxFunctionLoc": 21,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/config.ts": {
+    "branches": 2,
+    "loc": 21,
+    "maxFunctionLoc": 8,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/cursor.ts": {
+    "branches": 21,
+    "loc": 135,
+    "maxFunctionLoc": 29,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/customers.ts": {
+    "branches": 3,
+    "loc": 143,
+    "maxFunctionLoc": 26,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/customers.ts": {
+    "branches": 5,
+    "loc": 54,
+    "maxFunctionLoc": 15,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/invoices.ts": {
+    "branches": 0,
+    "loc": 8,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/payment-links.ts": {
+    "branches": 3,
+    "loc": 46,
+    "maxFunctionLoc": 20,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/payments.ts": {
+    "branches": 9,
+    "loc": 72,
+    "maxFunctionLoc": 27,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/refunds.ts": {
+    "branches": 1,
+    "loc": 42,
+    "maxFunctionLoc": 16,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/subscriptions.ts": {
+    "branches": 6,
+    "loc": 61,
+    "maxFunctionLoc": 22,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/webhook-url.ts": {
+    "branches": 3,
+    "loc": 20,
+    "maxFunctionLoc": 10,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/dialect/webhooks.ts": {
+    "branches": 17,
+    "loc": 129,
+    "maxFunctionLoc": 24,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/errors.ts": {
+    "branches": 23,
+    "loc": 115,
+    "maxFunctionLoc": 38,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/index.ts": {
+    "branches": 0,
+    "loc": 7,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/mollie/invoices.ts": {
+    "branches": 2,
+    "loc": 87,
+    "maxFunctionLoc": 27,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/parse-webhook.ts": {
+    "branches": 27,
+    "loc": 269,
+    "maxFunctionLoc": 43,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/payment-links.ts": {
+    "branches": 3,
+    "loc": 144,
+    "maxFunctionLoc": 26,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/payments.ts": {
+    "branches": 7,
+    "loc": 153,
+    "maxFunctionLoc": 29,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/profile-target.ts": {
+    "branches": 12,
+    "loc": 76,
+    "maxFunctionLoc": 17,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/project-document.ts": {
+    "branches": 2,
+    "loc": 68,
+    "maxFunctionLoc": 62,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/projection.ts": {
+    "branches": 25,
+    "loc": 132,
+    "maxFunctionLoc": 45,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/projection/customer.ts": {
+    "branches": 7,
+    "loc": 41,
+    "maxFunctionLoc": 23,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/projection/invoice.ts": {
+    "branches": 24,
+    "loc": 113,
+    "maxFunctionLoc": 30,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/projection/links.ts": {
+    "branches": 0,
+    "loc": 2,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/mollie/projection/payment-link.ts": {
+    "branches": 16,
+    "loc": 91,
+    "maxFunctionLoc": 23,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/projection/refund.ts": {
+    "branches": 20,
+    "loc": 101,
+    "maxFunctionLoc": 29,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/projection/subscription.ts": {
+    "branches": 25,
+    "loc": 126,
+    "maxFunctionLoc": 49,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/refunds.ts": {
+    "branches": 9,
+    "loc": 190,
+    "maxFunctionLoc": 43,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/resolve-resource.ts": {
+    "branches": 2,
+    "loc": 44,
+    "maxFunctionLoc": 39,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/runtime.ts": {
+    "branches": 2,
+    "loc": 100,
+    "maxFunctionLoc": 27,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/assertions.ts": {
+    "branches": 8,
+    "loc": 83,
+    "maxFunctionLoc": 42,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/call.ts": {
+    "branches": 2,
+    "loc": 54,
+    "maxFunctionLoc": 28,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/client-factory.ts": {
+    "branches": 14,
+    "loc": 96,
+    "maxFunctionLoc": 35,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/contracts.ts": {
+    "branches": 0,
+    "loc": 38,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/errors.ts": {
+    "branches": 19,
+    "loc": 69,
+    "maxFunctionLoc": 36,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/invoke.ts": {
+    "branches": 14,
+    "loc": 97,
+    "maxFunctionLoc": 23,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/json.ts": {
+    "branches": 11,
+    "loc": 70,
+    "maxFunctionLoc": 61,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/official-adapter.ts": {
+    "branches": 0,
+    "loc": 14,
+    "maxFunctionLoc": 6,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/page.ts": {
+    "branches": 13,
+    "loc": 66,
+    "maxFunctionLoc": 41,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/sdk/types.ts": {
+    "branches": 0,
+    "loc": 28,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/mollie/subscriptions.ts": {
+    "branches": 4,
+    "loc": 162,
+    "maxFunctionLoc": 29,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/mollie/verify-webhook.ts": {
+    "branches": 11,
+    "loc": 52,
+    "maxFunctionLoc": 38,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/local/providers/mollie/webhook-capability.ts": {
+    "branches": 11,
+    "loc": 65,
+    "maxFunctionLoc": 58,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/webhook-port.ts": {
+    "branches": 24,
+    "loc": 252,
+    "maxFunctionLoc": 108,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/mollie/webhooks.ts": {
+    "branches": 18,
+    "loc": 165,
+    "maxFunctionLoc": 29,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/operation-authority.ts": {
+    "branches": 0,
+    "loc": 70,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/operation-scope.ts": {
+    "branches": 7,
+    "loc": 26,
+    "maxFunctionLoc": 19,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/registry.ts": {
+    "branches": 3,
+    "loc": 59,
+    "maxFunctionLoc": 10,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/resolve-target.ts": {
+    "branches": 12,
+    "loc": 104,
+    "maxFunctionLoc": 71,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/local/providers/stripe/capabilities.ts": {
+    "branches": 0,
+    "loc": 59,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/stripe/config.ts": {
+    "branches": 18,
+    "loc": 99,
+    "maxFunctionLoc": 38,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/local/providers/stripe/index.ts": {
+    "branches": 0,
+    "loc": 7,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/stripe/runtime.ts": {
+    "branches": 0,
+    "loc": 41,
+    "maxFunctionLoc": 7,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/local/providers/token-authority.ts": {
+    "branches": 13,
+    "loc": 117,
+    "maxFunctionLoc": 24,
+    "maxNesting": 4
+  },
+  "src/billing/runtime/local/providers/types.ts": {
+    "branches": 0,
+    "loc": 427,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/providers/webhook-port.ts": {
+    "branches": 0,
+    "loc": 34,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/local/runtime.ts": {
+    "branches": 118,
+    "loc": 1148,
+    "maxFunctionLoc": 658,
+    "maxNesting": 5
+  },
+  "src/billing/runtime/materialize-configured-connections.ts": {
+    "branches": 0,
+    "loc": 14,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/runtime/operation-policy.ts": {
+    "branches": 1,
+    "loc": 143,
+    "maxFunctionLoc": 12,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/remote/project-capabilities.ts": {
+    "branches": 66,
+    "loc": 313,
+    "maxFunctionLoc": 74,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/remote/runtime.ts": {
+    "branches": 23,
+    "loc": 576,
+    "maxFunctionLoc": 395,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/remote/transport.ts": {
+    "branches": 30,
+    "loc": 190,
+    "maxFunctionLoc": 105,
+    "maxNesting": 5
+  },
+  "src/billing/runtime/resolve-mode.ts": {
+    "branches": 11,
+    "loc": 79,
+    "maxFunctionLoc": 29,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/rights.ts": {
+    "branches": 17,
+    "loc": 270,
+    "maxFunctionLoc": 34,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/advance-enrollment.ts": {
+    "branches": 31,
+    "loc": 254,
+    "maxFunctionLoc": 218,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/change.ts": {
+    "branches": 62,
+    "loc": 710,
+    "maxFunctionLoc": 567,
+    "maxNesting": 5
+  },
+  "src/billing/runtime/self/checkout-intent.ts": {
+    "branches": 4,
+    "loc": 49,
+    "maxFunctionLoc": 10,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/self/checkout.ts": {
+    "branches": 34,
+    "loc": 356,
+    "maxFunctionLoc": 234,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/customer.ts": {
+    "branches": 6,
+    "loc": 59,
+    "maxFunctionLoc": 40,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/self/delegated-principal.ts": {
+    "branches": 3,
+    "loc": 30,
+    "maxFunctionLoc": 20,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/self/dispatch.ts": {
+    "branches": 16,
+    "loc": 62,
+    "maxFunctionLoc": 18,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/enroll.ts": {
+    "branches": 35,
+    "loc": 523,
+    "maxFunctionLoc": 262,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/enrollment-reservation.ts": {
+    "branches": 39,
+    "loc": 419,
+    "maxFunctionLoc": 58,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/enrollment-session.ts": {
+    "branches": 48,
+    "loc": 354,
+    "maxFunctionLoc": 64,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/entitlements.ts": {
+    "branches": 22,
+    "loc": 142,
+    "maxFunctionLoc": 33,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/invoices.ts": {
+    "branches": 10,
+    "loc": 81,
+    "maxFunctionLoc": 16,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/self/payments.ts": {
+    "branches": 29,
+    "loc": 137,
+    "maxFunctionLoc": 47,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/persist-owned-payment.ts": {
+    "branches": 9,
+    "loc": 95,
+    "maxFunctionLoc": 41,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/self/redirect-url.ts": {
+    "branches": 27,
+    "loc": 124,
+    "maxFunctionLoc": 47,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/resume.ts": {
+    "branches": 40,
+    "loc": 284,
+    "maxFunctionLoc": 120,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/return-query.ts": {
+    "branches": 0,
+    "loc": 8,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/self/return-token.ts": {
+    "branches": 0,
+    "loc": 19,
+    "maxFunctionLoc": 7,
+    "maxNesting": 1
+  },
+  "src/billing/runtime/self/runtime.ts": {
+    "branches": 25,
+    "loc": 302,
+    "maxFunctionLoc": 161,
+    "maxNesting": 3
+  },
+  "src/billing/runtime/self/subscriptions.ts": {
+    "branches": 14,
+    "loc": 125,
+    "maxFunctionLoc": 48,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/self/unavailable.ts": {
+    "branches": 0,
+    "loc": 36,
+    "maxFunctionLoc": 32,
+    "maxNesting": 2
+  },
+  "src/billing/runtime/types.ts": {
+    "branches": 0,
+    "loc": 330,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/safety/correlation.ts": {
+    "branches": 0,
+    "loc": 14,
+    "maxFunctionLoc": 3,
+    "maxNesting": 1
+  },
+  "src/billing/safety/environment.ts": {
+    "branches": 0,
+    "loc": 29,
+    "maxFunctionLoc": 8,
+    "maxNesting": 1
+  },
+  "src/billing/safety/failure.ts": {
+    "branches": 0,
+    "loc": 29,
+    "maxFunctionLoc": 8,
+    "maxNesting": 0
+  },
+  "src/billing/safety/idempotency.ts": {
+    "branches": 4,
+    "loc": 20,
+    "maxFunctionLoc": 14,
+    "maxNesting": 2
+  },
+  "src/billing/safety/index.ts": {
+    "branches": 0,
+    "loc": 48,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/safety/mollie-semantics.ts": {
+    "branches": 5,
+    "loc": 165,
+    "maxFunctionLoc": 15,
+    "maxNesting": 1
+  },
+  "src/billing/safety/money.ts": {
+    "branches": 24,
+    "loc": 125,
+    "maxFunctionLoc": 18,
+    "maxNesting": 3
+  },
+  "src/billing/safety/prepare.ts": {
+    "branches": 1,
+    "loc": 61,
+    "maxFunctionLoc": 26,
+    "maxNesting": 2
+  },
+  "src/billing/safety/registry.ts": {
+    "branches": 0,
+    "loc": 140,
+    "maxFunctionLoc": 18,
+    "maxNesting": 1
+  },
+  "src/billing/safety/retry.ts": {
+    "branches": 22,
+    "loc": 123,
+    "maxFunctionLoc": 42,
+    "maxNesting": 4
+  },
+  "src/billing/safety/types.ts": {
+    "branches": 0,
+    "loc": 51,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/safety/validators.ts": {
+    "branches": 10,
+    "loc": 76,
+    "maxFunctionLoc": 54,
+    "maxNesting": 2
+  },
+  "src/billing/self-enrollment.ts": {
+    "branches": 6,
+    "loc": 45,
+    "maxFunctionLoc": 14,
+    "maxNesting": 2
+  },
+  "src/billing/subject/connection-affinity.ts": {
+    "branches": 40,
+    "loc": 277,
+    "maxFunctionLoc": 109,
+    "maxNesting": 3
+  },
+  "src/billing/subject/contact.ts": {
+    "branches": 7,
+    "loc": 40,
+    "maxFunctionLoc": 30,
+    "maxNesting": 2
+  },
+  "src/billing/subject/ensure-provider-customer.ts": {
+    "branches": 19,
+    "loc": 213,
+    "maxFunctionLoc": 131,
+    "maxNesting": 5
+  },
+  "src/billing/subject/ensure.ts": {
+    "branches": 1,
+    "loc": 28,
+    "maxFunctionLoc": 19,
+    "maxNesting": 2
+  },
+  "src/billing/subject/errors.ts": {
+    "branches": 8,
+    "loc": 74,
+    "maxFunctionLoc": 18,
+    "maxNesting": 2
+  },
+  "src/billing/subject/postgres.ts": {
+    "branches": 28,
+    "loc": 221,
+    "maxFunctionLoc": 165,
+    "maxNesting": 4
+  },
+  "src/billing/subject/principal-user.ts": {
+    "branches": 2,
+    "loc": 20,
+    "maxFunctionLoc": 16,
+    "maxNesting": 2
+  },
+  "src/billing/subject/repository.ts": {
+    "branches": 0,
+    "loc": 72,
+    "maxFunctionLoc": 5,
+    "maxNesting": 1
+  },
+  "src/billing/subject/resolve.ts": {
+    "branches": 3,
+    "loc": 50,
+    "maxFunctionLoc": 33,
+    "maxNesting": 2
+  },
+  "src/billing/subject/sole-connection.ts": {
+    "branches": 6,
+    "loc": 53,
+    "maxFunctionLoc": 21,
+    "maxNesting": 2
+  },
+  "src/billing/types.ts": {
+    "branches": 0,
+    "loc": 457,
+    "maxFunctionLoc": 0,
+    "maxNesting": 0
+  },
+  "src/billing/workflows/plan-change/change-operation.ts": {
+    "branches": 9,
+    "loc": 51,
+    "maxFunctionLoc": 25,
+    "maxNesting": 2
+  },
+  "src/billing/workflows/plan-change/plan-change-coordinator.ts": {
+    "branches": 110,
+    "loc": 710,
+    "maxFunctionLoc": 527,
+    "maxNesting": 6
+  },
+  "src/billing/workflows/plan-change/plan-change-reconciliation.ts": {
+    "branches": 17,
+    "loc": 83,
+    "maxFunctionLoc": 26,
+    "maxNesting": 2
+  },
+  "src/billing/workflows/plan-change/plan-change-recovery.ts": {
+    "branches": 5,
+    "loc": 88,
+    "maxFunctionLoc": 38,
+    "maxNesting": 3
+  },
+  "src/billing/workflows/plan-change/plan-change-repository.ts": {
+    "branches": 35,
+    "loc": 610,
+    "maxFunctionLoc": 377,
+    "maxNesting": 3
+  },
+  "src/billing/workflows/plan-change/plan-change-state.ts": {
+    "branches": 5,
+    "loc": 159,
+    "maxFunctionLoc": 10,
+    "maxNesting": 2
+  },
+  "src/billing/workflows/plan-change/provider-effect-repository.ts": {
+    "branches": 30,
+    "loc": 481,
+    "maxFunctionLoc": 260,
+    "maxNesting": 3
+  }
+}

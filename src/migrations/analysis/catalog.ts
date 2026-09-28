@@ -1,7 +1,10 @@
 import type { QueryResultRow } from "pg";
 import type { AthenaPostgresClient } from "../../postgres/driver.ts";
 import type { SchemaObjectRef } from "./ast.ts";
-import { catalogToProjected, type ProjectedSchema } from "./projected-schema.ts";
+import {
+  catalogToProjected,
+  type ProjectedSchema,
+} from "./projected-schema.ts";
 
 export interface PhysicalCatalog {
   objects: SchemaObjectRef[];
@@ -21,8 +24,18 @@ interface ColRow extends QueryResultRow {
 }
 
 interface FnRow extends QueryResultRow {
+  identity_args: string | null;
   nspname: string;
   proname: string;
+}
+
+interface TypeRow extends QueryResultRow {
+  nspname: string;
+  typname: string;
+}
+
+interface ExtRow extends QueryResultRow {
+  extname: string;
 }
 
 const CATALOG_SQL = `
@@ -45,10 +58,23 @@ WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
 `.trim();
 
 const FUNCTION_SQL = `
-SELECT n.nspname, p.proname
+SELECT n.nspname, p.proname, pg_get_function_identity_arguments(p.oid) AS identity_args
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+`.trim();
+
+const TYPE_SQL = `
+SELECT n.nspname, t.typname
+FROM pg_type t
+JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+  AND t.typtype IN ('e', 'd', 'c')
+`.trim();
+
+const EXTENSION_SQL = `
+SELECT extname
+FROM pg_extension
 `.trim();
 
 const SCHEMA_SQL = `
@@ -63,14 +89,20 @@ export async function inspectPhysicalCatalog(
   client: AthenaPostgresClient
 ): Promise<PhysicalCatalog> {
   const objects: SchemaObjectRef[] = [];
-  const schemas = await client.query<{ nspname: string } & QueryResultRow>(SCHEMA_SQL);
+  const schemas = await client.query<{ nspname: string } & QueryResultRow>(
+    SCHEMA_SQL
+  );
   for (const row of schemas.rows) {
     objects.push({ kind: "schema", name: row.nspname });
   }
   const rels = await client.query<RelRow>(CATALOG_SQL);
   for (const row of rels.rows) {
     if (row.relkind === "S") {
-      objects.push({ kind: "sequence", name: row.relname, schema: row.nspname });
+      objects.push({
+        kind: "sequence",
+        name: row.relname,
+        schema: row.nspname,
+      });
       continue;
     }
     if (row.relkind === "v") {
@@ -98,7 +130,28 @@ export async function inspectPhysicalCatalog(
   }
   const functions = await client.query<FnRow>(FUNCTION_SQL);
   for (const row of functions.rows) {
-    objects.push({ kind: "function", name: row.proname, schema: row.nspname });
+    const identityArguments = row.identity_args
+      ? row.identity_args
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part.length > 0)
+      : undefined;
+    objects.push({
+      kind: "function",
+      name: row.proname,
+      schema: row.nspname,
+      ...(identityArguments && identityArguments.length > 0
+        ? { identityArguments }
+        : {}),
+    });
+  }
+  const types = await client.query<TypeRow>(TYPE_SQL);
+  for (const row of types.rows) {
+    objects.push({ kind: "type", name: row.typname, schema: row.nspname });
+  }
+  const extensions = await client.query<ExtRow>(EXTENSION_SQL);
+  for (const row of extensions.rows) {
+    objects.push({ kind: "extension", name: row.extname });
   }
   return { objects, schema: catalogToProjected(objects) };
 }

@@ -13,13 +13,18 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../../src/auth/contract/index.ts";
+import { emitAuthEmail } from "../../src/auth/email/emit.ts";
 import {
   authEmailEvents,
   createTestEmailDeliveryPort,
 } from "../../src/auth/email/index.ts";
+import { createPostgresAuthDatabase } from "../../src/auth/local/database.ts";
+import { PostgresAuthEmailStore } from "../../src/auth/local/email/postgres-store.ts";
 import { MemoryAuthEmailStore } from "../../src/auth/local/email/store.ts";
 import { passwordHashNeedsRehash } from "../../src/auth/local/password.ts";
 import { createAthenaAuthRuntime } from "../../src/auth/local/runtime.ts";
+import { migrateAthenaAuthSchema } from "../../src/auth/local/schema.ts";
+import { AthenaEmailError } from "../../src/email/errors.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..", "..");
@@ -56,8 +61,8 @@ async function signUp(
   );
   assert.equal(response.status, 200);
   return {
-    cookie: response.headers.get("set-cookie") ?? "",
     body: await json(response),
+    cookie: response.headers.get("set-cookie") ?? "",
   };
 }
 
@@ -101,18 +106,19 @@ test("T-MAIL-EMIT-RESET: forget-password emits user.password.reset once without 
   const listed = await runtime.handle(
     new Request("http://app.local/api/auth/email/list", {
       headers: {
-        cookie: (
-          await runtime.handle(
-            new Request("http://app.local/api/auth/sign-in/email", {
-              body: JSON.stringify({
-                email: "reset@example.com",
-                password: "Password123!",
-              }),
-              headers: { "content-type": "application/json" },
-              method: "POST",
-            })
-          )
-        ).headers.get("set-cookie") ?? "",
+        cookie:
+          (
+            await runtime.handle(
+              new Request("http://app.local/api/auth/sign-in/email", {
+                body: JSON.stringify({
+                  email: "reset@example.com",
+                  password: "Password123!",
+                }),
+                headers: { "content-type": "application/json" },
+                method: "POST",
+              })
+            )
+          ).headers.get("set-cookie") ?? "",
       },
     })
   );
@@ -127,14 +133,14 @@ test("T-MAIL-EMIT-RESET: forget-password emits user.password.reset once without 
 });
 
 test("T-MAIL-HOOK-COMPAT: legacy send hook still receives the verify URL", async () => {
-  let captured: { type?: string; url?: string } | undefined;
+  let legacyCalls = 0;
   const provider = createTestEmailDeliveryPort();
   const runtime = createAthenaAuthRuntime({
     autoMigrate: false,
     delivery: provider,
     hasher: createTestHasher(),
-    legacySend: (message) => {
-      captured = message;
+    legacySend: () => {
+      legacyCalls += 1;
     },
   });
   await signUp(runtime, "verify@example.com");
@@ -149,9 +155,17 @@ test("T-MAIL-HOOK-COMPAT: legacy send hook still receives the verify URL", async
     })
   );
   assert.equal(send.status, 200);
-  assert.equal(captured?.type, "verify-email");
-  assert.match(String(captured?.url), /^https:\/\/app\.example\/verify\?token=/);
-  assert.equal(provider.messages.at(-1)?.to, "verify@example.com");
+  assert.equal(
+    legacyCalls,
+    0,
+    "provider delivery must not also invoke legacySend"
+  );
+  const delivered = provider.messages.at(-1);
+  assert.equal(delivered?.to, "verify@example.com");
+  assert.match(
+    `${delivered?.text ?? ""}\n${delivered?.html ?? ""}`,
+    /https:\/\/app\.example\/verify\?token=/
+  );
 });
 
 test("T-MAIL-VERIFY-GET-CHANGE: GET /change-email/verify consumes the token", async () => {
@@ -165,7 +179,7 @@ test("T-MAIL-VERIFY-GET-CHANGE: GET /change-email/verify consumes the token", as
   const requestChange = await runtime.handle(
     new Request("http://app.local/api/auth/change-email", {
       body: JSON.stringify({ newEmail: "new@example.com" }),
-      headers: { cookie, "content-type": "application/json" },
+      headers: { "content-type": "application/json", cookie },
       method: "POST",
     })
   );
@@ -179,7 +193,10 @@ test("T-MAIL-VERIFY-GET-CHANGE: GET /change-email/verify consumes the token", as
     )
   );
   assert.equal(confirm.status, 200);
-  assert.equal(((await json(confirm)).user as { email?: string }).email, "new@example.com");
+  assert.equal(
+    ((await json(confirm)).user as { email?: string }).email,
+    "new@example.com"
+  );
 });
 
 test("T-MAIL-GET-RESET: GET /reset-password/{token} inspects without consuming", async () => {
@@ -201,7 +218,9 @@ test("T-MAIL-GET-RESET: GET /reset-password/{token} inspects without consuming",
   const token = match?.[1];
   assert.ok(token);
   const inspected = await runtime.handle(
-    new Request(`http://app.local/api/auth/reset-password/${encodeURIComponent(token ?? "")}`)
+    new Request(
+      `http://app.local/api/auth/reset-password/${encodeURIComponent(token ?? "")}`
+    )
   );
   assert.ok(inspected.status === 200 || inspected.status === 302);
   const reset = await runtime.handle(
@@ -251,7 +270,7 @@ test("T-MAIL-INVITE: organization invite emits organization.member.invite", asyn
   const org = await runtime.handle(
     new Request("http://app.local/api/auth/organization/create", {
       body: JSON.stringify({ name: "Acme", slug: "acme-mail" }),
-      headers: { cookie, "content-type": "application/json" },
+      headers: { "content-type": "application/json", cookie },
       method: "POST",
     })
   );
@@ -259,7 +278,7 @@ test("T-MAIL-INVITE: organization invite emits organization.member.invite", asyn
   const invited = await runtime.handle(
     new Request("http://app.local/api/auth/organization/invite-member", {
       body: JSON.stringify({ email: "member@example.com", role: "member" }),
-      headers: { cookie, "content-type": "application/json" },
+      headers: { "content-type": "application/json", cookie },
       method: "POST",
     })
   );
@@ -278,16 +297,20 @@ test("T-MAIL-DELETE-GET: passwordless delete-user confirms via GET /delete-user/
   const requested = await runtime.handle(
     new Request("http://app.local/api/auth/delete-user", {
       body: JSON.stringify({}),
-      headers: { cookie, "content-type": "application/json" },
+      headers: { "content-type": "application/json", cookie },
       method: "POST",
     })
   );
   assert.equal(requested.status, 200);
   const sessionStill = await runtime.handle(
-    new Request("http://app.local/api/auth/get-session", { headers: { cookie } })
+    new Request("http://app.local/api/auth/get-session", {
+      headers: { cookie },
+    })
   );
   assert.equal(sessionStill.status, 200);
-  const token = /token=([^&\s]+)/.exec(String(provider.messages.at(-1)?.text))?.[1];
+  const token = /token=([^&\s]+)/.exec(
+    String(provider.messages.at(-1)?.text)
+  )?.[1];
   assert.ok(token);
   const verified = await runtime.handle(
     new Request(
@@ -296,7 +319,9 @@ test("T-MAIL-DELETE-GET: passwordless delete-user confirms via GET /delete-user/
   );
   assert.equal(verified.status, 200);
   const sessionGone = await runtime.handle(
-    new Request("http://app.local/api/auth/get-session", { headers: { cookie } })
+    new Request("http://app.local/api/auth/get-session", {
+      headers: { cookie },
+    })
   );
   assert.equal(sessionGone.status, 401);
 });
@@ -330,3 +355,71 @@ test("T-MAIL-STORE: MemoryAuthEmailStore still lists deliveries", async () => {
   const rows = await store.listEmails();
   assert.equal(rows.length, 1);
 });
+
+test("T-MAIL-FROM: production emit fail-closes without from-authority", async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    await assert.rejects(
+      () =>
+        emitAuthEmail(
+          {
+            data: { app_name: "Athena" },
+            eventType: authEmailEvents.user.password.reset,
+            recipient: "a@example.com",
+          },
+          {
+            delivery: createTestEmailDeliveryPort(),
+            store: new MemoryAuthEmailStore(),
+          }
+        ),
+      (error: unknown) =>
+        error instanceof AthenaEmailError &&
+        error.code === "ATHENA_EMAIL_MESSAGE_INVALID"
+    );
+  } finally {
+    process.env.NODE_ENV = previous;
+  }
+});
+
+const postgresUrl = (
+  process.env.ATHENA_TEST_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  ""
+).trim();
+const mailPg = /^postgres(ql)?:\/\//i.test(postgresUrl) ? test : test.skip;
+
+mailPg(
+  "T-MAIL-PG: PostgresAuthEmailStore persists error_code and template fields",
+  async () => {
+    const database = await createPostgresAuthDatabase(postgresUrl);
+    try {
+      await migrateAthenaAuthSchema(database);
+      const store = new PostgresAuthEmailStore(database);
+      const stamp = new Date().toISOString();
+      const created = await store.createFailure({
+        created_at: stamp,
+        error_code: "ATHENA_EMAIL_DELIVERY_FAILED",
+        error_message: "boom",
+        flow: "user.password.reset",
+        id: crypto.randomUUID(),
+        metadata: { event_type: "user.password.reset" },
+        provider: "test",
+        recipient_email: "a@example.com",
+        resolved: false,
+        template_id: "tmpl-1",
+        template_key: "user.password.reset",
+        updated_at: stamp,
+      });
+      assert.equal(created.error_code, "ATHENA_EMAIL_DELIVERY_FAILED");
+      assert.equal(created.template_id, "tmpl-1");
+      assert.equal(created.template_key, "user.password.reset");
+      const loaded = await store.getFailure(created.id);
+      assert.equal(loaded?.error_code, "ATHENA_EMAIL_DELIVERY_FAILED");
+      assert.equal(loaded?.template_id, "tmpl-1");
+      assert.equal(loaded?.template_key, "user.password.reset");
+    } finally {
+      await database.close?.();
+    }
+  }
+);

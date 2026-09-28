@@ -1,7 +1,7 @@
 import type { BillingProviderGetInvoiceInput } from "../../types.ts";
 
 export function mapGetInvoiceToMollieSdk(
-	input: BillingProviderGetInvoiceInput,
+  input: BillingProviderGetInvoiceInput
 ): Record<string, unknown> {
-	return { invoiceId: input.invoiceId };
+  return { invoiceId: input.invoiceId };
 }

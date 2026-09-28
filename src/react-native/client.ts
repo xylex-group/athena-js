@@ -13,7 +13,17 @@ import {
   assertLocalStorageRequiresNodeRuntime,
   assertS3StorageRequiresNodeRuntime,
   createClient as createUniversalClient,
+  createClientWithNormalizer,
+  normalizeUniversalCreateClientConfig,
 } from "../v3-client-core.ts";
+import { assertLocalAuthHooks } from "../auth/hooks/assert-local.ts";
+import { assertLocalAuthObservability } from "../auth/observability/config.ts";
+import { assertBillingProviderRuntimeEnvironment } from "../billing/runtime/local/providers/config.ts";
+import { assertLocalBillingRuntimeEnvironment } from "../billing/runtime/resolve-mode.ts";
+import type { AthenaClientRuntimeBindings } from "../client/context.ts";
+import { createAuthSessionPersistenceAuthority } from "../auth/client/session-persistence.ts";
+import type { InternalAuthSessionPersistence } from "../auth/client/session-persistence.ts";
+import { assertDataLifecycleConfig } from "../runtime/data/lifecycle/assert.ts";
 import { resolveReactNativeRequestContext } from "./runtime.ts";
 import type {
   AthenaLifecycleAdapter,
@@ -41,7 +51,7 @@ export type AthenaReactNativeClientOptions<
 };
 
 function isContextProvider(
-  value: AthenaClientConfig["context"],
+  value: AthenaClientConfig["context"]
 ): value is AthenaRequestContextProvider {
   return typeof value === "function";
 }
@@ -56,9 +66,7 @@ function isContextProvider(
  */
 export function createReactNativeClient<
   const TModels extends AthenaClientModelsInput | undefined = undefined,
->(
-  options: AthenaReactNativeClientOptions<TModels>,
-): AthenaClient<TModels> {
+>(options: AthenaReactNativeClientOptions<TModels>): AthenaClient<TModels> {
   const {
     tokenStore,
     fetch: fetchImpl,
@@ -92,7 +100,7 @@ export function createReactNativeClient<
 
   const chatObject = typeof chat === "object" && chat ? chat : undefined;
   const resolvedWs = resolveReactNativeWebSocketFactory(
-    webSocketFactory ?? chatObject?.webSocketFactory,
+    webSocketFactory ?? chatObject?.webSocketFactory
   );
 
   const nextAuth: AthenaClientConfig<TModels>["auth"] =
@@ -120,14 +128,64 @@ export function createReactNativeClient<
     auth: nextAuth,
     chat: nextChat,
     context: contextProvider,
+    ...(_lifecycle ? { lifecycle: _lifecycle } : {}),
   };
   assertDirectPostgresRequiresNodeRuntime(nextConfig);
+  assertDataLifecycleConfig(nextConfig);
+  assertLocalAuthHooks(nextConfig.auth);
+  assertLocalAuthObservability(nextConfig.auth);
   assertLocalAuthRequiresNodeRuntime(nextConfig);
   assertLocalChatRequiresNodeRuntime(nextConfig);
   assertLocalStorageRequiresNodeRuntime(nextConfig);
   assertS3StorageRequiresNodeRuntime(nextConfig);
-  const client = (createUniversalClient as (c: unknown) => unknown)(
+  assertLocalBillingRuntimeEnvironment({
+    configuredProviders: nextConfig.billing?.providers,
+    mode: nextConfig.billing?.mode,
+  });
+  assertBillingProviderRuntimeEnvironment(nextConfig.billing?.providers);
+  const sessionPersistence: InternalAuthSessionPersistence | undefined =
+    tokenStore
+      ? {
+          async clearSession() {
+            let firstError: unknown;
+            try {
+              await tokenStore.setAccessToken(null);
+            } catch (error) {
+              firstError = error;
+            }
+            try {
+              await tokenStore.setSessionToken(null);
+            } catch (error) {
+              if (firstError === undefined) {
+                firstError = error;
+              }
+            }
+            if (firstError !== undefined) {
+              throw firstError;
+            }
+          },
+          async persistSessionToken(token) {
+            await tokenStore.setSessionToken(token);
+          },
+        }
+      : undefined;
+  const bindings: AthenaClientRuntimeBindings | undefined =
+    sessionPersistence
+      ? {
+          sessionPersistence,
+          sessionPersistenceAuthority:
+            createAuthSessionPersistenceAuthority(sessionPersistence),
+        }
+      : undefined;
+  const factory = createClientWithNormalizer as unknown as (
+    config: unknown,
+    normalize: (config: unknown) => unknown,
+    bindings?: AthenaClientRuntimeBindings
+  ) => unknown;
+  const client = factory(
     nextConfig,
+    normalizeUniversalCreateClientConfig as (config: unknown) => unknown,
+    bindings
   );
   return client as AthenaClient<TModels>;
 }
@@ -143,12 +201,12 @@ export function createClient<
   const TModels extends AthenaClientModelsInput | undefined = undefined,
 >(config: AthenaClientConfig<TModels>): AthenaClient<TModels> {
   assertDirectPostgresRequiresNodeRuntime(config);
+  assertLocalAuthHooks(config.auth);
+  assertLocalAuthObservability(config.auth);
   assertLocalAuthRequiresNodeRuntime(config);
   assertLocalChatRequiresNodeRuntime(config);
   assertLocalStorageRequiresNodeRuntime(config);
   assertS3StorageRequiresNodeRuntime(config);
-  const factory = createUniversalClient as unknown as (
-    c: unknown,
-  ) => unknown;
+  const factory = createUniversalClient as unknown as (c: unknown) => unknown;
   return factory(config) as AthenaClient<TModels>;
 }

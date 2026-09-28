@@ -1,6 +1,9 @@
-import { ATHENA_EMAIL_MESSAGE_INVALID, AthenaEmailError } from "../email/errors.ts";
-import type { AthenaResolvedEmailMessage } from "../email/types.ts";
+import {
+  ATHENA_EMAIL_MESSAGE_INVALID,
+  AthenaEmailError,
+} from "../email/errors.ts";
 import { selectAttachments } from "../email/providers/attachments.ts";
+import type { AthenaResolvedEmailMessage } from "../email/types.ts";
 
 const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
@@ -12,7 +15,9 @@ const ENCODED_WORD_PREFIX = "=?UTF-8?B?";
 const ENCODED_WORD_SUFFIX = "?=";
 const ENCODED_WORD_MAX_CHARS = 75;
 const ENCODED_WORD_B64_BUDGET =
-  ENCODED_WORD_MAX_CHARS - ENCODED_WORD_PREFIX.length - ENCODED_WORD_SUFFIX.length;
+  ENCODED_WORD_MAX_CHARS -
+  ENCODED_WORD_PREFIX.length -
+  ENCODED_WORD_SUFFIX.length;
 const ENCODED_WORD_MAX_BYTES = Math.floor(ENCODED_WORD_B64_BUDGET / 4) * 3;
 
 function encodeMimeWord(value: string): string {
@@ -77,7 +82,10 @@ function assertHeaderField(name: string, value: string): void {
       `Invalid SMTP header name "${name}".`
     );
   }
-  if (/[\r\n]/.test(value) && !/^(?:[^\r\n]*(?:\r\n[ \t][^\r\n]*)*)$/.test(value)) {
+  if (
+    /[\r\n]/.test(value) &&
+    !/^(?:[^\r\n]*(?:\r\n[ \t][^\r\n]*)*)$/.test(value)
+  ) {
     throw new AthenaEmailError(
       ATHENA_EMAIL_MESSAGE_INVALID,
       `SMTP header "${name}" must not contain CR or LF.`
@@ -134,9 +142,7 @@ function attachmentPart(
 
 function wrapMultipart(kind: string, parts: string[]): string {
   const boundary = `athena_${crypto.randomUUID().replaceAll("-", "")}`;
-  const inner = parts
-    .map((part) => `--${boundary}\r\n${part}`)
-    .join("\r\n");
+  const inner = parts.map((part) => `--${boundary}\r\n${part}`).join("\r\n");
   return `${headerBlock([
     ["Content-Type", `multipart/${kind}; boundary=${boundary}`],
   ])}\r\n\r\n${inner}\r\n--${boundary}--`;
@@ -199,7 +205,5 @@ export function buildSmtpMime(message: AthenaResolvedEmailMessage): string {
 }
 
 export function smtpDotStuff(payload: string): string {
-  return payload
-    .replaceAll("\r\n.", "\r\n..")
-    .replace(/^\./, "..");
+  return payload.replaceAll("\r\n.", "\r\n..").replace(/^\./, "..");
 }

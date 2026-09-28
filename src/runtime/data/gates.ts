@@ -16,6 +16,7 @@ import {
   referencedRelations,
   resourceNameFromPayload,
 } from "./model-registry.ts";
+import { isPrivilegedHttpDataResource } from "./privileged-http-models.ts";
 import type {
   AthenaRuntimeErrorCode,
   AthenaRuntimeExecutionEvent,
@@ -39,7 +40,7 @@ export function enforceHttpLimits(
 ): AthenaGatewayResponse<unknown> | undefined {
   const profile = runtime.httpProfile;
   if (!profile.enabled) {
-    return undefined;
+    return;
   }
   const endpoint = ENDPOINT[request.operation] ?? ENDPOINT.fetch;
   if (
@@ -55,7 +56,7 @@ export function enforceHttpLimits(
   }
   const violation = inspectPayloadLimits(request.payload, profile.limits);
   if (!violation) {
-    return undefined;
+    return;
   }
   if (violation.kind === "insert") {
     return runtimeDeniedResponse(
@@ -83,14 +84,25 @@ export function enforceModels(
   request: AthenaRuntimeRequest
 ): AthenaGatewayResponse<unknown> | undefined {
   const enforcement = runtime.capabilities.modelEnforcement;
-  if (enforcement === "off" || !runtime.modelIndex) {
-    return undefined;
-  }
   if (request.operation === "query" || request.operation === "rpc") {
-    return undefined;
+    return;
   }
   const resource = resourceNameFromPayload(request.payload);
   const endpoint = ENDPOINT[request.operation];
+  if (
+    runtime.httpProfile.enabled &&
+    resource &&
+    isPrivilegedHttpDataResource(resource)
+  ) {
+    return runtimeDeniedResponse(
+      "ATHENA_MODEL_NOT_EXPOSED",
+      `Resource "${resource}" is not exposed by the runtime model registry.`,
+      endpoint
+    );
+  }
+  if (enforcement === "off" || !runtime.modelIndex) {
+    return;
+  }
   if (!resource) {
     return runtimeDeniedResponse(
       "ATHENA_MODEL_NOT_EXPOSED",
@@ -107,7 +119,7 @@ export function enforceModels(
     );
   }
   if (enforcement !== "strict") {
-    return undefined;
+    return;
   }
   const relations = referencedRelations(request.payload);
   for (const name of relations) {
@@ -121,7 +133,9 @@ export function enforceModels(
     );
   }
   for (const field of referencedFields(request.payload)) {
-    const bare = field.includes(".") ? (field.split(".").pop() ?? field) : field;
+    const bare = field.includes(".")
+      ? (field.split(".").pop() ?? field)
+      : field;
     if (descriptor.columns.has(field) || descriptor.columns.has(bare)) {
       continue;
     }
@@ -134,7 +148,6 @@ export function enforceModels(
       endpoint
     );
   }
-  return undefined;
 }
 
 export function emitExecutionEvent(
@@ -209,7 +222,7 @@ export async function dispatchAthenaTransport(
       }
       const rpcPayload = payload as AthenaRpcPayload;
       const name = rpcPayload.function || rpcPayload.function_name || "";
-      if (!name || !runtime.rpcExpose?.has(name)) {
+      if (!(name && runtime.rpcExpose?.has(name))) {
         return runtimeDeniedResponse(
           "ATHENA_RPC_NOT_EXPOSED",
           "RPC function is not on the Athena expose allowlist.",

@@ -4,6 +4,14 @@ import { fetchRefusingRedirects } from "./reject-redirects.ts";
 import type { OAuth2Tokens, ProviderOptions } from "./types.ts";
 import { getPrimaryClientId } from "./utils.ts";
 
+/**
+ * @param refreshToken - OAuth 2.0 refresh token
+ * @param options - Provider options (awaitable)
+ * @param authentication - OAuth 2.0 authentication method
+ * @param extraParams - Additional OAuth 2.0 parameters
+ * @param resource - OAuth 2.0 resource parameter
+ * @returns Refresh access token request
+ */
 export async function refreshAccessTokenRequest({
   refreshToken,
   options,

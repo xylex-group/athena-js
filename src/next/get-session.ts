@@ -1,7 +1,7 @@
 import {
-	type GetServerSessionOptions,
-	getServerSession,
-	type ServerSessionClientLike,
+  type GetServerSessionOptions,
+  getServerSession,
+  type ServerSessionClientLike,
 } from "./get-server-session.ts";
 
 /**
@@ -17,8 +17,8 @@ import {
  * ```
  */
 export async function getSession(
-	client: ServerSessionClientLike,
-	options: Omit<GetServerSessionOptions, "client"> = {},
+  client: ServerSessionClientLike,
+  options: Omit<GetServerSessionOptions, "client"> = {}
 ) {
-	return getServerSession({ ...options, client });
+  return getServerSession({ ...options, client });
 }

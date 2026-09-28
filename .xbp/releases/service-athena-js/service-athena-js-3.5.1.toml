@@ -1277,7 +1277,7 @@ completed_at = "2026-07-27T18:44:58.806196600Z"
 
 [steps.github_release.details]
 release_id = 360637190
-release_url = "https://github.com/xylex-group/athena/releases/tag/athena-js-3.5.1"
+release_url = "https://github.com/xylex-group/athena-js/releases/tag/athena-js-3.5.1"
 
 [steps.publish_linear]
 status = "Completed"

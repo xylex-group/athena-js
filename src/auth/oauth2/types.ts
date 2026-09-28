@@ -23,13 +23,19 @@ export interface OAuth2UserInfo {
   name?: string | undefined;
 }
 
+/**
+ * Open provider bag. `any` is required so concrete profile/option interfaces
+ * without index signatures stay assignable (unlike `Record<string, unknown>`).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- open provider bag for assignability
+// biome-ignore lint/suspicious/noExplicitAny: open provider bag for assignability
+type OAuthOpenBag = Record<string, any>;
+
 // Provider profile bags and option maps intentionally use open records so
 // concrete provider interfaces remain assignable without forcing index signatures.
 export interface OAuthProvider<
-  // biome-ignore lint/suspicious/noExplicitAny: open provider profile bag for assignability
-  T extends Record<string, any> = Record<string, any>,
-  // biome-ignore lint/suspicious/noExplicitAny: open provider options bag for assignability
-  O extends Record<string, any> = Partial<ProviderOptions>,
+  T extends OAuthOpenBag = OAuthOpenBag,
+  O extends OAuthOpenBag = Partial<ProviderOptions>,
 > {
   createAuthorizationURL: (data: {
     state: string;
@@ -98,8 +104,9 @@ export interface OAuthProvider<
     | undefined;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: default profile is open; constraint uses any for assignability
-export interface ProviderOptions<Profile extends Record<string, any> = any> {
+/* eslint-disable @typescript-eslint/no-explicit-any -- provider option bags stay open for assignability */
+// biome-ignore lint/suspicious/noExplicitAny: default profile must be any for options assignability
+export interface ProviderOptions<Profile extends OAuthOpenBag = any> {
   /**
    * Custom authorization endpoint URL.
    * Use this to override the default authorization endpoint of the provider.
@@ -229,3 +236,4 @@ export interface ProviderOptions<Profile extends Record<string, any> = any> {
     | ((token: string, nonce?: string) => Promise<boolean>)
     | undefined;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */

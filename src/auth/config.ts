@@ -6,49 +6,55 @@
  * object configs without `mode` normalize to `remote`.
  */
 
+import { AthenaConfigurationError } from "../config/errors.ts";
 import {
   type AthenaAppIdentity,
   type AthenaAppIdentityInput,
   resolveAthenaAppIdentity,
 } from "./app-identity.ts";
 import { normalizeAuthBridgeDestinationOrigin } from "./bridge/code.ts";
-import { AthenaConfigurationError } from "../config/errors.ts";
 import { ATHENA_AUTH_DEFAULT_BASE_PATH } from "./contract/index.ts";
 import type { AthenaAuthHooks } from "./hooks/types.ts";
+import { normalizeAthenaAuthObservability } from "./observability/config.ts";
+import type {
+  AthenaAuthObservabilityConfig,
+  NormalizedAthenaAuthObservability,
+} from "./observability/types.ts";
+import { assertOriginOnlyIssuer } from "./protocol-identity.ts";
 import type {
   AthenaAuthSocialOptions,
   AthenaAuthSocialProviderOptions,
   NormalizedSocialAuthConfig,
-} from "./social/server/social-config.ts";
-import type { AthenaAuthObservabilityConfig } from "./observability/types.ts";
-import { normalizeAthenaAuthObservability } from "./observability/config.ts";
-import type { NormalizedAthenaAuthObservability } from "./observability/types.ts";
+} from "./social/config.ts";
+import { normalizeAuthSocialProviders } from "./social/config.ts";
 
 export type {
   AthenaAppIdentity,
   AthenaAppIdentityInput,
 } from "./app-identity.ts";
 export { resolveAthenaAppIdentity } from "./app-identity.ts";
+
 import {
   type AthenaPasskeyAuthenticationPolicy,
   type AthenaPasskeyRegistrationPolicy,
   normalizePasskeyAuthenticationPolicy,
   normalizePasskeyRegistrationPolicy,
 } from "./passkey/policy.ts";
+
 export type {
-  AthenaAuthSocialOptions,
-  AthenaAuthSocialProviderOptions,
-  NormalizedSocialAuthConfig,
-} from "./social/server/social-config.ts";
-export type {
-  AthenaPasskeyAuthenticatorAttachment,
   AthenaPasskeyAuthenticationExtensions,
   AthenaPasskeyAuthenticationPolicy,
+  AthenaPasskeyAuthenticatorAttachment,
   AthenaPasskeyRegistrationExtensions,
   AthenaPasskeyRegistrationPolicy,
   AthenaPasskeyResidentKey,
   AthenaPasskeyUserVerification,
 } from "./passkey/policy.ts";
+export type {
+  AthenaAuthSocialOptions,
+  AthenaAuthSocialProviderOptions,
+  NormalizedSocialAuthConfig,
+} from "./social/server/social-config.ts";
 
 export type AthenaPasskeyOnboardingResolution =
   | { create: { email: string; name?: string } }
@@ -123,6 +129,46 @@ export interface NormalizedAthenaAuthBridgeConfig {
   enabled: boolean;
 }
 
+export interface AthenaAuthorizationServerResourceOptions {
+  description?: string;
+  scopes: Record<string, { description?: string }>;
+}
+
+export interface AthenaAuthorizationServerOptions {
+  accessTokenTtlSeconds?: number;
+  authorizationCodeTtlSeconds?: number;
+  authorizationEndpoint?: string;
+  authorizationRequestTtlSeconds?: number;
+  consentUrl?: string;
+  enabled?: boolean;
+  issuer?: string;
+  issueRefreshTokens?: boolean;
+  refreshTokenTtlSeconds?: number;
+  resources?: Record<string, AthenaAuthorizationServerResourceOptions>;
+  signInUrl?: string;
+}
+
+export interface NormalizedAthenaAuthorizationServerResource {
+  description?: string;
+  scopes: Readonly<Record<string, { description?: string }>>;
+}
+
+export interface NormalizedAthenaAuthorizationServerConfig {
+  accessTokenTtlSeconds: number;
+  authorizationCodeTtlSeconds: number;
+  authorizationEndpoint: string | null;
+  authorizationRequestTtlSeconds: number;
+  consentUrl: string | null;
+  enabled: boolean;
+  issuer: string | null;
+  issueRefreshTokens: boolean;
+  refreshTokenTtlSeconds: number;
+  resources: Readonly<
+    Record<string, NormalizedAthenaAuthorizationServerResource>
+  >;
+  signInUrl: string | null;
+}
+
 export interface AthenaAuthPasskeyOptions {
   authentication?: {
     extensions?: Record<string, never>;
@@ -132,13 +178,13 @@ export interface AthenaAuthPasskeyOptions {
   enabled?: boolean;
   onboarding?: boolean | AthenaPasskeyOnboardingOptions;
   origins?: readonly string[];
-  relatedOrigins?: readonly string[];
   registration?: {
     authenticatorAttachment?: "cross-platform" | "platform";
     extensions?: { credProps?: boolean };
     residentKey?: "discouraged" | "preferred" | "required";
     userVerification?: "discouraged" | "preferred" | "required";
   };
+  relatedOrigins?: readonly string[];
   rpId?: string;
   rpName?: string;
 }
@@ -149,11 +195,24 @@ export interface AthenaAuthLocalConfig {
    * Auth schema unless this is `true`.
    */
   autoMigrate?: boolean;
+  authorizationServer?: AthenaAuthorizationServerOptions;
   basePath?: string;
   bridge?: AthenaAuthBridgeOptions;
   emailAndPassword?: AthenaAuthEmailAndPasswordOptions;
+  /**
+   * Embedded-only domain lifecycle hooks. Discarded by
+   * `normalizeAthenaAuthConfig`; pass through `athenaAuthConfig()` into
+   * `createAthenaAuthRuntime`.
+   */
+  hooks?: AthenaAuthHooks;
   mode: "local";
   oauth?: Record<string, AthenaAuthSocialProviderOptions>;
+  /**
+   * Embedded-only audit/trace tables. Discarded by
+   * `normalizeAthenaAuthConfig`; pass through `athenaAuthConfig()` into
+   * `createAthenaAuthRuntime`.
+   */
+  observability?: AthenaAuthObservabilityConfig;
   organizations?: { enabled?: boolean };
   passkey?: AthenaAuthPasskeyOptions;
   secret?: string;
@@ -161,18 +220,6 @@ export interface AthenaAuthLocalConfig {
   session?: AthenaAuthSessionOptions;
   social?: AthenaAuthSocialOptions;
   socialProviders?: Record<string, AthenaAuthSocialProviderOptions>;
-  /**
-   * Embedded-only domain lifecycle hooks. Discarded by
-   * `normalizeAthenaAuthConfig`; pass through `athenaAuthConfig()` into
-   * `createAthenaAuthRuntime`.
-   */
-  hooks?: AthenaAuthHooks;
-  /**
-   * Embedded-only audit/trace tables. Discarded by
-   * `normalizeAthenaAuthConfig`; pass through `athenaAuthConfig()` into
-   * `createAthenaAuthRuntime`.
-   */
-  observability?: AthenaAuthObservabilityConfig;
 }
 
 export interface AthenaAuthRemoteConfig {
@@ -204,8 +251,10 @@ export interface NormalizedAthenaAuthConfig {
   autoMigrate: boolean;
   basePath: string;
   bridge: NormalizedAthenaAuthBridgeConfig;
+  authorizationServer: NormalizedAthenaAuthorizationServerConfig;
   emailAndPassword: Required<AthenaAuthEmailAndPasswordOptions>;
   execution: AthenaAuthExecutionMode;
+  observability: NormalizedAthenaAuthObservability;
   organizationsEnabled: boolean;
   passkey: {
     authentication: AthenaPasskeyAuthenticationPolicy;
@@ -225,7 +274,6 @@ export interface NormalizedAthenaAuthConfig {
    */
   passkeyConfigured: boolean;
   routing?: AthenaAuthHttpRouting;
-  social: NormalizedSocialAuthConfig;
   secret?: string;
   security: {
     bodyLimitBytes: number;
@@ -234,9 +282,9 @@ export interface NormalizedAthenaAuthConfig {
     trustedProxy: boolean;
   };
   session: Required<AthenaAuthSessionOptions>;
+  social: NormalizedSocialAuthConfig;
   upstreamUrl?: string;
   url?: string;
-  observability: NormalizedAthenaAuthObservability;
   warnings: string[];
 }
 
@@ -264,6 +312,28 @@ const DEFAULT_BRIDGE: NormalizedAthenaAuthBridgeConfig = {
 const BRIDGE_TTL_MIN = 5;
 const BRIDGE_TTL_MAX = 300;
 
+const DEFAULT_AUTHORIZATION_SERVER: NormalizedAthenaAuthorizationServerConfig =
+{
+  accessTokenTtlSeconds: 600,
+  authorizationCodeTtlSeconds: 90,
+  authorizationEndpoint: null,
+  authorizationRequestTtlSeconds: 600,
+  consentUrl: null,
+  enabled: false,
+  issuer: null,
+  issueRefreshTokens: true,
+  refreshTokenTtlSeconds: 30 * 24 * 60 * 60,
+  resources: {},
+  signInUrl: null,
+};
+
+const AUTHORIZATION_TTL_LIMITS = {
+  accessToken: { max: 3600, min: 60 },
+  authorizationCode: { max: 600, min: 30 },
+  authorizationRequest: { max: 15 * 60, min: 60 },
+  refreshToken: { max: 365 * 24 * 60 * 60, min: 5 * 60 },
+} as const;
+
 const DEFAULT_PASSKEY: NormalizedAthenaAuthConfig["passkey"] = {
   authentication: normalizePasskeyAuthenticationPolicy(undefined),
   challengeTtlSeconds: 60,
@@ -282,7 +352,7 @@ const PASSKEY_CHALLENGE_TTL_MAX = 600;
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
+    return;
   }
   return value as Record<string, unknown>;
 }
@@ -301,11 +371,11 @@ function originFromConfiguredUrl(value: string): string | undefined {
   try {
     const url = new URL(value.trim());
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return undefined;
+      return;
     }
     return url.origin;
   } catch {
-    return undefined;
+    /* invalid URL */
   }
 }
 
@@ -320,7 +390,15 @@ function mergeTrustedOrigins(
     if (!trimmed) {
       continue;
     }
-    unique.add(originFromConfiguredUrl(trimmed) ?? trimmed);
+    const origin = originFromConfiguredUrl(trimmed);
+    if (!origin) {
+      throw new AthenaConfigurationError(
+        "ATHENA_RUNTIME_CONFIG_INVALID",
+        "Auth trusted origins must be absolute HTTP(S) URLs",
+        "auth",
+      );
+    }
+    unique.add(origin);
   }
   return [...unique];
 }
@@ -351,8 +429,205 @@ function normalizeAllowedBridgeOrigins(value: unknown): string[] {
   return [...unique];
 }
 
+function normalizeBoundedAuthorizationTtl(
+  value: unknown,
+  fallback: number,
+  bounds: { max: number; min: number },
+): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(bounds.max, Math.max(bounds.min, Math.trunc(value)));
+}
+
+function normalizeConfiguredAuthorizationUrl(
+  value: unknown,
+  field: string,
+): string | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new AthenaConfigurationError(
+      "ATHENA_RUNTIME_CONFIG_INVALID",
+      `auth.authorizationServer.${field} must be an absolute HTTP(S) URL`,
+      "auth",
+    );
+  }
+  try {
+    const url = new URL(value);
+    if (
+      (url.protocol !== "http:" && url.protocol !== "https:") ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      throw new Error("invalid authorization URL");
+    }
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    throw new AthenaConfigurationError(
+      "ATHENA_RUNTIME_CONFIG_INVALID",
+      `auth.authorizationServer.${field} must be an absolute HTTP(S) URL without credentials, query, or fragment`,
+      "auth",
+    );
+  }
+}
+
+function normalizeAuthorizationIssuer(
+  value: unknown,
+  appIdentity: AthenaAppIdentity | null,
+  enabled: boolean,
+): string | null {
+  const configured = normalizeConfiguredAuthorizationUrl(value, "issuer");
+  const issuer = configured ?? appIdentity?.origin ?? null;
+  if (!enabled) {
+    return issuer
+      ? assertOriginOnlyIssuer(issuer, "auth.authorizationServer.issuer")
+      : issuer;
+  }
+  if (!issuer) {
+    throw new AthenaConfigurationError(
+      "ATHENA_RUNTIME_CONFIG_INVALID",
+      "auth.authorizationServer.enabled requires issuer or app.url/APP_URL",
+      "auth",
+    );
+  }
+  const origin = assertOriginOnlyIssuer(
+    issuer,
+    "auth.authorizationServer.issuer",
+  );
+  if (process.env.NODE_ENV === "production" && !origin.startsWith("https://")) {
+    throw new AthenaConfigurationError(
+      "ATHENA_RUNTIME_CONFIG_INVALID",
+      "auth.authorizationServer.issuer must use HTTPS in production",
+      "auth",
+    );
+  }
+  return origin;
+}
+
+function normalizeAuthorizationResources(
+  value: unknown,
+): Readonly<Record<string, NormalizedAthenaAuthorizationServerResource>> {
+  if (value === undefined) {
+    return {};
+  }
+  const record = asRecord(value);
+  if (!record) {
+    throw new AthenaConfigurationError(
+      "ATHENA_RUNTIME_CONFIG_INVALID",
+      "auth.authorizationServer.resources must be a resource map",
+      "auth",
+    );
+  }
+  const resources: Record<string, NormalizedAthenaAuthorizationServerResource> =
+    {};
+  for (const [resource, rawResource] of Object.entries(record)) {
+    let parsedResource: URL;
+    try {
+      parsedResource = new URL(resource);
+      if (
+        !parsedResource.protocol ||
+        parsedResource.username ||
+        parsedResource.password ||
+        parsedResource.hash
+      ) {
+        throw new Error("invalid resource");
+      }
+    } catch {
+      throw new AthenaConfigurationError(
+        "ATHENA_RUNTIME_CONFIG_INVALID",
+        `auth.authorizationServer resource "${resource}" must be an absolute URI without credentials or fragment`,
+        "auth",
+      );
+    }
+    const resourceRecord = asRecord(rawResource);
+    const rawScopes = resourceRecord?.scopes;
+    const scopesRecord = asRecord(rawScopes);
+    if (!scopesRecord || Object.keys(scopesRecord).length === 0) {
+      throw new AthenaConfigurationError(
+        "ATHENA_RUNTIME_CONFIG_INVALID",
+        `auth.authorizationServer resource "${resource}" requires scopes`,
+        "auth",
+      );
+    }
+    const scopes: Record<string, { description?: string }> = {};
+    for (const [scope, rawScope] of Object.entries(scopesRecord)) {
+      if (!/^[\x21-\x7e]+$/.test(scope) || scope.includes(" ")) {
+        throw new AthenaConfigurationError(
+          "ATHENA_RUNTIME_CONFIG_INVALID",
+          `auth.authorizationServer scope "${scope}" is invalid`,
+          "auth",
+        );
+      }
+      const scopeRecord = asRecord(rawScope);
+      scopes[scope] = {
+        ...(typeof scopeRecord?.description === "string"
+          ? { description: scopeRecord.description }
+          : {}),
+      };
+    }
+    resources[parsedResource.toString().replace(/\/$/, "")] = {
+      ...(typeof resourceRecord?.description === "string"
+        ? { description: resourceRecord.description }
+        : {}),
+      scopes: Object.freeze(scopes),
+    };
+  }
+  return Object.freeze(resources);
+}
+
+function normalizeAuthorizationServerConfig(
+  rawValue: unknown,
+  appIdentity: AthenaAppIdentity | null,
+): NormalizedAthenaAuthorizationServerConfig {
+  const raw = asRecord(rawValue);
+  if (!raw) {
+    return { ...DEFAULT_AUTHORIZATION_SERVER };
+  }
+  const enabled = raw.enabled === true;
+  const issuer = normalizeAuthorizationIssuer(raw.issuer, appIdentity, enabled);
+  return {
+    accessTokenTtlSeconds: normalizeBoundedAuthorizationTtl(
+      raw.accessTokenTtlSeconds,
+      DEFAULT_AUTHORIZATION_SERVER.accessTokenTtlSeconds,
+      AUTHORIZATION_TTL_LIMITS.accessToken,
+    ),
+    authorizationCodeTtlSeconds: normalizeBoundedAuthorizationTtl(
+      raw.authorizationCodeTtlSeconds,
+      DEFAULT_AUTHORIZATION_SERVER.authorizationCodeTtlSeconds,
+      AUTHORIZATION_TTL_LIMITS.authorizationCode,
+    ),
+    authorizationEndpoint: normalizeConfiguredAuthorizationUrl(
+      raw.authorizationEndpoint,
+      "authorizationEndpoint",
+    ),
+    authorizationRequestTtlSeconds: normalizeBoundedAuthorizationTtl(
+      raw.authorizationRequestTtlSeconds,
+      DEFAULT_AUTHORIZATION_SERVER.authorizationRequestTtlSeconds,
+      AUTHORIZATION_TTL_LIMITS.authorizationRequest,
+    ),
+    consentUrl: normalizeConfiguredAuthorizationUrl(
+      raw.consentUrl,
+      "consentUrl",
+    ),
+    enabled,
+    issuer,
+    issueRefreshTokens: raw.issueRefreshTokens !== false,
+    refreshTokenTtlSeconds: normalizeBoundedAuthorizationTtl(
+      raw.refreshTokenTtlSeconds,
+      DEFAULT_AUTHORIZATION_SERVER.refreshTokenTtlSeconds,
+      AUTHORIZATION_TTL_LIMITS.refreshToken,
+    ),
+    resources: normalizeAuthorizationResources(raw.resources),
+    signInUrl: normalizeConfiguredAuthorizationUrl(raw.signInUrl, "signInUrl"),
+  };
+}
+
 function normalizeBridgeConfig(
-  rawBridge: unknown
+  rawBridge: unknown,
 ): NormalizedAthenaAuthBridgeConfig {
   const record = asRecord(rawBridge);
   if (!record) {
@@ -412,51 +687,8 @@ function assertSocialConfigObject(key: string, value: unknown): void {
   }
 }
 
-function extractSocialProviderMap(value: unknown): unknown {
-  const record = asRecord(value);
-  if (!record) {
-    return undefined;
-  }
-  const nested = asRecord(record.providers);
-  return nested ?? record;
-}
-
-function normalizeSocialProviderBag(
-  value: unknown,
-): AthenaAuthSocialProviderOptions | undefined {
-  const record = asRecord(value);
-  if (!record) {
-    return undefined;
-  }
-  return {
-    ...record,
-    clientId: asString(record.clientId) ?? "",
-    clientSecret: asString(record["clientSecret"]) ?? "",
-  };
-}
-
-function normalizeSocialFromRaw(
-  raw: Record<string, unknown>,
-): NormalizedSocialAuthConfig {
-  const source =
-    extractSocialProviderMap(raw.social) ?? raw.oauth ?? raw.socialProviders;
-  const record = asRecord(source);
-  if (!record) {
-    return { providers: {} };
-  }
-  const providers: Record<string, AthenaAuthSocialProviderOptions> = {};
-  for (const [id, bag] of Object.entries(record)) {
-    const normalized = normalizeSocialProviderBag(bag);
-    if (!normalized) {
-      continue;
-    }
-    providers[id] = normalized;
-  }
-  return { providers };
-}
-
 function normalizePasskeyConfig(
-  rawPasskey: unknown
+  rawPasskey: unknown,
 ): NormalizedAthenaAuthConfig["passkey"] {
   if (rawPasskey === true) {
     return {
@@ -480,7 +712,11 @@ function normalizePasskeyConfig(
     onboardingEnabled: onboarding.enabled,
     origins: mergeTrustedOrigins(asStringList(record.origins), [], []),
     registration: normalizePasskeyRegistrationPolicy(record.registration),
-    relatedOrigins: mergeTrustedOrigins(asStringList(record.relatedOrigins), [], []),
+    relatedOrigins: mergeTrustedOrigins(
+      asStringList(record.relatedOrigins),
+      [],
+      [],
+    ),
     rpId: asString(record.rpId) ?? null,
     rpName: asString(record.rpName) ?? null,
   };
@@ -495,10 +731,10 @@ export function isAthenaAuthDisabled(input: unknown): input is false {
  * Object auth config only. `false` / non-objects normalize to `undefined`.
  */
 export function athenaAuthConfig<T extends object>(
-  input: false | T | null | undefined
+  input: false | T | null | undefined,
 ): T | undefined {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return undefined;
+    return;
   }
   return input;
 }
@@ -509,20 +745,21 @@ function disabledAuthConfig(): NormalizedAthenaAuthConfig {
     autoMigrate: false,
     basePath: ATHENA_AUTH_DEFAULT_BASE_PATH,
     bridge: { ...DEFAULT_BRIDGE },
+    authorizationServer: { ...DEFAULT_AUTHORIZATION_SERVER },
     emailAndPassword: { ...DEFAULT_EMAIL_PASSWORD, enabled: false },
     execution: "disabled",
+    observability: normalizeAthenaAuthObservability(),
     organizationsEnabled: false,
     passkey: { ...DEFAULT_PASSKEY, origins: [], relatedOrigins: [] },
     passkeyConfigured: false,
-    social: { providers: {} },
     security: {
       bodyLimitBytes: 1_048_576,
       cookieSecure: "auto",
       trustedOrigins: [],
       trustedProxy: false,
     },
-    observability: normalizeAthenaAuthObservability(),
     session: { ...DEFAULT_SESSION },
+    social: { providers: {} },
     warnings: [],
   };
 }
@@ -555,24 +792,28 @@ export function normalizeAthenaAuthConfig(
   if (
     execution === "remote" &&
     explicitMode === undefined &&
-    (raw.routing !== undefined || raw.url !== undefined || raw.upstreamUrl !== undefined)
+    (raw.routing !== undefined ||
+      raw.url !== undefined ||
+      raw.upstreamUrl !== undefined)
   ) {
     warnings.push(
       'Athena auth config without mode is treated as mode: "remote". ' +
-        'Set auth.mode explicitly ("local" | "remote") when you can.'
+      'Set auth.mode explicitly ("local" | "remote") when you can.',
     );
   }
 
   if (execution === "local" && (raw.url || raw.upstreamUrl || raw.routing)) {
     warnings.push(
       'auth.mode "local" ignores remote url / upstreamUrl / routing. ' +
-        "Local requests terminate inside the application process."
+      "Local requests terminate inside the application process.",
     );
   }
 
   const emailAndPassword = {
     ...DEFAULT_EMAIL_PASSWORD,
-    ...(asRecord(raw.emailAndPassword) as AthenaAuthEmailAndPasswordOptions | undefined),
+    ...(asRecord(raw.emailAndPassword) as
+      | AthenaAuthEmailAndPasswordOptions
+      | undefined),
   };
   const session = {
     ...DEFAULT_SESSION,
@@ -585,21 +826,26 @@ export function normalizeAthenaAuthConfig(
   assertSocialConfigObject("social", raw.social);
   assertSocialConfigObject("oauth", raw.oauth);
   assertSocialConfigObject("socialProviders", raw.socialProviders);
-  const social = normalizeSocialFromRaw(raw);
+  if (raw.oauth != null) {
+    warnings.push(
+      "auth.oauth is deprecated; configure auth.social.providers instead.",
+    );
+  }
+  const social: NormalizedSocialAuthConfig = normalizeAuthSocialProviders(raw);
   const envForIdentity = options.env ?? process.env;
   const appIdentity =
-    options.identity !== undefined
-      ? options.identity
-      : resolveAthenaAppIdentity({
-          app: options.app,
-          env: envForIdentity,
-          required: false,
-        });
+    options.identity === undefined
+      ? resolveAthenaAppIdentity({
+        app: options.app,
+        env: envForIdentity,
+        required: false,
+      })
+      : options.identity;
   const identityOrigins = appIdentity ? [appIdentity.origin] : [];
   const explicitTrustedOrigins = Array.isArray(securityRaw.trustedOrigins)
     ? securityRaw.trustedOrigins.filter(
-        (value): value is string => typeof value === "string",
-      )
+      (value): value is string => typeof value === "string",
+    )
     : [];
 
   return {
@@ -607,6 +853,10 @@ export function normalizeAthenaAuthConfig(
     autoMigrate: raw.autoMigrate === true,
     basePath: asString(raw.basePath) ?? ATHENA_AUTH_DEFAULT_BASE_PATH,
     bridge: normalizeBridgeConfig(raw.bridge),
+    authorizationServer: normalizeAuthorizationServerConfig(
+      raw.authorizationServer,
+      appIdentity,
+    ),
     emailAndPassword: {
       autoSignIn: emailAndPassword.autoSignIn !== false,
       enabled: emailAndPassword.enabled !== false,
@@ -616,10 +866,12 @@ export function normalizeAthenaAuthConfig(
         emailAndPassword.requireEmailVerification === true,
     },
     execution,
+    observability: normalizeAthenaAuthObservability(
+      asRecord(raw.observability) as AthenaAuthObservabilityConfig | undefined,
+    ),
     organizationsEnabled: organizations?.enabled !== false,
     passkey,
     passkeyConfigured,
-    social,
     routing:
       execution === "local"
         ? "same-origin"
@@ -632,8 +884,8 @@ export function normalizeAthenaAuthConfig(
           : 1_048_576,
       cookieSecure:
         securityRaw.cookieSecure === false ||
-        securityRaw.cookieSecure === true ||
-        securityRaw.cookieSecure === "auto"
+          securityRaw.cookieSecure === true ||
+          securityRaw.cookieSecure === "auto"
           ? securityRaw.cookieSecure
           : "auto",
       trustedOrigins: mergeTrustedOrigins(
@@ -651,9 +903,7 @@ export function normalizeAthenaAuthConfig(
       updateAgeSeconds:
         session.updateAgeSeconds ?? DEFAULT_SESSION.updateAgeSeconds,
     },
-    observability: normalizeAthenaAuthObservability(
-      asRecord(raw.observability) as AthenaAuthObservabilityConfig | undefined,
-    ),
+    social,
     upstreamUrl: asString(raw.upstreamUrl),
     url: asString(raw.url),
     warnings,

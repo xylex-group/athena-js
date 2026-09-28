@@ -5,12 +5,14 @@ import type {
   AthenaEmailDefaults,
   AthenaEmailDiagnostics,
   AthenaEmailProvider,
+  AthenaEmailTemplateStore,
 } from "./types.ts";
 
 export interface NormalizedAthenaEmailConfig {
   attachmentFailureMode: AthenaEmailAttachmentFailureMode;
   defaults: AthenaEmailDefaults;
   provider: AthenaEmailProvider | null;
+  templateStore: AthenaEmailTemplateStore | null;
 }
 
 const EMPTY_DEFAULTS: AthenaEmailDefaults = {};
@@ -40,7 +42,9 @@ function normalizeDefaults(input: unknown): AthenaEmailDefaults {
   };
 }
 
-function normalizeFailureMode(value: unknown): AthenaEmailAttachmentFailureMode {
+function normalizeFailureMode(
+  value: unknown
+): AthenaEmailAttachmentFailureMode {
   return value === "skip" ? "skip" : "fail";
 }
 
@@ -81,12 +85,14 @@ export function normalizeAthenaEmailConfig(
       attachmentFailureMode: "fail",
       defaults: { ...EMPTY_DEFAULTS },
       provider: null,
+      templateStore: null,
     };
   }
   return {
     attachmentFailureMode: normalizeFailureMode(input.attachments?.failureMode),
     defaults: normalizeDefaults(input.defaults),
     provider: normalizeProvider(input.provider),
+    templateStore: input.templates?.store ?? null,
   };
 }
 

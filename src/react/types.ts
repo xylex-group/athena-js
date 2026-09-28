@@ -131,7 +131,9 @@ export interface UseMutationOptions<
   TMutationFnData,
   TData = TMutationFnData,
 > {
-  mutationFn: (variables: TVariables) => Promise<TMutationFnData>;
+  mutationFn: (
+    variables: TVariables
+  ) => Promise<TMutationFnData | AthenaResponseLike<TMutationFnData>>;
   mutationKey?: QueryKey;
   onError?: (error: AthenaQueryError, variables: TVariables) => void;
   onMutate?: (

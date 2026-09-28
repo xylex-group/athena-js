@@ -19,7 +19,10 @@ export function encodeBase32(bytes: Uint8Array): string {
 }
 
 export function decodeBase32(input: string): Uint8Array {
-  const cleaned = input.replace(/=+$/g, "").toUpperCase().replace(/[^A-Z2-7]/g, "");
+  const cleaned = input
+    .replace(/[=]+$/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z2-7]/g, "");
   let bits = 0;
   let value = 0;
   const output: number[] = [];
@@ -55,7 +58,10 @@ function toBufferSource(bytes: Uint8Array): ArrayBuffer {
   ) as ArrayBuffer;
 }
 
-async function hmacSha1(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+async function hmacSha1(
+  key: Uint8Array,
+  data: Uint8Array
+): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
     toBufferSource(key),
@@ -74,9 +80,11 @@ export async function generateTotpCode(
 ): Promise<string> {
   const digits = options?.digits ?? 6;
   const period = options?.period ?? 30;
-  const counter = Math.floor((options?.timestamp ?? Date.now()) / 1000 / period);
+  const counter = Math.floor(
+    (options?.timestamp ?? Date.now()) / 1000 / period
+  );
   const digest = await hmacSha1(secret, writeUint64(counter));
-  const offset = (digest[digest.length - 1] ?? 0) & 15;
+  const offset = (digest.at(-1) ?? 0) & 15;
   const binary =
     (((digest[offset] ?? 0) & 127) << 24) |
     ((digest[offset + 1] ?? 0) << 16) |

@@ -6,18 +6,14 @@ import type {
   TableQueryBuilder,
   UpdateChain,
 } from "../client-fluent.ts";
-import type { AthenaResult } from "../client-result.ts";
-import type { AthenaExecutable } from "../query/descriptor.ts";
-import type {
-  AthenaTransactionOptions,
-  AthenaTransactionResults,
-} from "./transaction/types.ts";
+import type { AthenaResult } from "../result/types.ts";
 import type {
   AthenaGatewayCallOptions,
   AthenaJsonObject,
   AthenaJsonValue,
   AthenaRpcCallOptions,
 } from "../gateway/types.ts";
+import type { AthenaExecutable } from "../query/descriptor.ts";
 import type {
   AthenaClientModelForTableName,
   AthenaClientTableName,
@@ -27,6 +23,10 @@ import type {
   UpdateOf,
 } from "../schema/types.ts";
 import type { AthenaSelectInput } from "../select-column-types.ts";
+import type {
+  AthenaTransactionOptions,
+  AthenaTransactionResults,
+} from "./transaction/types.ts";
 
 type AthenaRowShape = Record<string, AthenaJsonValue | undefined>;
 type UntypedTableName<TModels> = [TModels] extends [never]
@@ -102,14 +102,6 @@ export interface AthenaDbModule<TModels = never> {
     args?: Args,
     options?: AthenaRpcCallOptions
   ) => RpcQueryBuilder<Row>;
-  transaction<const T extends readonly AthenaExecutable<unknown>[]>(
-    operations: T,
-    options?: AthenaTransactionOptions
-  ): Promise<AthenaTransactionResults<T>>;
-  withTransaction<T>(
-    callback: (tx: AthenaTransactionClient<TModels>) => Promise<T>,
-    options?: AthenaTransactionOptions
-  ): Promise<T>;
 
   select<Row = AthenaRowShape>(
     table: UntypedTableName<TModels>,
@@ -120,6 +112,10 @@ export interface AthenaDbModule<TModels = never> {
     columns: AthenaSelectInput,
     options?: AthenaGatewayCallOptions
   ): SelectChain<AthenaRowShape, AthenaRowShape>;
+  transaction<const T extends readonly AthenaExecutable<unknown>[]>(
+    operations: T,
+    options?: AthenaTransactionOptions
+  ): Promise<AthenaTransactionResults<T>>;
 
   update: <
     Row = AthenaRowShape,
@@ -141,4 +137,8 @@ export interface AthenaDbModule<TModels = never> {
     values: Insert[],
     options?: AthenaUpsertOptions<Update>
   ): MutationQuery<Row[], Row>;
+  withTransaction<T>(
+    callback: (tx: AthenaTransactionClient<TModels>) => Promise<T>,
+    options?: AthenaTransactionOptions
+  ): Promise<T>;
 }

@@ -1,9 +1,9 @@
-import { withPostgresLibpqCompatConnectionString } from "../postgres/connection-string.ts";
-import { createClient } from "../v3-client.ts";
+import { createAthenaPostgresRuntime } from "../postgres/owned-runtime.ts";
+import { createClient } from "../v3-client-core.ts";
 import type {
-	GeneratorProviderConfig,
-	PostgresDirectProviderConfig,
-	PostgresGatewayProviderConfig,
+  GeneratorProviderConfig,
+  PostgresDirectProviderConfig,
+  PostgresGatewayProviderConfig,
 } from "./types.ts";
 
 /**
@@ -26,9 +26,9 @@ const SYSTEM_SCHEMA_PREFIXES = ["pg_"] as const;
 const SYSTEM_SCHEMAS = new Set(["pg_catalog", "information_schema"]);
 
 interface SchemaNameRow {
-	nspname?: unknown;
-	schema_name?: unknown;
-	schemaName?: unknown;
+  nspname?: unknown;
+  schema_name?: unknown;
+  schemaName?: unknown;
 }
 
 /**
@@ -36,25 +36,25 @@ interface SchemaNameRow {
  * Drops empty strings and PostgreSQL system/catalog namespaces.
  */
 export function normalizeDiscoveredSchemas(input: readonly string[]): string[] {
-	const schemas: string[] = [];
-	const seen = new Set<string>();
+  const schemas: string[] = [];
+  const seen = new Set<string>();
 
-	for (const value of input) {
-		const schema = value.trim();
-		if (!schema || seen.has(schema)) {
-			continue;
-		}
-		if (SYSTEM_SCHEMAS.has(schema)) {
-			continue;
-		}
-		if (SYSTEM_SCHEMA_PREFIXES.some((prefix) => schema.startsWith(prefix))) {
-			continue;
-		}
-		seen.add(schema);
-		schemas.push(schema);
-	}
+  for (const value of input) {
+    const schema = value.trim();
+    if (!schema || seen.has(schema)) {
+      continue;
+    }
+    if (SYSTEM_SCHEMAS.has(schema)) {
+      continue;
+    }
+    if (SYSTEM_SCHEMA_PREFIXES.some((prefix) => schema.startsWith(prefix))) {
+      continue;
+    }
+    seen.add(schema);
+    schemas.push(schema);
+  }
 
-	return schemas;
+  return schemas;
 }
 
 /**
@@ -64,163 +64,116 @@ export function normalizeDiscoveredSchemas(input: readonly string[]): string[] {
  * - never removes a configured schema that discovery did not return
  */
 export function mergeSchemaSelections(
-	configured: readonly string[] | undefined,
-	discovered: readonly string[],
+  configured: readonly string[] | undefined,
+  discovered: readonly string[]
 ): string[] {
-	const result: string[] = [];
-	const seen = new Set<string>();
+  const result: string[] = [];
+  const seen = new Set<string>();
 
-	for (const value of configured ?? []) {
-		const schema = value.trim();
-		if (!schema || seen.has(schema)) {
-			continue;
-		}
-		seen.add(schema);
-		result.push(schema);
-	}
+  for (const value of configured ?? []) {
+    const schema = value.trim();
+    if (!schema || seen.has(schema)) {
+      continue;
+    }
+    seen.add(schema);
+    result.push(schema);
+  }
 
-	for (const value of discovered) {
-		const schema = value.trim();
-		if (!schema || seen.has(schema)) {
-			continue;
-		}
-		seen.add(schema);
-		result.push(schema);
-	}
+  for (const value of discovered) {
+    const schema = value.trim();
+    if (!schema || seen.has(schema)) {
+      continue;
+    }
+    seen.add(schema);
+    result.push(schema);
+  }
 
-	return result.length > 0 ? result : ["public"];
+  return result.length > 0 ? result : ["public"];
 }
 
 /**
  * True when two schema lists select the same set (order-insensitive).
  */
 export function schemasEqual(
-	left: readonly string[] | undefined,
-	right: readonly string[] | undefined,
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined
 ): boolean {
-	const a = normalizeDiscoveredSchemas(left ?? []);
-	const b = normalizeDiscoveredSchemas(right ?? []);
-	if (a.length !== b.length) {
-		return false;
-	}
-	const set = new Set(a);
-	return b.every((schema) => set.has(schema));
+  const a = normalizeDiscoveredSchemas(left ?? []);
+  const b = normalizeDiscoveredSchemas(right ?? []);
+  if (a.length !== b.length) {
+    return false;
+  }
+  const set = new Set(a);
+  return b.every((schema) => set.has(schema));
 }
 
 function coerceSchemaName(row: SchemaNameRow): string | undefined {
-	const raw = row.schema_name ?? row.schemaName ?? row.nspname;
-	if (typeof raw !== "string") {
-		return;
-	}
-	const trimmed = raw.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
-}
-
-async function loadPgPoolConstructor(): Promise<
-	new (config: {
-		connectionString: string;
-	}) => {
-		query: <T extends Record<string, unknown>>(
-			sql: string,
-		) => Promise<{ rows: T[] }>;
-		end: () => Promise<void>;
-	}
-> {
-	const module = await import("pg");
-	const poolConstructor =
-		(
-			module as {
-				Pool?: new (config: {
-					connectionString: string;
-				}) => {
-					query: <T extends Record<string, unknown>>(
-						sql: string,
-					) => Promise<{ rows: T[] }>;
-					end: () => Promise<void>;
-				};
-			}
-		).Pool ??
-		(
-			module as {
-				default?: {
-					Pool?: new (config: {
-						connectionString: string;
-					}) => {
-						query: <T extends Record<string, unknown>>(
-							sql: string,
-						) => Promise<{ rows: T[] }>;
-						end: () => Promise<void>;
-					};
-				};
-			}
-		).default?.Pool;
-
-	if (!poolConstructor) {
-		throw new Error(
-			'@xylex-group/athena: Unable to load the PostgreSQL driver for schema discovery. Ensure "pg" is installed and this API runs in a Node.js server runtime.',
-		);
-	}
-
-	return poolConstructor;
+  const raw = row.schema_name ?? row.schemaName ?? row.nspname;
+  if (typeof raw !== "string") {
+    return;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 async function discoverDirectSchemas(
-	config: PostgresDirectProviderConfig,
+  config: PostgresDirectProviderConfig
 ): Promise<string[]> {
-	const PoolConstructor = await loadPgPoolConstructor();
-	const pool = new PoolConstructor({
-		connectionString: withPostgresLibpqCompatConnectionString(
-			config.connectionString,
-		),
-	});
-	try {
-		const result = await pool.query(DISCOVER_POSTGRES_SCHEMAS_SQL);
-		const names = (result.rows as SchemaNameRow[])
-			.map(coerceSchemaName)
-			.filter((value): value is string => Boolean(value));
-		return normalizeDiscoveredSchemas(names);
-	} finally {
-		await pool.end();
-	}
+  const runtime = createAthenaPostgresRuntime({
+    connectionString: config.connectionString,
+  });
+  try {
+    const result = await runtime.query<SchemaNameRow>(
+      DISCOVER_POSTGRES_SCHEMAS_SQL,
+      undefined,
+      { workload: "introspection" }
+    );
+    const names = result.rows
+      .map(coerceSchemaName)
+      .filter((value): value is string => Boolean(value));
+    return normalizeDiscoveredSchemas(names);
+  } finally {
+    await runtime.close();
+  }
 }
 
 async function discoverGatewaySchemas(
-	config: PostgresGatewayProviderConfig,
+  config: PostgresGatewayProviderConfig
 ): Promise<string[]> {
-	// Avoid ReturnType<typeof createClient> — it overflows TS instantiation depth.
-	interface GatewayQueryClient {
-		query: <T>(sql: string) => Promise<{
-			data?: T[] | null;
-			error?: { message?: string } | null;
-			status: number;
-		}>;
-	}
-	const client = (
-		createClient as unknown as (c: unknown) => GatewayQueryClient
-	)({
-		backend: {
-			type: config.backend ?? "postgresql",
-		},
-		client: config.client,
-		db: { url: config.gatewayUrl },
-		env: typeof process === "undefined" ? undefined : process.env,
-		key: config.apiKey,
-	});
+  // Avoid ReturnType<typeof createClient> — it overflows TS instantiation depth.
+  interface GatewayQueryClient {
+    query: <T>(sql: string) => Promise<{
+      data?: T[] | null;
+      error?: { message?: string } | null;
+      status: number;
+    }>;
+  }
+  const client = (
+    createClient as unknown as (c: unknown) => GatewayQueryClient
+  )({
+    backend: {
+      type: config.backend ?? "postgresql",
+    },
+    client: config.client,
+    db: { url: config.gatewayUrl },
+    env: typeof process === "undefined" ? undefined : process.env,
+    key: config.apiKey,
+  });
 
-	const result = await client.query<SchemaNameRow>(
-		DISCOVER_POSTGRES_SCHEMAS_SQL,
-	);
-	if (result.error || result.status < 200 || result.status >= 300) {
-		throw new Error(
-			result.error?.message ??
-				`Gateway schema discovery failed with status ${result.status}`,
-		);
-	}
+  const result = await client.query<SchemaNameRow>(
+    DISCOVER_POSTGRES_SCHEMAS_SQL
+  );
+  if (result.error || result.status < 200 || result.status >= 300) {
+    throw new Error(
+      result.error?.message ??
+        `Gateway schema discovery failed with status ${result.status}`
+    );
+  }
 
-	const names = (result.data ?? [])
-		.map(coerceSchemaName)
-		.filter((value): value is string => Boolean(value));
-	return normalizeDiscoveredSchemas(names);
+  const names = (result.data ?? [])
+    .map(coerceSchemaName)
+    .filter((value): value is string => Boolean(value));
+  return normalizeDiscoveredSchemas(names);
 }
 
 /**
@@ -228,17 +181,17 @@ async function discoverGatewaySchemas(
  * Supports both direct Postgres and Athena gateway providers.
  */
 export async function discoverPostgresSchemas(
-	provider: GeneratorProviderConfig,
+  provider: GeneratorProviderConfig
 ): Promise<string[]> {
-	if (provider.kind === "postgres" && provider.mode === "direct") {
-		return discoverDirectSchemas(provider);
-	}
+  if (provider.kind === "postgres" && provider.mode === "direct") {
+    return discoverDirectSchemas(provider);
+  }
 
-	if (provider.kind === "postgres" && provider.mode === "gateway") {
-		return discoverGatewaySchemas(provider);
-	}
+  if (provider.kind === "postgres" && provider.mode === "gateway") {
+    return discoverGatewaySchemas(provider);
+  }
 
-	throw new Error(
-		`Schema discovery is only implemented for postgres direct/gateway providers (received ${provider.kind}/${"mode" in provider ? provider.mode : "unknown"}).`,
-	);
+  throw new Error(
+    `Schema discovery is only implemented for postgres direct/gateway providers (received ${provider.kind}/${"mode" in provider ? provider.mode : "unknown"}).`
+  );
 }

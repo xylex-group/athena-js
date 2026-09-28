@@ -1,10 +1,10 @@
+import { assertAthenaEmailProviderRuntime } from "./capabilities.ts";
 import {
   ATHENA_EMAIL_DELIVERY_FAILED,
   ATHENA_EMAIL_MESSAGE_INVALID,
   ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED,
   AthenaEmailError,
 } from "./errors.ts";
-import { assertAthenaEmailProviderRuntime } from "./capabilities.ts";
 import type { NormalizedAthenaEmailConfig } from "./normalize-config.ts";
 import type {
   AthenaEmailAttachment,
@@ -30,10 +30,10 @@ function cloneAttachments(
     return [];
   }
   return attachments.map((attachment) => ({
-    ...(attachment.content === undefined ? {} : { content: attachment.content }),
-    ...(attachment.contentType
-      ? { contentType: attachment.contentType }
-      : {}),
+    ...(attachment.content === undefined
+      ? {}
+      : { content: attachment.content }),
+    ...(attachment.contentType ? { contentType: attachment.contentType } : {}),
     ...(attachment.filename ? { filename: attachment.filename } : {}),
     ...(attachment.fileUrl ? { fileUrl: attachment.fileUrl } : {}),
   }));

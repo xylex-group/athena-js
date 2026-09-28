@@ -1,9 +1,9 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-
-import type { AthenaGatewayClient } from "../src/gateway/client.ts";
 import { ATHENA_AUTH_SESSION_COOKIE_NAME } from "../src/auth/contract/index.ts";
+import type { AthenaGatewayClient } from "../src/gateway/client.ts";
 import { createAthenaDataHandlers } from "../src/next/data-handlers.ts";
+import { createAthenaPostgresRuntime } from "../src/postgres/owned-runtime.ts";
 import {
   AthenaRuntimeOwnershipError,
   attachAthenaClientInternals,
@@ -11,7 +11,6 @@ import {
   getAthenaRuntimeDiagnostics,
 } from "../src/runtime/client-internals.ts";
 import { athenaRuntimeCounters } from "../src/runtime/ownership.ts";
-import { createAthenaPostgresRuntime } from "../src/postgres/owned-runtime.ts";
 import { createClient } from "../src/v3-client.ts";
 
 function mockTransport(): AthenaGatewayClient {
@@ -53,7 +52,7 @@ test("HMR remounts reuse one Postgres runtime and one Auth runtime", () => {
       auth: { mode: "local" },
       databaseUrl: uri,
       gatewayTransport: mockTransport(),
-    }),
+    })
   );
   const after = athenaRuntimeCounters();
   assert.equal(after.postgresPoolsCreated - before.postgresPoolsCreated, 1);
@@ -67,17 +66,17 @@ test("HMR remounts reuse one Postgres runtime and one Auth runtime", () => {
 });
 
 test("root internals stay readable after freeze via the process-global map", () => {
-	const root = createClient({
-		auth: false,
-		databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_global_map",
-		gatewayTransport: mockTransport(),
-	});
-	assert.ok(Object.isFrozen(root));
-	assert.ok(getAthenaClientInternals(root));
-	const mapKey = Symbol.for("@xylex-group/athena.clientInternalsMap");
-	const map = (globalThis as Record<symbol, WeakMap<object, unknown>>)[mapKey];
-	assert.ok(map instanceof WeakMap);
-	assert.ok(map.get(root));
+  const root = createClient({
+    auth: false,
+    databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_global_map",
+    gatewayTransport: mockTransport(),
+  });
+  assert.ok(Object.isFrozen(root));
+  assert.ok(getAthenaClientInternals(root));
+  const mapKey = Symbol.for("@xylex-group/athena.clientInternalsMap");
+  const map = (globalThis as Record<symbol, WeakMap<object, unknown>>)[mapKey];
+  assert.ok(map instanceof WeakMap);
+  assert.ok(map.get(root));
 });
 
 test("request views share the root runtime id and cannot close it", async () => {
@@ -91,7 +90,7 @@ test("request views share the root runtime id and cannot close it", async () => 
     () => (view as unknown as typeof root).close(),
     (error: unknown) =>
       error instanceof AthenaRuntimeOwnershipError &&
-      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID",
+      error.code === "ATHENA_RUNTIME_OWNERSHIP_INVALID"
   );
   const afterViewClose = getAthenaRuntimeDiagnostics(root);
   assert.equal(afterViewClose?.closed, false);
@@ -122,7 +121,7 @@ test("incompatible internals protocol is a foreign-runtime mismatch", () => {
       assert.equal(error.code, "ATHENA_CLIENT_RUNTIME_VERSION_MISMATCH");
       assert.equal(error.received, "foreign-runtime");
       return true;
-    },
+    }
   );
 });
 
@@ -156,7 +155,7 @@ test("session cookie identity reaches authenticated data handlers on the root", 
         origin: "http://localhost",
       },
       method: "POST",
-    }),
+    })
   );
   assert.equal(denied.status, 401);
 
@@ -169,7 +168,7 @@ test("session cookie identity reaches authenticated data handlers on the root", 
         origin: "http://localhost",
       },
       method: "POST",
-    }),
+    })
   );
   assert.equal(allowed.ok, true);
 });
@@ -185,7 +184,7 @@ test("unknown objects are foreign-runtime mismatches, not request views", () => 
       assert.equal(error.code, "ATHENA_CLIENT_RUNTIME_VERSION_MISMATCH");
       assert.equal(error.received, "foreign-runtime");
       return true;
-    },
+    }
   );
 });
 

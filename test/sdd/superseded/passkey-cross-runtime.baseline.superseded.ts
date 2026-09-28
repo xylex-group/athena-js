@@ -23,14 +23,14 @@
 export const SUPERSEDED_BY = "test/sdd/passkey-cross-runtime.target.test.ts";
 
 export const SUPERSEDED_IDS = [
-	"B2-SURFACE",
-	"B2-NO-NS",
-	"B2-EMB-CAP",
-	"B2-EMB-MISSING",
-	"B2-DENY",
-	"B2-CONSTRUCT",
-	"B2-MAPPER",
-	"B2-NO-TREE",
-	"B2-NO-RPID",
-	"B2-RPID-UI",
+  "B2-SURFACE",
+  "B2-NO-NS",
+  "B2-EMB-CAP",
+  "B2-EMB-MISSING",
+  "B2-DENY",
+  "B2-CONSTRUCT",
+  "B2-MAPPER",
+  "B2-NO-TREE",
+  "B2-NO-RPID",
+  "B2-RPID-UI",
 ] as const;

@@ -2,13 +2,13 @@ import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
 import { createClient } from "../../../src/index.ts";
 import {
-  compilePostgresFetch,
-  compilePostgresRpc,
-} from "../../../src/postgres/sql.ts";
-import {
   compilePostgresStructuredFetch,
   needsPostgresAstPipeline,
 } from "../../../src/postgres/compile-fetch.ts";
+import {
+  compilePostgresFetch,
+  compilePostgresRpc,
+} from "../../../src/postgres/sql.ts";
 import { runDatabaseConformance } from "./contract.ts";
 
 const SAMPLE_PG = "postgresql://postgres@127.0.0.1:5432/athena_direct_test";

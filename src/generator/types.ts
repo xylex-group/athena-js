@@ -125,6 +125,8 @@ export interface GeneratorFilterConfig {
 export interface NormalizedGeneratorFilterConfig {
   excludeTables: string[];
   includeTables: string[];
+  /** Unmodified selectors retained for diagnostics. */
+  raw?: GeneratorFilterConfig;
 }
 
 /**
@@ -235,8 +237,14 @@ export interface NormalizedAthenaMigrationsConfig {
  * `createClient` never reads these paths.
  */
 export interface AthenaToolingEntrypoints {
+  /** Framework/tool-specific entrypoints; paths remain metadata only. */
+  mcp?: {
+    runtime?: string;
+  };
   models?: string;
   policies?: string;
+  /** Optional application-owned root factory for standalone integrations. */
+  runtime?: string;
 }
 
 /**
@@ -250,28 +258,37 @@ export interface AthenaPolicyProjectConfig {
 }
 
 /**
- * Static project SSOT loaded from `athena.config.ts`.
- *
- * `provider` is optional so policy-only / generate-less apps can author
- * a config without a fake database. Generator commands still require
- * {@link AthenaGeneratorConfig.provider}.
+ * Node-only local PostgreSQL runtime settings. These values describe the
+ * runtime; generated credentials are kept in `.athena/runtime/postgres.json`.
  */
-export interface AthenaConfig {
+export interface AthenaLocalRuntimeConfig {
+  database?: string;
+  host?: string;
+  image?: string;
+  port?: number;
+  startupTimeoutMs?: number;
+  user?: string;
+  volume?: "named";
+}
+
+/**
+ * Shared raw configuration shape consumed by project loading and generator
+ * normalization. The project and generator public identities remain distinct:
+ * only the latter requires a provider.
+ */
+export interface AthenaConfigIr {
   experimental?: Partial<GeneratorExperimentalFlags>;
   features?: Partial<GeneratorFeatureFlags>;
   filter?: GeneratorFilterConfig;
-  /** Optional SQL migration tooling settings. */
+  local?: AthenaLocalRuntimeConfig;
   migrations?: AthenaMigrationsConfig;
-  /**
-   * Tooling enablement for packaged domain migrations.
-   * `athena-js migrate` applies Embedded Chat iff `modules.chat === true`.
-   * Runtime `createClient({ chat: true })` is the same capability, not the migrate signal.
-   */
+  models?: AthenaClientModelsInput;
   modules?: {
     auth?: boolean;
+    billing?: boolean;
     chat?: boolean;
+    eventIngress?: boolean;
   };
-  models?: AthenaClientModelsInput;
   naming?: Partial<GeneratorNamingConfig>;
   output?: GeneratorOutputConfig;
   policies?: AthenaPolicyProjectConfig;
@@ -280,12 +297,22 @@ export interface AthenaConfig {
 }
 
 /**
+ * Static project SSOT loaded from `athena.config.ts`.
+ *
+ * `provider` is optional so policy-only / generate-less apps can author
+ * a config without a fake database. Generator commands still require
+ * {@link AthenaGeneratorConfig.provider}.
+ */
+export interface AthenaConfig extends AthenaConfigIr {
+  provider?: GeneratorProviderInputConfig;
+}
+
+/**
  * Generator compile-time SSOT: same project fields as {@link AthenaConfig}
  * but `provider` is required. Used by `defineGeneratorConfig` and
  * `loadGeneratorConfig` / `athena-js generate`.
  */
-export interface AthenaGeneratorConfig
-  extends Omit<AthenaConfig, "provider"> {
+export interface AthenaGeneratorConfig extends Omit<AthenaConfig, "provider"> {
   provider: GeneratorProviderInputConfig;
 }
 
@@ -300,7 +327,9 @@ export interface NormalizedAthenaGeneratorConfig {
   migrations: NormalizedAthenaMigrationsConfig;
   modules?: {
     auth?: boolean;
+    billing?: boolean;
     chat?: boolean;
+    eventIngress?: boolean;
   };
   naming: GeneratorNamingConfig;
   output: NormalizedGeneratorOutputConfig;
@@ -311,8 +340,24 @@ export interface NormalizedAthenaGeneratorConfig {
  * Config loader options for CLI/programmatic usage.
  */
 export interface LoadGeneratorConfigOptions {
+  /**
+   * When false, skip loading project `.env*` (caller already applied them).
+   * Defaults to true.
+   */
+  applyProjectEnv?: boolean;
   configPath?: string;
   cwd?: string;
+  /**
+   * Direct PostgreSQL provider fields supplied by a caller. When the project
+   * provider is also PostgreSQL, its remaining fields (such as schemas) are
+   * preserved before normalization.
+   */
+  providerOverride?: PostgresDirectProviderInputConfig;
+  /**
+   * When false, leave project env applied after return. Caller must restore.
+   * Defaults to true. Ignored when `applyProjectEnv` is false.
+   */
+  restoreProjectEnv?: boolean;
 }
 
 /**
@@ -364,6 +409,8 @@ export interface GeneratedArtifacts {
  * Runtime options for executing the generator pipeline.
  */
 export interface RunGeneratorOptions {
+  /** Report whether generated files are current without writing anything. */
+  check?: boolean;
   configPath?: string;
   cwd?: string;
   /**
@@ -373,6 +420,8 @@ export interface RunGeneratorOptions {
   discoverSchemas?: boolean;
   dryRun?: boolean;
   provider?: SchemaIntrospectionProvider;
+  /** Treat generator diagnostics as fatal instead of warnings. */
+  strict?: boolean;
   /**
    * When true (default), ensure/update `athena.config.ts` intelligently:
    * create when missing, auto-fill schemas when discovery finds more,
@@ -396,11 +445,7 @@ export interface GeneratorConfigEnsureSummary {
    * How schemas were chosen: live discovery, existing config, explicit input,
    * or fallback defaults (not a successful catalog read).
    */
-  schemaProvenance?:
-    | "discovered"
-    | "configured"
-    | "explicit"
-    | "fallback";
+  schemaProvenance?: "discovered" | "configured" | "explicit" | "fallback";
   schemas: string[];
 }
 
@@ -427,9 +472,19 @@ export interface RunGeneratorResult extends GeneratedArtifacts {
   generatedManifest: GeneratedManifest;
   /** Relative path of the written (or dry-run) generated manifest. */
   generatedManifestPath: string;
+  convergence?: "current" | "stale" | "failed" | "ownership-violation";
+  diagnostics?: GeneratorDiagnostic[];
+  ownershipViolations?: string[];
+  deletedFiles: string[];
   skippedFiles: SkippedGeneratedArtifact[];
   writtenDetails: WrittenGeneratedArtifact[];
   writtenFiles: string[];
+}
+
+export interface GeneratorDiagnostic {
+  code: string;
+  message: string;
+  severity: "error" | "warning";
 }
 
 export type SkippedGeneratedArtifactReason =

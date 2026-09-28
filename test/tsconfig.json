@@ -4,6 +4,11 @@
     "rootDir": "..",
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../src/**/*.ts"],
+  "include": [
+    "./**/*.ts",
+    "../src/**/*.ts",
+    "../scripts/verify-auth-schema-release.d.mts",
+    "../bin/bootstrap-logging.d.ts"
+  ],
   "exclude": ["fixtures", "node_modules"]
 }

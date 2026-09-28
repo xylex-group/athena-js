@@ -1561,11 +1561,11 @@ interface StorageConnectionByCamelS3Id
 
 interface StorageConnectionByInlineCredentials
   extends DeprecatedInlineStorageConnectionFields {
-  s3_id?: string;
-  s3Id?: string;
+  access_key_id: string;
   endpoint: string;
   region: string;
-  access_key_id: string;
+  s3_id?: string;
+  s3Id?: string;
   secret_key: string;
 }
 
@@ -1762,7 +1762,9 @@ export interface AthenaStorageCallOptions extends AthenaGatewayCallOptions {
 export type AthenaStorageBinaryCallOptions = AthenaStorageCallOptions;
 
 export interface AthenaCanonicalStorageProvidersNamespace {
-  list: (options?: AthenaStorageCallOptions) => Promise<StorageProviderDescriptor[]>;
+  list: (
+    options?: AthenaStorageCallOptions
+  ) => Promise<StorageProviderDescriptor[]>;
 }
 
 export interface AthenaCanonicalStorageConnectionsNamespace {
@@ -1774,7 +1776,10 @@ export interface AthenaCanonicalStorageConnectionsNamespace {
     id: string,
     options?: AthenaStorageCallOptions
   ) => Promise<{ connectionId: string }>;
-  get: (id: string, options?: AthenaStorageCallOptions) => Promise<StorageConnection>;
+  get: (
+    id: string,
+    options?: AthenaStorageCallOptions
+  ) => Promise<StorageConnection>;
   list: (options?: AthenaStorageCallOptions) => Promise<StorageConnection[]>;
   test: (
     input: TestStorageConnectionInput,
@@ -1783,8 +1788,14 @@ export interface AthenaCanonicalStorageConnectionsNamespace {
 }
 
 export interface AthenaCanonicalStorageFilesNamespace {
-  delete: (fileId: string, options?: AthenaStorageCallOptions) => Promise<ManagedFile>;
-  get: (fileId: string, options?: AthenaStorageCallOptions) => Promise<ManagedFile>;
+  delete: (
+    fileId: string,
+    options?: AthenaStorageCallOptions
+  ) => Promise<ManagedFile>;
+  get: (
+    fileId: string,
+    options?: AthenaStorageCallOptions
+  ) => Promise<ManagedFile>;
   list: (
     input: ListManagedFilesInput,
     options?: AthenaStorageCallOptions
@@ -1798,7 +1809,10 @@ export interface AthenaCanonicalStorageFilesNamespace {
     fileId: string,
     options?: AthenaStorageCallOptions
   ) => Promise<{ fileId: string }>;
-  restore: (fileId: string, options?: AthenaStorageCallOptions) => Promise<ManagedFile>;
+  restore: (
+    fileId: string,
+    options?: AthenaStorageCallOptions
+  ) => Promise<ManagedFile>;
   setVisibility: (
     fileId: string,
     input: SetManagedFileVisibilityInput,
@@ -2336,12 +2350,12 @@ export interface AthenaStorageModule extends AthenaStorageBaseModule {
   files: AthenaCanonicalStorageFilesNamespace;
   folder: AthenaStorageFolderNamespace;
   multipart: AthenaStorageMultipartNamespace;
+  object: AthenaStorageObjectNamespace;
+  permission: AthenaStoragePermissionNamespace;
   /** Canonical service-backed managed-file authorization API. */
   permissions: AthenaCanonicalStoragePermissionsNamespace;
   /** Canonical provider capability discovery API. */
   providers: AthenaCanonicalStorageProvidersNamespace;
-  object: AthenaStorageObjectNamespace;
-  permission: AthenaStoragePermissionNamespace;
 }
 
 type StorageEnvelopeKind = "raw" | "athena";
@@ -2366,7 +2380,6 @@ function headerValue(
       return value.trim();
     }
   }
-  return undefined;
 }
 
 function storagePath(path: string): AthenaGatewayEndpointPath {
@@ -2426,7 +2439,7 @@ function resolveErrorMessage(payload: unknown, fallback: string): string {
 
 function resolveErrorHint(payload: unknown): string | undefined {
   if (!isRecord(payload)) {
-    return undefined;
+    return;
   }
   const hint = payload.hint ?? payload.suggestion;
   return typeof hint === "string" && hint.trim() ? hint.trim() : undefined;
@@ -2434,7 +2447,7 @@ function resolveErrorHint(payload: unknown): string | undefined {
 
 function resolveErrorCause(payload: unknown): string | undefined {
   if (!isRecord(payload)) {
-    return undefined;
+    return;
   }
   const cause = payload.cause ?? payload.reason;
   return typeof cause === "string" && cause.trim() ? cause.trim() : undefined;
@@ -3010,6 +3023,9 @@ async function callStorageUploadBinaryEndpoint<T>(
   return parsedBody.parsed.data as T;
 }
 
+/**
+ * @docsCapability storage.objects
+ */
 export function createStorageModule(
   gateway: AthenaGatewayClient,
   runtimeOptions?: AthenaStorageClientConfig
@@ -3073,8 +3089,12 @@ export function createStorageModule(
   };
 
   const toCanonicalProviderId = (provider: string): StorageProviderId => {
-    if (provider === "s3") return "aws_s3";
-    if (provider === "r2") return "cloudflare_r2";
+    if (provider === "s3") {
+      return "aws_s3";
+    }
+    if (provider === "r2") {
+      return "cloudflare_r2";
+    }
     return provider;
   };
 
@@ -3098,7 +3118,9 @@ export function createStorageModule(
 
   const encodeBase64 = (bytes: Uint8Array): string => {
     let binary = "";
-    for (const byte of bytes) binary += String.fromCharCode(byte);
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
     return btoa(binary);
   };
 
@@ -3106,7 +3128,10 @@ export function createStorageModule(
     async list(options) {
       const result = await callManifestRoute<{
         providers: Array<
-          Omit<StorageProviderDescriptor, "id" | "protocol" | "connectionSchema"> & {
+          Omit<
+            StorageProviderDescriptor,
+            "id" | "protocol" | "connectionSchema"
+          > & {
             connectionConfig?: { fields?: StorageProviderConnectionField[] };
             provider: string;
           }
@@ -3147,10 +3172,9 @@ export function createStorageModule(
       return result.connection;
     },
     async list(options) {
-      const result = await callManifestRoute<{ connections: StorageConnection[] }>(
-        "listCanonicalStorageConnections",
-        { options }
-      );
+      const result = await callManifestRoute<{
+        connections: StorageConnection[];
+      }>("listCanonicalStorageConnections", { options });
       return result.connections;
     },
     async test(input, options) {
@@ -3194,10 +3218,13 @@ export function createStorageModule(
       return result.file;
     },
     purge(fileId, options) {
-      return callManifestRoute<{ fileId: string }>("purgeCanonicalStorageFile", {
-        options,
-        pathParams: { file_id: fileId },
-      });
+      return callManifestRoute<{ fileId: string }>(
+        "purgeCanonicalStorageFile",
+        {
+          options,
+          pathParams: { file_id: fileId },
+        }
+      );
     },
     async restore(fileId, options) {
       const result = await callManifestRoute<{ file: ManagedFile }>(

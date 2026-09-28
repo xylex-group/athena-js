@@ -1,3 +1,4 @@
+import { ATHENA_MIGRATE_COMMAND } from "./commands.ts";
 import { MigrationError } from "./types.ts";
 
 /**
@@ -91,11 +92,13 @@ export function stripSqlCommentsAndLiterals(sql: string): string {
 /**
  * Returns the matched transaction-control keyword if present in executable SQL.
  */
-export function findTransactionControlStatement(sql: string): string | undefined {
+export function findTransactionControlStatement(
+  sql: string
+): string | undefined {
   const scanned = stripSqlCommentsAndLiterals(sql);
   const match = TRANSACTION_CONTROL_RE.exec(scanned);
   if (!match) {
-    return undefined;
+    return;
   }
   return match[0]?.replace(/\s+/g, " ").toUpperCase();
 }
@@ -119,7 +122,7 @@ export function assertMigrationSqlAllowsOuterTransaction(
       "Migration error:",
       `Transaction control statement ${found} is not allowed${where}.`,
       "",
-      "athena-js migrate wraps each migration in its own transaction and writes",
+      `${ATHENA_MIGRATE_COMMAND} wraps each migration in its own transaction and writes`,
       "the ledger row in that same transaction. COMMIT/ROLLBACK/START TRANSACTION",
       "(and similar) would break that atomicity.",
       "",

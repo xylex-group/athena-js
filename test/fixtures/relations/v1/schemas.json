@@ -1,0 +1,65 @@
+{
+  "schema": "athena/relations-fixture/v1",
+  "tables": [
+    { "schema": "public", "table": "posts", "primaryKey": ["id"] },
+    { "schema": "public", "table": "users", "primaryKey": ["id"] },
+    { "schema": "billing", "table": "posts", "primaryKey": ["id"] },
+    { "schema": "billing", "table": "users", "primaryKey": ["id"] }
+  ],
+  "relations": [
+    {
+      "id": "billing.posts.author",
+      "name": "users",
+      "cardinality": "many-to-one",
+      "from": {
+        "schema": "billing",
+        "table": "posts",
+        "columns": ["author_id"]
+      },
+      "to": {
+        "schema": "billing",
+        "table": "users",
+        "columns": ["id"]
+      }
+    },
+    {
+      "id": "public.posts.author",
+      "name": "users",
+      "cardinality": "many-to-one",
+      "from": {
+        "schema": "public",
+        "table": "posts",
+        "columns": ["author_id"]
+      },
+      "to": {
+        "schema": "public",
+        "table": "users",
+        "columns": ["id"]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "unqualified same-name collision fails closed",
+      "request": { "source": { "table": "posts" }, "relation": "users" },
+      "expected": {
+        "outcome": "error",
+        "code": "ATHENA_QUERY_AMBIGUOUS_RELATION"
+      }
+    },
+    {
+      "name": "qualified billing relation resolves",
+      "request": {
+        "source": { "schema": "billing", "table": "posts" },
+        "relation": "users"
+      },
+      "expected": {
+        "outcome": "resolved",
+        "direction": "forward",
+        "cardinality": "many-to-one",
+        "fromColumns": ["author_id"],
+        "toColumns": ["id"]
+      }
+    }
+  ]
+}

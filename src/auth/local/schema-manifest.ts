@@ -12,35 +12,59 @@ export type SchemaExpectationKind =
   | "index"
   | "constraint";
 
+export type SchemaForeignKeyAction =
+  | "cascade"
+  | "no-action"
+  | "restrict"
+  | "set-default"
+  | "set-null";
+
+export interface SchemaForeignKeyExpectation {
+  columns: readonly string[];
+  kind: "foreign-key";
+  onDelete?: SchemaForeignKeyAction;
+  onUpdate?: SchemaForeignKeyAction;
+  references: {
+    columns: readonly string[];
+    schema: string;
+    table: string;
+  };
+}
+
 export interface SchemaExpectation {
+  column?: string;
+  definition?: string;
+  foreignKey?: SchemaForeignKeyExpectation;
   kind: SchemaExpectationKind;
+  name?: string;
   /** Fully-qualified display name, e.g. athena.users or athena.idx_users_email */
   object: string;
   schema?: string;
   table?: string;
-  name?: string;
-  column?: string;
 }
 
 export interface AthenaAuthMigrationDefinition {
-  version: number;
-  name: string;
-  sql: string;
   expectations?: readonly SchemaExpectation[];
+  name: string;
   repairability?: MigrationRepairability;
+  sql: string;
+  version: number;
 }
 
 export function schema(name: string): SchemaExpectation {
   return { kind: "schema", name, object: name, schema: name };
 }
 
-export function table(schemaName: string, tableName: string): SchemaExpectation {
+export function table(
+  schemaName: string,
+  tableName: string
+): SchemaExpectation {
   return {
     kind: "table",
-    schema: schemaName,
-    table: tableName,
     name: tableName,
     object: `${schemaName}.${tableName}`,
+    schema: schemaName,
+    table: tableName,
   };
 }
 
@@ -50,35 +74,44 @@ export function column(
   columnName: string
 ): SchemaExpectation {
   return {
-    kind: "column",
-    schema: schemaName,
-    table: tableName,
     column: columnName,
+    kind: "column",
     name: columnName,
     object: `${schemaName}.${tableName}.${columnName}`,
+    schema: schemaName,
+    table: tableName,
   };
 }
 
-export function index(schemaName: string, indexName: string): SchemaExpectation {
+export function index(
+  schemaName: string,
+  indexName: string
+): SchemaExpectation {
   return {
     kind: "index",
-    schema: schemaName,
     name: indexName,
     object: `${schemaName}.${indexName}`,
+    schema: schemaName,
   };
 }
 
 export function constraint(
   schemaName: string,
   tableName: string,
-  constraintName: string
+  constraintName: string,
+  definitionOrForeignKey?: string | SchemaForeignKeyExpectation
 ): SchemaExpectation {
   return {
     kind: "constraint",
-    schema: schemaName,
-    table: tableName,
     name: constraintName,
     object: `${schemaName}.${tableName}.${constraintName}`,
+    schema: schemaName,
+    table: tableName,
+    ...(typeof definitionOrForeignKey === "string"
+      ? { definition: definitionOrForeignKey }
+      : definitionOrForeignKey
+        ? { foreignKey: definitionOrForeignKey }
+        : {}),
   };
 }
 
@@ -151,6 +184,117 @@ export const ATHENA_AUTH_MIGRATION_EXPECTATIONS: Readonly<
     table("athena", "notification_preferences"),
     index("athena", "uq_notification_preferences_user_channel_topic"),
     index("athena", "uq_notification_preferences_user_org_channel_topic"),
+  ],
+  30: [
+    column("athena", "organization", "created_by_user_id"),
+    index("athena", "idx_organization_created_by_user_id"),
+  ],
+  31: [
+    table("athena", "authorization_rights"),
+    table("athena", "authorization_roles"),
+    table("athena", "authorization_role_rights"),
+    table("athena", "authorization_user_roles"),
+    table("athena", "authorization_member_roles"),
+    table("athena", "authorization_revisions"),
+    table("athena", "authorization_audit_log"),
+  ],
+  32: [
+    constraint(
+      "athena",
+      "authorization_roles",
+      "authorization_roles_scope_organization_id"
+    ),
+    constraint(
+      "athena",
+      "authorization_revisions",
+      "authorization_revisions_scope_nullability"
+    ),
+  ],
+  33: [table("athena", "auth_signing_keys")],
+  34: [
+    column("athena", "email_send_failures", "error_code"),
+    column("athena", "email_send_failures", "template_id"),
+    column("athena", "email_send_failures", "template_key"),
+  ],
+  35: [
+    constraint(
+      "athena",
+      "authorization_user_roles",
+      "authorization_user_roles_pkey",
+      "PRIMARY KEY (user_id, role_id)"
+    ),
+    constraint(
+      "athena",
+      "authorization_member_roles",
+      "authorization_member_roles_pkey",
+      "PRIMARY KEY (member_id, role_id)"
+    ),
+    index("athena", "idx_authorization_user_roles_user"),
+    index("athena", "idx_authorization_member_roles_member"),
+  ],
+  36: [
+    column("athena", "api_keys", "organization_id"),
+    index("athena", "idx_api_keys_organization_id"),
+  ],
+  37: [
+    column("athena", "api_keys", "scope_kind"),
+    constraint("athena", "api_keys", "api_keys_organization_id_fkey", {
+      columns: ["organization_id"],
+      kind: "foreign-key",
+      onDelete: "cascade",
+      onUpdate: "no-action",
+      references: {
+        columns: ["id"],
+        schema: "athena",
+        table: "organization",
+      },
+    }),
+    constraint(
+      "athena",
+      "api_keys",
+      "api_keys_scope_kind_check",
+      "CHECK (((scope_kind = 'organization'::text) AND (organization_id IS NOT NULL)) OR ((scope_kind = ANY (ARRAY['legacy'::text, 'platform'::text])) AND (organization_id IS NULL)))"
+    ),
+  ],
+  38: [
+    table("athena", "auth_rate_limits"),
+    index("athena", "idx_auth_rate_limits_reset_at"),
+  ],
+  39: [
+    table("athena", "oauth_clients"),
+    column("athena", "oauth_clients", "resource_uris"),
+    index("athena", "idx_oauth_clients_active"),
+  ],
+  40: [
+    table("athena", "oauth_authorization_grants"),
+    index("athena", "idx_oauth_grants_user_id"),
+    index("athena", "idx_oauth_grants_client_id"),
+    index("athena", "uq_oauth_grants_client_user_resource_org"),
+    index("athena", "uq_oauth_grants_client_user_resource_platform"),
+  ],
+  41: [
+    table("athena", "oauth_authorization_requests"),
+    column("athena", "oauth_authorization_requests", "code_challenge"),
+    index("athena", "idx_oauth_requests_expires_at"),
+  ],
+  42: [
+    table("athena", "oauth_authorization_codes"),
+    column("athena", "oauth_authorization_codes", "code_hash"),
+    index("athena", "idx_oauth_codes_expires_at"),
+  ],
+  43: [
+    table("athena", "oauth_refresh_tokens"),
+    column("athena", "oauth_refresh_tokens", "family_id"),
+    index("athena", "idx_oauth_refresh_family_id"),
+  ],
+  44: [
+    table("athena", "oauth_revoked_access_tokens"),
+    column("athena", "oauth_revoked_access_tokens", "jti"),
+    index("athena", "idx_oauth_revoked_access_tokens_expires_at"),
+  ],
+  45: [
+    column("athena", "sessions", "authenticated_at"),
+    column("athena", "sessions", "authentication_methods"),
   ],
 };
 

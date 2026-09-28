@@ -9,14 +9,26 @@
 
 import { quoteQualifiedIdentifier } from "../sql-identifiers.ts";
 import { isAthenaModelTarget } from "./model-target.ts";
+import type { NativeTypeDescriptor } from "./ir/type.ts";
 import type {
   AnyModelDef,
+  ModelColumnDefault,
+  ModelColumnGenerationStrategy,
   ModelColumnKind,
   ModelColumnMetadata,
   ModelMetadataBase,
 } from "./types.ts";
 
 export type ModelSqlDialect = "postgres" | "d1" | "sqlite";
+
+const POSTGRES_IDENTITY_NATIVE_TYPES = new Set([
+  "bigint",
+  "int8",
+  "int2",
+  "int4",
+  "integer",
+  "smallint",
+]);
 
 /**
  * Anything that can yield one or more models: a single model, list, schema,
@@ -61,14 +73,18 @@ export interface ModelsToSqlFilesOptions extends ModelSqlOptions {
 }
 
 interface ResolvedColumn {
+  defaultValue: ModelColumnDefault;
   enumValues?: readonly string[];
   hasDefault: boolean;
+  identity?: "always" | "by-default";
   isGenerated: boolean;
+  generationStrategy: ModelColumnGenerationStrategy;
   kind: ModelColumnKind;
-  /** Physical column name after `.from(...)` / `columnName`. */
-  name: string;
+  nativeType?: NativeTypeDescriptor;
   /** Authoring key; kept when `name` is remapped to a physical identifier. */
   logicalName: string;
+  /** Physical column name after `.from(...)` / `columnName`. */
+  name: string;
   nullable: boolean;
   precision?: number;
   scale?: number;
@@ -127,13 +143,82 @@ function resolvePhysicalNames(meta: ModelMetadataBase): {
   };
 }
 
+function resolveGenerationStrategy(
+  logicalName: string,
+  column: ModelColumnMetadata | undefined
+): ModelColumnGenerationStrategy {
+  if (column?.generationStrategy !== undefined) {
+    const strategy = column.generationStrategy;
+    if (
+      column.identity !== undefined &&
+      (strategy.kind !== "identity" || column.identity !== strategy.mode)
+    ) {
+      throw new Error(
+        `Column "${logicalName}" has contradictory generation strategy metadata`
+      );
+    }
+    if (
+      column.isGenerated !== undefined &&
+      column.isGenerated !== (strategy.kind === "generated-always")
+    ) {
+      if (strategy.kind === "identity" && column.isGenerated) {
+        throw new Error(
+          `PostgreSQL identity column "${logicalName}" cannot also be marked as generated`
+        );
+      }
+      throw new Error(
+        `Column "${logicalName}" has contradictory generation strategy metadata`
+      );
+    }
+    return strategy;
+  }
+
+  const legacyStrategy: ModelColumnGenerationStrategy =
+    column?.identity !== undefined
+      ? { kind: "identity", mode: column.identity }
+      : column?.isGenerated === true
+        ? { kind: "generated-always" }
+        : { kind: "none" };
+  if (
+    legacyStrategy.kind === "identity" &&
+    column?.isGenerated === true
+  ) {
+    throw new Error(
+      `PostgreSQL identity column "${logicalName}" cannot also be marked as generated`
+    );
+  }
+  return legacyStrategy;
+}
+
+function resolveColumnDefault(
+  logicalName: string,
+  column: ModelColumnMetadata | undefined,
+  generationStrategy: ModelColumnGenerationStrategy
+): ModelColumnDefault {
+  if (generationStrategy.kind === "identity") {
+    if (column?.default !== undefined && column.default.kind !== "none") {
+      throw new Error(
+        `Identity column "${logicalName}" cannot also define an explicit default`
+      );
+    }
+    return { kind: "none" };
+  }
+  if (column?.default !== undefined) {
+    return column.default;
+  }
+  return column?.hasDefault === true ? { kind: "unknown" } : { kind: "none" };
+}
+
 function resolveColumns(meta: ModelMetadataBase): ResolvedColumn[] {
   const columnMeta = meta.columns ?? {};
   const keys = Object.keys(columnMeta);
   if (keys.length === 0) {
     // Legacy defineModel without column metadata: PK-only stub columns.
     return meta.primaryKey.map((name) => ({
+      defaultValue: { kind: "none" as const },
+      generationStrategy: { kind: "none" as const },
       hasDefault: false,
+      identity: undefined,
       isGenerated: false,
       kind: "string" as const,
       logicalName: name,
@@ -142,33 +227,120 @@ function resolveColumns(meta: ModelMetadataBase): ResolvedColumn[] {
     }));
   }
 
-  return keys.map((logicalName) => {
+  const columns = keys.map((logicalName) => {
     const col = columnMeta[logicalName] as ModelColumnMetadata | undefined;
+    const generationStrategy = resolveGenerationStrategy(logicalName, col);
+    const identity =
+      generationStrategy.kind === "identity"
+        ? generationStrategy.mode
+        : undefined;
+    const isGenerated = generationStrategy.kind === "generated-always";
+    if (
+      identity !== undefined &&
+      (!col ||
+        (col.kind !== "smallint" &&
+          col.kind !== "integer" &&
+          col.kind !== "bigint" &&
+          col.kind !== "number"))
+    ) {
+      throw new Error(
+        `PostgreSQL identity column "${logicalName}" must use an integer builder (legacy number() is also supported); received kind "${col?.kind ?? "unknown"}"`
+      );
+    }
+    if (identity !== undefined && isGenerated) {
+      throw new Error(
+        `PostgreSQL identity column "${logicalName}" cannot also be marked as generated`
+      );
+    }
     const physical = col?.columnName?.trim() || logicalName;
     const nullable =
       col?.nullable === true || meta.nullable?.[logicalName] === true;
+    if (identity !== undefined && nullable) {
+      throw new Error(
+        `PostgreSQL identity column "${logicalName}" must be non-nullable`
+      );
+    }
+    if (
+      !nullable &&
+      col?.default?.kind === "literal" &&
+      col.default.value === null
+    ) {
+      throw new Error(
+        `Column "${logicalName}" has a literal null default but is non-nullable`
+      );
+    }
     return {
+      defaultValue: resolveColumnDefault(
+        logicalName,
+        col,
+        generationStrategy
+      ),
       enumValues: col?.enumValues,
+      generationStrategy,
       hasDefault: col?.hasDefault === true,
-      isGenerated: col?.isGenerated === true,
+      ...(identity === undefined ? {} : { identity }),
+      isGenerated,
       kind: col?.kind ?? "string",
       logicalName,
       name: physical,
+      ...(col?.nativeType === undefined ? {} : { nativeType: col.nativeType }),
       nullable,
       ...(col?.precision === undefined ? {} : { precision: col.precision }),
       ...(col?.scale === undefined ? {} : { scale: col.scale }),
     };
   });
+
+  const physicalOwners = new Map<string, string>();
+  for (const column of columns) {
+    const previousLogicalName = physicalOwners.get(column.name);
+    if (previousLogicalName !== undefined && previousLogicalName !== column.logicalName) {
+      throw new Error(
+        `Logical columns "${previousLogicalName}" and "${column.logicalName}" map to the same physical column "${column.name}"`
+      );
+    }
+
+    physicalOwners.set(column.name, column.logicalName);
+  }
+
+  return columns;
+}
+
+function resolvePrimaryKey(
+  logicalPrimaryKey: readonly string[],
+  columns: readonly ResolvedColumn[]
+): string[] {
+  const physicalPrimaryKey = logicalPrimaryKey.map((logicalName) => {
+    const column = columns.find((candidate) => candidate.logicalName === logicalName);
+    if (column === undefined) {
+      throw new Error(
+        `Primary key logical column "${logicalName}" does not exist in model columns`
+      );
+    }
+    return column.name;
+  });
+
+  const seen = new Set<string>();
+  for (const physicalName of physicalPrimaryKey) {
+    if (seen.has(physicalName)) {
+      throw new Error(
+        `Primary key logical columns map to the same physical column "${physicalName}"`
+      );
+    }
+    seen.add(physicalName);
+  }
+
+  return physicalPrimaryKey;
 }
 
 function resolveTable(model: AnyModelDef): ResolvedTable {
   const meta = model.meta;
   const names = resolvePhysicalNames(meta);
+  const columns = resolveColumns(meta);
   return {
-    columns: resolveColumns(meta),
+    columns,
     key: names.key,
     model,
-    primaryKey: [...meta.primaryKey],
+    primaryKey: resolvePrimaryKey(meta.primaryKey, columns),
     schemaName: names.schemaName,
     tableName: names.tableName,
   };
@@ -264,24 +436,172 @@ function formatNumericSqlType(column: ResolvedColumn): string {
   ) {
     return `NUMERIC(${column.precision}, ${column.scale})`;
   }
+
   if (typeof column.precision === "number") {
     return `NUMERIC(${column.precision})`;
   }
   return "NUMERIC";
 }
 
+function formatNativePostgresType(
+  nativeType: NativeTypeDescriptor
+): string | undefined {
+  if (nativeType.backend !== "postgresql") {
+    return;
+  }
+
+  const rawName = nativeType.name.trim();
+  const name =
+    nativeType.arrayDimensions > 0 && rawName.startsWith("_")
+      ? rawName.slice(1)
+      : rawName;
+  const normalizedName = name.toLowerCase().replace(/\s+/g, " ");
+  const datetimeTypmod = normalizedName.match(
+    /^(interval|timestamp|timestamptz|time|timetz)\s*\((\d+)\)(\s+(?:with|without)\s+time\s+zone)?$/
+  );
+  const normalizedBaseName = datetimeTypmod
+    ? `${datetimeTypmod[1]}${datetimeTypmod[3] ?? ""}`.trim()
+    : normalizedName;
+  const inlineDatetimePrecision = datetimeTypmod
+    ? Number(datetimeTypmod[2])
+    : undefined;
+  const baseType =
+    {
+      bool: "BOOLEAN",
+      boolean: "BOOLEAN",
+      bpchar: "CHAR",
+      char: "CHAR",
+      "character varying": "VARCHAR",
+      decimal: "NUMERIC",
+      bit: "BIT",
+      varbit: "VARBIT",
+      "bit varying": "VARBIT",
+      float4: "REAL",
+      float8: "DOUBLE PRECISION",
+      bigint: "BIGINT",
+      int2: "SMALLINT",
+      int4: "INTEGER",
+      int8: "BIGINT",
+      integer: "INTEGER",
+      numeric: "NUMERIC",
+      real: "REAL",
+      smallint: "SMALLINT",
+      text: "TEXT",
+      varchar: "VARCHAR",
+      interval: "INTERVAL",
+      time: "TIME",
+      "time with time zone": "TIMETZ",
+      "time without time zone": "TIME",
+      timestamp: "TIMESTAMP",
+      "timestamp with time zone": "TIMESTAMPTZ",
+      "timestamp without time zone": "TIMESTAMP",
+      timestamptz: "TIMESTAMPTZ",
+      timetz: "TIMETZ",
+    }[normalizedBaseName] ?? quoteQualifiedIdentifier(name);
+
+  let typeSql = baseType;
+  if (normalizedBaseName === "interval" && nativeType.intervalQualifier) {
+    const qualifier = nativeType.intervalQualifier.toUpperCase();
+    const precision =
+      typeof nativeType.precision === "number" &&
+      nativeType.intervalQualifier.endsWith("second")
+        ? `(${nativeType.precision})`
+        : "";
+    typeSql = `INTERVAL ${qualifier}${precision}`;
+  } else if (
+    normalizedName === "char" ||
+    normalizedName === "bpchar" ||
+    normalizedName === "varchar" ||
+    normalizedName === "bit" ||
+    normalizedName === "varbit" ||
+    normalizedName === "bit varying"
+  ) {
+    if (typeof nativeType.length === "number") {
+      typeSql = `${baseType}(${nativeType.length})`;
+    }
+  } else if (normalizedName === "numeric" || normalizedName === "decimal") {
+    if (
+      typeof nativeType.precision === "number" &&
+      typeof nativeType.scale === "number"
+    ) {
+      typeSql = `${baseType}(${nativeType.precision}, ${nativeType.scale})`;
+    } else if (typeof nativeType.precision === "number") {
+      typeSql = `${baseType}(${nativeType.precision})`;
+    }
+  } else if (
+    normalizedBaseName === "interval" ||
+    normalizedBaseName === "time" ||
+    normalizedBaseName === "time without time zone" ||
+    normalizedBaseName === "time with time zone" ||
+    normalizedBaseName === "timestamp" ||
+    normalizedBaseName === "timestamp without time zone" ||
+    normalizedBaseName === "timestamp with time zone" ||
+    normalizedBaseName === "timestamptz" ||
+    normalizedBaseName === "timetz"
+  ) {
+    const precision = nativeType.precision ?? inlineDatetimePrecision;
+    if (typeof precision === "number") {
+      typeSql = `${baseType}(${precision})`;
+    }
+  }
+
+  return `${typeSql}${"[]".repeat(nativeType.arrayDimensions)}`;
+}
+
 function sqlTypePostgres(
   column: ResolvedColumn,
   isSoleGeneratedPk: boolean
 ): string {
-  if (isSoleGeneratedPk && column.kind === "number") {
-    return "BIGSERIAL";
+  if (
+    column.identity !== undefined &&
+    column.nativeType !== undefined &&
+    (column.nativeType.arrayDimensions !== 0 ||
+      column.nativeType.backend !== "postgresql" ||
+      !POSTGRES_IDENTITY_NATIVE_TYPES.has(
+        column.nativeType.name.trim().toLowerCase()
+      ))
+  ) {
+    throw new Error(
+      `PostgreSQL identity column "${column.name}" must use a scalar zero-dimensional integer native type`
+    );
+  }
+  if (isSoleGeneratedPk) {
+    if (column.kind === "smallint") {
+      return "SMALLSERIAL";
+    }
+    if (column.kind === "integer") {
+      return "SERIAL";
+    }
+    if (column.kind === "bigint" || column.kind === "number") {
+      return "BIGSERIAL";
+    }
+  }
+  if (column.identity !== undefined && column.kind === "number") {
+    const nativeType = column.nativeType
+      ? formatNativePostgresType(column.nativeType)
+      : undefined;
+    if (nativeType !== undefined) {
+      return nativeType;
+    }
+    return "BIGINT";
+  }
+  const nativeType = column.nativeType
+    ? formatNativePostgresType(column.nativeType)
+    : undefined;
+  if (nativeType !== undefined) {
+    return nativeType;
   }
   switch (column.kind) {
     case "boolean":
       return "BOOLEAN";
     case "number":
       return "DOUBLE PRECISION";
+    case "smallint":
+      return "SMALLINT";
+    case "integer":
+      return "INTEGER";
+    case "bigint":
+      return "BIGINT";
     case "decimal":
       return formatNumericSqlType(column);
     case "json":
@@ -292,7 +612,23 @@ function sqlTypePostgres(
 }
 
 function sqlTypeD1(column: ResolvedColumn, isSoleGeneratedPk: boolean): string {
-  if (isSoleGeneratedPk && column.kind === "number") {
+  if (column.identity !== undefined) {
+    throw new Error(
+      `D1 does not support identity columns (column "${column.name}")`
+    );
+  }
+  if (isSoleGeneratedPk && column.kind === "bigint") {
+    throw new Error(
+      "D1 cannot generate bigint primary keys without lossless decoding"
+    );
+  }
+  if (
+    isSoleGeneratedPk &&
+    (column.kind === "number" ||
+      column.kind === "smallint" ||
+      column.kind === "integer" ||
+      column.kind === "bigint")
+  ) {
     return "INTEGER";
   }
   switch (column.kind) {
@@ -300,6 +636,13 @@ function sqlTypeD1(column: ResolvedColumn, isSoleGeneratedPk: boolean): string {
       return "INTEGER";
     case "number":
       return "REAL";
+    case "smallint":
+    case "integer":
+      return "INTEGER";
+    case "bigint":
+      // D1 returns INTEGER values without column-aware decoding. TEXT keeps
+      // bigint rows lossless, matching the precision-safe decimal strategy.
+      return "TEXT";
     case "decimal":
       // SQLite/D1 has no exact NUMERIC — store as TEXT for precision safety.
       return "TEXT";
@@ -310,10 +653,76 @@ function sqlTypeD1(column: ResolvedColumn, isSoleGeneratedPk: boolean): string {
   }
 }
 
+function isSerialType(typeSql: string): boolean {
+  return (
+    typeSql === "SMALLSERIAL" || typeSql === "SERIAL" || typeSql === "BIGSERIAL"
+  );
+}
+
+function renderColumnDefault(
+  column: ResolvedColumn,
+  dialect: ModelSqlDialect
+): string | undefined {
+  switch (column.defaultValue.kind) {
+    case "none":
+      return;
+    case "unknown":
+      throw new Error(
+        `Cannot emit ${dialect} SQL for column "${column.logicalName}": unknown database default`
+      );
+    case "literal": {
+      const value = column.defaultValue.value;
+      if (value === null) {
+        return "NULL";
+      }
+      if (typeof value === "string") {
+        return `'${value.replaceAll("'", "''")}'`;
+      }
+      if (typeof value === "number") {
+        if (!Number.isFinite(value)) {
+          throw new Error(
+            `Cannot emit ${dialect} SQL for column "${column.logicalName}": default number must be finite`
+          );
+        }
+        return String(value);
+      }
+      return value ? "TRUE" : "FALSE";
+    }
+    case "sql": {
+      const expectedDialect = dialect === "postgres" ? "postgres" : "sqlite";
+      const actualDialect =
+        column.defaultValue.dialect === "d1"
+          ? "sqlite"
+          : column.defaultValue.dialect;
+      const expression = column.defaultValue.expression.trim();
+      if (!expression) {
+        throw new Error(
+          `Cannot emit ${dialect} SQL for column "${column.logicalName}": default expression is empty`
+        );
+      }
+      if (actualDialect !== expectedDialect) {
+        throw new Error(
+          `Cannot emit ${dialect} SQL for column "${column.logicalName}": default belongs to ${column.defaultValue.dialect}`
+        );
+      }
+      return expression;
+    }
+  }
+}
+
+function isAutoIncrementGeneratedColumn(column: ResolvedColumn): boolean {
+  return (
+    column.isGenerated &&
+    column.generationStrategy.kind === "generated-always" &&
+    column.defaultValue.kind === "none"
+  );
+}
+
 function enumCheck(column: ResolvedColumn): string | undefined {
   if (column.kind !== "enumeration" || !column.enumValues?.length) {
     return;
   }
+
   const list = column.enumValues
     .map((value) => `'${String(value).replace(/'/g, "''")}'`)
     .join(", ");
@@ -336,16 +745,34 @@ function renderCreateTable(
   const tableSql = quoteIdent(qualified);
 
   const pkSet = new Set(table.primaryKey);
+  if (
+    dialect === "d1" &&
+    table.primaryKey.some((primaryKeyColumn) =>
+      table.columns.some(
+        (column) =>
+          column.name === primaryKeyColumn &&
+          column.isGenerated &&
+          !isAutoIncrementGeneratedColumn(column)
+      )
+    )
+  ) {
+    throw new Error(
+      "D1 does not support generated columns in primary keys"
+    );
+  }
   const solePk =
     table.primaryKey.length === 1 ? table.primaryKey[0] : undefined;
-  const soleGeneratedPkCol =
+  const soleAutoIncrementPkCol =
     solePk === undefined
       ? undefined
       : table.columns.find(
           (column) =>
             column.name === solePk &&
-            column.isGenerated &&
-            column.kind === "number"
+            isAutoIncrementGeneratedColumn(column) &&
+            (column.kind === "number" ||
+              column.kind === "smallint" ||
+              column.kind === "integer" ||
+              column.kind === "bigint")
         );
 
   const lines: string[] = [];
@@ -364,20 +791,32 @@ function renderCreateTable(
 
   for (const column of table.columns) {
     const isSoleGeneratedPk =
-      soleGeneratedPkCol !== undefined &&
-      column.name === soleGeneratedPkCol.name;
+      soleAutoIncrementPkCol !== undefined &&
+      column.name === soleAutoIncrementPkCol.name;
     const typeSql = isPostgres
       ? sqlTypePostgres(column, isSoleGeneratedPk)
       : sqlTypeD1(column, isSoleGeneratedPk);
 
     let line = `  ${quoteIdent(column.name)} ${typeSql}`;
+    if (isPostgres && column.identity) {
+      line += ` GENERATED ${column.identity === "always" ? "ALWAYS" : "BY DEFAULT"} AS IDENTITY`;
+    }
+    const defaultSql = renderColumnDefault(column, dialect);
+    if (column.isGenerated && defaultSql !== undefined) {
+      line += ` GENERATED ALWAYS AS (${defaultSql}) STORED`;
+    } else if (defaultSql !== undefined) {
+      line += ` DEFAULT ${defaultSql}`;
+    }
 
     if (isSoleGeneratedPk && !isPostgres) {
       line += " PRIMARY KEY AUTOINCREMENT";
-    } else if (isSoleGeneratedPk && isPostgres && typeSql === "BIGSERIAL") {
+    } else if (isSoleGeneratedPk && isPostgres && isSerialType(typeSql)) {
       line += " PRIMARY KEY";
     } else {
-      if (!(column.nullable || column.hasDefault || column.isGenerated)) {
+      if (
+        column.identity ||
+        !column.nullable
+      ) {
         line += " NOT NULL";
       }
       if (

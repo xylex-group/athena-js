@@ -1,4 +1,15 @@
+import { PostgresAuthorizationStore } from "../../runtime/authorization/postgres.ts";
+import {
+  mapLegacyUserRole,
+  resolveMemberAssignmentRole,
+} from "../../runtime/authorization/templates.ts";
+import type { AthenaRuntimeAuthSessionStore } from "../../runtime/data/principal.ts";
 import { ATHENA_AUTH_TABLES } from "../contract/index.ts";
+import type { AthenaAuthenticationMethod } from "./authentication-context.ts";
+import {
+  normalizeAuthenticationMethods,
+  resolveAuthenticationContext,
+} from "./authentication-context.ts";
 import type { AthenaAuthDatabase } from "./database.ts";
 import type {
   AuthAccountRow,
@@ -23,8 +34,8 @@ export interface CreateUserInput {
 }
 
 export interface UpdateUserPatch {
-  banned?: boolean;
   banExpires?: Date | null;
+  banned?: boolean;
   banReason?: string | null;
   email?: string;
   emailVerified?: boolean;
@@ -45,9 +56,11 @@ export interface AuthApiKeyRow {
   last_request: Date | string | null;
   metadata: string | null;
   name: string | null;
+  organization_id?: string | null;
   permissions: string | null;
   prefix: string | null;
   remaining: number | null;
+  scope_kind?: "legacy" | "organization" | "platform";
   start: string | null;
   updated_at: Date | string;
   user_id: string;
@@ -64,6 +77,8 @@ export interface AuthTwoFactorRow {
 
 export interface CreateSessionInput {
   activeOrganizationId?: string | null;
+  authenticatedAt?: Date;
+  authenticationMethods?: readonly AthenaAuthenticationMethod[];
   expiresAt: Date;
   id: string;
   impersonatedBy?: string | null;
@@ -73,8 +88,12 @@ export interface CreateSessionInput {
   userId: string;
 }
 
-export class PostgresAuthStores {
-  constructor(private readonly db: AthenaAuthDatabase) {}
+export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
+  readonly authorization: PostgresAuthorizationStore;
+
+  constructor(private readonly db: AthenaAuthDatabase) {
+    this.authorization = new PostgresAuthorizationStore(db);
+  }
 
   async getUserById(id: string): Promise<AuthUserRow | undefined> {
     const result = await this.db.query<AuthUserRow>(
@@ -100,6 +119,15 @@ export class PostgresAuthStores {
     return hydrateUser(result.rows[0]);
   }
 
+  async listUsers(): Promise<AuthUserRow[]> {
+    const result = await this.db.query<AuthUserRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.users} ORDER BY email NULLS LAST, id`
+    );
+    return result.rows
+      .map((row) => hydrateUser(row))
+      .filter((row): row is AuthUserRow => row != null);
+  }
+
   async createUser(input: CreateUserInput): Promise<AuthUserRow> {
     const result = await this.db.query<AuthUserRow>(
       `INSERT INTO ${ATHENA_AUTH_TABLES.users}
@@ -121,6 +149,10 @@ export class PostgresAuthStores {
     if (!row) {
       throw new Error("Failed to create user");
     }
+    await this.authorization.assignUserRole(
+      row.id,
+      mapLegacyUserRole(row.role)
+    );
     return row;
   }
 
@@ -165,20 +197,34 @@ export class PostgresAuthStores {
     if (!row) {
       throw new Error("User not found");
     }
+    if (patch.role !== undefined) {
+      await this.authorization.assignUserRole(
+        row.id,
+        mapLegacyUserRole(patch.role)
+      );
+    }
     return row;
   }
 
   async deleteUser(id: string): Promise<void> {
-    await this.db.query(`DELETE FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1`, [
-      id,
-    ]);
+    await this.db.query(
+      `DELETE FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1`,
+      [id]
+    );
   }
 
   async createSession(input: CreateSessionInput): Promise<AuthSessionRow> {
+    const authentication = resolveAuthenticationContext(
+      {
+        authenticatedAt: input.authenticatedAt,
+        methods: input.authenticationMethods ?? [],
+      },
+      new Date()
+    );
     const result = await this.db.query<AuthSessionRow>(
       `INSERT INTO ${ATHENA_AUTH_TABLES.sessions}
-        (id, user_id, token, expires_at, ip_address, user_agent, impersonated_by, active_organization_id, active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+        (id, user_id, token, expires_at, ip_address, user_agent, impersonated_by, active_organization_id, active, authenticated_at, authentication_methods)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10)
        RETURNING *`,
       [
         input.id,
@@ -189,13 +235,21 @@ export class PostgresAuthStores {
         input.userAgent ?? null,
         input.impersonatedBy ?? null,
         input.activeOrganizationId ?? null,
+        authentication.authenticatedAt.toISOString(),
+        authentication.methods,
       ]
     );
     const row = result.rows[0];
-    if (!row) {
+    if (row == null) {
       throw new Error("Failed to create session");
     }
-    return row;
+    return {
+      ...row,
+      authenticated_at: row.authenticated_at ?? row.created_at,
+      authentication_methods: normalizeAuthenticationMethods(
+        row.authentication_methods
+      ),
+    };
   }
 
   async getSessionByToken(token: string): Promise<AuthSessionRow | undefined> {
@@ -204,7 +258,7 @@ export class PostgresAuthStores {
        WHERE token = $1 AND active = TRUE AND expires_at > NOW()`,
       [token]
     );
-    return result.rows[0];
+    return hydrateSession(result.rows[0]);
   }
 
   async updateSessionExpiry(token: string, expiresAt: Date): Promise<void> {
@@ -228,6 +282,31 @@ export class PostgresAuthStores {
     );
   }
 
+  async clearUserActiveOrganization(
+    userId: string,
+    organizationId: string
+  ): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE ${ATHENA_AUTH_TABLES.sessions}
+       SET active_organization_id = NULL, updated_at = NOW()
+       WHERE user_id = $1 AND active_organization_id = $2`,
+      [userId, organizationId]
+    );
+    return result.rowCount;
+  }
+
+  async clearOrganizationActiveSessions(
+    organizationId: string
+  ): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE ${ATHENA_AUTH_TABLES.sessions}
+       SET active_organization_id = NULL, updated_at = NOW()
+       WHERE active_organization_id = $1`,
+      [organizationId]
+    );
+    return result.rowCount;
+  }
+
   async listUserSessions(userId: string): Promise<AuthSessionRow[]> {
     const result = await this.db.query<AuthSessionRow>(
       `SELECT * FROM ${ATHENA_AUTH_TABLES.sessions}
@@ -246,7 +325,10 @@ export class PostgresAuthStores {
     return result.rowCount > 0;
   }
 
-  async deleteUserSessions(userId: string, exceptToken?: string): Promise<number> {
+  async deleteUserSessions(
+    userId: string,
+    exceptToken?: string
+  ): Promise<number> {
     if (exceptToken) {
       const result = await this.db.query(
         `DELETE FROM ${ATHENA_AUTH_TABLES.sessions} WHERE user_id = $1 AND token <> $2`,
@@ -298,12 +380,12 @@ export class PostgresAuthStores {
 
   async findAccountByProvider(
     providerId: string,
-    accountId: string,
+    accountId: string
   ): Promise<AuthAccountRow | undefined> {
     const result = await this.db.query<AuthAccountRow>(
       `SELECT * FROM ${ATHENA_AUTH_TABLES.accounts}
        WHERE provider_id = $1 AND account_id = $2`,
-      [providerId, accountId],
+      [providerId, accountId]
     );
     return result.rows[0];
   }
@@ -311,7 +393,7 @@ export class PostgresAuthStores {
   async deleteAccount(id: string): Promise<void> {
     await this.db.query(
       `DELETE FROM ${ATHENA_AUTH_TABLES.accounts} WHERE id = $1`,
-      [id],
+      [id]
     );
   }
 
@@ -335,11 +417,105 @@ export class PostgresAuthStores {
     return row;
   }
 
-  async consumeVerification(value: string): Promise<AuthVerificationRow | undefined> {
+  async replaceVerificationByIdentifier(input: {
+    expiresAt: Date;
+    id: string;
+    identifier: string;
+    value: string;
+  }): Promise<AuthVerificationRow> {
+    return this.db.transaction(async (db) => {
+      await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+        input.identifier,
+      ]);
+      await db.query(
+        `DELETE FROM ${ATHENA_AUTH_TABLES.verifications} WHERE identifier = $1`,
+        [input.identifier]
+      );
+      const result = await db.query<AuthVerificationRow>(
+        `INSERT INTO ${ATHENA_AUTH_TABLES.verifications}
+          (id, identifier, value, expires_at)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [input.id, input.identifier, input.value, input.expiresAt.toISOString()]
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new Error("Failed to replace verification");
+      }
+      return row;
+    });
+  }
+
+  async deleteVerificationsByIdentifier(identifier: string): Promise<number> {
+    const result = await this.db.query(
+      `DELETE FROM ${ATHENA_AUTH_TABLES.verifications} WHERE identifier = $1`,
+      [identifier]
+    );
+    return result.rowCount;
+  }
+
+  async consumeVerification(
+    value: string
+  ): Promise<AuthVerificationRow | undefined> {
     const result = await this.db.query<AuthVerificationRow>(
       `DELETE FROM ${ATHENA_AUTH_TABLES.verifications}
        WHERE value = $1 AND expires_at > NOW()
        RETURNING *`,
+      [value]
+    );
+    return result.rows[0];
+  }
+
+  async consumeRateLimit(
+    key: string,
+    limit: number,
+    windowMs: number
+  ): Promise<boolean> {
+    const result = await this.db.query<{ count: number }>(
+      `INSERT INTO athena.auth_rate_limits (key, count, reset_at)
+       VALUES ($1, 1, NOW() + ($3 * INTERVAL '1 millisecond'))
+       ON CONFLICT (key) DO UPDATE
+       SET count = CASE
+           WHEN auth_rate_limits.reset_at <= NOW() THEN 1
+           WHEN auth_rate_limits.count < $2 THEN auth_rate_limits.count + 1
+           ELSE auth_rate_limits.count
+         END,
+         reset_at = CASE
+           WHEN auth_rate_limits.reset_at <= NOW()
+           THEN NOW() + ($3 * INTERVAL '1 millisecond')
+           ELSE auth_rate_limits.reset_at
+         END,
+         updated_at = NOW()
+       WHERE auth_rate_limits.reset_at <= NOW()
+          OR auth_rate_limits.count < $2
+       RETURNING count`,
+      [key, limit, windowMs]
+    );
+    return result.rowCount > 0;
+  }
+
+  async clearRateLimit(key: string): Promise<void> {
+    await this.db.query("DELETE FROM athena.auth_rate_limits WHERE key = $1", [
+      key,
+    ]);
+  }
+
+  async isRateLimited(key: string, limit: number): Promise<boolean> {
+    const result = await this.db.query<{ count: number }>(
+      `SELECT count FROM athena.auth_rate_limits
+       WHERE key = $1 AND reset_at > NOW()`,
+      [key]
+    );
+    return (result.rows[0]?.count ?? 0) >= limit;
+  }
+
+  async getVerification(
+    value: string
+  ): Promise<AuthVerificationRow | undefined> {
+    const result = await this.db.query<AuthVerificationRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.verifications}
+       WHERE value = $1 AND expires_at > NOW()
+       LIMIT 1`,
       [value]
     );
     return result.rows[0];
@@ -372,15 +548,17 @@ export class PostgresAuthStores {
   }
 
   async createOrganization(input: {
+    createdByUserId: string;
     id: string;
     name: string;
     slug: string;
   }): Promise<AuthOrganizationRow> {
     const result = await this.db.query<AuthOrganizationRow>(
-      `INSERT INTO ${ATHENA_AUTH_TABLES.organization} (id, name, slug)
-       VALUES ($1, $2, $3)
+      `INSERT INTO ${ATHENA_AUTH_TABLES.organization}
+        (id, name, slug, created_by_user_id)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [input.id, input.name, input.slug]
+      [input.id, input.name, input.slug, input.createdByUserId]
     );
     const row = result.rows[0];
     if (!row) {
@@ -407,7 +585,9 @@ export class PostgresAuthStores {
     return result.rows[0];
   }
 
-  async listOrganizationsForUser(userId: string): Promise<AuthOrganizationRow[]> {
+  async listOrganizationsForUser(
+    userId: string
+  ): Promise<AuthOrganizationRow[]> {
     const result = await this.db.query<AuthOrganizationRow>(
       `SELECT o.* FROM ${ATHENA_AUTH_TABLES.organization} o
        INNER JOIN ${ATHENA_AUTH_TABLES.member} m ON m.organization_id = o.id
@@ -454,6 +634,7 @@ export class PostgresAuthStores {
   }
 
   async addMember(input: {
+    assignedBy?: string;
     id: string;
     organizationId: string;
     role: string;
@@ -470,6 +651,12 @@ export class PostgresAuthStores {
     if (!row) {
       throw new Error("Failed to add member");
     }
+    await this.authorization.assignMemberRole(
+      row.id,
+      resolveMemberAssignmentRole(row.role),
+      input.assignedBy,
+      input.organizationId
+    );
     return row;
   }
 
@@ -483,6 +670,23 @@ export class PostgresAuthStores {
       [organizationId, userId]
     );
     return result.rows[0];
+  }
+
+  async hasAuthorizationAssignment(userId: string): Promise<boolean> {
+    return this.authorization.hasUserAssignment(userId);
+  }
+
+  async resolveEffectiveRights(input: {
+    activeOrganizationId?: string | null;
+    userId: string;
+  }): Promise<readonly string[]> {
+    const rights = await this.authorization.resolveEffectiveRights({
+      activeOrganizationId: input.activeOrganizationId,
+      getMember: (organizationId, memberUserId) =>
+        this.getMember(organizationId, memberUserId),
+      userId: input.userId,
+    });
+    return [...rights];
   }
 
   async listMembers(organizationId: string): Promise<AuthMemberRow[]> {
@@ -507,7 +711,16 @@ export class PostgresAuthStores {
        RETURNING *`,
       [organizationId, userId, role]
     );
-    return result.rows[0];
+    const updated = result.rows[0];
+    if (updated) {
+      await this.authorization.assignMemberRole(
+        updated.id,
+        resolveMemberAssignmentRole(role),
+        undefined,
+        organizationId
+      );
+    }
+    return updated;
   }
 
   async removeMember(organizationId: string, userId: string): Promise<boolean> {
@@ -659,8 +872,8 @@ export class PostgresAuthStores {
   async createApiKey(input: AuthApiKeyRow): Promise<AuthApiKeyRow> {
     const result = await this.db.query<AuthApiKeyRow>(
       `INSERT INTO ${ATHENA_AUTH_TABLES.apiKeys}
-        (id, name, start, prefix, key, user_id, enabled, remaining, expires_at, permissions, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (id, name, start, prefix, key, user_id, enabled, remaining, expires_at, permissions, metadata, organization_id, scope_kind)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         input.id,
@@ -674,6 +887,8 @@ export class PostgresAuthStores {
         input.expires_at,
         input.permissions,
         input.metadata,
+        input.organization_id ?? null,
+        input.scope_kind ?? "legacy",
       ]
     );
     const row = result.rows[0];
@@ -734,6 +949,25 @@ export class PostgresAuthStores {
     );
   }
 
+  async consumeApiKey(id: string): Promise<AuthApiKeyRow | undefined> {
+    const result = await this.db.query<AuthApiKeyRow>(
+      `UPDATE ${ATHENA_AUTH_TABLES.apiKeys}
+       SET remaining = CASE
+             WHEN remaining IS NULL THEN NULL
+             ELSE remaining - 1
+           END,
+           last_request = NOW(),
+           updated_at = NOW()
+       WHERE id = $1
+         AND enabled = TRUE
+         AND (expires_at IS NULL OR expires_at > NOW())
+         AND (remaining IS NULL OR remaining > 0)
+       RETURNING *`,
+      [id]
+    );
+    return result.rows[0];
+  }
+
   async updateApiKey(
     id: string,
     patch: {
@@ -754,20 +988,35 @@ export class PostgresAuthStores {
        WHERE id = $1
        RETURNING *`,
       [
-       id,
-       patch.enabled ?? null,
-       patch.metadata ?? null,
-       patch.name ?? null,
-       patch.permissions ?? null,
+        id,
+        patch.enabled ?? null,
+        patch.metadata ?? null,
+        patch.name ?? null,
+        patch.permissions ?? null,
       ]
     );
     return result.rows[0];
   }
 }
 
+function hydrateSession(
+  row: AuthSessionRow | undefined
+): AuthSessionRow | undefined {
+  if (!row) {
+    return;
+  }
+  return {
+    ...row,
+    authenticated_at: row.authenticated_at ?? row.created_at,
+    authentication_methods: normalizeAuthenticationMethods(
+      row.authentication_methods
+    ),
+  };
+}
+
 function hydrateUser(row: AuthUserRow | undefined): AuthUserRow | undefined {
   if (!row) {
-    return undefined;
+    return;
   }
   return {
     ...row,

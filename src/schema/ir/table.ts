@@ -5,10 +5,10 @@ import type { SchemaIndex } from "./indexes.ts";
 import type { SchemaRelation } from "./relation.ts";
 
 export interface SchemaTable {
-  readonly id: SchemaObjectId;
-  readonly identity: SchemaObjectIdentity;
   readonly columns: readonly SchemaColumn[];
   readonly constraints: readonly SchemaConstraint[];
-  readonly relations: readonly SchemaRelation[];
+  readonly id: SchemaObjectId;
+  readonly identity: SchemaObjectIdentity;
   readonly indexes: readonly SchemaIndex[];
+  readonly relations: readonly SchemaRelation[];
 }

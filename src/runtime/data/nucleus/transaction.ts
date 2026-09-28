@@ -6,15 +6,15 @@ import type { AthenaServerRuntime } from "../types.ts";
  * executeDataMutation wraps an owned transaction.
  */
 export type AthenaDataTransactionSemantics =
-	| "atomic"
-	| "backend-managed"
-	| "unknown";
+  | "atomic"
+  | "backend-managed"
+  | "unknown";
 
 export function resolveDataTransactionSemantics(
-	runtime: Pick<AthenaServerRuntime, "capabilities">,
+  runtime: Pick<AthenaServerRuntime, "capabilities">
 ): AthenaDataTransactionSemantics {
-	if (runtime.capabilities.transport === "d1") {
-		return "backend-managed";
-	}
-	return "unknown";
+  if (runtime.capabilities.transport === "d1") {
+    return "backend-managed";
+  }
+  return "unknown";
 }

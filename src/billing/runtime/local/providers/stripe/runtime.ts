@@ -1,40 +1,40 @@
 import type {
-	NormalizedStripeBillingProviderConfig,
-	StripeBillingProviderConfig,
+  NormalizedStripeBillingProviderConfig,
+  StripeBillingProviderConfig,
 } from "../../../../providers/types.ts";
 import type {
-	BillingProviderBinding,
-	BillingProviderCapabilities,
-	StripeBillingProviderRuntime,
+  BillingProviderBinding,
+  BillingProviderCapabilities,
+  StripeBillingProviderRuntime,
 } from "../types.ts";
 import { STRIPE_BILLING_PROVIDER_CAPABILITIES } from "./capabilities.ts";
 import { normalizeStripeRuntimeConfig } from "./config.ts";
 
 export class StripeBillingProviderRuntimeImpl
-	implements StripeBillingProviderRuntime
+  implements StripeBillingProviderRuntime
 {
-	readonly provider = "stripe" as const;
-	readonly payments = undefined;
-	readonly customers = undefined;
-	readonly refunds = undefined;
-	readonly paymentLinks = undefined;
-	readonly subscriptions = undefined;
-	readonly invoices = undefined;
-	readonly webhooks = undefined;
+  readonly provider = "stripe" as const;
+  readonly payments = undefined;
+  readonly customers = undefined;
+  readonly refunds = undefined;
+  readonly paymentLinks = undefined;
+  readonly subscriptions = undefined;
+  readonly invoices = undefined;
+  readonly webhooks = undefined;
 
-	constructor(readonly config: NormalizedStripeBillingProviderConfig) {}
+  constructor(readonly config: NormalizedStripeBillingProviderConfig) {}
 
-	async getCapabilities(
-		_binding: BillingProviderBinding,
-	): Promise<BillingProviderCapabilities> {
-		return STRIPE_BILLING_PROVIDER_CAPABILITIES;
-	}
+  async getCapabilities(
+    _binding: BillingProviderBinding
+  ): Promise<BillingProviderCapabilities> {
+    return STRIPE_BILLING_PROVIDER_CAPABILITIES;
+  }
 }
 
 export function createStripeBillingProviderRuntime(
-	config: StripeBillingProviderConfig | NormalizedStripeBillingProviderConfig,
+  config: StripeBillingProviderConfig | NormalizedStripeBillingProviderConfig
 ): StripeBillingProviderRuntime {
-	return new StripeBillingProviderRuntimeImpl(
-		normalizeStripeRuntimeConfig(config),
-	);
+  return new StripeBillingProviderRuntimeImpl(
+    normalizeStripeRuntimeConfig(config)
+  );
 }

@@ -17,6 +17,6 @@
       "@xylex-group/athena/cloudflare": ["./../../src/cloudflare/index.ts"]
     }
   },
-  "include": ["./**/*.ts"],
+  "include": ["./**/*.ts", "../../src/external-modules.d.ts"],
   "exclude": ["node_modules"]
 }

@@ -1,19 +1,27 @@
-import {
-  type AthenaPostgresClient,
-  type AthenaPostgresPool,
-  createPostgresPool,
+import { randomUUID } from "node:crypto";
+import { sha256HexUtf8 } from "../node-crypto.ts";
+import type {
+  AthenaPostgresClient,
+  AthenaPostgresPool,
 } from "../postgres/driver.ts";
-import type { MigrationBackend } from "./backend.ts";
 import {
-  type PhysicalCatalog,
+  type AthenaPostgresRuntime,
+  createAthenaPostgresRuntime,
+} from "../postgres/owned-runtime.ts";
+import { PostgresDeadline } from "../postgres/pool/deadline.ts";
+import type { PostgresLease } from "../postgres/pool/lease.ts";
+import { PACKAGE_VERSION } from "../sdk-version.ts";
+import {
   inspectPhysicalCatalog,
+  type PhysicalCatalog,
 } from "./analysis/catalog.ts";
 import { fingerprintProjectedSchema } from "./analysis/projected-schema.ts";
-import { sha256HexUtf8 } from "../node-crypto.ts";
-import { assertMigrationSqlAllowsOuterTransaction } from "./sql-guards.ts";
-import { randomUUID } from "node:crypto";
-import { PACKAGE_VERSION } from "../sdk-version.ts";
+import {
+  resolveMigrationExecution,
+} from "./checksum.ts";
+import type { MigrationBackend } from "./backend.ts";
 import type { ArchivedMigrationSource } from "./reconciliation/types.ts";
+import { assertMigrationSqlAllowsOuterTransaction } from "./sql-guards.ts";
 import {
   type AppliedMigration,
   type AppliedMigrationResult,
@@ -53,7 +61,10 @@ ALTER TABLE athena.schema_migrations
   ADD COLUMN IF NOT EXISTS execution_id uuid,
   ADD COLUMN IF NOT EXISTS source_dirty boolean,
   ADD COLUMN IF NOT EXISTS pre_schema_fingerprint text,
-  ADD COLUMN IF NOT EXISTS post_schema_fingerprint text;
+  ADD COLUMN IF NOT EXISTS post_schema_fingerprint text,
+  ADD COLUMN IF NOT EXISTS execution_checksum text,
+  ADD COLUMN IF NOT EXISTS execution_transform_id text,
+  ADD COLUMN IF NOT EXISTS execution_transform_version text;
 
 CREATE TABLE IF NOT EXISTS athena.schema_migration_sources (
   version BIGINT NOT NULL,
@@ -63,9 +74,19 @@ CREATE TABLE IF NOT EXISTS athena.schema_migration_sources (
   source_blob_sha text,
   source_path text,
   execution_id uuid,
+  execution_checksum text,
+  execution_transform_id text,
+  execution_transform_version text,
+  execution_sql text,
   archived_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (version, checksum)
 );
+
+ALTER TABLE athena.schema_migration_sources
+  ADD COLUMN IF NOT EXISTS execution_checksum text,
+  ADD COLUMN IF NOT EXISTS execution_transform_id text,
+  ADD COLUMN IF NOT EXISTS execution_transform_version text,
+  ADD COLUMN IF NOT EXISTS execution_sql text;
 
 CREATE TABLE IF NOT EXISTS athena.schema_migration_reconciliations (
   id uuid PRIMARY KEY,
@@ -74,6 +95,21 @@ CREATE TABLE IF NOT EXISTS athena.schema_migration_reconciliations (
   confidence text NOT NULL,
   old_checksum text,
   new_checksum text,
+  action text NOT NULL,
+  evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
+  repository_commit text,
+  physical_fingerprint text,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  runner_version text
+);
+
+CREATE TABLE IF NOT EXISTS athena.schema_migration_reconciliation_events (
+  id uuid PRIMARY KEY,
+  version BIGINT NOT NULL,
+  classification text NOT NULL,
+  confidence text NOT NULL,
+  old_checksum text,
+  proposed_checksum text,
   action text NOT NULL,
   evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
   repository_commit text,
@@ -91,7 +127,10 @@ ORDER BY version ASC
 
 const LIST_APPLIED_SQL_RICH = `
 SELECT version, name, checksum, applied_at, execution_ms,
-  source_commit, source_blob_sha, source_dirty, post_schema_fingerprint, execution_id
+  source_commit, source_blob_sha, source_dirty, pre_schema_fingerprint,
+  post_schema_fingerprint,
+  execution_id, execution_checksum, execution_transform_id,
+  execution_transform_version
 FROM athena.schema_migrations
 ORDER BY version ASC
 `.trim();
@@ -100,12 +139,30 @@ interface LedgerRow {
   applied_at: Date | string;
   checksum: string;
   execution_id?: string | null;
+  execution_checksum?: string | null;
   execution_ms: string | number | bigint;
+  execution_transform_id?: string | null;
+  execution_transform_version?: string | null;
   name: string;
+  pre_schema_fingerprint?: string | null;
   post_schema_fingerprint?: string | null;
   source_blob_sha?: string | null;
   source_commit?: string | null;
   source_dirty?: boolean | null;
+  version: string | number | bigint;
+}
+
+interface ArchivedRow {
+  checksum: string;
+  execution_checksum?: string | null;
+  execution_id?: string | null;
+  execution_sql?: string | null;
+  execution_transform_id?: string | null;
+  execution_transform_version?: string | null;
+  source_blob_sha?: string | null;
+  source_commit?: string | null;
+  source_path?: string | null;
+  sql: string;
   version: string | number | bigint;
 }
 
@@ -130,9 +187,14 @@ function mapLedgerRow(row: LedgerRow): AppliedMigration {
   return {
     appliedAt: toDate(row.applied_at),
     checksum: row.checksum,
+    executionChecksum: row.execution_checksum ?? undefined,
     executionId: row.execution_id ?? undefined,
     executionMs: toNumber(row.execution_ms),
+    executionTransformId: row.execution_transform_id ?? undefined,
+    executionTransformVersion: row.execution_transform_version ?? undefined,
     name: row.name,
+    postSchemaFingerprint: row.post_schema_fingerprint ?? undefined,
+    preSchemaFingerprint: row.pre_schema_fingerprint ?? undefined,
     sourceBlobSha: row.source_blob_sha ?? undefined,
     sourceCommit: row.source_commit ?? undefined,
     sourceDirty: row.source_dirty ?? undefined,
@@ -183,7 +245,8 @@ function isMissingLedgerError(error: unknown): boolean {
   );
 }
 
-export interface PostgresMigrationBackendOptions extends MigrationBackendContext {
+export interface PostgresMigrationBackendOptions
+  extends MigrationBackendContext {
   pool?: AthenaPostgresPool;
 }
 
@@ -260,8 +323,9 @@ export class PostgresMigrationBackend implements MigrationBackend {
 
   private readonly connectionString: string;
   private readonly database?: string;
-  private pool: AthenaPostgresPool | undefined;
-  private ownsPool: boolean;
+  private readonly runtime: AthenaPostgresRuntime;
+  private readonly ownsRuntime: boolean;
+  private lease: PostgresLease | undefined;
   private client: AthenaPostgresClient | undefined;
   private lockHeld = false;
 
@@ -271,23 +335,36 @@ export class PostgresMigrationBackend implements MigrationBackend {
       typeof options.database === "string" && options.database.trim().length > 0
         ? options.database.trim()
         : undefined;
-    this.pool = options.pool;
-    this.ownsPool = !options.pool;
+    if (options.postgresRuntime) {
+      this.runtime = options.postgresRuntime;
+      this.ownsRuntime = false;
+    } else if (options.pool) {
+      this.runtime = createAthenaPostgresRuntime({
+        ownership: "borrowed",
+        pool: options.pool,
+      });
+      this.ownsRuntime = true;
+    } else {
+      const { connectionString } = buildPostgresMigrationPoolOptions(
+        this.connectionString,
+        this.database
+      );
+      this.runtime = createAthenaPostgresRuntime({ connectionString });
+      this.ownsRuntime = true;
+    }
   }
 
   private async ensureClient(): Promise<AthenaPostgresClient> {
     if (this.client) {
       return this.client;
     }
-    if (!this.pool) {
-      const { connectionString, poolConfig } = buildPostgresMigrationPoolOptions(
-        this.connectionString,
-        this.database
-      );
-      this.pool = await createPostgresPool(connectionString, poolConfig);
-      this.ownsPool = true;
-    }
-    this.client = await this.pool.connect();
+    const manager = await this.runtime.getPoolManager();
+    this.lease = await manager.acquire({
+      deadline: PostgresDeadline.after(60_000),
+      target: "direct",
+      workload: "migration",
+    });
+    this.client = this.lease.client;
     return this.client;
   }
 
@@ -355,19 +432,19 @@ export class PostgresMigrationBackend implements MigrationBackend {
         return result.rows.map(mapLedgerRow);
       }
     } catch (error) {
-        // status / plan / dry-run may run before the ledger exists; treat as empty.
-        if (isMissingLedgerError(error)) {
-          return [];
-        }
-        throw new MigrationError(
-          "LEDGER",
-          `Unable to read migration ledger: ${sanitizePgMessage(
-            error instanceof Error ? error.message : String(error)
-          )}`,
-          { cause: error }
-        );
+      // status / plan / dry-run may run before the ledger exists; treat as empty.
+      if (isMissingLedgerError(error)) {
+        return [];
       }
+      throw new MigrationError(
+        "LEDGER",
+        `Unable to read migration ledger: ${sanitizePgMessage(
+          error instanceof Error ? error.message : String(error)
+        )}`,
+        { cause: error }
+      );
     }
+  }
 
   async inspectCatalog(): Promise<PhysicalCatalog> {
     const client = await this.ensureClient();
@@ -375,41 +452,54 @@ export class PostgresMigrationBackend implements MigrationBackend {
   }
 
   async applyMigration(
-    migration: MigrationFile
+    migration: MigrationFile,
+    transactionClient?: AthenaPostgresClient,
   ): Promise<AppliedMigrationResult> {
-      // Fail closed before opening a transaction if SQL could terminate it.
-      assertMigrationSqlAllowsOuterTransaction(migration.sql, migration.filename);
+    // Fail closed before opening a transaction if SQL could terminate it.
+    assertMigrationSqlAllowsOuterTransaction(migration.sql, migration.filename);
+    const executionSql = migration.executionSql ?? migration.sql;
+    const execution = resolveMigrationExecution(migration);
+    // Transforms are untrusted execution input even though authored `sql` is
+    // the provenance source, so validate the final payload independently.
+    assertMigrationSqlAllowsOuterTransaction(executionSql, migration.filename);
 
-      const client = await this.ensureClient();
-      const started = Date.now();
+    const ownsTransaction = transactionClient === undefined;
+    const client = transactionClient ?? (await this.ensureClient());
+    const started = Date.now();
 
-      try {
+    try {
+      if (ownsTransaction) {
         await client.query("BEGIN");
-      } catch (error) {
-        throw new MigrationError(
-          "EXECUTION",
-          `Failed to begin transaction for ${migration.filename}: ${sanitizePgMessage(
-            error instanceof Error ? error.message : String(error)
-          )}`,
-          { cause: error }
+      }
+    } catch (error) {
+      throw new MigrationError(
+        "EXECUTION",
+        `Failed to begin transaction for ${migration.filename}: ${sanitizePgMessage(
+          error instanceof Error ? error.message : String(error)
+        )}`,
+        { cause: error }
+      );
+    }
+
+    try {
+      let preFingerprint: string | null = null;
+      try {
+        preFingerprint = catalogFingerprint(
+          await inspectPhysicalCatalog(client)
         );
+      } catch {
+        preFingerprint = null;
       }
 
-      try {
-        let preFingerprint: string | null = null;
-        try {
-          preFingerprint = catalogFingerprint(await inspectPhysicalCatalog(client));
-        } catch {
-          preFingerprint = null;
-        }
-
-        // Execute the full SQL file as authored (no semicolon splitting).
-        await client.query(migration.sql);
+      // Execute the full transformed SQL file (no semicolon splitting).
+      await client.query(executionSql);
 
       const executionMs = Math.max(0, Date.now() - started);
       let postFingerprint: string | null = null;
       try {
-        postFingerprint = catalogFingerprint(await inspectPhysicalCatalog(client));
+        postFingerprint = catalogFingerprint(
+          await inspectPhysicalCatalog(client)
+        );
       } catch {
         postFingerprint = null;
       }
@@ -421,9 +511,10 @@ INSERT INTO athena.schema_migrations (
   version, name, checksum, execution_ms,
   source_commit, source_path, source_blob_sha, source_branch, source_repository,
   runner_version, runner_package_version, execution_id, source_dirty,
-  pre_schema_fingerprint, post_schema_fingerprint
+  pre_schema_fingerprint, post_schema_fingerprint,
+  execution_checksum, execution_transform_id, execution_transform_version
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::uuid, $13, $14, $15)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::uuid, $13, $14, $15, $16, $17, $18)
 `.trim(),
         [
           migration.version,
@@ -441,13 +532,17 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::uuid, $13, $14, $15)
           Boolean(migration.sourceDirty ?? provenance?.dirty),
           preFingerprint,
           postFingerprint,
+          execution.checksum,
+          execution.transform.id,
+          execution.transform.version,
         ]
       );
       await client.query(
         `
 INSERT INTO athena.schema_migration_sources (
-  version, checksum, sql, source_commit, source_blob_sha, source_path, execution_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7::uuid)
+  version, checksum, sql, source_commit, source_blob_sha, source_path, execution_id,
+  execution_checksum, execution_transform_id, execution_transform_version, execution_sql
+) VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8, $9, $10, $11)
 ON CONFLICT (version, checksum) DO NOTHING
 `.trim(),
         [
@@ -458,24 +553,38 @@ ON CONFLICT (version, checksum) DO NOTHING
           provenance?.gitBlobSha ?? null,
           provenance?.relativePath ?? migration.filename,
           executionId,
+          execution.checksum,
+          execution.transform.id,
+          execution.transform.version,
+          execution.sql,
         ]
       );
 
-      await client.query("COMMIT");
+      if (ownsTransaction) {
+        await client.query("COMMIT");
+      }
 
       return {
         appliedAt: new Date(),
         checksum: migration.checksum,
+        executionChecksum: execution.checksum,
         executionMs,
+        executionTransformId: execution.transform.id,
+        executionTransformVersion: execution.transform.version,
+        executionSql: execution.sql,
         filename: migration.filename,
         name: migration.name,
+        postSchemaFingerprint: postFingerprint ?? undefined,
+        preSchemaFingerprint: preFingerprint ?? undefined,
         version: migration.version,
       };
     } catch (error) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {
-        // ignore rollback errors; surface original failure
+      if (ownsTransaction) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {
+          // ignore rollback errors; surface original failure
+        }
       }
 
       throw new MigrationError(
@@ -498,27 +607,66 @@ ON CONFLICT (version, checksum) DO NOTHING
     }
   }
 
+  async applyMigrations(
+    migrations: readonly MigrationFile[],
+  ): Promise<AppliedMigrationResult[]> {
+    migrations.forEach((migration) => {
+      assertMigrationSqlAllowsOuterTransaction(migration.sql, migration.filename);
+      assertMigrationSqlAllowsOuterTransaction(
+        migration.executionSql ?? migration.sql,
+        migration.filename,
+      );
+    });
+    const client = await this.ensureClient();
+    await client.query("BEGIN");
+    try {
+      const results: AppliedMigrationResult[] = [];
+      for (const migration of migrations) {
+        results.push(await this.applyMigration(migration, client));
+      }
+      await client.query("COMMIT");
+      return results;
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // Preserve the execution error; the connection cleanup owns rollback failure handling.
+      }
+      throw error;
+    }
+  }
+
   async listArchivedSources(): Promise<ArchivedMigrationSource[]> {
     const client = await this.ensureClient();
     try {
-      const result = await client.query<{
-        checksum: string;
-        execution_id: string | null;
-        source_blob_sha: string | null;
-        source_commit: string | null;
-        source_path: string | null;
-        sql: string;
-        version: string | number | bigint;
-      }>(
-        `
+      const query = `
+SELECT version, checksum, sql, source_commit, source_blob_sha, source_path,
+  execution_id, execution_checksum, execution_transform_id,
+  execution_transform_version, execution_sql
+FROM athena.schema_migration_sources
+ORDER BY version ASC
+`.trim();
+      const legacyQuery = `
 SELECT version, checksum, sql, source_commit, source_blob_sha, source_path, execution_id
 FROM athena.schema_migration_sources
 ORDER BY version ASC
-`.trim()
-      );
-      return result.rows.map((row) => ({
+`.trim();
+      let rows: ArchivedRow[];
+      try {
+        rows = (await client.query<ArchivedRow>(query)).rows;
+      } catch (error) {
+        if (!isUndefinedColumnError(error)) {
+          throw error;
+        }
+        rows = (await client.query<ArchivedRow>(legacyQuery)).rows;
+      }
+      return rows.map((row) => ({
         checksum: row.checksum,
+        executionChecksum: row.execution_checksum ?? undefined,
         executionId: row.execution_id ?? undefined,
+        executionSql: row.execution_sql ?? undefined,
+        executionTransformId: row.execution_transform_id ?? undefined,
+        executionTransformVersion: row.execution_transform_version ?? undefined,
         sourceBlobSha: row.source_blob_sha ?? undefined,
         sourceCommit: row.source_commit ?? undefined,
         sourcePath: row.source_path ?? undefined,
@@ -531,14 +679,6 @@ ORDER BY version ASC
       }
       throw error;
     }
-  }
-
-  async repairLedgerChecksum(version: number, checksum: string): Promise<void> {
-    const client = await this.ensureClient();
-    await client.query(
-      `UPDATE athena.schema_migrations SET checksum = $2 WHERE version = $1`,
-      [version, checksum]
-    );
   }
 
   async insertReconciliation(row: {
@@ -555,8 +695,8 @@ ORDER BY version ASC
     const client = await this.ensureClient();
     await client.query(
       `
-INSERT INTO athena.schema_migration_reconciliations (
-  id, version, classification, confidence, old_checksum, new_checksum,
+INSERT INTO athena.schema_migration_reconciliation_events (
+  id, version, classification, confidence, old_checksum, proposed_checksum,
   action, evidence, repository_commit, physical_fingerprint, runner_version
 ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)
 `.trim(),
@@ -580,22 +720,14 @@ INSERT INTO athena.schema_migration_reconciliations (
     try {
       await this.releaseLock();
     } finally {
-      if (this.client) {
-        try {
-          this.client.release();
-        } catch {
-          // ignore
-        }
-        this.client = undefined;
+      if (this.lease) {
+        this.lease.release();
+        this.lease = undefined;
       }
-      if (this.pool && this.ownsPool) {
-        try {
-          await this.pool.end();
-        } catch {
-          // ignore
-        }
+      this.client = undefined;
+      if (this.ownsRuntime) {
+        await this.runtime.close();
       }
-      this.pool = undefined;
     }
   }
 }

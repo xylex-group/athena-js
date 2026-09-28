@@ -16,29 +16,32 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
 
-import { AthenaConfigurationError, createClient } from "../../../src/v3-client.ts";
+import {
+  AthenaConfigurationError,
+  createClient,
+} from "../../../src/v3-client.ts";
 
 const SAMPLE_PG =
-	"postgresql://postgres@127.0.0.1:5432/athena_social_oauth_baseline";
+  "postgresql://postgres@127.0.0.1:5432/athena_social_oauth_baseline";
 
 test("B-SOC-CONSTRUCT (superseded): v3-client oauth|social|socialProviders throws ATHENA_AUTH_FEATURE_UNSUPPORTED", () => {
-	for (const auth of [
-		{ oauth: true },
-		{ social: true },
-		{ socialProviders: { google: { clientId: "x" } } },
-	] as const) {
-		assert.throws(
-			() =>
-				createClient({
-					auth: auth as never,
-					databaseUrl: SAMPLE_PG,
-					env: {},
-				}),
-			(error: unknown) =>
-				error instanceof AthenaConfigurationError &&
-				error.code === "ATHENA_AUTH_FEATURE_UNSUPPORTED" &&
-				/oauth|social/i.test(error.message),
-			`construct must reject ${JSON.stringify(auth)}`,
-		);
-	}
+  for (const auth of [
+    { oauth: true },
+    { social: true },
+    { socialProviders: { google: { clientId: "x" } } },
+  ] as const) {
+    assert.throws(
+      () =>
+        createClient({
+          auth: auth as never,
+          databaseUrl: SAMPLE_PG,
+          env: {},
+        }),
+      (error: unknown) =>
+        error instanceof AthenaConfigurationError &&
+        error.code === "ATHENA_AUTH_FEATURE_UNSUPPORTED" &&
+        /oauth|social/i.test(error.message),
+      `construct must reject ${JSON.stringify(auth)}`
+    );
+  }
 });

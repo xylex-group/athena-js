@@ -11,45 +11,47 @@ import type { AthenaAuthDomainEvent } from "../hooks/events.ts";
 export type AthenaAuthRuntimeSupport = "supported" | "unsupported";
 
 export type AthenaAuthOperationAuth =
-	| "public"
-	| "optional-session"
-	| "session"
-	| "admin";
+  | "public"
+  | "optional-session"
+  | "protocol"
+  | "session"
+  | "admin";
 
 export type AthenaAuthOperationCapability =
-	| "accounts"
-	| "admin"
-	| "apiKeys"
-	| "email"
-	| "health"
-	| "invitations"
-	| "jwt"
-	| "oidc"
-	| "organizations"
-	| "passkeys"
-	| "password"
-	| "sessions"
-	| "social"
-	| "tokens"
-	| "twoFactor";
+  | "accounts"
+  | "admin"
+  | "apiKeys"
+  | "email"
+  | "health"
+  | "invitations"
+  | "jwt"
+  | "oauthAuthorizationServer"
+  | "oidc"
+  | "organizations"
+  | "passkeys"
+  | "password"
+  | "sessions"
+  | "social"
+  | "tokens"
+  | "twoFactor";
 
 export interface AthenaAuthOperationDefinition {
-	id: string;
-	method: string;
-	path: string;
-	capability: AthenaAuthOperationCapability | string;
-	rust: AthenaAuthRuntimeSupport;
-	embedded: AthenaAuthRuntimeSupport;
-	auth: AthenaAuthOperationAuth;
-	mutation: boolean;
-	domainEvent?: AthenaAuthDomainEvent;
-	nonportable?: boolean;
+  auth: AthenaAuthOperationAuth;
+  capability: AthenaAuthOperationCapability | string;
+  domainEvent?: AthenaAuthDomainEvent;
+  embedded: AthenaAuthRuntimeSupport;
+  id: string;
+  method: string;
+  mutation: boolean;
+  nonportable?: boolean;
+  path: string;
+  rust: AthenaAuthRuntimeSupport;
 }
 
 export function operationKey(
-	operation: Pick<AthenaAuthOperationDefinition, "method" | "path">,
+  operation: Pick<AthenaAuthOperationDefinition, "method" | "path">
 ): string {
-	return `${operation.method} ${operation.path}`;
+  return `${operation.method} ${operation.path}`;
 }
 
 /**
@@ -60,24 +62,24 @@ export function operationKey(
  * Later waves delete the Set once this function returns [].
  */
 export function listMissingEmbeddedOperations(
-	operations: readonly AthenaAuthOperationDefinition[],
+  operations: readonly AthenaAuthOperationDefinition[]
 ): string[] {
-	return operations
-		.filter(
-			(operation) =>
-				operation.rust === "supported" &&
-				operation.embedded === "unsupported" &&
-				operation.nonportable !== true,
-		)
-		.map(operationKey)
-		.sort();
+  return operations
+    .filter(
+      (operation) =>
+        operation.rust === "supported" &&
+        operation.embedded === "unsupported" &&
+        operation.nonportable !== true
+    )
+    .map(operationKey)
+    .sort();
 }
 
 export function operationsForCapability(
-	operations: readonly AthenaAuthOperationDefinition[],
-	capability: string,
+  operations: readonly AthenaAuthOperationDefinition[],
+  capability: string
 ): AthenaAuthOperationDefinition[] {
-	return operations.filter((operation) => operation.capability === capability);
+  return operations.filter((operation) => operation.capability === capability);
 }
 
 /**
@@ -85,28 +87,28 @@ export function operationsForCapability(
  * portable Rust-supported operation in that capability is embedded-supported.
  */
 export function deriveEmbeddedCapabilityAdvertisement(
-	operations: readonly AthenaAuthOperationDefinition[],
+  operations: readonly AthenaAuthOperationDefinition[]
 ): {
-	passkeys: boolean;
-	socialProvidersAdvertised: boolean;
+  passkeys: boolean;
+  socialProvidersAdvertised: boolean;
 } {
-	const portable = (capability: string) =>
-		operations.filter(
-			(operation) =>
-				operation.capability === capability &&
-				operation.rust === "supported" &&
-				operation.nonportable !== true,
-		);
+  const portable = (capability: string) =>
+    operations.filter(
+      (operation) =>
+        operation.capability === capability &&
+        operation.rust === "supported" &&
+        operation.nonportable !== true
+    );
 
-	const passkeyOps = portable("passkeys");
-	const socialOps = portable("social");
+  const passkeyOps = portable("passkeys");
+  const socialOps = portable("social");
 
-	return {
-		passkeys:
-			passkeyOps.length > 0 &&
-			passkeyOps.every((operation) => operation.embedded === "supported"),
-		socialProvidersAdvertised:
-			socialOps.length > 0 &&
-			socialOps.every((operation) => operation.embedded === "supported"),
-	};
+  return {
+    passkeys:
+      passkeyOps.length > 0 &&
+      passkeyOps.every((operation) => operation.embedded === "supported"),
+    socialProvidersAdvertised:
+      socialOps.length > 0 &&
+      socialOps.every((operation) => operation.embedded === "supported"),
+  };
 }

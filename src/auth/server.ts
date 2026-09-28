@@ -294,7 +294,7 @@ function readCookieFromHeaders(
 ): string | undefined {
   const cookieHeader = headers?.get("cookie");
   if (!cookieHeader) {
-    return undefined;
+    return;
   }
   return parseCookies(cookieHeader).get(name);
 }
@@ -441,7 +441,7 @@ function resolveRequestBaseURL(
 
 function getOrigin(baseURL: string | undefined): string | undefined {
   if (!baseURL) {
-    return undefined;
+    return;
   }
 
   try {
@@ -449,7 +449,6 @@ function getOrigin(baseURL: string | undefined): string | undefined {
   } catch {
     // Invalid baseURL is treated as no origin.
   }
-  return undefined;
 }
 
 async function resolveTrustedOrigins(

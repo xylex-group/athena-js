@@ -12,7 +12,7 @@ export interface PasskeyRequestSpec {
  * Seven `/passkey/*` routes are capability-gated; `/.well-known/webauthn` is not.
  */
 export const PASSKEY_REQUESTS = {
-  deletePasskey: {
+  delete: {
     gated: true,
     method: "POST",
     path: "/passkey/delete-passkey",
@@ -32,12 +32,12 @@ export const PASSKEY_REQUESTS = {
     method: "GET",
     path: "/.well-known/webauthn",
   },
-  listUserPasskeys: {
+  listUser: {
     gated: true,
     method: "GET",
     path: "/passkey/list-user-passkeys",
   },
-  updatePasskey: {
+  update: {
     gated: true,
     method: "POST",
     path: "/passkey/update-passkey",

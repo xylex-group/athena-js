@@ -6,12 +6,6 @@ import { fileURLToPath } from "node:url";
 
 import * as browserEntry from "../src/browser.ts";
 import {
-  ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED,
-  AthenaEmailError,
-  createClient,
-  defineAthenaEmailProvider,
-} from "../src/index.ts";
-import {
   normalizeAthenaEmailConfig,
   toAthenaEmailDiagnostics,
 } from "../src/email/normalize-config.ts";
@@ -21,6 +15,12 @@ import type {
   AthenaEmailMessage,
   AthenaResolvedEmailMessage,
 } from "../src/email/types.ts";
+import {
+  ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED,
+  AthenaEmailError,
+  createClient,
+  defineAthenaEmailProvider,
+} from "../src/index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
@@ -215,7 +215,10 @@ test("public barrel exports root email types and does not export createEmailModu
   const root = createClient as unknown as { name?: string };
   void root;
   assert.equal(typeof defineAthenaEmailProvider, "function");
-  assert.equal(ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED, "ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED");
+  assert.equal(
+    ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED,
+    "ATHENA_EMAIL_PROVIDER_NOT_CONFIGURED"
+  );
   assert.equal("createEmailModule" in browserEntry, false);
   assert.equal(typeof browserEntry.createClient, "function");
   assert.equal(typeof browserEntry.defineAthenaEmailProvider, "function");
@@ -236,7 +239,10 @@ test("src/email stays Node-free for the browser createClient path", () => {
     );
   }
 
-  const core = readFileSync(join(pkgRoot, "src", "v3-client-core.ts"), "utf8");
+  const core = readFileSync(
+    join(pkgRoot, "src", "v3-client-assembly.ts"),
+    "utf8"
+  );
   assert.match(core, /createEmailModule/);
   assert.equal(core.includes('from "./email/module.ts"'), true);
   assert.equal(core.includes("email-node"), false);

@@ -1,5 +1,5 @@
-import { relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { relative, resolve } from "node:path";
 
 import type { MigrationFile } from "../types.ts";
 import { gitBlobSha, gitLsTracked, toPosix } from "./git.ts";
@@ -15,10 +15,12 @@ export function attachFileProvenance(
   file: MigrationFile,
   state: MigrationSourceControlState
 ): MigrationFileProvenance | undefined {
-  if (!state.available || !state.repositoryRoot || !state.headCommit) {
-    return undefined;
+  if (!(state.available && state.repositoryRoot && state.headCommit)) {
+    return;
   }
-  const relativePath = toPosix(relative(state.repositoryRoot, resolve(file.path)));
+  const relativePath = toPosix(
+    relative(state.repositoryRoot, resolve(file.path))
+  );
   const dirty = state.changedFiles.some(
     (change) =>
       change.affectsMigrations &&
@@ -30,7 +32,9 @@ export function attachFileProvenance(
   return {
     branch: state.branch,
     dirty,
-    gitBlobSha: tracked ? gitBlobSha(state.repositoryRoot, relativePath) : undefined,
+    gitBlobSha: tracked
+      ? gitBlobSha(state.repositoryRoot, relativePath)
+      : undefined,
     headCommit: state.headCommit,
     relativePath,
     repositoryRoot: state.repositoryRoot,
@@ -55,6 +59,12 @@ export function freezePreparedMigrations(
     const provenance = attachFileProvenance(file, state);
     return {
       checksum: file.checksum,
+      ...(file.executionSql === undefined
+        ? {}
+        : { executionSql: file.executionSql }),
+      ...(file.executionTransform === undefined
+        ? {}
+        : { executionTransform: file.executionTransform }),
       filename: file.filename,
       name: file.name,
       provenance,
@@ -71,6 +81,12 @@ export function preparedToMigrationFile(
 ): MigrationFile {
   return {
     checksum: prepared.checksum,
+    ...(prepared.executionSql === undefined
+      ? {}
+      : { executionSql: prepared.executionSql }),
+    ...(prepared.executionTransform === undefined
+      ? {}
+      : { executionTransform: prepared.executionTransform }),
     executionId: prepared.source.executionId,
     filename: prepared.filename,
     name: prepared.name,

@@ -3,10 +3,7 @@ import { test } from "node:test";
 import { getServerSession } from "../../../src/next/get-server-session.ts";
 import { createServerSessionResolver } from "../../../src/next/server-session-resolver.ts";
 import { ATHENA_SESSION_DATA_HEADER } from "../../../src/utils/athena-auth-url.ts";
-import {
-  bindResolver,
-  mapServerSession,
-} from "./session-api.ts";
+import { bindResolver, mapServerSession } from "./session-api.ts";
 
 const sample = {
   session: { activeOrganizationId: "org_1", id: "s_1" },

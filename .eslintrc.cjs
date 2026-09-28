@@ -26,6 +26,8 @@ module.exports = {
     "@typescript-eslint/no-this-alias": "warn",
     "@typescript-eslint/no-unused-vars": "warn",
     "no-constant-condition": "warn",
+    // Biome/Ultracite owns indentation (tabs vs spaces after format).
+    "no-mixed-spaces-and-tabs": "off",
     "no-useless-catch": "warn",
   },
 };

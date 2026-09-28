@@ -14,14 +14,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-
+import * as emailPublic from "../../src/auth/email/index.ts";
 import {
+  type AthenaAuthEmailTemplateRow,
   AUTH_EMAIL_EVENT_CATALOG,
   createTestEmailDeliveryPort,
   emitAuthEmail,
-  type AthenaAuthEmailTemplateRow,
 } from "../../src/auth/email/index.ts";
-import * as emailPublic from "../../src/auth/email/index.ts";
 import { MemoryAuthEmailStore } from "../../src/auth/local/email/store.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,7 +45,11 @@ function emailSources(): string {
 
 function requireExportFn(name: string): (...args: never[]) => unknown {
   const value = (emailPublic as Record<string, unknown>)[name];
-  assert.equal(typeof value, "function", `expected ${name} exported from src/auth/email`);
+  assert.equal(
+    typeof value,
+    "function",
+    `expected ${name} exported from src/auth/email`
+  );
   return value as (...args: never[]) => unknown;
 }
 
@@ -368,7 +371,10 @@ test("T-CAT-NO-SUFFIX-KEY auth.password-reset.nl is not the mechanism", async ()
   assert.notEqual(resolved.template_key, "auth.password-reset.nl");
   assert.notEqual(resolved.id, "suffix-key");
   assert.equal(resolved.template_key, "password_reset_email");
-  assert.equal(resolved.locale === "nl" || resolved.id.startsWith("builtin:"), true);
+  assert.equal(
+    resolved.locale === "nl" || resolved.id.startsWith("builtin:"),
+    true
+  );
 });
 
 test("T-CAT-16 every canonical event has a default builtin", async () => {
