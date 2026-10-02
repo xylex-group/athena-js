@@ -37,6 +37,50 @@ function toContractIssues(
   }));
 }
 
+function containsCycle(input: unknown): boolean {
+  if (input === null || typeof input !== "object") {
+    return false;
+  }
+  const active = new WeakSet<object>();
+  const complete = new WeakSet<object>();
+  const stack: Array<{ value: object; exit: boolean }> = [
+    { exit: false, value: input },
+  ];
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (!frame) {
+      continue;
+    }
+    if (frame.exit) {
+      active.delete(frame.value);
+      complete.add(frame.value);
+      continue;
+    }
+    if (complete.has(frame.value)) {
+      continue;
+    }
+    if (active.has(frame.value)) {
+      return true;
+    }
+    active.add(frame.value);
+    stack.push({ exit: true, value: frame.value });
+    for (const child of Object.values(frame.value)) {
+      if (child !== null && typeof child === "object") {
+        stack.push({ exit: false, value: child });
+      }
+    }
+  }
+  return false;
+}
+
+function cyclicInputIssue(): AthenaContractIssue {
+  return {
+    code: "invalid_type",
+    message: "Cyclic value is not valid JSON",
+    path: [],
+  };
+}
+
 /**
  * Parse unknown input with a Zod schema; throw {@link AthenaContractParseError} on failure.
  * Catches recursive-schema stack overflows (RangeError on cyclic input) and rethrows as
@@ -48,6 +92,13 @@ export function parseContractOrThrow<TSchema extends z.ZodTypeAny>(
   path = "body"
 ): z.infer<TSchema> {
   try {
+    if (containsCycle(input)) {
+      throw new AthenaContractParseError(
+        `Contract validation failed at ${path}`,
+        [cyclicInputIssue()],
+        path
+      );
+    }
     const result = schema.safeParse(input);
     if (!result.success) {
       throw new AthenaContractParseError(
@@ -89,6 +140,9 @@ export function safeParseContract<TSchema extends z.ZodTypeAny>(
   | { success: true; data: z.infer<TSchema> }
   | { success: false; error: { issues: AthenaContractIssue[] } } {
   try {
+    if (containsCycle(input)) {
+      return { error: { issues: [cyclicInputIssue()] }, success: false };
+    }
     const result = schema.safeParse(input);
     if (result.success) {
       return { data: result.data, success: true };

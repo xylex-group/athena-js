@@ -55,6 +55,7 @@ export type AthenaAuthEndpointPath =
   | "/token"
   | "/.well-known/jwks.json"
   | "/.well-known/openid-configuration"
+  | "/userinfo"
   | "/two-factor/get-totp-uri"
   | "/two-factor/verify-totp"
   | "/two-factor/send-otp"
@@ -89,6 +90,18 @@ export type AthenaAuthEndpointPath =
   | "/admin/api-key/create"
   | "/admin/athena-client/create"
   | "/admin/athena-client/list"
+  | "/admin/authorization-server/client/create"
+  | "/admin/authorization-server/client/get"
+  | "/admin/authorization-server/client/list"
+  | "/admin/authorization-server/client/update"
+  | "/admin/authorization-server/client/disable"
+  | "/admin/authorization-server/grant/list"
+  | "/admin/authorization-server/grant/revoke"
+  | "/admin/identity-connection/create"
+  | "/admin/identity-connection/get"
+  | "/admin/identity-connection/list"
+  | "/admin/identity-connection/update"
+  | "/admin/identity-connection/disable"
   | "/admin/audit-log/list"
   | "/admin/email/get"
   | "/admin/email/create"
@@ -129,6 +142,8 @@ export type AthenaAuthEndpointPath =
   | "/organization/list-invitations"
   | "/organization/list-user-invitations"
   | "/organization/list-members"
+  | "/organization/list-authentication-posture"
+  | "/organization/list-lifecycle-events"
   | "/organization/remove-member"
   | "/organization/update-member-role"
   | "/organization/get-active-member"
@@ -177,6 +192,24 @@ export interface AthenaAuthIssuerMetadata {
   response_types_supported: string[];
   subject_types_supported: string[];
   token_endpoint: string;
+}
+
+export interface AthenaOidcProviderMetadata {
+  authorization_endpoint: string;
+  claims_supported: readonly string[];
+  code_challenge_methods_supported: readonly ["S256"];
+  grant_types_supported: readonly ("authorization_code" | "refresh_token")[];
+  id_token_signing_alg_values_supported: readonly string[];
+  issuer: string;
+  jwks_uri: string;
+  prompt_values_supported: readonly ("none" | "login" | "consent")[];
+  request_uri_parameter_supported: false;
+  response_types_supported: readonly ["code"];
+  scopes_supported: readonly string[];
+  subject_types_supported: readonly ["public"];
+  token_endpoint: string;
+  token_endpoint_auth_methods_supported: readonly ["none"];
+  userinfo_endpoint: string;
 }
 
 export type AthenaAuthTransportErrorCode =
@@ -272,6 +305,49 @@ export interface AthenaAuthOrganizationMember {
   updatedAt?: string;
   user?: AthenaAuthUser;
   userId?: string;
+}
+
+export interface AthenaAuthOrganizationAuthenticationPostureMember {
+  phishResistant: boolean;
+  registeredMethods: readonly ("password" | "passkey" | "social" | "totp")[];
+  twoFactorEnabled: boolean;
+  userId: string;
+}
+
+export interface AthenaAuthOrganizationAuthenticationPostureListQuery {
+  limit?: number;
+  offset?: number;
+  organizationId?: string;
+}
+
+export interface AthenaAuthOrganizationAuthenticationPostureListResponse {
+  limit: number;
+  members: readonly AthenaAuthOrganizationAuthenticationPostureMember[];
+  offset: number;
+  total: number;
+}
+
+export type AthenaAuthOrganizationLifecycleEventName =
+  | "organization.member.add"
+  | "organization.member.remove"
+  | "organization.member.role.update";
+
+export interface AthenaAuthOrganizationLifecycleEvent {
+  event: AthenaAuthOrganizationLifecycleEventName;
+  eventId: string;
+  occurredAt: string;
+  subjectUserId: string;
+}
+
+export interface AthenaAuthOrganizationLifecycleEventsListQuery {
+  cursor?: string;
+  limit?: number;
+  organizationId?: string;
+}
+
+export interface AthenaAuthOrganizationLifecycleEventsListResponse {
+  events: readonly AthenaAuthOrganizationLifecycleEvent[];
+  nextCursor: string | null;
 }
 
 export interface AthenaAuthOrganizationInvitation {
@@ -1659,6 +1735,16 @@ export type AthenaAuthAdminUserSessionRevokeBinding = (
 ) => Promise<AthenaAuthResult<AthenaAdminSuccessResponse>>;
 
 export interface AthenaAuthOrganizationBindings {
+  /** List safe authentication posture facts for organization members. Route: `GET /organization/list-authentication-posture`. */
+  authenticationPosture: {
+    list: (
+      input?: AthenaAuthOrganizationAuthenticationPostureListQuery &
+        AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions
+    ) => Promise<
+      AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>
+    >;
+  };
   /** Check if an organization slug is available. Route: `POST /organization/check-slug`. */
   checkSlug: (
     input: AthenaAuthOrganizationCheckSlugRequest &
@@ -1732,6 +1818,16 @@ export interface AthenaAuthOrganizationBindings {
     input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions
   ) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>;
+  /** List safe member lifecycle audit events. Route: `GET /organization/list-lifecycle-events`. */
+  lifecycleEvents: {
+    list: (
+      input?: AthenaAuthOrganizationLifecycleEventsListQuery &
+        AthenaAuthFetchCompatibleInput,
+      options?: AthenaAuthCallOptions
+    ) => Promise<
+      AthenaAuthResult<AthenaAuthOrganizationLifecycleEventsListResponse>
+    >;
+  };
   /** List organizations visible to the current user. Route: `GET /organization/list`. */
   list: (
     input?: AthenaAuthFetchCompatibleInput,
@@ -1977,6 +2073,183 @@ export type AthenaAuthUserDeleteBinding =
     ) => Promise<AthenaAuthResult<AthenaAuthTokenVerificationResponse>>;
   };
 
+export interface AthenaAuthorizationServerClient {
+  clientName: string;
+  clientType: "public";
+  clientUrl: string | null;
+  createdAt: string;
+  grantType: "authorization_code";
+  id: string;
+  isActive: boolean;
+  metadata: Readonly<Record<string, unknown>>;
+  redirectUris: readonly string[];
+  registrationKind: "pre-registered";
+  resourceUris: readonly string[];
+  responseType: "code";
+  scopes: readonly string[];
+  tokenEndpointAuthMethod: "none";
+  updatedAt: string;
+}
+
+export interface AthenaAuthorizationServerClientCreateRequest {
+  clientName: string;
+  clientUrl?: string | null;
+  metadata?: Readonly<Record<string, unknown>>;
+  redirectUris: readonly string[];
+  resourceUris: readonly string[];
+  scopes: readonly string[];
+}
+
+export interface AthenaAuthorizationServerClientGetRequest {
+  query: { clientId: string };
+}
+export interface AthenaAuthorizationServerClientListRequest {
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+}
+export interface AthenaAuthorizationServerClientUpdateRequest {
+  clientId: string;
+  clientName?: string;
+  clientUrl?: string | null;
+  metadata?: Readonly<Record<string, unknown>>;
+  redirectUris?: readonly string[];
+  resourceUris?: readonly string[];
+  scopes?: readonly string[];
+}
+export interface AthenaAuthorizationServerClientDisableRequest {
+  clientId: string;
+}
+export interface AthenaAuthorizationServerClientResponse {
+  client: AthenaAuthorizationServerClient;
+}
+export interface AthenaAuthorizationServerClientListResponse {
+  clients: readonly AthenaAuthorizationServerClient[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+export interface AthenaAuthorizationServerClientDisableResponse {
+  clientId: string;
+  disabled: true;
+}
+
+export interface AthenaAuthorizationServerGrant {
+  authorizedAt: string;
+  clientId: string;
+  createdAt: string;
+  expiresAt: string | null;
+  id: string;
+  lastUsedAt: string | null;
+  organizationId: string | null;
+  resource: string;
+  revokedAt: string | null;
+  revokedBy: string | null;
+  revokeReason: string | null;
+  scopes: readonly string[];
+  status: "active" | "expired" | "revoked";
+  updatedAt: string;
+  userId: string;
+}
+export interface AthenaAuthorizationServerGrantListRequest {
+  clientId?: string;
+  limit?: number;
+  offset?: number;
+  /** `null` filters to grants without an organization; omission leaves it unfiltered. */
+  organizationId?: string | null;
+  resource?: string;
+  status?: "active" | "expired" | "revoked";
+  userId?: string;
+}
+export interface AthenaAuthorizationServerGrantListResponse {
+  grants: readonly AthenaAuthorizationServerGrant[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+export interface AthenaAuthorizationServerGrantRevokeRequest {
+  grantId: string;
+  reason: string;
+}
+export interface AthenaAuthorizationServerGrantRevokeResponse {
+  grantId: string;
+  revoked: true;
+}
+
+export interface AthenaIdentityConnection {
+  authenticationRequired: boolean;
+  clientId: string;
+  connectionType: "oidc";
+  createdAt: string;
+  credentialRef: string | null;
+  domains: readonly string[];
+  enabled: boolean;
+  id: string;
+  issuer: string;
+  jitDefaultRoleId: string | null;
+  jitEnabled: boolean;
+  name: string;
+  organizationId: string;
+  resource: string | null;
+  updatedAt: string;
+  tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
+}
+
+export interface AthenaIdentityConnectionCreateRequest {
+  authenticationRequired?: boolean;
+  clientId: string;
+  credentialRef?: string | null;
+  domains?: readonly string[];
+  enabled?: boolean;
+  issuer: string;
+  jitDefaultRoleId?: string | null;
+  jitEnabled?: boolean;
+  name: string;
+  organizationId: string;
+  resource?: string | null;
+  tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post" | "none";
+}
+
+export interface AthenaIdentityConnectionGetRequest {
+  query: { connectionId: string };
+}
+
+export interface AthenaIdentityConnectionListRequest {
+  organizationId: string;
+}
+
+export interface AthenaIdentityConnectionUpdateRequest {
+  authenticationRequired?: boolean;
+  clientId?: string;
+  connectionId: string;
+  credentialRef?: string | null;
+  domains?: readonly string[];
+  enabled?: boolean;
+  jitDefaultRoleId?: string | null;
+  jitEnabled?: boolean;
+  name?: string;
+  resource?: string | null;
+  tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post" | "none";
+}
+
+export interface AthenaIdentityConnectionDisableRequest {
+  connectionId: string;
+}
+
+export interface AthenaIdentityConnectionResponse {
+  connection: AthenaIdentityConnection;
+}
+
+export interface AthenaIdentityConnectionListResponse {
+  connections: readonly AthenaIdentityConnection[];
+  total: number;
+}
+
+export interface AthenaIdentityConnectionDisableResponse {
+  connectionId: string;
+  disabled: true;
+}
+
 export interface AthenaAuthBindings {
   account: {
     /** List linked provider accounts. Route: `GET /list-accounts`. */
@@ -1985,6 +2258,79 @@ export interface AthenaAuthBindings {
     unlink: InternalAthenaAuthModule["unlinkAccount"];
   };
   admin: {
+    connection: {
+      create: (
+        input: AthenaIdentityConnectionCreateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions
+      ) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>;
+      get: (
+        input: AthenaIdentityConnectionGetRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions
+      ) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>;
+      list: (
+        input: { query: AthenaIdentityConnectionListRequest } & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions
+      ) => Promise<AthenaAuthResult<AthenaIdentityConnectionListResponse>>;
+      update: (
+        input: AthenaIdentityConnectionUpdateRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions
+      ) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>;
+      disable: (
+        input: AthenaIdentityConnectionDisableRequest & AthenaAuthFetchCompatibleInput,
+        options?: AthenaAuthCallOptions
+      ) => Promise<AthenaAuthResult<AthenaIdentityConnectionDisableResponse>>;
+    };
+    authorizationServer: {
+      client: {
+        create: (
+          input: AthenaAuthorizationServerClientCreateRequest &
+            AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<AthenaAuthResult<AthenaAuthorizationServerClientResponse>>;
+        get: (
+          input: AthenaAuthorizationServerClientGetRequest &
+            AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<AthenaAuthResult<AthenaAuthorizationServerClientResponse>>;
+        list: (
+          input?: {
+            query?: AthenaAuthorizationServerClientListRequest;
+          } & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<
+          AthenaAuthResult<AthenaAuthorizationServerClientListResponse>
+        >;
+        update: (
+          input: AthenaAuthorizationServerClientUpdateRequest &
+            AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<AthenaAuthResult<AthenaAuthorizationServerClientResponse>>;
+        disable: (
+          input: AthenaAuthorizationServerClientDisableRequest &
+            AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<
+          AthenaAuthResult<AthenaAuthorizationServerClientDisableResponse>
+        >;
+      };
+      grant: {
+        list: (
+          input?: {
+            query?: AthenaAuthorizationServerGrantListRequest;
+          } & AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<
+          AthenaAuthResult<AthenaAuthorizationServerGrantListResponse>
+        >;
+        revoke: (
+          input: AthenaAuthorizationServerGrantRevokeRequest &
+            AthenaAuthFetchCompatibleInput,
+          options?: AthenaAuthCallOptions
+        ) => Promise<
+          AthenaAuthResult<AthenaAuthorizationServerGrantRevokeResponse>
+        >;
+      };
+    };
     listUsers: (
       input?: {
         query?: AthenaAdminListUsersQuery;

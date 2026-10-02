@@ -2,10 +2,10 @@
   "schema": "athena/docs-api/v2",
   "package": {
     "name": "@xylex-group/athena",
-    "version": "5.6.10"
+    "version": "5.7.0"
   },
   "source": {
-    "packageJsonDigest": "8f92915b4bfe90f9b3e3a97007c8413e4e5a399c819ac6eba7a2323262a8a574"
+    "packageJsonDigest": "2fdd68ebc1c91b421d3bf41a6a23a7b68102ff792c734543af1943992970dcf0"
   },
   "entrypoints": [
     {
@@ -992,6 +992,300 @@
           "id": "@xylex-group/athena#AthenaAuthAdminUserSessionRevokeBinding",
           "name": "AthenaAuthAdminUserSessionRevokeBinding",
           "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClient",
+          "name": "AthenaAuthorizationServerClient",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientCreateRequest",
+          "name": "AthenaAuthorizationServerClientCreateRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientDisableRequest",
+          "name": "AthenaAuthorizationServerClientDisableRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientDisableResponse",
+          "name": "AthenaAuthorizationServerClientDisableResponse",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientGetRequest",
+          "name": "AthenaAuthorizationServerClientGetRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientListRequest",
+          "name": "AthenaAuthorizationServerClientListRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientListResponse",
+          "name": "AthenaAuthorizationServerClientListResponse",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientResponse",
+          "name": "AthenaAuthorizationServerClientResponse",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerClientUpdateRequest",
+          "name": "AthenaAuthorizationServerClientUpdateRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerGrant",
+          "name": "AthenaAuthorizationServerGrant",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerGrantListRequest",
+          "name": "AthenaAuthorizationServerGrantListRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerGrantListResponse",
+          "name": "AthenaAuthorizationServerGrantListResponse",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerGrantRevokeRequest",
+          "name": "AthenaAuthorizationServerGrantRevokeRequest",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationServerGrantRevokeResponse",
+          "name": "AthenaAuthorizationServerGrantRevokeResponse",
+          "kind": "interface",
           "classification": "public-unlisted",
           "signature": "any",
           "summary": "",
@@ -3408,7 +3702,7 @@
           "name": "ATHENA_AUTH_DOMAIN_EVENTS",
           "kind": "variable",
           "classification": "documented",
-          "signature": "{ readonly \"account.link\": { readonly status: \"implemented\"; }; readonly \"account.unlink\": { readonly status: \"implemented\"; }; readonly \"apiKey.create\": { readonly status: \"implemented\"; }; readonly \"apiKey.delete\": { readonly status: \"implemented\"; }; readonly \"apiKey.update\": { readonly status: \"implemented\"; }; readonly \"organization.create\": { readonly status: \"implemented\"; }; readonly \"organization.delete\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.accept\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.cancel\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.create\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.reject\": { readonly status: \"implemented\"; }; readonly \"organization.member.add\": { readonly status: \"implemented\"; }; readonly \"organization.member.invite.reminder\": { readonly status: \"implemented\"; }; readonly \"organization.member.remove\": { readonly status: \"implemented\"; }; readonly \"organization.member.role.update\": { readonly status: \"implemented\"; }; readonly \"organization.update\": { readonly status: \"implemented\"; }; readonly \"oauth.authorization.denied\": { readonly status: \"implemented\"; }; readonly \"oauth.client.disabled\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.authorized\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.revoked\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.reuse_detected\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.rotated\": { readonly status: \"implemented\"; }; readonly \"passkey.delete\": { readonly status: \"implemented\"; }; readonly \"passkey.register\": { readonly status: \"implemented\"; }; readonly \"passkey.update\": { readonly status: \"implemented\"; }; readonly \"session.activeOrganization.update\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.end\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.start\": { readonly status: \"implemented\"; }; readonly \"session.issue\": { readonly status: \"implemented\"; }; readonly \"session.revoke\": { readonly status: \"implemented\"; }; readonly \"twoFactor.disable\": { readonly status: \"implemented\"; }; readonly \"twoFactor.enable\": { readonly status: \"implemented\"; }; readonly \"user.ban\": { readonly status: \"implemented\"; }; readonly \"user.create\": { readonly status: \"implemented\"; }; readonly \"user.delete\": { readonly status: \"implemented\"; }; readonly \"user.email.update\": { readonly status: \"implemented\"; }; readonly \"user.email.verify\": { readonly status: \"implemented\"; }; readonly \"user.password.change\": { readonly status: \"implemented\"; }; readonly \"user.password.reset\": { readonly status: \"implemented\"; }; readonly \"user.role.update\": { readonly status: \"implemented\"; }; readonly \"user.security.alert\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.email\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.social\": { readonly status: \"implemented\"; }; readonly \"user.unban\": { readonly status: \"implemented\"; }; readonly \"user.update\": { readonly status: \"implemented\"; }; }",
+          "signature": "{ readonly \"account.link\": { readonly status: \"implemented\"; }; readonly \"account.unlink\": { readonly status: \"implemented\"; }; readonly \"apiKey.create\": { readonly status: \"implemented\"; }; readonly \"apiKey.delete\": { readonly status: \"implemented\"; }; readonly \"apiKey.update\": { readonly status: \"implemented\"; }; readonly \"authorization.member.roles.replace\": { readonly status: \"implemented\"; }; readonly \"authorization.role.delete\": { readonly status: \"implemented\"; }; readonly \"organization.create\": { readonly status: \"implemented\"; }; readonly \"organization.delete\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.accept\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.cancel\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.create\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.reject\": { readonly status: \"implemented\"; }; readonly \"organization.member.add\": { readonly status: \"implemented\"; }; readonly \"organization.member.invite.reminder\": { readonly status: \"implemented\"; }; readonly \"organization.member.remove\": { readonly status: \"implemented\"; }; readonly \"organization.member.role.update\": { readonly status: \"implemented\"; }; readonly \"organization.update\": { readonly status: \"implemented\"; }; readonly \"oauth.authorization.denied\": { readonly status: \"implemented\"; }; readonly \"oauth.client.disabled\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.authorized\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.revoked\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.reuse_detected\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.rotated\": { readonly status: \"implemented\"; }; readonly \"passkey.delete\": { readonly status: \"implemented\"; }; readonly \"passkey.register\": { readonly status: \"implemented\"; }; readonly \"passkey.update\": { readonly status: \"implemented\"; }; readonly \"session.activeOrganization.update\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.end\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.start\": { readonly status: \"implemented\"; }; readonly \"session.issue\": { readonly status: \"implemented\"; }; readonly \"session.revoke\": { readonly status: \"implemented\"; }; readonly \"twoFactor.disable\": { readonly status: \"implemented\"; }; readonly \"twoFactor.enable\": { readonly status: \"implemented\"; }; readonly \"user.ban\": { readonly status: \"implemented\"; }; readonly \"user.create\": { readonly status: \"implemented\"; }; readonly \"user.delete\": { readonly status: \"implemented\"; }; readonly \"user.email.update\": { readonly status: \"implemented\"; }; readonly \"user.email.verify\": { readonly status: \"implemented\"; }; readonly \"user.password.change\": { readonly status: \"implemented\"; }; readonly \"user.password.reset\": { readonly status: \"implemented\"; }; readonly \"user.role.update\": { readonly status: \"implemented\"; }; readonly \"user.security.alert\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.email\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.social\": { readonly status: \"implemented\"; }; readonly \"user.unban\": { readonly status: \"implemented\"; }; readonly \"user.update\": { readonly status: \"implemented\"; }; readonly \"identity.connection.create\": { readonly status: \"implemented\"; }; readonly \"identity.connection.update\": { readonly status: \"implemented\"; }; readonly \"identity.connection.disable\": { readonly status: \"implemented\"; }; }",
           "summary": "Domain lifecycle events for embedded Auth. Status is mechanical: only `implemented` keys are hookable. Flip status in the same change that migrates the handler through `executeAuthMutation`.",
           "deprecated": false,
           "source": "src/auth/hooks/events.ts",
@@ -22155,7 +22449,7 @@
           "name": "ATHENA_AUTH_SCHEMA_GENERATION",
           "kind": "variable",
           "classification": "documented",
-          "signature": "45",
+          "signature": "48",
           "summary": "Browser-safe Embedded Auth schema generation. SQL catalog stays in `migrations.ts` (Node / CLI). This number must equal the maximum `version` in that catalog; `migrations.ts` fail-closes on mismatch.",
           "deprecated": false,
           "source": "src/auth/schema/generation.ts",
@@ -22180,6 +22474,27 @@
           "summary": "Rust default session cookie name (`AuthConfig.session.cookie_name`).",
           "deprecated": false,
           "source": "src/auth/contract/index.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/auth/server#AthenaAuthGeneratedOperationDefinition",
+          "name": "AthenaAuthGeneratedOperationDefinition",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/contract/operations.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -22240,7 +22555,7 @@
           "kind": "function",
           "classification": "documented",
           "signature": "(operations: readonly AthenaAuthOperationDefinition[]) => string[]",
-          "summary": "Product-portable gaps: Rust serves the route, embedded does not, and the route is not a dedicated-service operator surface (`nonportable`). Wave 0 keeps `KNOWN_MISSING_IN_LOCAL` as a freeze snapshot of this list. Later waves delete the Set once this function returns [].",
+          "summary": "Product-portable gaps: Rust serves the route, embedded does not, and the route is not explicitly excluded or admin-only. Wave 0 keeps `KNOWN_MISSING_IN_LOCAL` as a freeze snapshot of this list. Later waves delete the Set once this function returns [].",
           "deprecated": false,
           "source": "src/auth/contract/operations.ts",
           "examples": [],
@@ -22302,7 +22617,7 @@
           "name": "ATHENA_AUTH_OPERATIONS",
           "kind": "variable",
           "classification": "public-unlisted",
-          "signature": "AthenaAuthOperationDefinition[]",
+          "signature": "AthenaAuthGeneratedOperationDefinition[]",
           "summary": "",
           "deprecated": false,
           "source": "src/auth/contract/operations.generated.ts",
@@ -22596,7 +22911,7 @@
           "name": "migrateAthenaAuthSchema",
           "kind": "function",
           "classification": "public-unlisted",
-          "signature": "(db: AthenaAuthDatabase, options?: { allowDrift?: boolean; }) => Promise<AthenaAuthSchemaStatus>",
+          "signature": "(db: AthenaAuthDatabase, options?: { allowDrift?: boolean; onTiming?: (phase: string, durationMs: number) => void; }) => Promise<AthenaAuthSchemaStatus>",
           "summary": "",
           "deprecated": false,
           "source": "src/auth/local/schema.ts",
@@ -25825,6 +26140,111 @@
           }
         },
         {
+          "id": "@xylex-group/athena/browser#athena.auth.admin.connection.create",
+          "name": "athena.auth.admin.connection.create",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionCreateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#athena.auth.admin.connection.get",
+          "name": "athena.auth.admin.connection.get",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionGetRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#athena.auth.admin.connection.list",
+          "name": "athena.auth.admin.connection.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: { query: AthenaIdentityConnectionListRequest; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#athena.auth.admin.connection.update",
+          "name": "athena.auth.admin.connection.update",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionUpdateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#athena.auth.admin.connection.disable",
+          "name": "athena.auth.admin.connection.disable",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionDisableRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionDisableResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/browser#athena.auth.admin.listUsers",
           "name": "athena.auth.admin.listUsers",
           "kind": "member",
@@ -27931,6 +28351,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/browser#athena.auth.organization.authenticationPosture.list",
+          "name": "athena.auth.organization.authenticationPosture.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/browser#athena.auth.organization.checkSlug",
           "name": "athena.auth.organization.checkSlug",
           "kind": "member",
@@ -28147,6 +28588,27 @@
           "classification": "documented",
           "signature": "(input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>",
           "summary": "Leave an organization. Route: `POST /organization/leave`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#athena.auth.organization.lifecycleEvents.list",
+          "name": "athena.auth.organization.lifecycleEvents.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationLifecycleEventsListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationLifecycleEventsListResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],
@@ -61017,6 +61479,111 @@
           }
         },
         {
+          "id": "@xylex-group/athena/next/client#athena.auth.admin.connection.create",
+          "name": "athena.auth.admin.connection.create",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionCreateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/next/client#athena.auth.admin.connection.get",
+          "name": "athena.auth.admin.connection.get",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionGetRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/next/client#athena.auth.admin.connection.list",
+          "name": "athena.auth.admin.connection.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: { query: AthenaIdentityConnectionListRequest; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/next/client#athena.auth.admin.connection.update",
+          "name": "athena.auth.admin.connection.update",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionUpdateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/next/client#athena.auth.admin.connection.disable",
+          "name": "athena.auth.admin.connection.disable",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionDisableRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionDisableResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/next/client#athena.auth.admin.listUsers",
           "name": "athena.auth.admin.listUsers",
           "kind": "member",
@@ -63123,6 +63690,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/next/client#athena.auth.organization.authenticationPosture.list",
+          "name": "athena.auth.organization.authenticationPosture.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/next/client#athena.auth.organization.checkSlug",
           "name": "athena.auth.organization.checkSlug",
           "kind": "member",
@@ -63339,6 +63927,27 @@
           "classification": "documented",
           "signature": "(input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>",
           "summary": "Leave an organization. Route: `POST /organization/leave`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/next/client#athena.auth.organization.lifecycleEvents.list",
+          "name": "athena.auth.organization.lifecycleEvents.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationLifecycleEventsListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationLifecycleEventsListResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],
@@ -85138,6 +85747,48 @@
           }
         },
         {
+          "id": "@xylex-group/athena/devtools#getAthenaJsBuildProvenance",
+          "name": "getAthenaJsBuildProvenance",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "() => AthenaBuildProvenance",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/devtools/provenance.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/devtools#AthenaBuildProvenance",
+          "name": "AthenaBuildProvenance",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/devtools/build-provenance.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/devtools#sanitizeAthenaDevtoolsDataEvent",
           "name": "sanitizeAthenaDevtoolsDataEvent",
           "kind": "function",
@@ -85801,6 +86452,111 @@
           "classification": "documented",
           "signature": "(input: AthenaUnlinkAccountRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>",
           "summary": "Unlink a provider account. Route: `POST /unlink-account`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#athena.auth.admin.connection.create",
+          "name": "athena.auth.admin.connection.create",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionCreateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#athena.auth.admin.connection.get",
+          "name": "athena.auth.admin.connection.get",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionGetRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#athena.auth.admin.connection.list",
+          "name": "athena.auth.admin.connection.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: { query: AthenaIdentityConnectionListRequest; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#athena.auth.admin.connection.update",
+          "name": "athena.auth.admin.connection.update",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionUpdateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#athena.auth.admin.connection.disable",
+          "name": "athena.auth.admin.connection.disable",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionDisableRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionDisableResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],
@@ -87922,6 +88678,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/server#athena.auth.organization.authenticationPosture.list",
+          "name": "athena.auth.organization.authenticationPosture.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/server#athena.auth.organization.checkSlug",
           "name": "athena.auth.organization.checkSlug",
           "kind": "member",
@@ -88138,6 +88915,27 @@
           "classification": "documented",
           "signature": "(input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>",
           "summary": "Leave an organization. Route: `POST /organization/leave`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#athena.auth.organization.lifecycleEvents.list",
+          "name": "athena.auth.organization.lifecycleEvents.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationLifecycleEventsListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationLifecycleEventsListResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],
@@ -101424,6 +102222,111 @@
           }
         },
         {
+          "id": "@xylex-group/athena/react-native#athena.auth.admin.connection.create",
+          "name": "athena.auth.admin.connection.create",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionCreateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/react-native#athena.auth.admin.connection.get",
+          "name": "athena.auth.admin.connection.get",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionGetRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/react-native#athena.auth.admin.connection.list",
+          "name": "athena.auth.admin.connection.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: { query: AthenaIdentityConnectionListRequest; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/react-native#athena.auth.admin.connection.update",
+          "name": "athena.auth.admin.connection.update",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionUpdateRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/react-native#athena.auth.admin.connection.disable",
+          "name": "athena.auth.admin.connection.disable",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaIdentityConnectionDisableRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaIdentityConnectionDisableResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/react-native#athena.auth.admin.listUsers",
           "name": "athena.auth.admin.listUsers",
           "kind": "member",
@@ -103530,6 +104433,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/react-native#athena.auth.organization.authenticationPosture.list",
+          "name": "athena.auth.organization.authenticationPosture.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/react-native#athena.auth.organization.checkSlug",
           "name": "athena.auth.organization.checkSlug",
           "kind": "member",
@@ -103746,6 +104670,27 @@
           "classification": "documented",
           "signature": "(input: AthenaAuthOrganizationLeaveRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>",
           "summary": "Leave an organization. Route: `POST /organization/leave`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/react-native#athena.auth.organization.lifecycleEvents.list",
+          "name": "athena.auth.organization.lifecycleEvents.list",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input?: AthenaAuthOrganizationLifecycleEventsListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationLifecycleEventsListResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],
@@ -113387,7 +114332,7 @@
           "name": "socialProviders",
           "kind": "variable",
           "classification": "documented",
-          "signature": "{ apple: (options: AppleOptions) => { createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"apple\"; name: string; options: AppleOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; athena: (options: AthenaOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, display, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"athena\"; name: string; options: AthenaOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI, }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; atlassian: (options: AtlassianOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"atlassian\"; name: string; options: AtlassianOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; cognito: (options: CognitoOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"cognito\"; name: string; options: CognitoOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; discord: (options: DiscordOptions) => { createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"discord\"; name: string; options: DiscordOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; dropbox: (options: DropboxOptions) => { createAuthorizationURL: ({ state, scopes, codeVerifier, redirectURI, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"dropbox\"; name: string; options: DropboxOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; facebook: (options: FacebookOptions) => { createAuthorizationURL({ state, scopes, redirectURI, loginHint }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"facebook\"; name: string; options: FacebookOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; figma: (options: FigmaOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"figma\"; name: string; options: FigmaOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; github: (options: GithubOptions) => { createAuthorizationURL({ state, scopes, loginHint, codeVerifier, redirectURI, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"github\"; name: string; options: GithubOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens | null>; }; gitlab: (options: GitlabOptions) => { createAuthorizationURL: ({ state, scopes, codeVerifier, loginHint, redirectURI, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: GitlabProfile; user: { email: string; emailVerified: boolean; id: number; image: string; name: string; } | { id: string | number; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string | number; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"gitlab\"; name: string; options: GitlabOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; google: (options: GoogleOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, display, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"google\"; name: string; options: GoogleOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; huggingface: (options: HuggingFaceOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"huggingface\"; name: string; options: HuggingFaceOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; kakao: (options: KakaoOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: KakaoProfile; user: { email: string | undefined; emailVerified: boolean; id: string; image: string | undefined; name: string; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"kakao\"; name: string; options: KakaoOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; kick: (options: KickOptions) => { createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"kick\"; name: string; options: KickOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }): Promise<OAuth2Tokens>; }; line: (options: LineOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"line\"; name: string; options: LineOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; linear: (options: LinearOptions) => { createAuthorizationURL({ state, scopes, loginHint, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"linear\"; name: string; options: LinearOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; linkedin: (options: LinkedInOptions) => { createAuthorizationURL: ({ state, scopes, redirectURI, loginHint, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"linkedin\"; name: string; options: LinkedInOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; microsoft: (options: MicrosoftOptions) => { createAuthorizationURL(data: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"microsoft\"; name: string; options: MicrosoftOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }): Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; naver: (options: NaverOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: NaverProfile; user: { email: string; emailVerified: boolean; id: string; image: string; name: string; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"naver\"; name: string; options: NaverOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; notion: (options: NotionOptions) => { createAuthorizationURL({ state, scopes, loginHint, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"notion\"; name: string; options: NotionOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; paybin: (options: PaybinOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"paybin\"; name: string; options: PaybinOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; paypal: (options: PayPalOptions) => { createAuthorizationURL({ state, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: PayPalProfile; user: { email: string; emailVerified: boolean; id: string; image: string | undefined; name: string; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"paypal\"; name: string; options: PayPalOptions; refreshAccessToken: ((refreshToken: string) => Promise<OAuth2Tokens>) | ((refreshToken: string) => Promise<{ accessToken: string | undefined; accessTokenExpiresAt: Date | undefined; refreshToken: string | undefined; }>); validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<{ accessToken: string; accessTokenExpiresAt: Date | undefined; idToken: string | undefined; refreshToken: string | undefined; }>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; polar: (options: PolarOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"polar\"; name: string; options: PolarOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; railway: (options: RailwayOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"railway\"; name: string; options: RailwayOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; reddit: (options: RedditOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"reddit\"; name: string; options: RedditOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; roblox: (options: RobloxOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"roblox\"; name: string; options: RobloxOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; salesforce: (options: SalesforceOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"salesforce\"; name: string; options: SalesforceOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; slack: (options: SlackOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"slack\"; name: string; options: SlackOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; spotify: (options: SpotifyOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"spotify\"; name: string; options: SpotifyOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; tiktok: (options: TiktokOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"tiktok\"; name: string; options: TiktokOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; twitch: (options: TwitchOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"twitch\"; name: string; options: TwitchOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; twitter: (options: TwitterOption) => { createAuthorizationURL(data: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"twitter\"; name: string; options: TwitterOption; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; vercel: (options: VercelOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"vercel\"; name: string; options: VercelOptions; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; vk: (options: VkOption) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(data: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"vk\"; name: string; options: VkOption; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI, deviceId, }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; wechat: (options: WeChatOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"wechat\"; name: string; options: WeChatOptions; refreshAccessToken: ((refreshToken: string) => Promise<OAuth2Tokens>) | ((refreshToken: string) => Promise<{ accessToken: string; accessTokenExpiresAt: Date; refreshToken: string; scopes: string[]; tokenType: \"Bearer\"; }>); validateAuthorizationCode: ({ code }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<{ accessToken: string; accessTokenExpiresAt: Date; openid: string; refreshToken: string; scopes: string[]; tokenType: \"Bearer\"; unionid: string | undefined; }>; }; zoom: (userOptions: ZoomOptions) => { createAuthorizationURL: ({ state, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"zoom\"; name: string; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; }",
+          "signature": "{ apple: (options: AppleOptions) => { createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"apple\"; name: string; options: AppleOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; athena: (options: AthenaOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, display, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"athena\"; name: string; options: AthenaOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI, }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken: (token: string, nonce?: string) => Promise<false | { claims: JWTPayload; }>; }; atlassian: (options: AtlassianOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"atlassian\"; name: string; options: AtlassianOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; cognito: (options: CognitoOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"cognito\"; name: string; options: CognitoOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; discord: (options: DiscordOptions) => { createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"discord\"; name: string; options: DiscordOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; dropbox: (options: DropboxOptions) => { createAuthorizationURL: ({ state, scopes, codeVerifier, redirectURI, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"dropbox\"; name: string; options: DropboxOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; facebook: (options: FacebookOptions) => { createAuthorizationURL({ state, scopes, redirectURI, loginHint }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"facebook\"; name: string; options: FacebookOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; figma: (options: FigmaOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"figma\"; name: string; options: FigmaOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; github: (options: GithubOptions) => { createAuthorizationURL({ state, scopes, loginHint, codeVerifier, redirectURI, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"github\"; name: string; options: GithubOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens | null>; }; gitlab: (options: GitlabOptions) => { createAuthorizationURL: ({ state, scopes, codeVerifier, loginHint, redirectURI, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: GitlabProfile; user: { email: string; emailVerified: boolean; id: number; image: string; name: string; } | { id: string | number; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string | number; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"gitlab\"; name: string; options: GitlabOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; google: (options: GoogleOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, display, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"google\"; name: string; options: GoogleOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; huggingface: (options: HuggingFaceOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"huggingface\"; name: string; options: HuggingFaceOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; kakao: (options: KakaoOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: KakaoProfile; user: { email: string | undefined; emailVerified: boolean; id: string; image: string | undefined; name: string; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"kakao\"; name: string; options: KakaoOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; kick: (options: KickOptions) => { createAuthorizationURL({ state, scopes, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"kick\"; name: string; options: KickOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }): Promise<OAuth2Tokens>; }; line: (options: LineOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"line\"; name: string; options: LineOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; linear: (options: LinearOptions) => { createAuthorizationURL({ state, scopes, loginHint, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"linear\"; name: string; options: LinearOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; linkedin: (options: LinkedInOptions) => { createAuthorizationURL: ({ state, scopes, redirectURI, loginHint, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"linkedin\"; name: string; options: LinkedInOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; microsoft: (options: MicrosoftOptions) => { createAuthorizationURL(data: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"microsoft\"; name: string; options: MicrosoftOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }): Promise<OAuth2Tokens>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; naver: (options: NaverOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: NaverProfile; user: { email: string; emailVerified: boolean; id: string; image: string; name: string; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"naver\"; name: string; options: NaverOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; notion: (options: NotionOptions) => { createAuthorizationURL({ state, scopes, loginHint, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"notion\"; name: string; options: NotionOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; paybin: (options: PaybinOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"paybin\"; name: string; options: PaybinOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; paypal: (options: PayPalOptions) => { createAuthorizationURL({ state, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | { data: PayPalProfile; user: { email: string; emailVerified: boolean; id: string; image: string | undefined; name: string; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; } | { id: string; name: string; email: string | null; image: string; emailVerified: boolean; }; } | null>; id: \"paypal\"; name: string; options: PayPalOptions; refreshAccessToken: ((refreshToken: string) => Promise<OAuth2Tokens>) | ((refreshToken: string) => Promise<{ accessToken: string | undefined; accessTokenExpiresAt: Date | undefined; refreshToken: string | undefined; }>); validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<{ accessToken: string; accessTokenExpiresAt: Date | undefined; idToken: string | undefined; refreshToken: string | undefined; }>; verifyIdToken(token: string, nonce: string | undefined): Promise<boolean>; }; polar: (options: PolarOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"polar\"; name: string; options: PolarOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; railway: (options: RailwayOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"railway\"; name: string; options: RailwayOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; reddit: (options: RedditOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"reddit\"; name: string; options: RedditOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; roblox: (options: RobloxOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"roblox\"; name: string; options: RobloxOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; salesforce: (options: SalesforceOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"salesforce\"; name: string; options: SalesforceOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; slack: (options: SlackOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"slack\"; name: string; options: SlackOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; spotify: (options: SpotifyOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"spotify\"; name: string; options: SpotifyOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; tiktok: (options: TiktokOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"tiktok\"; name: string; options: TiktokOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; twitch: (options: TwitchOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"twitch\"; name: string; options: TwitchOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; twitter: (options: TwitterOption) => { createAuthorizationURL(data: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"twitter\"; name: string; options: TwitterOption; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; vercel: (options: VercelOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"vercel\"; name: string; options: VercelOptions; validateAuthorizationCode: ({ code, codeVerifier, redirectURI }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; vk: (options: VkOption) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(data: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"vk\"; name: string; options: VkOption; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI, deviceId, }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; wechat: (options: WeChatOptions) => { createAuthorizationURL({ state, scopes, redirectURI }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): URL; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"wechat\"; name: string; options: WeChatOptions; refreshAccessToken: ((refreshToken: string) => Promise<OAuth2Tokens>) | ((refreshToken: string) => Promise<{ accessToken: string; accessTokenExpiresAt: Date; refreshToken: string; scopes: string[]; tokenType: \"Bearer\"; }>); validateAuthorizationCode: ({ code }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<{ accessToken: string; accessTokenExpiresAt: Date; openid: string; refreshToken: string; scopes: string[]; tokenType: \"Bearer\"; unionid: string | undefined; }>; }; zoom: (userOptions: ZoomOptions) => { createAuthorizationURL: ({ state, redirectURI, codeVerifier }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }) => Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"zoom\"; name: string; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }; }",
           "summary": "Built-in social / OAuth provider factories (Better Auth–compatible shape). Includes first-party `athena` for the upcoming Athena Auth identity provider.",
           "deprecated": false,
           "source": "src/auth/social-providers/registry.ts",
@@ -113561,7 +114506,7 @@
           "name": "athena",
           "kind": "function",
           "classification": "documented",
-          "signature": "(options: AthenaOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, display, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"athena\"; name: string; options: AthenaOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI, }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; }",
+          "signature": "(options: AthenaOptions) => { createAuthorizationURL({ state, scopes, codeVerifier, redirectURI, loginHint, display, }: { state: string; codeVerifier: string; scopes?: string[] | undefined; redirectURI: string; display?: string | undefined; loginHint?: string | undefined; }): Promise<URL>; getUserInfo(token: OAuth2Tokens & { user?: { name?: { firstName?: string; lastName?: string; }; email?: string; } | undefined; }): Promise<{ user: { id: string; name?: string; email?: string | null; image?: string; emailVerified: boolean; [key: string]: any; }; data: any; } | null>; id: \"athena\"; name: string; options: AthenaOptions; refreshAccessToken: (refreshToken: string) => Promise<OAuth2Tokens>; validateAuthorizationCode: ({ code, codeVerifier, redirectURI, }: { code: string; redirectURI: string; codeVerifier?: string | undefined; deviceId?: string | undefined; }) => Promise<OAuth2Tokens>; verifyIdToken: (token: string, nonce?: string) => Promise<false | { claims: JWTPayload; }>; }",
           "summary": "Athena first-party OAuth / OIDC social provider factory. Resolves authorization and token endpoints from validated issuer discovery (`/.well-known/openid-configuration`) unless both endpoints are overridden. Athena authorization-server defaults are `/oauth/authorize` and `/oauth/token`.",
           "deprecated": false,
           "source": "src/auth/social-providers/athena.ts",
@@ -118698,6 +119643,216 @@
           }
         },
         {
+          "id": "@xylex-group/athena/migrations#toCanonicalAnalysis",
+          "name": "toCanonicalAnalysis",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(migration: MigrationFile, analysis: MigrationAnalysis) => CanonicalMigrationAnalysisV1",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#toCanonicalDiagnostic",
+          "name": "toCanonicalDiagnostic",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(diagnostic: MigrationDiagnostic) => { kind: string; message: string; migrationId?: string; object?: string; }",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#toCanonicalMigration",
+          "name": "toCanonicalMigration",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(migration: MigrationFile, backend: CanonicalMigrationBackend, predecessor?: string) => CanonicalMigrationDefinitionV1",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#toCanonicalReceipt",
+          "name": "toCanonicalReceipt",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(migration: MigrationFile, applied: AppliedMigration) => CanonicalMigrationReceiptV1",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#CanonicalMigrationAnalysisV1",
+          "name": "CanonicalMigrationAnalysisV1",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#CanonicalMigrationBackend",
+          "name": "CanonicalMigrationBackend",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#CanonicalMigrationDefinitionV1",
+          "name": "CanonicalMigrationDefinitionV1",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#CanonicalMigrationReceiptV1",
+          "name": "CanonicalMigrationReceiptV1",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#CanonicalMigrationPlanV1",
+          "name": "CanonicalMigrationPlanV1",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#CanonicalTransactionScope",
+          "name": "CanonicalTransactionScope",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/canonical.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/migrations#analyzeMigrationFile",
           "name": "analyzeMigrationFile",
           "kind": "function",
@@ -120297,6 +121452,27 @@
           "id": "@xylex-group/athena/migrations#RunMigrationsOptions",
           "name": "RunMigrationsOptions",
           "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/migrations/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/migrations#MigrationTransactionScope",
+          "name": "MigrationTransactionScope",
+          "kind": "type",
           "classification": "public-unlisted",
           "signature": "any",
           "summary": "",

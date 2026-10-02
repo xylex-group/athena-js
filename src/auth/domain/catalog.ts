@@ -61,6 +61,52 @@ function definedId(value: string | null | undefined): string | undefined {
  * security history. Reads never appear here.
  */
 export const ATHENA_AUTH_EVENT_DEFINITIONS = {
+  "authorization.member.roles.replace": {
+    audit: true,
+    mutationKind: "update",
+    previous: "required",
+    resolveOrganizationId: ({ input }) => input.organizationId,
+    resolveSubject: ({ result }) =>
+      subject("organization.member", result.changes[0]?.member.id),
+    result: "resource",
+    subjectType: "organization.member",
+  },
+  "authorization.role.delete": {
+    audit: true,
+    mutationKind: "delete",
+    previous: "required",
+    resolveOrganizationId: ({ input }) => input.organizationId,
+    resolveSubject: ({ input }) => subject("authorization.role", input.roleId),
+    result: "receipt",
+    subjectType: "authorization.role",
+  },
+  "identity.connection.create": {
+    audit: true,
+    mutationKind: "create",
+    previous: "none",
+    resolveOrganizationId: ({ input }) => input.organizationId,
+    resolveSubject: ({ result }) => subject("identity.connection", result.connection.id),
+    result: "resource",
+    subjectType: "identity.connection",
+  },
+  "identity.connection.update": {
+    audit: true,
+    mutationKind: "update",
+    previous: "required",
+    resolveOrganizationId: ({ input }) => input.organizationId,
+    resolveSubject: ({ input }) => subject("identity.connection", input.connectionId),
+    result: "resource",
+    subjectType: "identity.connection",
+  },
+  "identity.connection.disable": {
+    audit: true,
+    mutationKind: "update",
+    previous: "required",
+    resolveOrganizationId: ({ input }) => input.organizationId,
+    resolveSubject: ({ input }) => subject("identity.connection", input.connectionId),
+    result: "receipt",
+    subjectType: "identity.connection",
+  },
   "account.link": {
     audit: true,
     mutationKind: "create",

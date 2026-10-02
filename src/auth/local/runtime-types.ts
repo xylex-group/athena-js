@@ -47,6 +47,9 @@ export interface CreateAthenaAuthRuntimeOptions {
   hasher?: AthenaAuthPasswordHasher;
   hooks?: AthenaAuthHooks;
   identity?: AthenaAppIdentity | null;
+  resolveIdentityConnectionCredential?: (
+    credentialRef: string
+  ) => Promise<string | undefined>;
   legacySend?: LegacyAuthEmailSend;
   passkeyOnboarding?: boolean | AthenaPasskeyOnboardingOptions;
   secret?: string;

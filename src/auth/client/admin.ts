@@ -390,6 +390,38 @@ export function createAdminClientModule(input: {
   };
 
   const admin: AthenaAuthBindings["admin"] = {
+    connection: {
+      create: (input, options) =>
+        transport.postGeneric(
+          "/admin/identity-connection/create",
+          input,
+          options
+        ),
+      get: (input, options) =>
+        transport.getWithQuery(
+          "/admin/identity-connection/get",
+          input,
+          options
+        ),
+      list: (input, options) =>
+        transport.getWithQuery(
+          "/admin/identity-connection/list",
+          input,
+          options
+        ),
+      update: (input, options) =>
+        transport.postGeneric(
+          "/admin/identity-connection/update",
+          input,
+          options
+        ),
+      disable: (input, options) =>
+        transport.postGeneric(
+          "/admin/identity-connection/disable",
+          input,
+          options
+        ),
+    },
     apiKey: {
       create: (input, options) =>
         transport.postGeneric("/admin/api-key/create", input, options),
@@ -403,6 +435,63 @@ export function createAdminClientModule(input: {
     auditLog: {
       list: (input, options) =>
         transport.getWithQuery("/admin/audit-log/list", input, options),
+    },
+    authorizationServer: {
+      client: {
+        create: (input, options) =>
+          transport.postGeneric(
+            "/admin/authorization-server/client/create",
+            input,
+            options
+          ),
+        disable: (input, options) =>
+          transport.postGeneric(
+            "/admin/authorization-server/client/disable",
+            input,
+            options
+          ),
+        get: (input, options) =>
+          transport.getWithQuery(
+            "/admin/authorization-server/client/get",
+            input,
+            options
+          ),
+        list: (input, options) =>
+          transport.getWithQuery(
+            "/admin/authorization-server/client/list",
+            input,
+            options
+          ),
+        update: (input, options) =>
+          transport.postGeneric(
+            "/admin/authorization-server/client/update",
+            input,
+            options
+          ),
+      },
+      grant: {
+        list: (input, options) => {
+          // Empty query text means an explicit SQL NULL organization filter.
+          const query =
+            input?.query?.organizationId === null
+              ? {
+                  ...input,
+                  query: { ...input.query, organizationId: "" },
+                }
+              : input;
+          return transport.getWithQuery(
+            "/admin/authorization-server/grant/list",
+            query,
+            options
+          );
+        },
+        revoke: (input, options) =>
+          transport.postGeneric(
+            "/admin/authorization-server/grant/revoke",
+            input,
+            options
+          ),
+      },
     },
     banUser: (input, options) =>
       transport.postGeneric("/admin/ban-user", input, options),

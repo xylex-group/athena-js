@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS athena.identity_connections (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL REFERENCES athena.organization (id) ON DELETE CASCADE,
+    connection_type TEXT NOT NULL DEFAULT 'oidc',
+    name TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    resource_uri TEXT,
+    token_endpoint_auth_method TEXT NOT NULL DEFAULT 'none',
+    credential_ref TEXT,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    domains TEXT[] NOT NULL DEFAULT '{}',
+    jit_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    jit_default_role_id TEXT REFERENCES athena.authorization_roles (id) ON DELETE RESTRICT,
+    authentication_required BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT identity_connections_type_check CHECK (connection_type = 'oidc'),
+    CONSTRAINT identity_connections_auth_method_check
+      CHECK (token_endpoint_auth_method IN ('client_secret_basic', 'client_secret_post', 'none'))
+);
+CREATE INDEX IF NOT EXISTS idx_identity_connections_organization
+  ON athena.identity_connections (organization_id, enabled);
+CREATE INDEX IF NOT EXISTS idx_identity_connections_domains
+  ON athena.identity_connections USING GIN (domains);
+
+CREATE TABLE IF NOT EXISTS athena.federated_identities (
+    id TEXT PRIMARY KEY,
+    connection_id TEXT NOT NULL REFERENCES athena.identity_connections (id) ON DELETE CASCADE,
+    issuer TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES athena.users (id) ON DELETE CASCADE,
+    last_authenticated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT federated_identities_connection_issuer_subject_key
+      UNIQUE (connection_id, issuer, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_federated_identities_user
+  ON athena.federated_identities (user_id);

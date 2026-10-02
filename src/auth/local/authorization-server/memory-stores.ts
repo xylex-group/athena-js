@@ -7,6 +7,8 @@ import type {
   OAuthRevokedAccessToken,
 } from "../../authorization-server/types.ts";
 import { normalizeRegisteredRedirectUri } from "../../authorization-server/redirect-uri.ts";
+import { normalizeResourceUri } from "../../authorization-server/resource.ts";
+import { OAuthProtocolError } from "../../authorization-server/errors.ts";
 import {
   type AuthorizeOAuthGrantInput,
   type CreateOAuthAuthorizationCodeInput,
@@ -26,7 +28,7 @@ function cloneClient(client: OAuthClient): OAuthClient {
   return {
     ...client,
     createdAt: new Date(client.createdAt),
-    metadata: { ...client.metadata },
+    metadata: structuredClone(client.metadata),
     redirectUris: [...client.redirectUris],
     resourceUris: [...client.resourceUris],
     scopes: [...client.scopes],
@@ -40,6 +42,7 @@ function cloneGrant(grant: OAuthAuthorizationGrant): OAuthAuthorizationGrant {
     authorizedAt: new Date(grant.authorizedAt),
     createdAt: new Date(grant.createdAt),
     expiresAt: cloneDate(grant.expiresAt),
+    identityScopes: [...grant.identityScopes],
     lastUsedAt: cloneDate(grant.lastUsedAt),
     revokedAt: cloneDate(grant.revokedAt),
     scopes: [...grant.scopes],
@@ -54,6 +57,8 @@ function cloneRequest(
     ...request,
     createdAt: new Date(request.createdAt),
     expiresAt: new Date(request.expiresAt),
+    identityScopes: [...request.identityScopes],
+    prompt: [...request.prompt],
     requestedScopes: [...request.requestedScopes],
     resolvedAt: cloneDate(request.resolvedAt),
   };
@@ -62,9 +67,12 @@ function cloneRequest(
 function cloneCode(code: OAuthAuthorizationCode): OAuthAuthorizationCode {
   return {
     ...code,
+    authenticatedAt: new Date(code.authenticatedAt),
+    authenticationMethods: [...code.authenticationMethods],
     consumedAt: cloneDate(code.consumedAt),
     createdAt: new Date(code.createdAt),
     expiresAt: new Date(code.expiresAt),
+    identityScopes: [...code.identityScopes],
     scopes: [...code.scopes],
   };
 }
@@ -76,6 +84,7 @@ function cloneRefresh(token: OAuthRefreshToken): OAuthRefreshToken {
     expiresAt: new Date(token.expiresAt),
     revokedAt: cloneDate(token.revokedAt),
     rotatedAt: cloneDate(token.rotatedAt),
+    identityScopes: [...token.identityScopes],
     scopes: [...token.scopes],
     usedAt: cloneDate(token.usedAt),
   };
@@ -89,7 +98,37 @@ function isActiveGrant(grant: OAuthAuthorizationGrant, now: Date): boolean {
   );
 }
 
-function grantMatches(left: OAuthGrantLookup, right: OAuthAuthorizationGrant): boolean {
+function grantHasStatus(
+  grant: OAuthAuthorizationGrant,
+  status: OAuthAuthorizationGrant["status"],
+  now: Date
+): boolean {
+  if (status === "revoked") {
+    return grant.status === "revoked" || grant.revokedAt !== null;
+  }
+  if (status === "expired") {
+    return (
+      grant.status === "expired" ||
+      (grant.status === "active" &&
+        grant.expiresAt !== null &&
+        grant.expiresAt.getTime() <= now.getTime())
+    );
+  }
+  return isActiveGrant(grant, now);
+}
+
+function normalizeScopes(scopes: readonly string[]): string[] {
+  return [...new Set(scopes.map((scope) => scope.trim()).filter(Boolean))].sort();
+}
+
+function normalizeResourceUris(resources: readonly string[]): string[] {
+  return [...new Set(resources.map(normalizeResourceUri))].sort();
+}
+
+function grantMatches(
+  left: OAuthGrantLookup,
+  right: OAuthAuthorizationGrant
+): boolean {
   return (
     left.clientId === right.clientId &&
     left.organizationId === right.organizationId &&
@@ -106,13 +145,14 @@ function createGrant(input: AuthorizeOAuthGrantInput): OAuthAuthorizationGrant {
     createdAt: now,
     expiresAt: null,
     id: crypto.randomUUID(),
+    identityScopes: [],
     lastUsedAt: null,
     organizationId: input.organizationId,
     resource: input.resource,
     revokedAt: null,
     revokedBy: null,
     revokeReason: null,
-    scopes: [...new Set(input.scopes)].sort(),
+    scopes: normalizeScopes(input.scopes),
     status: "active",
     updatedAt: now,
     userId: input.userId,
@@ -129,7 +169,11 @@ function createRequest(
     createdAt: new Date(),
     expiresAt: new Date(input.expiresAt),
     id: input.id,
+    identityScopes: [...(input.identityScopes ?? [])],
+    maxAge: input.maxAge ?? null,
+    nonce: input.nonce ?? null,
     organizationId: input.organizationId ?? null,
+    prompt: [...(input.prompt ?? [])],
     redirectUri: input.redirectUri,
     requestedScopes: [...input.requestedScopes],
     resolvedAt: null,
@@ -144,6 +188,8 @@ function createCode(
   input: CreateOAuthAuthorizationCodeInput & { codeHash: string }
 ): OAuthAuthorizationCode {
   return {
+    authenticatedAt: new Date(input.authenticatedAt ?? new Date()),
+    authenticationMethods: [...(input.authenticationMethods ?? [])],
     clientId: input.clientId,
     codeChallenge: input.codeChallenge,
     codeChallengeMethod: input.codeChallengeMethod,
@@ -153,6 +199,8 @@ function createCode(
     expiresAt: new Date(input.expiresAt),
     grantId: input.grantId,
     id: input.id,
+    identityScopes: [...input.identityScopes],
+    nonce: input.nonce ?? null,
     organizationId: input.organizationId ?? null,
     redirectUri: input.redirectUri,
     resource: input.resource,
@@ -161,9 +209,7 @@ function createCode(
   };
 }
 
-function createRefresh(
-  input: CreateOAuthRefreshTokenInput
-): OAuthRefreshToken {
+function createRefresh(input: CreateOAuthRefreshTokenInput): OAuthRefreshToken {
   return {
     clientId: input.clientId,
     createdAt: new Date(),
@@ -171,6 +217,7 @@ function createRefresh(
     familyId: input.familyId,
     grantId: input.grantId,
     id: input.id,
+    identityScopes: [...input.identityScopes],
     organizationId: input.organizationId ?? null,
     parentTokenId: input.parentTokenId ?? null,
     resource: input.resource,
@@ -215,10 +262,7 @@ export function createMemoryOAuthAuthorizationServerState(): MemoryOAuthAuthoriz
   };
 }
 
-function cloneMap<K, V>(
-  source: Map<K, V>,
-  clone: (value: V) => V
-): Map<K, V> {
+function cloneMap<K, V>(source: Map<K, V>, clone: (value: V) => V): Map<K, V> {
   return new Map(
     [...source.entries()].map(([key, value]) => [key, clone(value)])
   );
@@ -250,11 +294,15 @@ export function restoreMemoryOAuthAuthorizationServerState(
   replaceMap(state.requests, snapshot.requests, cloneRequest);
   replaceMap(state.codes, snapshot.codes, cloneCode);
   replaceMap(state.refreshTokens, snapshot.refreshTokens, cloneRefresh);
-  replaceMap(state.revokedAccessTokens, snapshot.revokedAccessTokens, (value) => ({
-    ...value,
-    expiresAt: new Date(value.expiresAt),
-    revokedAt: new Date(value.revokedAt),
-  }));
+  replaceMap(
+    state.revokedAccessTokens,
+    snapshot.revokedAccessTokens,
+    (value) => ({
+      ...value,
+      expiresAt: new Date(value.expiresAt),
+      revokedAt: new Date(value.revokedAt),
+    })
+  );
 }
 
 function replaceMap<K, V>(
@@ -274,8 +322,7 @@ export function createMemoryOAuthAuthorizationServerStores(
     transactionBound?: boolean;
   } = {}
 ): OAuthAuthorizationServerStores {
-  const state =
-    options.state ?? createMemoryOAuthAuthorizationServerState();
+  const state = options.state ?? createMemoryOAuthAuthorizationServerState();
   const {
     clients,
     grants,
@@ -321,10 +368,26 @@ export function createMemoryOAuthAuthorizationServerStores(
             isActiveGrant(candidate, new Date()) &&
             grantMatches(grantInput, candidate)
         );
+        if (
+          input.preserveExistingGrant &&
+          (!existing ||
+            input.scopes.some((scope) => !existing.scopes.includes(scope)) ||
+            input.identityScopes.some(
+              (scope) => !existing.identityScopes.includes(scope)
+            ))
+        ) {
+          throw new OAuthProtocolError(
+            "consent_required",
+            "The user has not consented to this request."
+          );
+        }
         const grant = existing ?? createGrant(grantInput);
-        grant.scopes = [...new Set(input.scopes)].sort();
-        grant.authorizedAt = new Date();
-        grant.updatedAt = new Date();
+        if (!input.preserveExistingGrant) {
+          grant.scopes = [...new Set(input.scopes)].sort();
+          grant.identityScopes = [...input.identityScopes].sort();
+          grant.authorizedAt = new Date();
+          grant.updatedAt = new Date();
+        }
         if (!existing) {
           grants.set(grant.id, grant);
         }
@@ -447,9 +510,9 @@ export function createMemoryOAuthAuthorizationServerStores(
           metadata: { ...(input.metadata ?? {}) },
           redirectUris: input.redirectUris.map(normalizeRegisteredRedirectUri),
           registrationKind: "pre-registered",
-          resourceUris: [...input.resourceUris],
+          resourceUris: normalizeResourceUris(input.resourceUris),
           responseType: "code",
-          scopes: [...new Set(input.scopes)].sort(),
+          scopes: normalizeScopes(input.scopes),
           tokenEndpointAuthMethod: "none",
           updatedAt: now,
         };
@@ -469,6 +532,24 @@ export function createMemoryOAuthAuthorizationServerStores(
         const row = clients.get(clientId);
         return row ? cloneClient(row) : null;
       },
+      async list(input = {}) {
+        const matching = [...clients.values()]
+          .filter(
+            (row) =>
+              input.isActive === undefined || row.isActive === input.isActive
+          )
+          .sort(
+            (a, b) =>
+              b.createdAt.getTime() - a.createdAt.getTime() ||
+              a.id.localeCompare(b.id)
+          );
+        const offset = Math.max(0, Math.trunc(input.offset ?? 0));
+        const limit = Math.max(0, Math.trunc(input.limit ?? matching.length));
+        return {
+          clients: matching.slice(offset, offset + limit).map(cloneClient),
+          total: matching.length,
+        };
+      },
       async update(clientId, input) {
         return serialize(async () => {
           const row = clients.get(clientId);
@@ -477,7 +558,9 @@ export function createMemoryOAuthAuthorizationServerStores(
           }
           Object.assign(row, {
             ...(input.clientName ? { clientName: input.clientName } : {}),
-            ...(input.clientUrl !== undefined ? { clientUrl: input.clientUrl } : {}),
+            ...(input.clientUrl !== undefined
+              ? { clientUrl: input.clientUrl }
+              : {}),
             ...(input.metadata ? { metadata: { ...input.metadata } } : {}),
             ...(input.redirectUris
               ? {
@@ -486,8 +569,10 @@ export function createMemoryOAuthAuthorizationServerStores(
                   ),
                 }
               : {}),
-            ...(input.resourceUris ? { resourceUris: [...input.resourceUris] } : {}),
-            ...(input.scopes ? { scopes: [...input.scopes] } : {}),
+            ...(input.resourceUris
+              ? { resourceUris: normalizeResourceUris(input.resourceUris) }
+              : {}),
+            ...(input.scopes ? { scopes: normalizeScopes(input.scopes) } : {}),
             updatedAt: new Date(),
           });
           return cloneClient(row);
@@ -498,7 +583,8 @@ export function createMemoryOAuthAuthorizationServerStores(
       async authorize(input) {
         return serialize(async () => {
           const existing = [...grants.values()].find(
-            (grant) => isActiveGrant(grant, new Date()) && grantMatches(input, grant)
+            (grant) =>
+              isActiveGrant(grant, new Date()) && grantMatches(input, grant)
           );
           if (existing) {
             existing.scopes = [...new Set(input.scopes)].sort();
@@ -513,7 +599,8 @@ export function createMemoryOAuthAuthorizationServerStores(
       },
       async findActive(input) {
         const row = [...grants.values()].find(
-          (grant) => isActiveGrant(grant, new Date()) && grantMatches(input, grant)
+          (grant) =>
+            isActiveGrant(grant, new Date()) && grantMatches(input, grant)
         );
         return row ? cloneGrant(row) : null;
       },
@@ -522,9 +609,43 @@ export function createMemoryOAuthAuthorizationServerStores(
         return row ? cloneGrant(row) : null;
       },
       async listForUser(userId) {
-        return [...grants.values()]
-          .filter((row) => row.userId === userId)
-          .map(cloneGrant);
+        return (await this.list({ userId })).grants;
+      },
+      async list(input = {}) {
+        const now = new Date();
+        const matching = [...grants.values()]
+          .filter(
+            (row) => input.userId === undefined || row.userId === input.userId
+          )
+          .filter(
+            (row) =>
+              input.clientId === undefined || row.clientId === input.clientId
+          )
+          .filter(
+            (row) =>
+              input.organizationId === undefined ||
+              row.organizationId === input.organizationId
+          )
+          .filter(
+            (row) =>
+              input.resource === undefined || row.resource === input.resource
+          )
+          .filter(
+            (row) =>
+              input.status === undefined ||
+              grantHasStatus(row, input.status, now)
+          )
+          .sort(
+            (a, b) =>
+              b.authorizedAt.getTime() - a.authorizedAt.getTime() ||
+              a.id.localeCompare(b.id)
+          );
+        const offset = Math.max(0, Math.trunc(input.offset ?? 0));
+        const limit = Math.max(0, Math.trunc(input.limit ?? matching.length));
+        return {
+          grants: matching.slice(offset, offset + limit).map(cloneGrant),
+          total: matching.length,
+        };
       },
       async revoke(input) {
         await serialize(async () => {
@@ -574,7 +695,9 @@ export function createMemoryOAuthAuthorizationServerStores(
           }
         });
       },
-      async rotate(input: RotateOAuthRefreshTokenInput): Promise<OAuthRefreshRotationResult> {
+      async rotate(
+        input: RotateOAuthRefreshTokenInput
+      ): Promise<OAuthRefreshRotationResult> {
         return serialize(async () => {
           const row = refreshTokens.get(input.tokenHash);
           if (!row) {

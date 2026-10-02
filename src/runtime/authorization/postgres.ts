@@ -783,10 +783,10 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<void> {
-    await this.db.transaction(async (tx) => {
+  }): Promise<{ reassignedMemberIds: readonly string[] }> {
+    return this.db.transaction(async (tx) => {
       const nested = new PostgresAuthorizationStore(tx);
-      await nested.deleteRoleInTransaction(input);
+      return nested.deleteRoleInTransaction(input);
     });
   }
 
@@ -969,11 +969,12 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<void> {
+  }): Promise<{ reassignedMemberIds: readonly string[] }> {
     const role = await this.requireScopedRole(input.id, input.organizationId);
     assertProtectedRoleImmutable(role);
     await this.bumpRoleVersion(role.id, input.expectedVersion);
     const assigned = await this.countAssignments(role);
+    let reassignedMemberIds: string[] = [];
     if (assigned > 0) {
       const replacementId = input.reassignmentRoleId?.trim() ?? "";
       if (!replacementId) {
@@ -991,11 +992,25 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
         throwReassignmentInvalid();
       }
       if (role.scopeKind === "organization") {
-        await this.db.query(
+        const alreadyAssigned = await this.db.query<{ member_id: string }>(
+          `DELETE FROM athena.authorization_member_roles old
+            USING athena.authorization_member_roles replacement
+            WHERE old.role_id = $1
+              AND replacement.role_id = $2
+              AND replacement.member_id = old.member_id
+          RETURNING old.member_id`,
+          [role.id, replacement.id]
+        );
+        const reassigned = await this.db.query<{ member_id: string }>(
           `UPDATE athena.authorization_member_roles SET role_id = $1, updated_at = NOW()
-					 WHERE role_id = $2`,
+					 WHERE role_id = $2
+           RETURNING member_id`,
           [replacement.id, role.id]
         );
+        reassignedMemberIds = [
+          ...alreadyAssigned.rows.map((row) => row.member_id),
+          ...reassigned.rows.map((row) => row.member_id),
+        ];
       } else {
         await this.db.query(
           `UPDATE athena.authorization_user_roles SET role_id = $1, updated_at = NOW()
@@ -1018,6 +1033,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       targetId: role.id,
       targetKind: "role",
     });
+    return { reassignedMemberIds };
   }
 
   async inspectGraph(): Promise<AthenaAuthorizationInspectGraph> {
@@ -1550,7 +1566,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     );
     if (base) {
       await this.db.query(
-        "UPDATE athena.member SET role = $1, updated_at = NOW() WHERE id = $2",
+        "UPDATE athena.member SET role = $1 WHERE id = $2",
         [persistedMemberRole(base), input.memberId]
       );
     }

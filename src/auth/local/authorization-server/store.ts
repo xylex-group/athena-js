@@ -3,13 +3,15 @@ import type {
   OAuthAuthorizationGrant,
   OAuthAuthorizationRequest,
   OAuthClient,
+  OAuthGrantStatus,
   OAuthRefreshToken,
   OAuthRevokedAccessToken,
+  OidcIdentityScope,
+  OidcPrompt,
 } from "../../authorization-server/types.ts";
 
 export interface CreateOAuthClientInput {
   clientName: string;
-  clientType?: "public";
   clientUrl?: string | null;
   id: string;
   metadata?: Record<string, unknown>;
@@ -18,11 +20,46 @@ export interface CreateOAuthClientInput {
   scopes: readonly string[];
 }
 
+export interface UpdateOAuthClientInput {
+  clientName?: string;
+  clientUrl?: string | null;
+  metadata?: Record<string, unknown>;
+  redirectUris?: readonly string[];
+  resourceUris?: readonly string[];
+  scopes?: readonly string[];
+}
+
+export interface OAuthClientListInput {
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface OAuthClientListResult {
+  clients: OAuthClient[];
+  total: number;
+}
+
 export interface OAuthGrantLookup {
   clientId: string;
   organizationId: string | null;
   resource: string;
   userId: string;
+}
+
+export interface OAuthGrantListInput {
+  clientId?: string;
+  limit?: number;
+  offset?: number;
+  organizationId?: string | null;
+  resource?: string;
+  status?: OAuthGrantStatus;
+  userId?: string;
+}
+
+export interface OAuthGrantListResult {
+  grants: OAuthAuthorizationGrant[];
+  total: number;
 }
 
 export interface AuthorizeOAuthGrantInput extends OAuthGrantLookup {
@@ -35,7 +72,11 @@ export interface CreateOAuthAuthorizationRequestInput {
   codeChallengeMethod: "S256";
   expiresAt: Date;
   id: string;
+  identityScopes?: readonly OidcIdentityScope[];
+  maxAge?: number | null;
+  nonce?: string | null;
   organizationId?: string | null;
+  prompt?: readonly OidcPrompt[];
   redirectUri: string;
   requestHash: string;
   requestedScopes: readonly string[];
@@ -45,12 +86,16 @@ export interface CreateOAuthAuthorizationRequestInput {
 }
 
 export interface CreateOAuthAuthorizationCodeInput {
+  authenticatedAt?: Date;
+  authenticationMethods?: readonly string[];
   clientId: string;
   codeChallenge: string;
   codeChallengeMethod: "S256";
   expiresAt: Date;
   grantId: string;
   id: string;
+  identityScopes: readonly OidcIdentityScope[];
+  nonce?: string | null;
   organizationId?: string | null;
   redirectUri: string;
   resource: string;
@@ -72,6 +117,7 @@ export interface CreateOAuthRefreshTokenInput {
   familyId: string;
   grantId: string;
   id: string;
+  identityScopes: readonly OidcIdentityScope[];
   organizationId?: string | null;
   parentTokenId?: string | null;
   resource: string;
@@ -82,7 +128,11 @@ export interface CreateOAuthRefreshTokenInput {
 
 export interface CompleteOAuthAuthorizationInput
   extends CreateOAuthAuthorizationCodeInput {
+  authenticatedAt: Date;
+  authenticationMethods: readonly string[];
   codeHash: string;
+  identityScopes: readonly OidcIdentityScope[];
+  preserveExistingGrant?: boolean;
   requestId: string;
   scopes: readonly string[];
 }
@@ -103,15 +153,20 @@ export interface RotateOAuthRefreshTokenInput {
 export type OAuthRefreshRotationResult =
   | { kind: "missing" }
   | { kind: "replay"; familyId: string }
-  | { kind: "rotated"; previous: OAuthRefreshToken; replacement: OAuthRefreshToken };
+  | {
+      kind: "rotated";
+      previous: OAuthRefreshToken;
+      replacement: OAuthRefreshToken;
+    };
 
 export interface OAuthClientStore {
   create(input: CreateOAuthClientInput): Promise<OAuthClient>;
   disable(clientId: string): Promise<void>;
   get(clientId: string): Promise<OAuthClient | null>;
+  list(input?: OAuthClientListInput): Promise<OAuthClientListResult>;
   update(
     clientId: string,
-    input: Partial<CreateOAuthClientInput>
+    input: UpdateOAuthClientInput
   ): Promise<OAuthClient | null>;
 }
 
@@ -119,8 +174,13 @@ export interface OAuthGrantStore {
   authorize(input: AuthorizeOAuthGrantInput): Promise<OAuthAuthorizationGrant>;
   findActive(input: OAuthGrantLookup): Promise<OAuthAuthorizationGrant | null>;
   get(id: string): Promise<OAuthAuthorizationGrant | null>;
+  list(input?: OAuthGrantListInput): Promise<OAuthGrantListResult>;
   listForUser(userId: string): Promise<OAuthAuthorizationGrant[]>;
-  revoke(input: { grantId: string; reason: string; revokedBy?: string }): Promise<void>;
+  revoke(input: {
+    grantId: string;
+    reason: string;
+    revokedBy?: string;
+  }): Promise<void>;
   touch(id: string): Promise<void>;
 }
 
@@ -129,7 +189,9 @@ export interface OAuthAuthorizationRequestStore {
     id: string,
     input: { organizationId?: string | null; userId: string }
   ): Promise<OAuthAuthorizationRequest | null>;
-  create(input: CreateOAuthAuthorizationRequestInput): Promise<OAuthAuthorizationRequest>;
+  create(
+    input: CreateOAuthAuthorizationRequestInput
+  ): Promise<OAuthAuthorizationRequest>;
   deny(id: string): Promise<void>;
   get(id: string): Promise<OAuthAuthorizationRequest | null>;
   consume(id: string): Promise<OAuthAuthorizationRequest | null>;
@@ -150,7 +212,9 @@ export interface OAuthRefreshTokenStore {
   getByHash(tokenHash: string): Promise<OAuthRefreshToken | null>;
   listFamily(familyId: string): Promise<OAuthRefreshToken[]>;
   revokeFamily(familyId: string, reason: string): Promise<void>;
-  rotate(input: RotateOAuthRefreshTokenInput): Promise<OAuthRefreshRotationResult>;
+  rotate(
+    input: RotateOAuthRefreshTokenInput
+  ): Promise<OAuthRefreshRotationResult>;
 }
 
 export interface OAuthAccessTokenRevocationStore {

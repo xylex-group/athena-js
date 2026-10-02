@@ -69,9 +69,23 @@ function accessTokenClaims(payload: JWTPayload): OAuthAccessTokenClaims | null {
     typeof payload.athena_token_family_id === "string"
       ? payload.athena_token_family_id
       : undefined;
+  const identityScopes = payload.athena_identity_scopes;
+  const allowedIdentityScopes = new Set(["openid", "profile", "email"]);
+  if (
+    identityScopes != null &&
+    (!Array.isArray(identityScopes) ||
+      identityScopes.some(
+        (scope) => typeof scope !== "string" || !allowedIdentityScopes.has(scope)
+      ))
+  ) {
+    return null;
+  }
   return {
     athena_grant_id: payload.athena_grant_id,
     aud: payload.aud,
+    ...(Array.isArray(identityScopes)
+      ? { athena_identity_scopes: identityScopes as OAuthAccessTokenClaims["athena_identity_scopes"] }
+      : {}),
     ...(organization ? { athena_organization_id: organization } : {}),
     ...(family ? { athena_token_family_id: family } : {}),
     client_id: payload.client_id,

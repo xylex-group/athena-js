@@ -32,7 +32,10 @@ export async function applyEmbeddedAuthMigrations(
     return;
   }
   try {
-    await migrateAthenaAuthSchema(database);
+    await migrateAthenaAuthSchema(database, {
+      onTiming: (phase, durationMs) =>
+        ui.info(`Embedded Auth ${phase}: ${durationMs}ms`),
+    });
   } finally {
     await database.close?.();
   }

@@ -13,8 +13,8 @@ const packageRoot = join(
   ".."
 );
 
-test("IdP readiness: schema generation 45 is allocated", () => {
-  assert.equal(ATHENA_AUTH_SCHEMA_GENERATION, 45);
+test("Embedded Auth schema generation 48 is allocated", () => {
+  assert.equal(ATHENA_AUTH_SCHEMA_GENERATION, 48);
 });
 
 test("IdP readiness: identity scopes require openid", () => {
@@ -29,15 +29,15 @@ test("IdP readiness: identity scopes require openid", () => {
   assert.deepEqual(parseProtocolScopes("email files:read").identity, []);
 });
 
-test("IdP readiness: OIDC capability is not advertised", () => {
+test("IdP readiness: implemented OpenID Provider capability is advertised", () => {
   assert.equal(
     ATHENA_AUTH_OPERATIONS.some((operation) => operation.capability === "oidc"),
-    false
+    true
   );
   const discovery = ATHENA_AUTH_OPERATIONS.find(
     (operation) => operation.path === "/.well-known/openid-configuration"
   );
-  assert.equal(discovery?.capability, "jwt");
+  assert.equal(discovery?.capability, "oidc");
 });
 
 test("IdP readiness: protocol identity never reads request Host", () => {

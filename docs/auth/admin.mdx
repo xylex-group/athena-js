@@ -1,5 +1,21 @@
 # Auth Admin
 
+## Organization identity connections
+
+Use `auth.admin.connection` to manage organization-owned OIDC connections.
+Each connection stores an issuer, client ID, optional resource URI, email
+domains, SSO-required policy, and JIT membership settings. OIDC secrets stay in
+the application's secret store; the connection stores only a `credentialRef`.
+These records are separate from `auth.social.providers` and from
+`auth.admin.authorizationServer.client`, which manages applications using
+Athena as their issuer.
+
+Signing in through a connection does not select its organization as the
+session's active organization. The client must select an organization after
+sign-in through the normal session organization API.
+
+The current Embedded Auth admin routes require an Athena administrator session.
+
 ## Local role helpers (`@xylex-group/athena/admin`)
 
 Do **not** copy a local `hasAdminRole` — use the package:
@@ -83,6 +99,13 @@ Full guide with caching and DTO mapping:
 - `auth.admin.apiKey.create()` -> `POST /admin/api-key/create`
 - `auth.admin.athenaClient.create()` -> `POST /admin/athena-client/create`
 - `auth.admin.athenaClient.list()` -> `GET /admin/athena-client/list`
+- `auth.admin.authorizationServer.client.create()` -> `POST /admin/authorization-server/client/create`
+- `auth.admin.authorizationServer.client.get()` -> `GET /admin/authorization-server/client/get`
+- `auth.admin.authorizationServer.client.list()` -> `GET /admin/authorization-server/client/list`
+- `auth.admin.authorizationServer.client.update()` -> `POST /admin/authorization-server/client/update`
+- `auth.admin.authorizationServer.client.disable()` -> `POST /admin/authorization-server/client/disable`
+- `auth.admin.authorizationServer.grant.list()` -> `GET /admin/authorization-server/grant/list`
+- `auth.admin.authorizationServer.grant.revoke()` -> `POST /admin/authorization-server/grant/revoke`
 - `auth.admin.auditLog.list()` -> `GET /admin/audit-log/list`
 - `auth.admin.email.list()` -> `GET /admin/email/list`
 - `auth.admin.email.get()` -> `GET /admin/email/get`
@@ -108,6 +131,27 @@ Full guide with caching and DTO mapping:
 - `auth.admin.emailTemplate.delete()` -> `POST /admin/email-template/delete` (legacy alias)
 - `auth.admin.emailTemplate.send()` -> `POST /admin/email-template/send` (legacy alias)
 - `auth.admin.emailEventType.list()` -> `GET /admin/email-event-type/list` (legacy alias)
+
+## Authorization Server clients and grants
+
+`authorizationServer.client` registers and manages applications that use
+Athena as their OAuth issuer. Creation accepts `clientName`, `redirectUris`,
+`resourceUris`, `scopes`, and optional `clientUrl` / `metadata`. The server
+generates the ID and fixes the supported protocol values to public,
+pre-registered authorization-code clients without client authentication.
+Clients can be listed, retrieved, updated, or disabled; there is no delete
+operation.
+
+`authorizationServer.grant.list()` filters delegated authorizations by user,
+client, organization, and resource. `grant.revoke()` records the current admin
+as the revoking principal.
+
+These Embedded Auth routes use the canonical Authorization Server stores and
+are not served by the dedicated Rust runtime. Dedicated Rust manages the
+separate Social Callback Registration allowlist at
+`/admin/social-callback-registration/*`. Its old `/admin/oauth-client/*` paths
+are deprecated aliases with no SDK binding. `auth.social.providers` continues
+to configure upstream social identity providers.
 
 ## React Email payload support
 

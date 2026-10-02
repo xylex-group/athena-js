@@ -1,3 +1,4 @@
+import type { AthenaRightKey } from "../../rights/key.ts";
 import { missingRequiredRights } from "../../rights/matching.ts";
 import {
   AUTHORIZATION_PLATFORM_READ,
@@ -8,16 +9,73 @@ import {
   ORGANIZATION_MEMBERS_READ,
   ORGANIZATION_MEMBERS_WRITE,
 } from "../../runtime/authorization/catalog.ts";
-import { requireExpectedVersion } from "../../runtime/authorization/role-invariants.ts";
+import {
+  requireExpectedVersion,
+  throwAssignmentVersionConflict,
+} from "../../runtime/authorization/role-invariants.ts";
+import type { AuthDomainMutate } from "../hooks/execute.ts";
+import type { AthenaAuthHookMember } from "../hooks/sanitize.ts";
+import { sanitizeHookMember } from "../hooks/sanitize.ts";
+import type { AthenaAuthMutationScope } from "../hooks/scope.ts";
+import { apiKeyScopeKind, bindApiKeyAuthorization } from "./api-key.ts";
 import {
   verifiedAuthorizationCommandScope,
   verifiedOrganizationScope,
 } from "./authorization-guard.ts";
 import { AthenaAuthRuntimeError, jsonResponse } from "./errors.ts";
+import type { ResolvedApiKeyPrincipal } from "./extended-routes.ts";
 import type { AthenaAuthStores } from "./memory-stores.ts";
-import type { AuthSessionRow, AuthUserRow } from "./models.ts";
+import {
+  type AuthSessionRow,
+  type AuthUserRow,
+  toPublicMemberWithUser,
+} from "./models.ts";
 import { resolveFoundingOwnerUserId } from "./organization-invariants.ts";
 import { asStringField, readJsonBody, requireStringField } from "./security.ts";
+
+type OrganizationApiKeyRead = {
+  organizationId: string;
+};
+
+async function organizationApiKeyRead(
+  request: Request,
+  stores: AthenaAuthStores,
+  resolveApiKey: (
+    request: Request,
+    stores: AthenaAuthStores
+  ) => Promise<ResolvedApiKeyPrincipal | undefined>,
+  right: AthenaRightKey
+): Promise<OrganizationApiKeyRead | undefined> {
+  const resolved = await resolveApiKey(request, stores);
+  if (!resolved) {
+    return;
+  }
+  if (requestedAuthorizationScope(request) === "platform") {
+    throw AthenaAuthRuntimeError.forbidden();
+  }
+  const organizationId = resolved.key.organization_id;
+  if (apiKeyScopeKind(resolved.key) !== "organization" || !organizationId) {
+    throw AthenaAuthRuntimeError.forbidden();
+  }
+  const verifiedOrganizationId = verifiedOrganizationScope({
+    activeOrganizationId: organizationId,
+    requestedOrganizationId:
+      new URL(request.url).searchParams.get("organizationId") ?? undefined,
+  });
+  const owner = await buildSnapshot(stores, {
+    session: { active_organization_id: verifiedOrganizationId },
+    user: resolved.user,
+  });
+  const snapshot = bindApiKeyAuthorization(
+    owner,
+    resolved.permissions,
+    "organization"
+  );
+  if (missingRequiredRights(snapshot.effectiveRights, [right]).length > 0) {
+    throw AthenaAuthRuntimeError.forbidden();
+  }
+  return { organizationId: verifiedOrganizationId };
+}
 
 function asStringArray(body: Record<string, unknown>, key: string): string[] {
   const value = body[key];
@@ -58,7 +116,12 @@ export async function handleAuthorizationRoute(
     request: Request,
     stores: AthenaAuthStores
   ) => Promise<{ session: AuthSessionRow; user: AuthUserRow }>,
-  bodyLimitBytes: number
+  bodyLimitBytes: number,
+  resolveApiKey: (
+    request: Request,
+    stores: AthenaAuthStores
+  ) => Promise<ResolvedApiKeyPrincipal | undefined>,
+  mutate: AuthDomainMutate
 ): Promise<Response | undefined> {
   if (path === "/authorization/snapshot" && method === "GET") {
     const resolved = await requireSession(request, stores);
@@ -67,6 +130,19 @@ export async function handleAuthorizationRoute(
   }
 
   if (path === "/authorization/rights" && method === "GET") {
+    const apiKeyRead = await organizationApiKeyRead(
+      request,
+      stores,
+      resolveApiKey,
+      AUTHORIZATION_ROLES_READ
+    );
+    if (apiKeyRead) {
+      return jsonResponse(
+        200,
+        { rights: getAthenaAuthorizationRightsIr().rights },
+        headers
+      );
+    }
     const resolved = await requireSession(request, stores);
     const snapshot = await buildSnapshot(stores, resolved);
     const lacksPlatformRead =
@@ -88,6 +164,19 @@ export async function handleAuthorizationRoute(
   }
 
   if (path === "/authorization/roles" && method === "GET") {
+    const apiKeyRead = await organizationApiKeyRead(
+      request,
+      stores,
+      resolveApiKey,
+      AUTHORIZATION_ROLES_READ
+    );
+    if (apiKeyRead) {
+      const roles = await stores.authorization.listRoles({
+        organizationId: apiKeyRead.organizationId,
+        scopeKind: "organization",
+      });
+      return jsonResponse(200, { roles }, headers);
+    }
     const resolved = await requireSession(request, stores);
     const command = await requireRoleAccess(stores, resolved, request, "read");
     const roles = await stores.authorization.listRoles({
@@ -158,6 +247,22 @@ export async function handleAuthorizationRoute(
     (path === "/authorization/roles/{id}" ||
       (Boolean(roleId) && path === `/authorization/roles/${roleId}`))
   ) {
+    const apiKeyRead = await organizationApiKeyRead(
+      request,
+      stores,
+      resolveApiKey,
+      AUTHORIZATION_ROLES_READ
+    );
+    if (apiKeyRead) {
+      const role = await stores.authorization.getRole(
+        roleIdFromPath(path) ?? "",
+        apiKeyRead.organizationId
+      );
+      if (!role) {
+        throw AthenaAuthRuntimeError.notFound("Role not found");
+      }
+      return jsonResponse(200, { role }, headers);
+    }
     const resolved = await requireSession(request, stores);
     const command = await requireRoleAccess(stores, resolved, request, "read");
     const id = roleIdFromPath(path) ?? "";
@@ -265,15 +370,154 @@ export async function handleAuthorizationRoute(
     const reassignmentRoleId =
       asStringField(body, "reassignmentRoleId") ??
       url.searchParams.get("reassignmentRoleId");
-    await stores.authorization.deleteRole({
-      actorUserId: resolved.user.id,
-      expectedVersion: requireExpectedVersion(
-        body.expectedVersion ?? url.searchParams.get("expectedVersion")
-      ),
-      id: roleIdFromPath(path) ?? "",
-      organizationId: command.scope.organizationId,
-      reassignmentRoleId,
-    });
+    const id = roleIdFromPath(path) ?? "";
+    const role = await stores.authorization.getRole(
+      id,
+      command.scope.organizationId
+    );
+    const organizationId =
+      role?.scopeKind === "organization"
+        ? (role.organizationId ?? undefined)
+        : undefined;
+    const normalizedReassignmentRoleId = reassignmentRoleId ?? undefined;
+    const deleteRole = (targetStores: AthenaAuthStores) =>
+      targetStores.authorization.deleteRole({
+        actorUserId: resolved.user.id,
+        expectedVersion: requireExpectedVersion(
+          body.expectedVersion ?? url.searchParams.get("expectedVersion")
+        ),
+        id,
+        organizationId: command.scope.organizationId,
+        reassignmentRoleId: normalizedReassignmentRoleId,
+      });
+    if (organizationId) {
+      await mutate<
+        "authorization.role.delete",
+        {
+          id: string;
+          changes: Array<{
+            member: AthenaAuthHookMember;
+            previousRoleIds: readonly string[];
+            roleIds: readonly string[];
+          }>;
+        }
+      >({
+        context: {
+          actor: {
+            kind: "user",
+            organizationId,
+            sessionId: resolved.session.id,
+            userId: resolved.user.id,
+          },
+          request: {
+            method: request.method.toUpperCase(),
+            path: new URL(request.url).pathname,
+            userAgent: request.headers.get("user-agent") ?? undefined,
+          },
+          traceId: crypto.randomUUID(),
+        },
+        event: "authorization.role.delete",
+        execute: async (scope: AthenaAuthMutationScope) => {
+          const connections = await scope.stores.listIdentityConnections(
+            organizationId
+          );
+          if (
+            connections.some(
+              (connection) => connection.jit_default_role_id === id
+            )
+          ) {
+            throw new AthenaAuthRuntimeError(
+              409,
+              "The role is referenced by an identity connection",
+              { code: "ATHENA_AUTH_IDENTITY_CONNECTION_ROLE_IN_USE" }
+            );
+          }
+          const before = await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
+            organizationId,
+          });
+          const deleted = await deleteRole(scope.stores);
+          const after = await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
+            organizationId,
+          });
+          const previousByMember = new Map(
+            before.assignments.map((assignment) => [assignment.memberId, assignment])
+          );
+          const nextByMember = new Map(
+            after.assignments.map((assignment) => [assignment.memberId, assignment.roleIds])
+          );
+          const members = await scope.stores.listMembers(organizationId);
+          const changes = await Promise.all(
+            deleted.reassignedMemberIds.map(async (memberId) => {
+              const previous = previousByMember.get(memberId);
+              if (!previous) {
+                throw AthenaAuthRuntimeError.internal(
+                  new Error("ATHENA_AUTH_ROLE_ASSIGNMENT_MEMBER_MISSING")
+                );
+              }
+              const member = members.find(
+                (entry) => entry.id === memberId
+              );
+              if (!member) {
+                throw AthenaAuthRuntimeError.internal(
+                  new Error("ATHENA_AUTH_ROLE_REASSIGNMENT_MEMBER_MISSING")
+                );
+              }
+              return {
+                member: await toPublicMemberWithUser(member, (userId) =>
+                  scope.stores.getUserById(userId)
+                ),
+                previousRoleIds: previous.roleIds,
+                roleIds: nextByMember.get(memberId) ?? [],
+              };
+            })
+          );
+          return { changes, id };
+        },
+        input: {
+          organizationId,
+          reassignmentRoleId: normalizedReassignmentRoleId,
+          roleId: id,
+        },
+        previous: async () => ({ roleId: id }),
+        resultOf: (result: {
+          id: string;
+          changes: Array<{
+            member: AthenaAuthHookMember;
+            previousRoleIds: readonly string[];
+            roleIds: readonly string[];
+          }>;
+        }) => ({
+          changes: result.changes.map((change) => ({ ...change })),
+          deleted: true,
+          id: result.id,
+        }),
+        secondaryEvents: (result: {
+          changes: Array<{
+            member: AthenaAuthHookMember;
+            previousRoleIds: readonly string[];
+            roleIds: readonly string[];
+          }>;
+        }) =>
+          result.changes.map((change) => ({
+            event: "authorization.member.roles.replace" as const,
+            input: {
+              changes: [{ memberId: change.member.id, roleIds: change.roleIds }],
+              organizationId,
+            },
+            previous: {
+              changes: [
+                {
+                  memberId: change.member.id,
+                  roleIds: change.previousRoleIds,
+                },
+              ],
+            },
+            result: { changes: [change] },
+          })),
+      });
+    } else {
+      await deleteRole(stores);
+    }
     return jsonResponse(200, { ok: true }, headers);
   }
 
@@ -372,6 +616,26 @@ export async function handleAuthorizationRoute(
   }
 
   if (path === "/authorization/assignments/members" && method === "GET") {
+    const apiKeyRead = await organizationApiKeyRead(
+      request,
+      stores,
+      resolveApiKey,
+      AUTHORIZATION_ROLES_READ
+    );
+    if (apiKeyRead) {
+      const assignmentSnapshot =
+        await stores.authorization.readMemberRoleAssignmentsSnapshot({
+          organizationId: apiKeyRead.organizationId,
+        });
+      return jsonResponse(
+        200,
+        {
+          assignments: assignmentSnapshot.assignments,
+          revision: assignmentSnapshot.revision,
+        },
+        headers
+      );
+    }
     const resolved = await requireSession(request, stores);
     const snapshot = await buildSnapshot(stores, resolved);
     const canListMembers =
@@ -452,17 +716,105 @@ export async function handleAuthorizationRoute(
       throw AthenaAuthRuntimeError.notFound("Member not found");
     }
     const organization = await stores.getOrganization(organizationId);
-    const result = await stores.authorization.replaceMemberRoleAssignments({
-      actorRights: snapshot.effectiveRights,
-      actorUserId: resolved.user.id,
-      expectedVersion: requireExpectedVersion(body.expectedVersion),
-      foundingOwnerUserId: resolveFoundingOwnerUserId(organization, orgMembers),
-      memberId: id,
-      memberUserId: matched.user_id,
+    const roleIds = asStringArray(body, "roleIds");
+    const normalize = (values: readonly string[]) =>
+      [...new Set(values)].sort();
+    const expectedVersion = requireExpectedVersion(body.expectedVersion);
+    const before = await stores.authorization.readMemberRoleAssignmentsSnapshot({
       organizationId,
-      roleIds: asStringArray(body, "roleIds"),
     });
-    return jsonResponse(200, result, headers);
+    if (before.revision !== expectedVersion) {
+      throwAssignmentVersionConflict();
+    }
+    const previousRoleIds =
+      before.assignments.find((assignment) => assignment.memberId === id)
+        ?.roleIds ?? [];
+    if (
+      JSON.stringify(normalize(previousRoleIds)) ===
+      JSON.stringify(normalize(roleIds))
+    ) {
+      return jsonResponse(200, { revision: before.revision }, headers);
+    }
+    const result = await mutate({
+      context: {
+        actor: {
+          kind: "user",
+          organizationId,
+          sessionId: resolved.session.id,
+          userId: resolved.user.id,
+        },
+        request: {
+          method: request.method.toUpperCase(),
+          path: new URL(request.url).pathname,
+          userAgent: request.headers.get("user-agent") ?? undefined,
+        },
+        traceId: crypto.randomUUID(),
+      },
+      event: "authorization.member.roles.replace",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        const current =
+          await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
+            organizationId,
+          });
+        const priorRoleIds =
+          current.assignments.find((assignment) => assignment.memberId === id)
+            ?.roleIds ?? [];
+        const assignment =
+          await scope.stores.authorization.replaceMemberRoleAssignments({
+            actorRights: snapshot.effectiveRights,
+            actorUserId: resolved.user.id,
+            expectedVersion,
+            foundingOwnerUserId: resolveFoundingOwnerUserId(
+              organization,
+              orgMembers
+            ),
+            memberId: id,
+            memberUserId: matched.user_id,
+            organizationId,
+            roleIds,
+          });
+        const updated = await scope.stores.getMember(
+          organizationId,
+          matched.user_id
+        );
+        if (!updated) {
+          throw AthenaAuthRuntimeError.internal(
+            new Error("ATHENA_AUTH_ROLE_ASSIGNMENT_MEMBER_MISSING")
+          );
+        }
+        const after =
+          await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
+            organizationId,
+          });
+        const nextRoleIds =
+          after.assignments.find((entry) => entry.memberId === id)?.roleIds ?? [];
+        return {
+          member: await toPublicMemberWithUser(updated, (userId) =>
+            scope.stores.getUserById(userId)
+          ),
+          previousRoleIds: priorRoleIds,
+          roleIds: nextRoleIds,
+          revision: assignment.revision,
+        };
+      },
+      input: {
+        changes: [{ memberId: id, roleIds: normalize(roleIds) }],
+        organizationId,
+      },
+      previous: async () => ({
+        changes: [{ memberId: id, roleIds: normalize(previousRoleIds) }],
+      }),
+      resultOf: (result) => ({
+        changes: [
+          {
+            member: sanitizeHookMember(result.member),
+            previousRoleIds: result.previousRoleIds,
+            roleIds: result.roleIds,
+          },
+        ],
+      }),
+    });
+    return jsonResponse(200, { revision: result.revision }, headers);
   }
 }
 

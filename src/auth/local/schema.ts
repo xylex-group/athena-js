@@ -482,12 +482,15 @@ function wrapAuthLedgerQueryError(error: unknown): AthenaAuthRuntimeError {
 export async function withAthenaAuthMigrationLock<T>(
   db: AthenaAuthDatabase,
   fn: (tx: AthenaAuthDatabase) => Promise<T>,
+  onTiming?: (phase: string, durationMs: number) => void,
 ): Promise<T> {
   return db.transaction(
     async (tx) => {
+      const lockStarted = performance.now();
       await tx.query("SELECT pg_advisory_xact_lock($1)", [
         ATHENA_AUTH_MIGRATION_ADVISORY_LOCK,
       ]);
+      reportAuthMigrationTiming(onTiming, "lock_acquisition", lockStarted);
       return fn(tx);
     },
     { operationTimeoutMs: ATHENA_AUTH_SCHEMA_MIGRATE_TIMEOUT_MS },
@@ -713,7 +716,10 @@ export async function repairAthenaAuthSchema(
 
 export async function migrateAthenaAuthSchema(
   db: AthenaAuthDatabase,
-  options: { allowDrift?: boolean } = {},
+  options: {
+    allowDrift?: boolean;
+    onTiming?: (phase: string, durationMs: number) => void;
+  } = {},
 ): Promise<AthenaAuthSchemaStatus> {
   await withAthenaAuthMigrationLock(db, async (tx) => {
     const expected = getAthenaAuthExpectedLedger();
@@ -732,10 +738,20 @@ export async function migrateAthenaAuthSchema(
         ADD COLUMN IF NOT EXISTS checksum TEXT NOT NULL DEFAULT ''
     `);
 
+    const appliedRows = await timeAuthMigrationPhase(
+      "migration_history_read",
+      () => readAuthSchemaLedgerRows(tx),
+      options.onTiming,
+    );
+
     // Fail closed: ledger-applied migrations with physical drift must not be
     // silently repaired by normal migrate.
     if (!options.allowDrift) {
-      const plan = await planAthenaAuthSchema(tx, { inspectSchema: true });
+      const plan = await timeAuthMigrationPhase(
+        "physical_schema_validation",
+        () => planAthenaAuthSchema(tx, { inspectSchema: true, ledgerRows: appliedRows }),
+        options.onTiming,
+      );
       if (plan.hasBlockingDrift) {
         throw new AthenaAuthRuntimeError(
           500,
@@ -759,7 +775,6 @@ export async function migrateAthenaAuthSchema(
       }
     }
 
-    const appliedRows = await readAuthSchemaLedgerRows(tx);
     const preflight = compareAthenaAuthLedgers(appliedRows, expected);
     if (preflight.direction === "runtime-too-old") {
       const formatted = formatSchemaCompatibilityError(preflight);
@@ -783,7 +798,11 @@ export async function migrateAthenaAuthSchema(
     // Ensure schema exists first (version 0), then apply in numeric order.
     const bootstrap = SCHEMA_STATEMENTS.find((s) => s.version === 0);
     if (bootstrap) {
-      await tx.query(bootstrap.sql);
+      await timeAuthMigrationPhase(
+        `migration.${String(bootstrap.version).padStart(3, "0")}.${bootstrap.name}`,
+        () => tx.query(bootstrap.sql),
+        options.onTiming,
+      );
     }
 
     for (const statement of ledgeredStatements()) {
@@ -791,10 +810,16 @@ export async function migrateAthenaAuthSchema(
         continue;
       }
       const checksum = checksumMigrationSql(statement.sql);
-      await tx.query(statement.sql);
-      await tx.query(
-        "INSERT INTO athena.auth_schema_migrations (version, name, checksum) VALUES ($1, $2, $3) ON CONFLICT (version) DO NOTHING",
-        [statement.version, statement.name, checksum],
+      await timeAuthMigrationPhase(
+        `migration.${String(statement.version).padStart(3, "0")}.${statement.name}`,
+        async () => {
+          await tx.query(statement.sql);
+          await tx.query(
+            "INSERT INTO athena.auth_schema_migrations (version, name, checksum) VALUES ($1, $2, $3) ON CONFLICT (version) DO NOTHING",
+            [statement.version, statement.name, checksum],
+          );
+        },
+        options.onTiming,
       );
     }
 
@@ -809,11 +834,42 @@ export async function migrateAthenaAuthSchema(
         [entry.checksum, entry.version],
       );
     }
-  });
+  }, options.onTiming);
 
-  await new PostgresAuthorizationStore(db).ensureCatalog();
-  await assertAthenaAuthSchemaCompatible(db, { inspectSchema: true });
-  return readAthenaAuthSchemaStatus(db);
+  return timeAuthMigrationPhase(
+    "post_apply_validation",
+    async () => {
+      await new PostgresAuthorizationStore(db).ensureCatalog();
+      await assertAthenaAuthSchemaCompatible(db, { inspectSchema: true });
+      return readAthenaAuthSchemaStatus(db);
+    },
+    options.onTiming,
+  );
+}
+
+function reportAuthMigrationTiming(
+  onTiming: ((phase: string, durationMs: number) => void) | undefined,
+  phase: string,
+  startedAt: number,
+): void {
+  try {
+    onTiming?.(phase, Math.round(performance.now() - startedAt));
+  } catch {
+    // Timing observers must not affect migration correctness.
+  }
+}
+
+async function timeAuthMigrationPhase<T>(
+  phase: string,
+  run: () => Promise<T>,
+  onTiming?: (phase: string, durationMs: number) => void,
+): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await run();
+  } finally {
+    reportAuthMigrationTiming(onTiming, phase, startedAt);
+  }
 }
 
 export async function readAthenaAuthSchemaStatus(

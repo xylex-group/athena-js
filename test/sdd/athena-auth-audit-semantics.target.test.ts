@@ -69,6 +69,41 @@ type ExpectedIr = {
 };
 
 const EXPECTED_IR = {
+  "identity.connection.create": {
+    mutationKind: "create",
+    orgAware: true,
+    previous: "none",
+    result: "resource",
+    subjectType: "identity.connection",
+  },
+  "identity.connection.update": {
+    mutationKind: "update",
+    orgAware: true,
+    previous: "required",
+    result: "resource",
+    subjectType: "identity.connection",
+  },
+  "identity.connection.disable": {
+    mutationKind: "update",
+    orgAware: true,
+    previous: "required",
+    result: "receipt",
+    subjectType: "identity.connection",
+  },
+  "authorization.member.roles.replace": {
+    mutationKind: "update",
+    orgAware: true,
+    previous: "required",
+    result: "resource",
+    subjectType: "organization.member",
+  },
+  "authorization.role.delete": {
+    mutationKind: "delete",
+    orgAware: true,
+    previous: "required",
+    result: "receipt",
+    subjectType: "authorization.role",
+  },
   "account.link": {
     mutationKind: "create",
     orgAware: false,

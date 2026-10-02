@@ -84,7 +84,7 @@ test("Auth generation is derived from the latest canonical migration", () => {
   );
   assert.equal(new Set(versions).size, versions.length);
   assert.equal(new Set(names).size, names.length);
-  assert.equal(latest.name, "045_session_authentication_context");
+  assert.equal(latest.name, "048_identity_connections");
   assert.deepEqual(
     listAthenaAuthCanonicalMigrations().map(({ name, version }) => ({
       name,
@@ -183,7 +183,7 @@ test("Auth outdated diagnostics name the latest missing migration", async () => 
       error instanceof AthenaAuthRuntimeError &&
       error.code === "ATHENA_AUTH_SCHEMA_OUTDATED" &&
       error.publicMessage.includes(ATHENA_NPX_MIGRATE_COMMAND) &&
-      error.publicMessage.includes("045_session_authentication_context")
+      error.publicMessage.includes("048_identity_connections")
   );
 });
 

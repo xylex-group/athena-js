@@ -103,6 +103,8 @@ test("implemented events have executeAuthMutation call sites; reserved have none
     "local/social/runtime.ts",
     "local/authorization-server/routes.ts",
     "local/authorization-server/service.ts",
+    "local/authorization-routes.ts",
+    "local/identity-connections/admin-routes.ts",
   ];
   const source = (
     await Promise.all(files.map((file) => readFile(join(root, file), "utf8")))

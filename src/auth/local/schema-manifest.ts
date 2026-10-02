@@ -296,6 +296,37 @@ export const ATHENA_AUTH_MIGRATION_EXPECTATIONS: Readonly<
     column("athena", "sessions", "authenticated_at"),
     column("athena", "sessions", "authentication_methods"),
   ],
+  46: [
+    column("athena", "oauth_authorization_grants", "identity_scopes"),
+    column("athena", "oauth_authorization_requests", "identity_scopes"),
+    column("athena", "oauth_authorization_requests", "nonce"),
+    column("athena", "oauth_authorization_requests", "max_age"),
+    column("athena", "oauth_authorization_requests", "prompt"),
+    column("athena", "oauth_authorization_codes", "nonce"),
+    column("athena", "oauth_authorization_codes", "identity_scopes"),
+    column("athena", "oauth_authorization_codes", "authenticated_at"),
+    column("athena", "oauth_authorization_codes", "authentication_methods"),
+  ],
+  47: [
+    column("athena", "oauth_refresh_tokens", "identity_scopes"),
+  ],
+  48: [
+    table("athena", "identity_connections"),
+    column("athena", "identity_connections", "organization_id"),
+    column("athena", "identity_connections", "domains"),
+    column("athena", "identity_connections", "resource_uri"),
+    column("athena", "identity_connections", "token_endpoint_auth_method"),
+    table("athena", "federated_identities"),
+    column("athena", "federated_identities", "connection_id"),
+    column("athena", "federated_identities", "subject"),
+    index("athena", "idx_identity_connections_domains"),
+    index("athena", "idx_identity_connections_organization"),
+    index("athena", "idx_federated_identities_user"),
+    constraint("athena", "identity_connections", "identity_connections_type_check"),
+    constraint("athena", "identity_connections", "identity_connections_auth_method_check"),
+    constraint("athena", "identity_connections", "identity_connections_jit_default_role_id_fkey"),
+    constraint("athena", "federated_identities", "federated_identities_connection_issuer_subject_key"),
+  ],
 };
 
 /**

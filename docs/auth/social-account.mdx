@@ -3,9 +3,21 @@
 Public SDK: `athena.auth.social.*`, `athena.auth.account.*`, `athena.auth.callback.provider`.
 There is no `athena.oauth` / `createOAuthClient`.
 
+The separate Embedded Authorization Server admin surface is
+`athena.auth.admin.authorizationServer.client` and `.grant`; it manages
+applications that use Athena as issuer. It does not configure upstream social
+providers or dedicated Rust callback allowlists. See
+[`auth.admin.authorizationServer`](./admin.mdx#authorization-server-clients-and-grants).
+
 Embedded local: `createClient({ auth: { social: { providers: { google, github, … } } } })`
 is accepted and normalized ([ADR 0050](../../../../docs/adr/technical/0050-athena-js-social-oauth-orchestration.md)).
-The four social HTTP routes are **not** served yet; advertised `social.providers` stays `[]`.
+`auth.social.providers` configures application-level social providers such as
+Google and GitHub. Organization-owned enterprise OIDC connections use
+`auth.admin.connection` and are stored separately. They support domain routing,
+an optional SSO-required policy, and just-in-time organization membership.
+Confidential connections keep secrets outside the connection record: provide
+an opaque `credentialRef` and resolve it with
+`resolveIdentityConnectionCredential` in the Embedded Auth runtime options.
 
 ## Endpoints and methods
 

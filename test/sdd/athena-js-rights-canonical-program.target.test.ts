@@ -111,7 +111,7 @@ test("authorization catalog is a projection of one canonical Rights document", (
   const rightsIr = getAthenaAuthorizationRightsIr();
 
   assert.equal(rightsIr.kind, ATHENA_RIGHTS_IR_KIND);
-  assert.equal(AUTHORIZATION_CATALOG_VERSION, 3);
+  assert.equal(AUTHORIZATION_CATALOG_VERSION, 5);
   assert.equal(Object.isFrozen(rightsIr), true);
   assert.equal(Object.isFrozen(rightsIr.rights), true);
   assert.equal(

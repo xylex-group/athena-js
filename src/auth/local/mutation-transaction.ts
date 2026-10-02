@@ -29,6 +29,8 @@ interface MemoryStoreSnapshot {
   accounts: MemoryAuthStores["accounts"];
   apiKeys: MemoryAuthStores["apiKeys"];
   invitations: MemoryAuthStores["invitations"];
+  identityConnections: MemoryAuthStores["identityConnections"];
+  federatedIdentities: MemoryAuthStores["federatedIdentities"];
   members: MemoryAuthStores["members"];
   organizations: MemoryAuthStores["organizations"];
   passkeyRegistrationTransactions: MemoryAuthStores["passkeyRegistrationTransactions"];
@@ -50,6 +52,8 @@ function snapshotMemoryStores(stores: MemoryAuthStores): MemoryStoreSnapshot {
     accounts: cloneMap(stores.accounts),
     apiKeys: cloneMap(stores.apiKeys),
     invitations: cloneMap(stores.invitations),
+    identityConnections: cloneMap(stores.identityConnections),
+    federatedIdentities: cloneMap(stores.federatedIdentities),
     members: cloneMap(stores.members),
     organizations: cloneMap(stores.organizations),
     passkeyRegistrationTransactions: cloneMap(
@@ -70,6 +74,8 @@ function restoreMemoryStores(
   replaceMap(stores.accounts, snapshot.accounts);
   replaceMap(stores.apiKeys, snapshot.apiKeys);
   replaceMap(stores.invitations, snapshot.invitations);
+  replaceMap(stores.identityConnections, snapshot.identityConnections);
+  replaceMap(stores.federatedIdentities, snapshot.federatedIdentities);
   replaceMap(stores.members, snapshot.members);
   replaceMap(stores.organizations, snapshot.organizations);
   replaceMap(stores.passkeys, snapshot.passkeys);

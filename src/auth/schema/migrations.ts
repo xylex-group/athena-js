@@ -682,6 +682,105 @@ ALTER TABLE athena.sessions
 `,
     version: 45,
   },
+  {
+    name: "046_oauth_oidc_authorization_context",
+    sql: `
+ALTER TABLE athena.oauth_authorization_grants
+  ADD COLUMN IF NOT EXISTS identity_scopes TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE athena.oauth_authorization_requests
+  ADD COLUMN IF NOT EXISTS identity_scopes TEXT[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS nonce TEXT,
+  ADD COLUMN IF NOT EXISTS max_age INTEGER,
+  ADD COLUMN IF NOT EXISTS prompt TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE athena.oauth_authorization_codes
+  ADD COLUMN IF NOT EXISTS nonce TEXT,
+  ADD COLUMN IF NOT EXISTS identity_scopes TEXT[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS authenticated_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS authentication_methods TEXT[] NOT NULL DEFAULT '{}';
+UPDATE athena.oauth_authorization_codes
+  SET authenticated_at = created_at
+  WHERE authenticated_at IS NULL;
+ALTER TABLE athena.oauth_authorization_codes
+  ALTER COLUMN authenticated_at SET NOT NULL;
+ALTER TABLE athena.oauth_authorization_requests
+  ADD CONSTRAINT oauth_requests_max_age_check
+    CHECK (max_age IS NULL OR max_age BETWEEN 0 AND 2147483647),
+  ADD CONSTRAINT oauth_requests_prompt_check
+    CHECK (prompt <@ ARRAY['none', 'login', 'consent']::TEXT[]
+      AND NOT ('none' = ANY(prompt) AND cardinality(prompt) > 1));
+ALTER TABLE athena.oauth_authorization_grants
+  ADD CONSTRAINT oauth_grants_identity_scopes_check
+    CHECK (identity_scopes <@ ARRAY['openid', 'profile', 'email']::TEXT[]);
+ALTER TABLE athena.oauth_authorization_codes
+  ADD CONSTRAINT oauth_codes_identity_scopes_check
+    CHECK (identity_scopes <@ ARRAY['openid', 'profile', 'email']::TEXT[]);
+ALTER TABLE athena.oauth_authorization_requests
+  ADD CONSTRAINT oauth_requests_identity_scopes_check
+    CHECK (identity_scopes <@ ARRAY['openid', 'profile', 'email']::TEXT[]);
+`,
+    version: 46,
+  },
+  {
+    name: "047_oidc_refresh_scope_and_signing_algorithms",
+    sql: `
+ALTER TABLE athena.oauth_refresh_tokens
+  ADD COLUMN IF NOT EXISTS identity_scopes TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE athena.oauth_refresh_tokens
+  ADD CONSTRAINT oauth_refresh_identity_scopes_check
+    CHECK (identity_scopes <@ ARRAY['openid', 'profile', 'email']::TEXT[]);
+DROP INDEX IF EXISTS athena.uq_auth_signing_keys_active_issuer;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_signing_keys_active_issuer
+  ON athena.auth_signing_keys (issuer, algorithm)
+  WHERE status = 'active';
+`,
+    version: 47,
+  },
+  {
+    name: "048_identity_connections",
+    sql: `
+CREATE TABLE IF NOT EXISTS athena.identity_connections (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL REFERENCES athena.organization (id) ON DELETE CASCADE,
+    connection_type TEXT NOT NULL DEFAULT 'oidc',
+    name TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    resource_uri TEXT,
+    token_endpoint_auth_method TEXT NOT NULL DEFAULT 'none',
+    credential_ref TEXT,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    domains TEXT[] NOT NULL DEFAULT '{}',
+    jit_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    jit_default_role_id TEXT REFERENCES athena.authorization_roles (id) ON DELETE RESTRICT,
+    authentication_required BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT identity_connections_type_check CHECK (connection_type = 'oidc'),
+    CONSTRAINT identity_connections_auth_method_check
+      CHECK (token_endpoint_auth_method IN ('client_secret_basic', 'client_secret_post', 'none'))
+);
+CREATE INDEX IF NOT EXISTS idx_identity_connections_organization
+  ON athena.identity_connections (organization_id, enabled);
+CREATE INDEX IF NOT EXISTS idx_identity_connections_domains
+  ON athena.identity_connections USING GIN (domains);
+
+CREATE TABLE IF NOT EXISTS athena.federated_identities (
+    id TEXT PRIMARY KEY,
+    connection_id TEXT NOT NULL REFERENCES athena.identity_connections (id) ON DELETE CASCADE,
+    issuer TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES athena.users (id) ON DELETE CASCADE,
+    last_authenticated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT federated_identities_connection_issuer_subject_key
+      UNIQUE (connection_id, issuer, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_federated_identities_user
+  ON athena.federated_identities (user_id);
+`,
+    version: 48,
+  },
 ];
 
 export const ATHENA_AUTH_CANONICAL_MIGRATIONS: readonly AthenaAuthCanonicalMigration[] =

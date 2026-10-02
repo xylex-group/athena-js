@@ -1,11 +1,13 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-import { SignJWT } from "jose";
+import { decodeProtectedHeader, SignJWT } from "jose";
+import { normalizeAthenaAuthConfig } from "../../src/auth/config.ts";
 import { createAccessTokenClaims } from "../../src/auth/authorization-server/index.ts";
 import { createMemoryOAuthAuthorizationServerStores } from "../../src/auth/local/authorization-server/memory-stores.ts";
 import {
   ensureActiveSigningKey,
   MemoryTokenKeyStore,
+  rotateSigningKey,
 } from "../../src/auth/local/token-key-store.ts";
 import {
   createOAuthRuntimeJwtVerifier,
@@ -13,6 +15,35 @@ import {
   resolveAthenaRuntimePrincipal,
 } from "../../src/runtime/authority/index.ts";
 import { createTestOAuthSigning } from "./oauth-test-signing.ts";
+test("RS256 rotation keeps old ID tokens verifiable and signs new tokens with the new kid", async () => {
+  const issuer = "https://issuer.example";
+  const keyStore = new MemoryTokenKeyStore();
+  const config = normalizeAthenaAuthConfig({
+    authorizationServer: { enabled: true, issuer },
+  }).authorizationServer;
+  const signing = createTestOAuthSigning(config, keyStore);
+  const now = Math.floor(Date.now() / 1000);
+  const claims = {
+    amr: ["password"],
+    aud: "client-1",
+    auth_time: now,
+    exp: now + 300,
+    iat: now,
+    iss: issuer,
+    sub: "user-1",
+  };
+
+  const oldToken = await signing.signOidcIdToken(claims);
+  const oldKid = decodeProtectedHeader(oldToken).kid;
+  const rotated = await rotateSigningKey(keyStore, "RS256");
+  const newToken = await signing.signOidcIdToken(claims);
+
+  assert.equal(rotated.algorithm, "RS256");
+  assert.notEqual(rotated.kid, oldKid);
+  assert.equal(decodeProtectedHeader(newToken).kid, rotated.kid);
+  assert.equal((await signing.verifyAthenaToken({ token: oldToken })).sub, "user-1");
+  assert.equal((await signing.verifyAthenaToken({ token: newToken })).sub, "user-1");
+});
 
 const principal = {
   authenticated: true,

@@ -18,6 +18,7 @@ export {
   ATHENA_AUTH_DEFAULT_ARGON2,
   ATHENA_AUTH_SCHEMA_GENERATION,
   ATHENA_AUTH_SESSION_COOKIE_NAME,
+  type AthenaAuthGeneratedOperationDefinition,
   type AthenaAuthOperationDefinition,
   deriveEmbeddedCapabilityAdvertisement,
   listMissingEmbeddedOperations,

@@ -4,7 +4,6 @@ import { Body, Html, Text } from "@react-email/components";
 import { createElement } from "react";
 import packageJson from "../package.json" with { type: "json" };
 import { createAuthModule } from "../src/auth/client.ts";
-import { createMemoryTokenStore } from "../src/react-native/index.ts";
 import {
   ATHENA_AUTH_ADMIN_LIMITS,
   ATHENA_AUTH_MAX_ADMIN_JSON_BYTES,
@@ -17,6 +16,7 @@ import {
   defineAuthEmailTemplate,
   renderAthenaReactEmail,
 } from "../src/auth/index.ts";
+import { createMemoryTokenStore } from "../src/react-native/index.ts";
 import { createClient } from "../src/v3-client.ts";
 
 interface Captured {
@@ -1512,7 +1512,7 @@ test("deprecated passkey aliases stay non-enumerable but accessible", () => {
   });
 
   const spreadPasskey = { ...client.auth.passkey };
-  const assignedPasskey = Object.assign({}, client.auth.passkey);
+  const assignedPasskey = { ...client.auth.passkey };
 
   for (const alias of [
     "listUserPasskeys",
@@ -1602,6 +1602,84 @@ test("auth.admin and auth.apiKey bindings map to expected endpoints", async () =
     });
     await client.auth.admin.athenaClient.create({ clientName: "demo-client" });
     await client.auth.admin.athenaClient.list();
+    await client.auth.admin.authorizationServer.client.create({
+      clientName: "Issuer app",
+      redirectUris: ["https://client.example/callback"],
+      resourceUris: ["https://api.example"],
+      scopes: ["read"],
+    });
+    await client.auth.admin.authorizationServer.client.get({
+      query: { clientId: "oauth-1" },
+    });
+    await client.auth.admin.authorizationServer.client.list({
+      query: { isActive: true },
+    });
+    await client.auth.admin.authorizationServer.client.update({
+      clientId: "oauth-1",
+      clientName: "Updated app",
+    });
+    await client.auth.admin.authorizationServer.client.disable({
+      clientId: "oauth-1",
+    });
+    await client.auth.admin.authorizationServer.grant.list({
+      query: {
+        clientId: "oauth-1",
+        limit: 25,
+        offset: 0,
+        organizationId: null,
+        resource: "https://api.example",
+        status: "active",
+        userId: "user-1",
+      },
+    });
+    await client.auth.admin.authorizationServer.grant.revoke({
+      grantId: "grant-1",
+      reason: "user request",
+    });
+    await client.auth.admin.connection.create({
+      clientId: "enterprise-client",
+      issuer: "https://id.example.com",
+      name: "Company SSO",
+      organizationId: "org-1",
+    });
+    await client.auth.admin.connection.get({
+      query: { connectionId: "connection-1" },
+    });
+    await client.auth.admin.connection.list({
+      query: { organizationId: "org-1" },
+    });
+    await client.auth.admin.connection.update({
+      connectionId: "connection-1",
+      enabled: true,
+    });
+    await client.auth.admin.connection.disable({
+      connectionId: "connection-1",
+    });
+    const assertInvalidAuthorizationServerBindings = async () => {
+      await client.auth.admin.authorizationServer.client.create({
+        clientName: "Issuer app",
+        // @ts-expect-error provider belongs to social callback registrations.
+        provider: "github",
+        redirectUris: ["https://client.example/callback"],
+        resourceUris: ["https://api.example"],
+        scopes: ["read"],
+      });
+      await client.auth.admin.authorizationServer.grant.revoke({
+        grantId: "grant-1",
+        reason: "user request",
+        // @ts-expect-error the server derives the revoking administrator.
+        revokedBy: "caller",
+      });
+      await client.auth.admin.connection.create({
+        clientId: "enterprise-client",
+        issuer: "https://id.example.com",
+        name: "Company SSO",
+        organizationId: "org-1",
+        // @ts-expect-error credentials are references resolved server-side.
+        clientSecret: "never-send-a-secret",
+      });
+    };
+    void assertInvalidAuthorizationServerBindings;
     await client.auth.admin.auditLog.list();
     await client.auth.admin.email.get({ query: { id: "email_1" } });
     await client.auth.admin.email.create({
@@ -1737,6 +1815,37 @@ test("auth.admin and auth.apiKey bindings map to expected endpoints", async () =
         "https://auth.example.com/api/auth/admin/email/get?id=email_1"
       )
     );
+    for (const [method, path] of [
+      ["POST", "client/create"],
+      ["GET", "client/get?clientId=oauth-1"],
+      ["GET", "client/list?isActive=true"],
+      ["POST", "client/update"],
+      ["POST", "client/disable"],
+      [
+        "GET",
+        "grant/list?clientId=oauth-1&limit=25&offset=0&organizationId=&resource=https%3A%2F%2Fapi.example&status=active&userId=user-1",
+      ],
+      ["POST", "grant/revoke"],
+    ]) {
+      const url = `https://auth.example.com/api/auth/admin/authorization-server/${path}`;
+      assert.ok(
+        calls.some((call) => call.url === url && call.init?.method === method),
+        `${method} ${url}`
+      );
+    }
+    for (const [method, path] of [
+      ["POST", "create"],
+      ["GET", "get?connectionId=connection-1"],
+      ["GET", "list?organizationId=org-1"],
+      ["POST", "update"],
+      ["POST", "disable"],
+    ]) {
+      const url = `https://auth.example.com/api/auth/admin/identity-connection/${path}`;
+      assert.ok(
+        calls.some((call) => call.url === url && call.init?.method === method),
+        `${method} ${url}`
+      );
+    }
     assert.ok(
       requestedUrls.includes(
         "https://auth.example.com/api/auth/admin/email/create"
@@ -2342,6 +2451,16 @@ test("auth.organization bindings map to expected endpoints", async () => {
     await client.auth.organization.leave({ organizationId: "org_1" });
     await client.auth.organization.invitation.list();
     await client.auth.organization.listUserInvitations();
+    await client.auth.organization.authenticationPosture.list({
+      limit: 25,
+      offset: 50,
+      organizationId: "org_1",
+    });
+    await client.auth.organization.lifecycleEvents.list({
+      cursor: "2026-10-01T12:00:00.000Z~12345678-1234-1234-1234-123456789abc",
+      limit: 25,
+      organizationId: "org_1",
+    });
     await client.auth.organization.hasPermission({
       permissions: ["org:manage"],
     });
@@ -2425,6 +2544,14 @@ test("auth.organization bindings map to expected endpoints", async () => {
     );
     assert.equal(
       urls[19],
+      "https://auth.example.com/api/auth/organization/list-authentication-posture?limit=25&offset=50&organizationId=org_1"
+    );
+    assert.equal(
+      urls[20],
+      "https://auth.example.com/api/auth/organization/list-lifecycle-events?cursor=2026-10-01T12%3A00%3A00.000Z%7E12345678-1234-1234-1234-123456789abc&limit=25&organizationId=org_1"
+    );
+    assert.equal(
+      urls[21],
       "https://auth.example.com/api/auth/organization/has-permission"
     );
   } finally {
@@ -2506,8 +2633,14 @@ test("auth.organization.setActive preserves fetch options during session refresh
     if (String(url).includes("/get-session")) {
       return new Response(
         JSON.stringify({
-          session: { activeOrganizationId: "org-fetch-options", id: "sess-fetch-options" },
-          user: { email: "fetch-options@example.com", id: "user-fetch-options" },
+          session: {
+            activeOrganizationId: "org-fetch-options",
+            id: "sess-fetch-options",
+          },
+          user: {
+            email: "fetch-options@example.com",
+            id: "user-fetch-options",
+          },
         }),
         { status: 200 }
       );

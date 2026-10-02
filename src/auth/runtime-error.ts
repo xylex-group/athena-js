@@ -53,6 +53,12 @@ export class AthenaAuthRuntimeError extends Error {
     return new AthenaAuthRuntimeError(501, message);
   }
 
+  static capabilityDisabled(capability: string): AthenaAuthRuntimeError {
+    return new AthenaAuthRuntimeError(501, `${capability} is disabled`, {
+      code: "ATHENA_AUTH_CAPABILITY_DISABLED",
+    });
+  }
+
   static payloadTooLarge(): AthenaAuthRuntimeError {
     return new AthenaAuthRuntimeError(413, "Request body too large");
   }

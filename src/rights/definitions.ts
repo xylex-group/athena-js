@@ -36,6 +36,20 @@ const ORGANIZATION_RIGHT_SEEDS: readonly [
     "low",
   ],
   [
+    "organization.authentication.read",
+    "View authentication posture",
+    "View registered authentication methods and phishing-resistant posture",
+    "organization",
+    "low",
+  ],
+  [
+    "organization.auth_events.read",
+    "View organization Auth lifecycle events",
+    "Read sanitized organization-scoped Auth lifecycle events",
+    "organization",
+    "low",
+  ],
+  [
     "organization.members.write",
     "Manage members",
     "Invite, change role, or remove organization members",
@@ -130,6 +144,12 @@ export const AUTHORIZATION_RIGHT_DEFINITIONS: readonly AthenaRightDefinition[] =
 
 export const ORGANIZATION_MEMBERS_READ = parseAthenaRightKey(
   "organization.members.read"
+);
+export const ORGANIZATION_AUTHENTICATION_READ = parseAthenaRightKey(
+  "organization.authentication.read"
+);
+export const ORGANIZATION_AUTH_EVENTS_READ = parseAthenaRightKey(
+  "organization.auth_events.read"
 );
 export const ORGANIZATION_OWNERS_ASSIGN = parseAthenaRightKey(
   "organization.owners.assign"

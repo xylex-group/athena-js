@@ -5,6 +5,7 @@ import {
 import { issueAuthBridgeCode } from "../../bridge/service.ts";
 import {
   sanitizeHookAccount,
+  sanitizeHookMember,
   sanitizeHookSession,
   sanitizeHookUser,
 } from "../../hooks/sanitize.ts";
@@ -24,7 +25,12 @@ import { isUserEffectivelyBanned } from "../admin-contract.ts";
 import type { AuthProcedureContext } from "../credential-password-routes.ts";
 import { countRemainingAuthenticationMethods } from "../credential-viability.ts";
 import { AthenaAuthRuntimeError, jsonResponse } from "../errors.ts";
-import type { AuthAccountRow, AuthUserRow } from "../models.ts";
+import type {
+  AuthAccountRow,
+  AuthIdentityConnectionRow,
+  AuthUserRow,
+} from "../models.ts";
+import { requireIdentityConnectionForEmail } from "../identity-connections/policy.ts";
 import {
   asStringField,
   readJsonBody,
@@ -126,6 +132,7 @@ async function runUserSignInSocial(
     name?: string | null;
     provider: string;
     providerUserId: string;
+    federation?: AuthIdentityConnectionRow;
     request: Request;
   }
 ) {
@@ -139,15 +146,50 @@ async function runUserSignInSocial(
     event: "user.sign-in.social",
     execute: async (scope) => {
       const resolved = await resolveOrCreateSocialAccount(scope.stores, {
-        email: input.email,
+        email:
+          input.federation && input.emailVerified !== true
+            ? undefined
+            : input.email,
         emailVerified: input.emailVerified,
         intent: "sign-in",
         name: input.name,
         providerId: input.provider,
         providerUserId: input.providerUserId,
       });
+      await requireIdentityConnectionForEmail(
+        scope.stores,
+        resolved.user.email,
+        input.federation?.id
+      );
       if (isUserEffectivelyBanned(resolved.user)) {
         throw AthenaAuthRuntimeError.forbidden("User is banned");
+      }
+      let createdMember:
+        | Awaited<ReturnType<typeof scope.stores.addMember>>
+        | undefined;
+      if (input.federation) {
+        const identity = await scope.stores.linkFederatedIdentity({
+          connectionId: input.federation.id,
+          id: crypto.randomUUID(),
+          issuer: input.federation.issuer,
+          subject: input.providerUserId,
+          userId: resolved.user.id,
+        });
+        await scope.stores.touchFederatedIdentity(identity.id, new Date());
+        if (input.federation.jit_enabled) {
+          const member = await scope.stores.getMember(
+            input.federation.organization_id,
+            resolved.user.id
+          );
+          if (!member) {
+            createdMember = await scope.stores.addMember({
+              id: crypto.randomUUID(),
+              organizationId: input.federation.organization_id,
+              role: input.federation.jit_default_role_id ?? "organization_member",
+              userId: resolved.user.id,
+            });
+          }
+        }
       }
       const session = await deps.issueSession(
         input.request,
@@ -158,7 +200,7 @@ async function runUserSignInSocial(
       );
       const user =
         (await scope.stores.getUserById(resolved.user.id)) ?? resolved.user;
-      return { account: resolved.account, session, user };
+      return { account: resolved.account, createdMember, session, user };
     },
     input: { provider: input.provider },
     resultOf: ({ account, session, user }) => ({
@@ -166,7 +208,20 @@ async function runUserSignInSocial(
       session: sanitizeHookSession(session),
       user: sanitizeHookUser(user),
     }),
-    secondaryEvents: ({ session }) => [
+    secondaryEvents: ({ createdMember, session }) => [
+      ...(createdMember
+        ? [
+            {
+              event: "organization.member.add" as const,
+              input: {
+                organizationId: createdMember.organization_id,
+                role: createdMember.role,
+                userId: createdMember.user_id,
+              },
+              result: { member: sanitizeHookMember(createdMember) },
+            },
+          ]
+        : []),
       {
         event: "session.issue" as const,
         input: { userId: session.user_id },
@@ -174,6 +229,51 @@ async function runUserSignInSocial(
       },
     ],
   });
+}
+
+const IDENTITY_CONNECTION_PROVIDER_PREFIX = "identity-connection-";
+
+async function configureIdentityConnectionProvider(
+  providerId: string,
+  ctx: AuthProcedureContext,
+  runtime: AthenaEmbeddedSocialRuntime
+): Promise<AuthIdentityConnectionRow | undefined> {
+  if (!providerId.startsWith(IDENTITY_CONNECTION_PROVIDER_PREFIX)) {
+    return;
+  }
+  const connectionId = providerId.slice(IDENTITY_CONNECTION_PROVIDER_PREFIX.length);
+  if (!connectionId) throw AthenaAuthRuntimeError.badRequest("connectionId is required");
+  const connection = await ctx.stores.getIdentityConnection(connectionId);
+  if (!connection?.enabled) {
+    throw AthenaAuthRuntimeError.notFound("Enabled identity connection not found");
+  }
+  let clientSecret: string | undefined;
+  if (connection.token_endpoint_auth_method !== "none") {
+    const resolver = ctx.deps.resolveIdentityConnectionCredential;
+    if (!connection.credential_ref || !resolver) {
+      throw new AthenaAuthRuntimeError(
+        503,
+        "Identity connection credential is unavailable",
+        { code: "ATHENA_AUTH_IDENTITY_CONNECTION_CREDENTIAL_UNAVAILABLE" }
+      );
+    }
+    clientSecret = await resolver(connection.credential_ref);
+    if (!clientSecret) {
+      throw new AthenaAuthRuntimeError(
+        503,
+        "Identity connection credential is unavailable",
+        { code: "ATHENA_AUTH_IDENTITY_CONNECTION_CREDENTIAL_UNAVAILABLE" }
+      );
+    }
+  }
+  runtime.social.providers[providerId] = {
+    clientId: connection.client_id,
+    ...(clientSecret ? { clientSecret } : {}),
+    issuer: connection.issuer,
+    ...(connection.resource_uri ? { resource: connection.resource_uri } : {}),
+    tokenEndpointAuthMethod: connection.token_endpoint_auth_method,
+  };
+  return connection;
 }
 
 async function runAccountLink(
@@ -259,6 +359,11 @@ async function runAccountUnlink(
       const account = findUnlinkAccount(accounts, input);
       if (!account) {
         throw AthenaAuthRuntimeError.notFound("Account not found");
+      }
+      if (account.provider_id.startsWith(IDENTITY_CONNECTION_PROVIDER_PREFIX)) {
+        throw AthenaAuthRuntimeError.badRequest(
+          "Identity Connection accounts cannot be unlinked"
+        );
       }
       const remaining = await countRemainingAuthenticationMethods(
         scope.stores,
@@ -420,6 +525,7 @@ async function exchangeSocialIdentity(
       code: "ATHENA_AUTH_OAUTH_TOKEN_EXCHANGE_FAILED",
     });
   }
+  let verifiedIdTokenClaims: Record<string, unknown> | undefined;
   if (tokens.idToken) {
     if (typeof provider.verifyIdToken !== "function") {
       throw new AthenaAuthRuntimeError(400, "Invalid ID token", {
@@ -441,7 +547,7 @@ async function exchangeSocialIdentity(
         code: "ATHENA_AUTH_OAUTH_NONCE_MISMATCH",
       });
     }
-    let verified = false;
+    let verified: boolean | { claims: Record<string, unknown> } = false;
     try {
       verified = await provider.verifyIdToken(tokens.idToken, claims.nonce);
     } catch {
@@ -452,17 +558,41 @@ async function exchangeSocialIdentity(
         code: "ATHENA_AUTH_OAUTH_ID_TOKEN_INVALID",
       });
     }
+    if (verified !== true) {
+      verifiedIdTokenClaims = verified.claims;
+    }
   }
   const profile = await provider.getUserInfo(tokens);
-  const id = profile?.user.id;
+  const verifiedSubject = verifiedIdTokenClaims?.sub;
+  const profileSubject = profile?.user.id;
+  if (
+    typeof verifiedSubject === "string" &&
+    profileSubject != null &&
+    String(profileSubject) !== verifiedSubject
+  ) {
+    throw new AthenaAuthRuntimeError(400, "OIDC subject mismatch", {
+      code: "ATHENA_AUTH_OAUTH_ID_TOKEN_INVALID",
+    });
+  }
+  const id = verifiedSubject ?? profileSubject;
   if (id === undefined || id === null || String(id).length === 0) {
     return null;
   }
   return {
-    email: profile?.user.email,
-    emailVerified: profile?.user.emailVerified,
+    email:
+      profile?.user.email ??
+      (typeof verifiedIdTokenClaims?.email === "string"
+        ? verifiedIdTokenClaims.email
+        : undefined),
+    emailVerified:
+      profile?.user.emailVerified ??
+      verifiedIdTokenClaims?.email_verified === true,
     id: String(id),
-    name: profile?.user.name,
+    name:
+      profile?.user.name ??
+      (typeof verifiedIdTokenClaims?.name === "string"
+        ? verifiedIdTokenClaims.name
+        : undefined),
   };
 }
 
@@ -525,12 +655,43 @@ async function handleSocialCallback(
     throw new AthenaSocialOAuthProviderMixupError();
   }
 
+  const federation = await configureIdentityConnectionProvider(
+    provider,
+    ctx,
+    runtime
+  );
+  if (federation && transaction.intent === "link") {
+    throw AthenaAuthRuntimeError.badRequest(
+      "Identity Connections do not support account linking"
+    );
+  }
+
   const identity = await exchangeSocialIdentity(runtime, transaction, code);
   if (!identity) {
     throw new AthenaAuthRuntimeError(400, "OAuth userinfo failed", {
       code: "ATHENA_AUTH_OAUTH_USERINFO_FAILED",
     });
   }
+  const federatedDomains = Array.isArray(federation?.domains)
+    ? federation.domains
+    : [];
+  if (federatedDomains.length) {
+    const domain = identity.email?.split("@").at(-1)?.toLowerCase();
+    if (
+      !identity.emailVerified ||
+      !domain ||
+      !federatedDomains.some((allowed) => allowed.toLowerCase() === domain)
+    ) {
+      throw AthenaAuthRuntimeError.forbidden(
+        "The verified identity email is outside this connection's domains"
+      );
+    }
+  }
+  await requireIdentityConnectionForEmail(
+    ctx.stores,
+    identity.email,
+    federation?.id
+  );
 
   if (transaction.intent === "link") {
     await runAccountLink(ctx, {
@@ -549,6 +710,7 @@ async function handleSocialCallback(
     email: identity.email,
     emailVerified: identity.emailVerified,
     name: identity.name,
+    federation,
     provider,
     providerUserId: identity.id,
     request,
@@ -635,6 +797,7 @@ export async function handleSocialRoutes(
       provider,
     });
     try {
+      await configureIdentityConnectionProvider(provider, ctx, runtime);
       const started = await runtime.engine.startAuthorization({
         intent: "sign-in",
         postAuthRedirect: postAuth,
@@ -654,6 +817,11 @@ export async function handleSocialRoutes(
       deps.config.security.bodyLimitBytes
     );
     const provider = requireStringField(body, "provider");
+    if (provider.startsWith(IDENTITY_CONNECTION_PROVIDER_PREFIX)) {
+      throw AthenaAuthRuntimeError.badRequest(
+        "Identity Connections do not support account linking"
+      );
+    }
     const callbackURL = requireStringField(body, "callbackURL");
     let postAuth: string;
     try {

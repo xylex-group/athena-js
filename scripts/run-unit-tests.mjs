@@ -4,7 +4,8 @@
  * characterization file so `pnpm test` stays the product suite.
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import "./ensure-dev-self-link.mjs";
@@ -64,6 +65,7 @@ const win32NoForceExit = new Set([
 	"test/auth-schema-release-lock.test.ts",
 	"test/migrations-analysis-cache.test.ts",
 	"test/migrations-system-columns.test.ts",
+	"test/migrations-alter-sequence.test.ts",
 ]);
 const isolated =
 	process.platform === "win32"
@@ -107,13 +109,29 @@ function runNodeTest(files, forceExit) {
 	);
 }
 
-const restResult = runNodeTest(rest, true);
-const restStatus =
-	typeof restResult.status === "number" ? restResult.status : 1;
-if (restStatus !== 0) {
-	process.exit(restStatus);
+const previousAthenaHome = process.env.ATHENA_HOME;
+const previousTestHomeRoot = process.env.ATHENA_TEST_HOME_ROOT;
+const testAthenaHome = mkdtempSync(join(tmpdir(), "athena-js-tests-"));
+process.env.ATHENA_HOME = testAthenaHome;
+process.env.ATHENA_TEST_HOME_ROOT = testAthenaHome;
+if (process.env.ATHENA_HOME !== testAthenaHome) {
+	throw new Error("Athena JS tests must use an isolated ATHENA_HOME.");
 }
-const isolatedResult = runNodeTest(isolated, false);
-process.exit(
-	typeof isolatedResult.status === "number" ? isolatedResult.status : 1,
-);
+
+let exitStatus = 0;
+try {
+	const restResult = runNodeTest(rest, true);
+	exitStatus = typeof restResult.status === "number" ? restResult.status : 1;
+	if (exitStatus === 0) {
+		const isolatedResult = runNodeTest(isolated, false);
+		exitStatus =
+			typeof isolatedResult.status === "number" ? isolatedResult.status : 1;
+	}
+} finally {
+	if (previousAthenaHome === undefined) delete process.env.ATHENA_HOME;
+	else process.env.ATHENA_HOME = previousAthenaHome;
+	if (previousTestHomeRoot === undefined) delete process.env.ATHENA_TEST_HOME_ROOT;
+	else process.env.ATHENA_TEST_HOME_ROOT = previousTestHomeRoot;
+	rmSync(testAthenaHome, { force: true, recursive: true, maxRetries: 10 });
+}
+process.exit(exitStatus);

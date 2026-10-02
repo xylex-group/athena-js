@@ -6,7 +6,10 @@ import {
   jwtVerify,
   SignJWT,
 } from "jose";
-import type { OAuthAccessTokenClaims } from "../authorization-server/types.ts";
+import type {
+  AthenaOidcIdTokenClaims,
+  OAuthAccessTokenClaims,
+} from "../authorization-server/types.ts";
 import type { AthenaAuthProtocolIdentity } from "../protocol-identity.ts";
 import type { AuthClock } from "./clock.ts";
 import { systemAuthClock } from "./clock.ts";
@@ -75,6 +78,9 @@ export class AthenaTokenAuthority {
     const signing = await ensureActiveSigningKey(this.keyStore);
     return new SignJWT({
       athena_grant_id: claims.athena_grant_id,
+      ...(claims.athena_identity_scopes
+        ? { athena_identity_scopes: [...claims.athena_identity_scopes] }
+        : {}),
       ...(claims.athena_organization_id
         ? { athena_organization_id: claims.athena_organization_id }
         : {}),
@@ -95,8 +101,42 @@ export class AthenaTokenAuthority {
       .sign(signing.privateKey);
   }
 
+  async signOidcIdToken(claims: AthenaOidcIdTokenClaims): Promise<string> {
+    if (claims.iss !== this.identity.issuer) {
+      throw AthenaAuthRuntimeError.internal(
+        new Error("OIDC ID token issuer does not match protocol identity")
+      );
+    }
+    const signing = await ensureActiveSigningKey(this.keyStore, "RS256");
+    return new SignJWT({
+      amr: [...new Set(claims.amr)],
+      auth_time: claims.auth_time,
+      ...(claims.email !== undefined ? { email: claims.email } : {}),
+      ...(claims.email_verified !== undefined
+        ? { email_verified: claims.email_verified }
+        : {}),
+      ...(claims.name !== undefined ? { name: claims.name } : {}),
+      ...(claims.nonce != null ? { nonce: claims.nonce } : {}),
+      ...(claims.picture !== undefined ? { picture: claims.picture } : {}),
+      ...(claims.preferred_username !== undefined
+        ? { preferred_username: claims.preferred_username }
+        : {}),
+    })
+      .setProtectedHeader({ alg: "RS256", kid: signing.kid, typ: "JWT" })
+      .setIssuer(claims.iss)
+      .setSubject(claims.sub)
+      .setAudience(claims.aud)
+      .setIssuedAt(claims.iat)
+      .setExpirationTime(claims.exp)
+      .setJti(crypto.randomUUID())
+      .sign(signing.privateKey);
+  }
+
   async getJwks() {
-    await ensureActiveSigningKey(this.keyStore);
+    await Promise.all([
+      ensureActiveSigningKey(this.keyStore),
+      ensureActiveSigningKey(this.keyStore, "RS256"),
+    ]);
     return serializePublicJwks(
       await this.keyStore.listVerificationKeys(this.clock.now())
     );
@@ -107,7 +147,10 @@ export class AthenaTokenAuthority {
     token: string;
   }): Promise<JWTPayload> {
     const header = decodeProtectedHeader(input.token);
-    if (header.alg !== "ES256" || typeof header.kid !== "string") {
+    if (
+      (header.alg !== "ES256" && header.alg !== "RS256") ||
+      typeof header.kid !== "string"
+    ) {
       throw new Error("Athena token algorithm or kid is invalid");
     }
     const keys = await this.keyStore.listVerificationKeys(this.clock.now());
@@ -115,9 +158,12 @@ export class AthenaTokenAuthority {
     if (!key) {
       throw new Error("Athena token signing key is unknown");
     }
-    const cryptoKey = await importJWK(key.publicJwk, "ES256");
+    if (key.algorithm !== header.alg) {
+      throw new Error("Athena token signing key algorithm does not match");
+    }
+    const cryptoKey = await importJWK(key.publicJwk, key.algorithm);
     const verified = await jwtVerify(input.token, cryptoKey, {
-      algorithms: ["ES256"],
+      algorithms: [key.algorithm],
       currentDate: this.clock.now(),
       ...(input.audience ? { audience: input.audience } : {}),
       issuer: this.identity.issuer,

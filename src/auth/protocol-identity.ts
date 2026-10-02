@@ -10,6 +10,7 @@ export interface AthenaAuthProtocolIdentity {
   readonly publicBaseUrl: string;
   readonly revocationEndpoint: string;
   readonly tokenEndpoint: string;
+  readonly userInfoEndpoint: string;
 }
 
 export interface CreateAthenaAuthProtocolIdentityInput {
@@ -120,6 +121,7 @@ export function createAthenaAuthProtocolIdentity(
     publicBaseUrl,
     revocationEndpoint: joinAuthProtocolUrl(publicBaseUrl, "/oauth/revoke"),
     tokenEndpoint: joinAuthProtocolUrl(publicBaseUrl, "/oauth/token"),
+    userInfoEndpoint: joinAuthProtocolUrl(publicBaseUrl, "/userinfo"),
   });
 }
 

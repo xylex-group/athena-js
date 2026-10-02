@@ -61,6 +61,22 @@ interface PasskeyRef {
   passkey: AthenaAuthHookPasskey;
 }
 
+interface IdentityConnectionSnapshot {
+  authenticationRequired: boolean;
+  clientId: string;
+  connectionType: "oidc";
+  domains: readonly string[];
+  enabled: boolean;
+  id: string;
+  issuer: string;
+  jitDefaultRoleId: string | null;
+  jitEnabled: boolean;
+  name: string;
+  organizationId: string;
+  resource: string | null;
+  tokenEndpointAuthMethod: "client_secret_basic" | "client_secret_post" | "none";
+}
+
 interface DeleteTombstone {
   deleted: true;
   id: string;
@@ -75,6 +91,21 @@ interface SessionRevokeReceipt {
 }
 
 export interface AthenaAuthHookEventPayloads {
+  "identity.connection.create": {
+    input: { connectionId: string; organizationId: string };
+    previous: undefined;
+    result: { connection: IdentityConnectionSnapshot };
+  };
+  "identity.connection.update": {
+    input: { connectionId: string; organizationId: string };
+    previous: { connection: IdentityConnectionSnapshot };
+    result: { connection: IdentityConnectionSnapshot };
+  };
+  "identity.connection.disable": {
+    input: { connectionId: string; organizationId: string };
+    previous: { connection: IdentityConnectionSnapshot };
+    result: { connectionId: string; disabled: true };
+  };
   "account.link": {
     input: { provider: string; userId: string };
     previous?: undefined;
@@ -112,6 +143,39 @@ export interface AthenaAuthHookEventPayloads {
     input: { id: string; name?: string | null };
     previous: { name: string | null };
     result: ApiKeyRef;
+  };
+  "authorization.member.roles.replace": {
+    input: {
+      changes: readonly { memberId: string; roleIds: readonly string[] }[];
+      organizationId: string;
+    };
+    previous: {
+      changes: readonly { memberId: string; roleIds: readonly string[] }[];
+    };
+    result: {
+      changes: readonly {
+        member: AthenaAuthHookMember;
+        previousRoleIds: readonly string[];
+        roleIds: readonly string[];
+      }[];
+    };
+  };
+  "authorization.role.delete": {
+    input: {
+      organizationId: string;
+      reassignmentRoleId?: string;
+      roleId: string;
+    };
+    previous: { roleId: string };
+    result: {
+      changes: readonly {
+        member: AthenaAuthHookMember;
+        roleIds: readonly string[];
+        previousRoleIds: readonly string[];
+      }[];
+      deleted: true;
+      id: string;
+    };
   };
   "organization.create": {
     input: { name: string; slug: string };

@@ -1,4 +1,6 @@
+import { ORGANIZATION_MEMBERS_READ } from "../../rights/definitions.ts";
 import type { AthenaRightKey } from "../../rights/key.ts";
+import { missingRequiredRights } from "../../rights/matching.ts";
 import { PACKAGE_VERSION } from "../../sdk-version.ts";
 import { createEmbeddedCapabilitySnapshot } from "../capabilities.ts";
 import {
@@ -21,6 +23,7 @@ import {
   bindApiKeyAuthorization,
   isApiKeyScopeUsable,
 } from "./api-key.ts";
+import { handleOrganizationAuthenticationPostureRoute } from "./authentication-posture-routes.ts";
 import {
   requireOrganizationRoleGrant,
   requireOrgDelete,
@@ -62,6 +65,9 @@ import {
   resolveFoundingOwnerUserId,
 } from "./organization-invariants.ts";
 import { handleOrganizationInvitationRoutes } from "./organization-invitation-routes.ts";
+import { handleOrganizationLifecycleEventRoute } from "./organization-lifecycle-event-routes.ts";
+import { handleIdentityConnectionAdminRoute } from "./identity-connections/admin-routes.ts";
+import { requireIdentityConnectionForEmail } from "./identity-connections/policy.ts";
 import { handleGenerateAuthenticateOptionsRoute } from "./passkey/generate-authenticate-options.ts";
 import { handleGenerateRegisterOptionsRoute } from "./passkey/generate-register-options.ts";
 import {
@@ -129,10 +135,15 @@ type AthenaSessionEnvelope = {
 };
 
 function resolveAuthRouteDomain(path: string): AuthRouteDomain | undefined {
+  if (path.startsWith("/admin/authorization-server/")) {
+    return "authorization-server";
+  }
   if (
     path === "/oauth/authorize" ||
     path === "/oauth/token" ||
+    path === "/userinfo" ||
     path === "/oauth/revoke" ||
+    path === "/.well-known/openid-configuration" ||
     path === "/.well-known/oauth-authorization-server" ||
     path === "/authorization/grants" ||
     /^\/authorization\/grants\/[^/]+\/revoke$/.test(path)
@@ -415,6 +426,7 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
       }
       const body = await readJsonBody(request, config.security.bodyLimitBytes);
       const email = requireStringField(body, "email");
+      await requireIdentityConnectionForEmail(currentStores, email);
       const password = requireStringField(body, "password");
       validatePassword(password, {
         maxLength: config.emailAndPassword.maxPasswordLength,
@@ -529,6 +541,10 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
           : await currentStores.getUserByEmail(
               requireStringField(body, "email")
             );
+      const loginEmail =
+        user?.email ??
+        (path === "/sign-in/email" ? asStringField(body, "email") : undefined);
+      await requireIdentityConnectionForEmail(currentStores, loginEmail);
       if (!user) {
         throw AthenaAuthRuntimeError.invalidCredentials();
       }
@@ -1336,15 +1352,54 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
     }
 
     if (path === "/organization/list-members" && method === "GET") {
-      const resolved = await requireSession(request, currentStores);
-      const organizationId =
-        new URL(request.url).searchParams.get("organizationId") ??
-        resolved.session.active_organization_id;
+      const apiKeyUser = await resolveApiKeyUser(request, currentStores);
+      const requestedOrganizationId = new URL(request.url).searchParams.get(
+        "organizationId"
+      );
+      let actorUser: AuthUserRow;
+      let organizationId: string | null;
+      if (apiKeyUser) {
+        actorUser = apiKeyUser.user;
+        const keyOrganizationId = apiKeyUser.key.organization_id;
+        if (!keyOrganizationId) {
+          throw AthenaAuthRuntimeError.forbidden();
+        }
+        organizationId = requestedOrganizationId ?? keyOrganizationId;
+        if (
+          apiKeyScopeKind(apiKeyUser.key) !== "organization" ||
+          keyOrganizationId !== organizationId
+        ) {
+          throw AthenaAuthRuntimeError.forbidden();
+        }
+      } else {
+        const resolved = await requireSession(request, currentStores);
+        actorUser = resolved.user;
+        organizationId =
+          requestedOrganizationId ?? resolved.session.active_organization_id;
+      }
       if (!organizationId) {
         throw AthenaAuthRuntimeError.badRequest("organizationId is required");
       }
+      if (apiKeyUser) {
+        const ownerAuthorization = await buildSnapshot(currentStores, {
+          session: { active_organization_id: organizationId },
+          user: actorUser,
+        });
+        const authorization = bindApiKeyAuthorization(
+          ownerAuthorization,
+          apiKeyUser.permissions,
+          "organization"
+        );
+        if (
+          missingRequiredRights(authorization.effectiveRights, [
+            ORGANIZATION_MEMBERS_READ,
+          ]).length > 0
+        ) {
+          throw AthenaAuthRuntimeError.forbidden();
+        }
+      }
       const member = await timeAuthSpan("authz", () =>
-        currentStores.getMember(organizationId, resolved.user.id)
+        currentStores.getMember(organizationId, actorUser.id)
       );
       if (!member) {
         throw AthenaAuthRuntimeError.forbidden();
@@ -1363,7 +1418,7 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
               foundingOwnerUserId,
               getMember: (orgId, userId) =>
                 currentStores.getMember(orgId, userId),
-              userId: resolved.user.id,
+              userId: actorUser.id,
             }
           );
           const user = await currentStores.getUserById(row.user_id);
@@ -1940,6 +1995,34 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
       return emailAdmin;
     }
 
+    const authenticationPostureResponse =
+      await handleOrganizationAuthenticationPostureRoute(
+        request,
+        path,
+        method,
+        currentStores,
+        headers,
+        requireSession,
+        resolveApiKeyUser
+      );
+    if (authenticationPostureResponse) {
+      return authenticationPostureResponse;
+    }
+
+    const lifecycleEventResponse = await handleOrganizationLifecycleEventRoute(
+      request,
+      path,
+      method,
+      currentStores,
+      headers,
+      requireSession,
+      resolveApiKeyUser,
+      deps.listOrganizationLifecycleAuditRows
+    );
+    if (lifecycleEventResponse) {
+      return lifecycleEventResponse;
+    }
+
     const authorizationResponse = await handleAuthorizationRoute(
       request,
       path,
@@ -1947,7 +2030,9 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
       currentStores,
       headers,
       requireSession,
-      config.security.bodyLimitBytes
+      config.security.bodyLimitBytes,
+      resolveApiKeyUser,
+      mutate
     );
     if (authorizationResponse) {
       return authorizationResponse;
@@ -1959,6 +2044,18 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
         ? new MemoryAdminAuthStore(currentStores)
         : undefined;
     if (adminStore && path.startsWith("/admin/")) {
+      const identityConnectionResponse =
+        await handleIdentityConnectionAdminRoute(
+          request,
+          path,
+          method,
+          deps,
+          currentStores,
+          headers
+        );
+      if (identityConnectionResponse) {
+        return identityConnectionResponse;
+      }
       const adminResponse = await handleAdminRoute(request, path, method, {
         config,
         hasher,

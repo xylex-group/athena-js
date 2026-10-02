@@ -100,8 +100,12 @@ export interface OAuthProvider<
    * @returns True if the id token is valid, false otherwise
    */
   verifyIdToken?:
-    | ((token: string, nonce?: string) => Promise<boolean>)
+    | ((token: string, nonce?: string) => Promise<boolean | OAuthVerifiedIdToken>)
     | undefined;
+}
+
+export interface OAuthVerifiedIdToken {
+  claims: Record<string, unknown>;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- provider option bags stay open for assignability */

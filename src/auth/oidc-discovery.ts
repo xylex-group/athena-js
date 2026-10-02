@@ -54,7 +54,11 @@ function assertAbsoluteHttpUrl(value: unknown, field: string): string {
       "auth"
     );
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+  const loopbackHttp =
+    process.env.NODE_ENV !== "production" &&
+    parsed.protocol === "http:" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !loopbackHttp) {
     throw new AthenaConfigurationError(
       "ATHENA_RUNTIME_CONFIG_INVALID",
       `OIDC discovery ${field} must be an absolute HTTP(S) URL`,
@@ -73,6 +77,7 @@ export async function resolveOidcProviderEndpoints(
 ): Promise<ResolvedOidcProviderMetadata> {
   const configuredIssuer = input.issuer.trim();
   const overrides = input.overrides ?? {};
+  assertAbsoluteHttpUrl(configuredIssuer, "issuer");
   if (
     overrides.authorizationEndpoint?.trim() &&
     overrides.tokenEndpoint?.trim()

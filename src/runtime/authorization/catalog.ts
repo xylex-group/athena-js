@@ -1,22 +1,27 @@
-import { BILLING_OPERATION_RIGHTS } from "../../billing/runtime/rights.ts";
 import { BILLING_RIGHT_DEFINITIONS } from "../../billing/rights-catalog.ts";
-import { STORAGE_RIGHT_DEFINITIONS } from "../../storage/rights-catalog.ts";
+import { BILLING_OPERATION_RIGHTS } from "../../billing/runtime/rights.ts";
 import {
   type AthenaRightsAuthority,
   createAthenaRightsAuthority,
 } from "../../rights/authority.ts";
 import type { AthenaRightContribution } from "../../rights/contribution.ts";
-import { resolveAthenaRightsIr } from "../../rights/resolver.ts";
-import type { AthenaRightDefinition, AthenaRightsIr } from "../../rights/types.ts";
 import { AUTHORIZATION_RIGHT_DEFINITIONS } from "../../rights/definitions.ts";
+import { resolveAthenaRightsIr } from "../../rights/resolver.ts";
+import type {
+  AthenaRightDefinition,
+  AthenaRightsIr,
+} from "../../rights/types.ts";
+import { STORAGE_RIGHT_DEFINITIONS } from "../../storage/rights-catalog.ts";
 
 export {
-  defineAthenaRight,
   AUTHORIZATION_PLATFORM_DELEGATE,
   AUTHORIZATION_PLATFORM_READ,
   AUTHORIZATION_ROLES_DELEGATE,
   AUTHORIZATION_ROLES_READ,
   BILLING_PAYMENTS_READ,
+  defineAthenaRight,
+  ORGANIZATION_AUTH_EVENTS_READ,
+  ORGANIZATION_AUTHENTICATION_READ,
   ORGANIZATION_MEMBERS_READ,
   ORGANIZATION_OWNERS_ASSIGN,
 } from "../../rights/definitions.ts";
@@ -28,7 +33,7 @@ export {
   ORGANIZATION_MEMBERS_WRITE,
 } from "./capability-rights.ts";
 
-export const AUTHORIZATION_CATALOG_VERSION = 3;
+export const AUTHORIZATION_CATALOG_VERSION = 5;
 
 function freezeRightsIr(value: AthenaRightsIr): AthenaRightsIr {
   return Object.freeze({

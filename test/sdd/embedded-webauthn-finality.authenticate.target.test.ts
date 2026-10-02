@@ -490,8 +490,15 @@ test("T-AUTHN-ROUTE: handlers are served and inventory no longer lists passkey g
   assert.equal(runtime.includes("handleVerifyAuthenticationRoute"), true);
   assert.equal(runtime.includes("handleListUserPasskeysRoute"), true);
   const listed = readPkg("test/auth-route-inventory.test.ts");
-  assert.equal(listed.includes('"POST /passkey/verify-authentication"'), false);
-  assert.equal(listed.includes('"GET /.well-known/webauthn"'), false);
+  const missing = listed.match(
+    /const KNOWN_MISSING_IN_LOCAL = new Set\(\[([\s\S]*?)\]\);/
+  );
+  assert.ok(missing, "route inventory missing allowlist must exist");
+  assert.doesNotMatch(
+    missing[1] ?? "",
+    /passkey\/|\.well-known\/webauthn/,
+    "the allowlist must contain no missing passkey routes"
+  );
   assert.equal(ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT.passkeys, false);
 });
 

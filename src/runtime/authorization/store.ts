@@ -62,7 +62,7 @@ export interface AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<void>;
+  }): Promise<{ reassignedMemberIds: readonly string[] }>;
   ensureCatalog(): Promise<void>;
   getRole(
     id: string,

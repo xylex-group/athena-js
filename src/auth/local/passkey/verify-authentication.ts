@@ -15,6 +15,7 @@ import { sanitizeHookSession } from "../../hooks/sanitize.ts";
 import { requireUserVerificationFromPolicy } from "../../passkey/policy.ts";
 import type { AthenaPasskeyRelyingParty } from "../../passkey/server/types.ts";
 import { AthenaAuthRuntimeError, jsonResponse } from "../errors.ts";
+import { requireIdentityConnectionForEmail } from "../identity-connections/policy.ts";
 import type { AthenaAuthStores } from "../memory-stores.ts";
 import {
   type AuthSessionRow,
@@ -213,6 +214,7 @@ export async function handleVerifyAuthenticationRoute(
         "Passkey signature counter regression"
       );
     }
+    await requireIdentityConnectionForEmail(ctx.stores, user.email);
 
     const session = await ctx.mutate({
       context: {

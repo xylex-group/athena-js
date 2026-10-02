@@ -17,6 +17,8 @@ export const ATHENA_AUTH_DOMAIN_EVENTS = {
   "apiKey.create": { status: "implemented" },
   "apiKey.delete": { status: "implemented" },
   "apiKey.update": { status: "implemented" },
+  "authorization.member.roles.replace": { status: "implemented" },
+  "authorization.role.delete": { status: "implemented" },
   "organization.create": { status: "implemented" },
   "organization.delete": { status: "implemented" },
   "organization.invitation.accept": { status: "implemented" },
@@ -57,6 +59,9 @@ export const ATHENA_AUTH_DOMAIN_EVENTS = {
   "user.sign-in.social": { status: "implemented" },
   "user.unban": { status: "implemented" },
   "user.update": { status: "implemented" },
+  "identity.connection.create": { status: "implemented" },
+  "identity.connection.update": { status: "implemented" },
+  "identity.connection.disable": { status: "implemented" },
 } as const satisfies Record<
   string,
   { readonly status: AthenaAuthDomainEventStatus }

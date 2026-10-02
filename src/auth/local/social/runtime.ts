@@ -16,6 +16,7 @@ export interface AthenaEmbeddedSocialRuntime {
 }
 
 export interface ComposeEmbeddedSocialRuntimeInput {
+  allowEmptyProviders?: boolean;
   database?: AthenaAuthDatabase;
   secret?: string;
   social: NormalizedSocialAuthConfig;
@@ -29,12 +30,17 @@ function isRegisteredSocialProvider(id: string): boolean {
 
 function configuredProviderIds(social: NormalizedSocialAuthConfig): string[] {
   return Object.entries(social.providers)
-    .filter(
-      ([id, bag]) =>
-        Boolean(bag.clientId?.trim()) &&
-        Boolean(bag.clientSecret?.trim()) &&
-        (isRegisteredSocialProvider(id) || isGenericOidcProviderOptions(bag))
-    )
+    .filter(([id, bag]) => {
+      if (!bag.clientId?.trim()) return false;
+      if (isRegisteredSocialProvider(id)) {
+        return Boolean(bag.clientSecret?.trim()) || id === "athena";
+      }
+      if (!isGenericOidcProviderOptions(bag)) return false;
+      return (
+        Boolean(bag.clientSecret?.trim()) ||
+        bag.tokenEndpointAuthMethod === "none"
+      );
+    })
     .map(([id]) => id)
     .sort();
 }
@@ -71,7 +77,7 @@ export function resolveSocialEncryptionSecret(input: {
 export function composeEmbeddedSocialRuntime(
   input: ComposeEmbeddedSocialRuntimeInput
 ): AthenaEmbeddedSocialRuntime | null {
-  if (!hasConfiguredSocialProviders(input.social)) {
+  if (!input.allowEmptyProviders && !hasConfiguredSocialProviders(input.social)) {
     return null;
   }
   const secret = input.secret?.trim();

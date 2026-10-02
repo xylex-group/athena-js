@@ -3,12 +3,19 @@ import { MemoryAuthStores } from "./memory-stores.ts";
 import { ATHENA_AUTH_SQLITE_SCHEMA } from "./sqlite-schema.ts";
 import type {
   AuthAccountRow,
+  AuthFederatedIdentityRow,
+  AuthIdentityConnectionRow,
   AuthMemberRow,
   AuthOrganizationRow,
   AuthSessionRow,
   AuthUserRow,
   AuthVerificationRow,
 } from "./models.ts";
+import type {
+  CreateAuthFederatedIdentityInput,
+  CreateAuthIdentityConnectionInput,
+  UpdateAuthIdentityConnectionInput,
+} from "./identity-connections/types.ts";
 import type { CreateSessionInput, CreateUserInput } from "./stores.ts";
 
 function iso(value: Date | string): string {
@@ -87,6 +94,24 @@ export class SqliteAuthStores extends MemoryAuthStores {
     );
     for (const row of members.rows) {
       this.members.set(row.id, row);
+    }
+    const connections = await this.database.query<AuthIdentityConnectionRow>(
+      "SELECT * FROM athena_auth_identity_connection"
+    );
+    for (const row of connections.rows) {
+      this.identityConnections.set(row.id, {
+        ...row,
+        authentication_required: Boolean(row.authentication_required),
+        domains: parseJsonArray(row.domains),
+        enabled: Boolean(row.enabled),
+        jit_enabled: Boolean(row.jit_enabled),
+      });
+    }
+    const identities = await this.database.query<AuthFederatedIdentityRow>(
+      "SELECT * FROM athena_auth_federated_identity"
+    );
+    for (const row of identities.rows) {
+      this.federatedIdentities.set(row.id, row);
     }
     const userRoles = await this.database.query<{ role_key: string; user_id: string }>(
       "SELECT user_id, role_key FROM athena_auth_user_role",
@@ -259,5 +284,133 @@ export class SqliteAuthStores extends MemoryAuthStores {
       [row.id, row.role],
     );
     return row;
+  }
+
+  override async createIdentityConnection(
+    input: CreateAuthIdentityConnectionInput
+  ): Promise<AuthIdentityConnectionRow> {
+    const row = await super.createIdentityConnection(input);
+    await this.database.query(
+      `INSERT INTO athena_auth_identity_connection (
+        id, organization_id, connection_type, name, issuer, client_id, resource_uri, token_endpoint_auth_method,
+        credential_ref, enabled, domains, jit_enabled, jit_default_role_id,
+        authentication_required, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        row.id,
+        row.organization_id,
+        row.connection_type,
+        row.name,
+        row.issuer,
+        row.client_id,
+        row.resource_uri,
+        row.token_endpoint_auth_method,
+        row.credential_ref,
+        flag(row.enabled),
+        JSON.stringify(row.domains),
+        flag(row.jit_enabled),
+        row.jit_default_role_id,
+        flag(row.authentication_required),
+        iso(row.created_at),
+        iso(row.updated_at),
+      ]
+    );
+    return row;
+  }
+
+  override async updateIdentityConnection(
+    id: string,
+    patch: UpdateAuthIdentityConnectionInput
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const row = await super.updateIdentityConnection(id, patch);
+    if (!row) return;
+    await this.database.query(
+      `UPDATE athena_auth_identity_connection SET
+        name = ?, client_id = ?, resource_uri = ?, token_endpoint_auth_method = ?, credential_ref = ?, enabled = ?, domains = ?,
+        jit_enabled = ?, jit_default_role_id = ?, authentication_required = ?,
+        updated_at = ? WHERE id = ?`,
+      [
+        row.name,
+        row.client_id,
+        row.resource_uri,
+        row.token_endpoint_auth_method,
+        row.credential_ref,
+        flag(row.enabled),
+        JSON.stringify(row.domains),
+        flag(row.jit_enabled),
+        row.jit_default_role_id,
+        flag(row.authentication_required),
+        iso(row.updated_at),
+        id,
+      ]
+    );
+    return row;
+  }
+
+  override async disableIdentityConnection(id: string): Promise<boolean> {
+    const disabled = await super.disableIdentityConnection(id);
+    if (disabled) {
+      await this.database.query(
+        "UPDATE athena_auth_identity_connection SET enabled = 0, updated_at = ? WHERE id = ?",
+        [new Date().toISOString(), id]
+      );
+    }
+    return disabled;
+  }
+
+  override async linkFederatedIdentity(
+    input: CreateAuthFederatedIdentityInput
+  ): Promise<AuthFederatedIdentityRow> {
+    const row = await super.linkFederatedIdentity(input);
+    await this.database.query(
+      `INSERT OR IGNORE INTO athena_auth_federated_identity (
+        id, connection_id, issuer, subject, user_id, last_authenticated_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        row.id,
+        row.connection_id,
+        row.issuer,
+        row.subject,
+        row.user_id,
+        row.last_authenticated_at
+          ? iso(row.last_authenticated_at)
+          : null,
+        iso(row.created_at),
+        iso(row.updated_at),
+      ]
+    );
+    const existing = await this.database.query<AuthFederatedIdentityRow>(
+      `SELECT * FROM athena_auth_federated_identity
+       WHERE connection_id = ? AND issuer = ? AND subject = ?`,
+      [row.connection_id, row.issuer, row.subject]
+    );
+    if (existing.rows[0]?.user_id !== input.userId) {
+      throw new Error("federated identity is already linked");
+    }
+    this.federatedIdentities.set(existing.rows[0].id, existing.rows[0]);
+    return existing.rows[0];
+  }
+
+  override async touchFederatedIdentity(id: string, at: Date): Promise<boolean> {
+    const result = await this.database.query(
+      `UPDATE athena_auth_federated_identity
+       SET last_authenticated_at = ?, updated_at = ? WHERE id = ?`,
+      [at.toISOString(), new Date().toISOString(), id]
+    );
+    const touched = (result.rowCount ?? 0) > 0;
+    if (touched) await super.touchFederatedIdentity(id, at);
+    return touched;
+  }
+}
+
+function parseJsonArray(value: string[] | string): string[] {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string")
+      : [];
+  } catch {
+    return [];
   }
 }

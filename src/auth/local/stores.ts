@@ -12,14 +12,25 @@ import {
 } from "./authentication-context.ts";
 import type { AthenaAuthDatabase } from "./database.ts";
 import type {
+  OrganizationAuthenticationPosturePage,
+  OrganizationAuthenticationPostureRow,
+} from "./memory-stores.ts";
+import type {
   AuthAccountRow,
   AuthInvitationRow,
+  AuthFederatedIdentityRow,
+  AuthIdentityConnectionRow,
   AuthMemberRow,
   AuthOrganizationRow,
   AuthSessionRow,
   AuthUserRow,
   AuthVerificationRow,
 } from "./models.ts";
+import type {
+  CreateAuthFederatedIdentityInput,
+  CreateAuthIdentityConnectionInput,
+  UpdateAuthIdentityConnectionInput,
+} from "./identity-connections/types.ts";
 import { parseMetadata } from "./models.ts";
 
 export interface CreateUserInput {
@@ -93,6 +104,175 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
 
   constructor(private readonly db: AthenaAuthDatabase) {
     this.authorization = new PostgresAuthorizationStore(db);
+  }
+
+  async lockIdentityConnectionDomainRouting(): Promise<void> {
+    await this.db.query(
+      "SELECT pg_advisory_xact_lock(hashtext('athena.identity_connection_domain_routing'))"
+    );
+  }
+
+  async createIdentityConnection(
+    input: CreateAuthIdentityConnectionInput
+  ): Promise<AuthIdentityConnectionRow> {
+    const result = await this.db.query<AuthIdentityConnectionRow>(
+      `INSERT INTO ${ATHENA_AUTH_TABLES.identityConnections} (
+        id, organization_id, connection_type, name, issuer, client_id, resource_uri, token_endpoint_auth_method,
+        credential_ref, enabled, domains, jit_enabled, jit_default_role_id,
+        authentication_required
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *`,
+      [
+        input.id,
+        input.organizationId,
+        input.connectionType,
+        input.name,
+        input.issuer,
+        input.clientId,
+        input.resource,
+        input.tokenEndpointAuthMethod,
+        input.credentialRef,
+        input.enabled,
+        input.domains,
+        input.jitEnabled,
+        input.jitDefaultRoleId,
+        input.authenticationRequired,
+      ]
+    );
+    return result.rows[0] as AuthIdentityConnectionRow;
+  }
+
+  async getIdentityConnection(
+    id: string
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const result = await this.db.query<AuthIdentityConnectionRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.identityConnections} WHERE id = $1`,
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  async listIdentityConnections(
+    organizationId: string
+  ): Promise<AuthIdentityConnectionRow[]> {
+    const result = await this.db.query<AuthIdentityConnectionRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.identityConnections}
+       WHERE organization_id = $1 ORDER BY created_at DESC, id ASC`,
+      [organizationId]
+    );
+    return result.rows;
+  }
+
+  async updateIdentityConnection(
+    id: string,
+    patch: UpdateAuthIdentityConnectionInput
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const result = await this.db.query<AuthIdentityConnectionRow>(
+      `UPDATE ${ATHENA_AUTH_TABLES.identityConnections}
+       SET name = CASE WHEN $2::boolean THEN $3 ELSE name END,
+           client_id = CASE WHEN $4::boolean THEN $5 ELSE client_id END,
+           resource_uri = CASE WHEN $6::boolean THEN $7 ELSE resource_uri END,
+           token_endpoint_auth_method = COALESCE($8, token_endpoint_auth_method),
+           credential_ref = CASE WHEN $9::boolean THEN $10 ELSE credential_ref END,
+           enabled = COALESCE($11, enabled),
+           domains = COALESCE($12, domains),
+           jit_enabled = COALESCE($13, jit_enabled),
+           jit_default_role_id = CASE WHEN $14::boolean THEN $15 ELSE jit_default_role_id END,
+           authentication_required = COALESCE($16, authentication_required),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [
+        id,
+        patch.name !== undefined,
+        patch.name ?? null,
+        patch.clientId !== undefined,
+        patch.clientId ?? null,
+        patch.resource !== undefined,
+        patch.resource ?? null,
+        patch.tokenEndpointAuthMethod ?? null,
+        patch.credentialRef !== undefined,
+        patch.credentialRef ?? null,
+        patch.enabled ?? null,
+        patch.domains ?? null,
+        patch.jitEnabled ?? null,
+        patch.jitDefaultRoleId !== undefined,
+        patch.jitDefaultRoleId ?? null,
+        patch.authenticationRequired ?? null,
+      ]
+    );
+    return result.rows[0];
+  }
+
+  async disableIdentityConnection(id: string): Promise<boolean> {
+    const result = await this.db.query(
+      `UPDATE ${ATHENA_AUTH_TABLES.identityConnections}
+       SET enabled = FALSE, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async findIdentityConnectionByDomain(
+    domain: string
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const result = await this.db.query<AuthIdentityConnectionRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.identityConnections}
+       WHERE enabled = TRUE AND $1 = ANY(domains)
+       ORDER BY id LIMIT 2`,
+      [domain.trim().toLowerCase()]
+    );
+    if (result.rows.length > 1) {
+      throw new Error("email domain matches multiple identity connections");
+    }
+    return result.rows[0];
+  }
+
+  async findFederatedIdentity(
+    connectionId: string,
+    issuer: string,
+    subject: string
+  ): Promise<AuthFederatedIdentityRow | undefined> {
+    const result = await this.db.query<AuthFederatedIdentityRow>(
+      `SELECT * FROM ${ATHENA_AUTH_TABLES.federatedIdentities}
+       WHERE connection_id = $1 AND issuer = $2 AND subject = $3`,
+      [connectionId, issuer, subject]
+    );
+    return result.rows[0];
+  }
+
+  async linkFederatedIdentity(
+    input: CreateAuthFederatedIdentityInput
+  ): Promise<AuthFederatedIdentityRow> {
+    const inserted = await this.db.query<AuthFederatedIdentityRow>(
+      `INSERT INTO ${ATHENA_AUTH_TABLES.federatedIdentities}
+        (id, connection_id, issuer, subject, user_id)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (connection_id, issuer, subject) DO NOTHING
+       RETURNING *`,
+      [input.id, input.connectionId, input.issuer, input.subject, input.userId]
+    );
+    if (inserted.rows[0]) {
+      return inserted.rows[0];
+    }
+    const existing = await this.findFederatedIdentity(
+      input.connectionId,
+      input.issuer,
+      input.subject
+    );
+    if (existing?.user_id !== input.userId) {
+      throw new Error("federated identity is already linked");
+    }
+    return existing;
+  }
+
+  async touchFederatedIdentity(id: string, at: Date): Promise<boolean> {
+    const result = await this.db.query(
+      `UPDATE ${ATHENA_AUTH_TABLES.federatedIdentities}
+       SET last_authenticated_at = $2, updated_at = NOW() WHERE id = $1`,
+      [id, at]
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getUserById(id: string): Promise<AuthUserRow | undefined> {
@@ -697,6 +877,51 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
       [organizationId]
     );
     return result.rows;
+  }
+
+  async listAuthenticationPosture(input: {
+    limit: number;
+    offset: number;
+    organizationId: string;
+  }): Promise<OrganizationAuthenticationPosturePage> {
+    const [memberResult, countResult] = await Promise.all([
+      this.db.query<OrganizationAuthenticationPostureRow>(
+        `SELECT
+           m.user_id AS "userId",
+           COALESCE(u.two_factor_enabled, FALSE) AS "twoFactorEnabled",
+           EXISTS (
+             SELECT 1 FROM ${ATHENA_AUTH_TABLES.accounts} a
+             WHERE a.user_id = m.user_id
+               AND a.provider_id = 'credential'
+               AND a.password IS NOT NULL
+               AND a.password <> ''
+           ) AS "hasPassword",
+           EXISTS (
+             SELECT 1 FROM ${ATHENA_AUTH_TABLES.accounts} a
+             WHERE a.user_id = m.user_id
+               AND a.provider_id <> 'credential'
+           ) AS "hasSocial",
+           EXISTS (
+             SELECT 1 FROM ${ATHENA_AUTH_TABLES.passkeys} p
+             WHERE p.user_id = m.user_id
+           ) AS "hasPasskey"
+         FROM ${ATHENA_AUTH_TABLES.member} m
+         LEFT JOIN ${ATHENA_AUTH_TABLES.users} u ON u.id = m.user_id
+         WHERE m.organization_id = $1
+         ORDER BY m.created_at ASC, m.user_id ASC
+         LIMIT $2 OFFSET $3`,
+        [input.organizationId, input.limit, input.offset]
+      ),
+      this.db.query<{ total: string | number }>(
+        `SELECT COUNT(*) AS total FROM ${ATHENA_AUTH_TABLES.member}
+         WHERE organization_id = $1`,
+        [input.organizationId]
+      ),
+    ]);
+    return {
+      members: memberResult.rows,
+      total: Number(countResult.rows[0]?.total ?? 0),
+    };
   }
 
   async updateMemberRole(

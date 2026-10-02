@@ -7,7 +7,7 @@ import {
 } from "../src/runtime/authorization/catalog-state.ts";
 
 test("authorization catalog fingerprints are stable for the current catalog version", () => {
-  assert.equal(AUTHORIZATION_CATALOG_VERSION, 3);
+  assert.equal(AUTHORIZATION_CATALOG_VERSION, 5);
   const rights = authorizationRightsFingerprint();
   const roles = authorizationRolesFingerprint();
   assert.match(rights, /^[a-f0-9]{64}$/);

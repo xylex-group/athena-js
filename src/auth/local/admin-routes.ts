@@ -10,9 +10,9 @@ import {
   type AthenaAuthAdminStore,
   canActOnAdminTarget,
   canAssignRole,
-  isAthenaAdminRole,
   normalizeAdminRole,
 } from "./admin-contract.ts";
+import { requireAthenaAdmin } from "./admin-guard.ts";
 import {
   type IssueSessionAuthentication,
   impersonationAuthenticationFromActor,
@@ -74,11 +74,7 @@ async function requireAdmin(
   request: Request,
   ctx: AdminRouteContext
 ): Promise<{ session: AuthSessionRow; token: string; user: AuthUserRow }> {
-  const resolved = await ctx.requireSession(request);
-  if (!isAthenaAdminRole(resolved.user.role)) {
-    throw AthenaAuthRuntimeError.forbidden("Administrator access required");
-  }
-  return resolved;
+  return requireAthenaAdmin(request, ctx.requireSession);
 }
 
 function parseBoolean(value: string | null): boolean | undefined {

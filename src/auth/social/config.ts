@@ -6,8 +6,10 @@ export interface AthenaAuthSocialProviderOptions {
   clientSecret?: string;
   issuer?: string;
   jwksEndpoint?: string;
+  resource?: string;
   scope?: string[];
   tokenEndpoint?: string;
+  tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post" | "none";
   userInfoEndpoint?: string;
 }
 
@@ -51,13 +53,32 @@ function normalizeSocialProviderBag(
   if (!record) {
     return;
   }
+  if (
+    record.tokenEndpointAuthMethod !== undefined &&
+    record.tokenEndpointAuthMethod !== "client_secret_basic" &&
+    record.tokenEndpointAuthMethod !== "client_secret_post" &&
+    record.tokenEndpointAuthMethod !== "none"
+  ) {
+    throw new AthenaConfigurationError(
+      "ATHENA_RUNTIME_CONFIG_INVALID",
+      "auth.social.providers tokenEndpointAuthMethod must be client_secret_basic, client_secret_post, or none",
+      "auth"
+    );
+  }
   const normalized = {
     ...record,
     authorizationEndpoint: asString(record.authorizationEndpoint),
     clientId: asString(record.clientId) ?? "",
     issuer: asString(record.issuer),
     jwksEndpoint: asString(record.jwksEndpoint),
+    resource: asString(record.resource),
     tokenEndpoint: asString(record.tokenEndpoint),
+    tokenEndpointAuthMethod:
+      record.tokenEndpointAuthMethod === "client_secret_basic" ||
+      record.tokenEndpointAuthMethod === "client_secret_post" ||
+      record.tokenEndpointAuthMethod === "none"
+        ? record.tokenEndpointAuthMethod
+        : undefined,
     userInfoEndpoint: asString(record.userInfoEndpoint),
   } as AthenaAuthSocialProviderOptions;
   if (preserveSecret) {

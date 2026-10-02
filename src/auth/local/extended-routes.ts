@@ -56,6 +56,12 @@ import {
   verifyTotpCode,
 } from "./totp.ts";
 
+export type ResolvedApiKeyPrincipal = {
+  key: AuthApiKeyRow;
+  permissions?: AthenaRightKey[];
+  user: AuthUserRow;
+};
+
 export interface ExtendedRouteContext {
   config: NormalizedAthenaAuthConfig;
   emitMail?: MailerEmit;
@@ -1017,15 +1023,10 @@ export async function handleExtendedRoute(
 export async function resolveApiKeyUser(
   request: Request,
   stores: AthenaAuthStores
-): Promise<
-  | {
-      key: AuthApiKeyRow;
-      permissions?: AthenaRightKey[];
-      user: AuthUserRow;
-    }
-  | undefined
-> {
-  const rawKey = request.headers.get("x-api-key")?.trim();
+): Promise<ResolvedApiKeyPrincipal | undefined> {
+  const rawKey =
+    request.headers.get("x-api-key")?.trim() ??
+    readBearerToken(request.headers.get("authorization"));
   if (!rawKey) {
     return;
   }

@@ -6,8 +6,12 @@ import type {
   OAuthClient,
   OAuthRefreshToken,
   OAuthRevokedAccessToken,
+  OidcIdentityScope,
+  OidcPrompt,
 } from "../../authorization-server/types.ts";
 import { normalizeRegisteredRedirectUri } from "../../authorization-server/redirect-uri.ts";
+import { normalizeResourceUri } from "../../authorization-server/resource.ts";
+import { OAuthProtocolError } from "../../authorization-server/errors.ts";
 import type { AthenaAuthDatabase } from "../database.ts";
 import { isUniqueViolation } from "../runtime-helpers.ts";
 import {
@@ -15,9 +19,19 @@ import {
   type CreateOAuthAuthorizationCodeInput,
   type CreateOAuthClientInput,
   type OAuthAuthorizationServerStores,
+  type OAuthGrantListInput,
   type OAuthRefreshRotationResult,
   type RotateOAuthRefreshTokenInput,
+  type UpdateOAuthClientInput,
 } from "./store.ts";
+
+function normalizeScopes(scopes: readonly string[]): string[] {
+  return [...new Set(scopes.map((scope) => scope.trim()).filter(Boolean))].sort();
+}
+
+function normalizeResourceUris(resources: readonly string[]): string[] {
+  return [...new Set(resources.map(normalizeResourceUri))].sort();
+}
 
 function date(value: unknown): Date {
   return value instanceof Date ? new Date(value) : new Date(String(value));
@@ -76,6 +90,7 @@ function grant(row: Record<string, unknown>): OAuthAuthorizationGrant {
     createdAt: date(row.created_at),
     expiresAt: nullableDate(row.expires_at),
     id: String(row.id),
+    identityScopes: stringArray(row.identity_scopes) as OidcIdentityScope[],
     lastUsedAt: nullableDate(row.last_used_at),
     organizationId:
       typeof row.organization_id === "string" ? row.organization_id : null,
@@ -104,8 +119,17 @@ function authorizationRequest(
     createdAt: date(row.created_at),
     expiresAt: date(row.expires_at),
     id: String(row.id),
+    identityScopes: stringArray(row.identity_scopes) as OidcIdentityScope[],
+    maxAge:
+      row.max_age == null
+        ? null
+        : typeof row.max_age === "number"
+          ? row.max_age
+          : Number(row.max_age),
+    nonce: typeof row.nonce === "string" ? row.nonce : null,
     organizationId:
       typeof row.organization_id === "string" ? row.organization_id : null,
+    prompt: stringArray(row.prompt) as OidcPrompt[],
     redirectUri: String(row.redirect_uri),
     requestedScopes: stringArray(row.requested_scopes),
     resolvedAt: nullableDate(row.resolved_at),
@@ -122,8 +146,12 @@ function authorizationRequest(
   };
 }
 
-function authorizationCode(row: Record<string, unknown>): OAuthAuthorizationCode {
+function authorizationCode(
+  row: Record<string, unknown>
+): OAuthAuthorizationCode {
   return {
+    authenticatedAt: date(row.authenticated_at ?? row.created_at),
+    authenticationMethods: stringArray(row.authentication_methods),
     clientId: String(row.client_id),
     codeChallenge: String(row.code_challenge),
     codeChallengeMethod: "S256",
@@ -134,6 +162,8 @@ function authorizationCode(row: Record<string, unknown>): OAuthAuthorizationCode
     expiresAt: date(row.expires_at),
     grantId: String(row.grant_id),
     id: String(row.id),
+    identityScopes: stringArray(row.identity_scopes) as OidcIdentityScope[],
+    nonce: typeof row.nonce === "string" ? row.nonce : null,
     organizationId:
       typeof row.organization_id === "string" ? row.organization_id : null,
     redirectUri: String(row.redirect_uri),
@@ -152,6 +182,7 @@ function refreshToken(row: Record<string, unknown>): OAuthRefreshToken {
     familyId: String(row.family_id),
     grantId: String(row.grant_id),
     id: String(row.id),
+    identityScopes: stringArray(row.identity_scopes) as OidcIdentityScope[],
     organizationId:
       typeof row.organization_id === "string" ? row.organization_id : null,
     parentTokenId:
@@ -209,24 +240,55 @@ export function createPostgresOAuthAuthorizationServerStores(
            WHERE client_id = $1 AND user_id = $2
              AND organization_id IS NOT DISTINCT FROM $3
              AND resource = $4 AND status = 'active'
+             AND (expires_at IS NULL OR expires_at > NOW())
            FOR UPDATE`,
-          [input.clientId, input.userId, input.organizationId ?? null, input.resource]
+          [
+            input.clientId,
+            input.userId,
+            input.organizationId ?? null,
+            input.resource,
+          ]
         );
+        const lockedGrant = existingGrant.rows[0]
+          ? grant(existingGrant.rows[0])
+          : null;
+        if (
+          input.preserveExistingGrant &&
+          (!lockedGrant ||
+            input.scopes.some((scope) => !lockedGrant.scopes.includes(scope)) ||
+            input.identityScopes.some(
+              (scope) => !lockedGrant.identityScopes.includes(scope)
+            ))
+        ) {
+          throw new OAuthProtocolError(
+            "consent_required",
+            "The user has not consented to this request."
+          );
+        }
         let grantRow: Record<string, unknown>;
-        if (existingGrant.rows[0]) {
+        if (input.preserveExistingGrant) {
+          grantRow = existingGrant.rows[0] as Record<string, unknown>;
+        } else if (existingGrant.rows[0]) {
           const updated = await tx.query<Record<string, unknown>>(
             `UPDATE ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants}
-             SET scopes = $2, authorized_at = NOW(), updated_at = NOW()
+             SET scopes = $2,
+                 identity_scopes = $3,
+                 authorized_at = NOW(), updated_at = NOW()
              WHERE id = $1
              RETURNING *`,
-            [existingGrant.rows[0].id, input.scopes]
+            [
+              existingGrant.rows[0].id,
+              input.scopes,
+              input.identityScopes,
+            ]
           );
           grantRow = updated.rows[0] as Record<string, unknown>;
         } else {
           const created = await tx.query<Record<string, unknown>>(
             `INSERT INTO ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants} (
-               id, user_id, organization_id, client_id, resource, scopes
-             ) VALUES ($1, $2, $3, $4, $5, $6)
+               id, user_id, organization_id, client_id, resource, scopes,
+               identity_scopes
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING *`,
             [
               crypto.randomUUID(),
@@ -235,6 +297,7 @@ export function createPostgresOAuthAuthorizationServerStores(
               input.clientId,
               input.resource,
               input.scopes,
+              input.identityScopes,
             ]
           );
           grantRow = created.rows[0] as Record<string, unknown>;
@@ -243,8 +306,9 @@ export function createPostgresOAuthAuthorizationServerStores(
           `INSERT INTO ${ATHENA_AUTH_TABLES.oauthAuthorizationCodes} (
              id, code_hash, grant_id, user_id, organization_id, client_id,
              redirect_uri, resource, scopes, code_challenge,
-             code_challenge_method, expires_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             code_challenge_method, expires_at, identity_scopes, nonce, authenticated_at,
+             authentication_methods
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            RETURNING *`,
           [
             input.id,
@@ -259,6 +323,10 @@ export function createPostgresOAuthAuthorizationServerStores(
             input.codeChallenge,
             input.codeChallengeMethod,
             input.expiresAt,
+            input.identityScopes,
+            input.nonce ?? null,
+            input.authenticatedAt,
+            input.authenticationMethods,
           ]
         );
         const consumedRequest = await tx.query<Record<string, unknown>>(
@@ -270,10 +338,14 @@ export function createPostgresOAuthAuthorizationServerStores(
           [input.requestId, input.userId, input.organizationId ?? null]
         );
         if (!consumedRequest.rows[0]) {
-          throw new Error("OAuth authorization interaction could not be consumed");
+          throw new Error(
+            "OAuth authorization interaction could not be consumed"
+          );
         }
         return {
-          code: authorizationCode(codeResult.rows[0] as Record<string, unknown>),
+          code: authorizationCode(
+            codeResult.rows[0] as Record<string, unknown>
+          ),
           grant: grant(grantRow),
           request: authorizationRequest(consumedRequest.rows[0]),
         };
@@ -345,8 +417,9 @@ export function createPostgresOAuthAuthorizationServerStores(
           `INSERT INTO ${ATHENA_AUTH_TABLES.oauthAuthorizationCodes} (
              id, code_hash, grant_id, user_id, organization_id, client_id,
              redirect_uri, resource, scopes, code_challenge,
-             code_challenge_method, expires_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             code_challenge_method, expires_at, nonce, authenticated_at,
+             authentication_methods
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
            RETURNING *`,
           [
             input.id,
@@ -361,6 +434,9 @@ export function createPostgresOAuthAuthorizationServerStores(
             input.codeChallenge,
             input.codeChallengeMethod,
             input.expiresAt,
+            input.nonce ?? null,
+            input.authenticatedAt ?? new Date(),
+            input.authenticationMethods ?? [],
           ]
         );
         return authorizationCode(result.rows[0] as Record<string, unknown>);
@@ -384,17 +460,16 @@ export function createPostgresOAuthAuthorizationServerStores(
            RETURNING *`,
           [id, input.userId, input.organizationId ?? null]
         );
-        return result.rows[0]
-          ? authorizationRequest(result.rows[0])
-          : null;
+        return result.rows[0] ? authorizationRequest(result.rows[0]) : null;
       },
       async create(input) {
         const result = await database.query<Record<string, unknown>>(
           `INSERT INTO ${ATHENA_AUTH_TABLES.oauthAuthorizationRequests} (
              id, request_hash, client_id, redirect_uri, resource,
              requested_scopes, state_ciphertext, code_challenge,
-             code_challenge_method, user_id, organization_id, expires_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             code_challenge_method, user_id, organization_id, expires_at,
+             identity_scopes, nonce, max_age, prompt
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
            RETURNING *`,
           [
             input.id,
@@ -409,6 +484,10 @@ export function createPostgresOAuthAuthorizationServerStores(
             input.userId ?? null,
             input.organizationId ?? null,
             input.expiresAt,
+            input.identityScopes ?? [],
+            input.nonce ?? null,
+            input.maxAge ?? null,
+            input.prompt ?? [],
           ]
         );
         return authorizationRequest(result.rows[0] as Record<string, unknown>);
@@ -454,8 +533,8 @@ export function createPostgresOAuthAuthorizationServerStores(
             input.id,
             input.clientName,
             input.redirectUris.map(normalizeRegisteredRedirectUri),
-            input.scopes,
-            input.resourceUris,
+            normalizeScopes(input.scopes),
+            normalizeResourceUris(input.resourceUris),
             input.clientUrl ?? null,
             input.metadata ?? {},
           ]
@@ -477,7 +556,33 @@ export function createPostgresOAuthAuthorizationServerStores(
         );
         return result.rows[0] ? client(result.rows[0]) : null;
       },
-      async update(clientId, input) {
+      async list(input = {}) {
+        const where =
+          input.isActive === undefined ? "" : "WHERE is_active = $1";
+        const params = input.isActive === undefined ? [] : [input.isActive];
+        const count = await database.query<{ total: string | number }>(
+          `SELECT COUNT(*) AS total FROM ${ATHENA_AUTH_TABLES.oauthClients} ${where}`,
+          params
+        );
+        const offset = Math.max(0, Math.trunc(input.offset ?? 0));
+        const limit = input.limit === undefined ? "ALL" : `$${params.length + 1}`;
+        const pageParams: unknown[] = [...params];
+        if (input.limit !== undefined) {
+          pageParams.push(Math.max(0, Math.trunc(input.limit)));
+        }
+        pageParams.push(offset);
+        const rows = await database.query<Record<string, unknown>>(
+          `SELECT * FROM ${ATHENA_AUTH_TABLES.oauthClients} ${where}
+           ORDER BY created_at DESC, id ASC
+           LIMIT ${limit} OFFSET $${pageParams.length}`,
+          pageParams
+        );
+        return {
+          clients: rows.rows.map(client),
+          total: Number(count.rows[0]?.total ?? 0),
+        };
+      },
+      async update(clientId: string, input: UpdateOAuthClientInput) {
         const existing = await this.get(clientId);
         if (!existing) {
           return null;
@@ -492,12 +597,16 @@ export function createPostgresOAuthAuthorizationServerStores(
           [
             clientId,
             input.clientName ?? existing.clientName,
-            input.clientUrl === undefined ? existing.clientUrl : input.clientUrl,
+            input.clientUrl === undefined
+              ? existing.clientUrl
+              : input.clientUrl,
             input.redirectUris
               ? input.redirectUris.map(normalizeRegisteredRedirectUri)
               : existing.redirectUris,
-            input.scopes ?? existing.scopes,
-            input.resourceUris ?? existing.resourceUris,
+            input.scopes ? normalizeScopes(input.scopes) : existing.scopes,
+            input.resourceUris
+              ? normalizeResourceUris(input.resourceUris)
+              : existing.resourceUris,
             input.metadata ?? existing.metadata,
           ]
         );
@@ -508,39 +617,44 @@ export function createPostgresOAuthAuthorizationServerStores(
       async authorize(input: AuthorizeOAuthGrantInput) {
         try {
           return await transaction(async (tx) => {
-          const existing = await tx.query<Record<string, unknown>>(
-            `SELECT * FROM ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants}
+            const existing = await tx.query<Record<string, unknown>>(
+              `SELECT * FROM ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants}
              WHERE client_id = $1 AND user_id = $2
                AND organization_id IS NOT DISTINCT FROM $3
                AND resource = $4 AND status = 'active'
              FOR UPDATE`,
-            [input.clientId, input.userId, input.organizationId, input.resource]
-          );
-          if (existing.rows[0]) {
-            const result = await tx.query<Record<string, unknown>>(
-              `UPDATE ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants}
+              [
+                input.clientId,
+                input.userId,
+                input.organizationId,
+                input.resource,
+              ]
+            );
+            if (existing.rows[0]) {
+              const result = await tx.query<Record<string, unknown>>(
+                `UPDATE ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants}
                SET scopes = $2, authorized_at = NOW(), updated_at = NOW()
                WHERE id = $1
                RETURNING *`,
-              [existing.rows[0].id, input.scopes]
-            );
-            return grant(result.rows[0] as Record<string, unknown>);
-          }
-          const result = await tx.query<Record<string, unknown>>(
-            `INSERT INTO ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants} (
+                [existing.rows[0].id, input.scopes]
+              );
+              return grant(result.rows[0] as Record<string, unknown>);
+            }
+            const result = await tx.query<Record<string, unknown>>(
+              `INSERT INTO ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants} (
                id, user_id, organization_id, client_id, resource, scopes
              ) VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING *`,
-            [
-              crypto.randomUUID(),
-              input.userId,
-              input.organizationId,
-              input.clientId,
-              input.resource,
-              input.scopes,
-            ]
-          );
-          return grant(result.rows[0] as Record<string, unknown>);
+              [
+                crypto.randomUUID(),
+                input.userId,
+                input.organizationId,
+                input.clientId,
+                input.resource,
+                input.scopes,
+              ]
+            );
+            return grant(result.rows[0] as Record<string, unknown>);
           });
         } catch (error) {
           if (!isUniqueViolation(error)) {
@@ -572,13 +686,61 @@ export function createPostgresOAuthAuthorizationServerStores(
         return result.rows[0] ? grant(result.rows[0]) : null;
       },
       async listForUser(userId) {
+        return (await this.list({ userId })).grants;
+      },
+      async list(input: OAuthGrantListInput = {}) {
+        const clauses: string[] = [];
+        const params: unknown[] = [];
+        for (const [key, column] of [
+          ["userId", "user_id"],
+          ["clientId", "client_id"],
+          ["organizationId", "organization_id"],
+          ["resource", "resource"],
+        ] as const) {
+          const value = input[key];
+          if (value !== undefined) {
+            params.push(value);
+            clauses.push(
+              key === "organizationId"
+                ? `${column} IS NOT DISTINCT FROM $${params.length}`
+                : `${column} = $${params.length}`
+            );
+          }
+        }
+        if (input.status === "active") {
+          clauses.push(
+            "(status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) AND revoked_at IS NULL)"
+          );
+        } else if (input.status === "expired") {
+          clauses.push(
+            "(status = 'expired' OR (status = 'active' AND expires_at IS NOT NULL AND expires_at <= NOW()))"
+          );
+        } else if (input.status === "revoked") {
+          clauses.push("(status = 'revoked' OR revoked_at IS NOT NULL)");
+        }
+        const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+        const count = await database.query<{ total: string | number }>(
+          `SELECT COUNT(*) AS total FROM ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants} ${where}`,
+          params
+        );
+        const offset = Math.max(0, Math.trunc(input.offset ?? 0));
+        const limit = input.limit === undefined ? "ALL" : `$${params.length + 1}`;
+        const pageParams = [...params];
+        if (input.limit !== undefined) {
+          pageParams.push(Math.max(0, Math.trunc(input.limit)));
+        }
+        pageParams.push(offset);
         const result = await database.query<Record<string, unknown>>(
           `SELECT * FROM ${ATHENA_AUTH_TABLES.oauthAuthorizationGrants}
-           WHERE user_id = $1
-           ORDER BY authorized_at DESC`,
-          [userId]
+           ${where}
+           ORDER BY authorized_at DESC, id ASC
+           LIMIT ${limit} OFFSET $${pageParams.length}`,
+          pageParams
         );
-        return result.rows.map(grant);
+        return {
+          grants: result.rows.map(grant),
+          total: Number(count.rows[0]?.total ?? 0),
+        };
       },
       async get(id) {
         const result = await database.query<Record<string, unknown>>(
@@ -611,8 +773,8 @@ export function createPostgresOAuthAuthorizationServerStores(
         const result = await database.query<Record<string, unknown>>(
           `INSERT INTO ${ATHENA_AUTH_TABLES.oauthRefreshTokens} (
              id, token_hash, family_id, grant_id, client_id, user_id,
-             organization_id, resource, scopes, parent_token_id, expires_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             organization_id, resource, scopes, identity_scopes, parent_token_id, expires_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING *`,
           [
             input.id,
@@ -624,6 +786,7 @@ export function createPostgresOAuthAuthorizationServerStores(
             input.organizationId ?? null,
             input.resource,
             input.scopes,
+            input.identityScopes,
             input.parentTokenId ?? null,
             input.expiresAt,
           ]
@@ -694,8 +857,8 @@ export function createPostgresOAuthAuthorizationServerStores(
           const inserted = await tx.query<Record<string, unknown>>(
             `INSERT INTO ${ATHENA_AUTH_TABLES.oauthRefreshTokens} (
                id, token_hash, family_id, grant_id, client_id, user_id,
-               organization_id, resource, scopes, parent_token_id, expires_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+               organization_id, resource, scopes, identity_scopes, parent_token_id, expires_at
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              RETURNING *`,
             [
               input.replacement.id,
@@ -707,6 +870,7 @@ export function createPostgresOAuthAuthorizationServerStores(
               input.replacement.organizationId ?? null,
               input.replacement.resource,
               input.replacement.scopes,
+              input.replacement.identityScopes,
               input.replacement.parentTokenId ?? null,
               input.replacement.expiresAt,
             ]

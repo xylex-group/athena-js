@@ -57,6 +57,20 @@ export type {
   AthenaApiKeyRecord,
   AthenaAuthAdminLimits,
   AthenaAuthAdminUserSessionRevokeBinding,
+  AthenaAuthorizationServerClient,
+  AthenaAuthorizationServerClientCreateRequest,
+  AthenaAuthorizationServerClientDisableRequest,
+  AthenaAuthorizationServerClientDisableResponse,
+  AthenaAuthorizationServerClientGetRequest,
+  AthenaAuthorizationServerClientListRequest,
+  AthenaAuthorizationServerClientListResponse,
+  AthenaAuthorizationServerClientResponse,
+  AthenaAuthorizationServerClientUpdateRequest,
+  AthenaAuthorizationServerGrant,
+  AthenaAuthorizationServerGrantListRequest,
+  AthenaAuthorizationServerGrantListResponse,
+  AthenaAuthorizationServerGrantRevokeRequest,
+  AthenaAuthorizationServerGrantRevokeResponse,
   AthenaAuthAfterHookPayload,
   AthenaAuthBaseURLConfig,
   AthenaAuthBeforeHookPayload,
@@ -792,9 +806,7 @@ export {
 export type { WriteModelSqlFilesOptions } from "./schema/model-sql-write.ts";
 export { writeModelSqlFiles } from "./schema/model-sql-write.ts";
 export { identifier } from "./sql-identifiers.ts";
-export {
-  createHostCanonicalQueryCompiler,
-} from "./sqlite-local/compiler.ts";
+export { createHostCanonicalQueryCompiler } from "./sqlite-local/compiler.ts";
 export { createProcessCanonicalQueryCompiler } from "./sqlite-local/host-compiler.ts";
 export type {
   AthenaCanonicalQueryCompiler,

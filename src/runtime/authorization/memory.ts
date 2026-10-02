@@ -583,12 +583,13 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<void> {
+  }): Promise<{ reassignedMemberIds: readonly string[] }> {
     await this.ensure();
     const role = this.requireScopedRole(input.id, input.organizationId);
     assertProtectedRoleImmutable(role);
     assertExpectedVersion(role, input.expectedVersion);
     const assigned = this.assignmentCount(role.id);
+    const reassignedMemberIds: string[] = [];
     if (assigned > 0) {
       const replacementId = input.reassignmentRoleId?.trim() ?? "";
       if (!replacementId) {
@@ -606,10 +607,11 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
         throwReassignmentInvalid();
       }
       if (role.scopeKind === "organization") {
-        for (const [, roleIds] of this.memberRoles) {
+        for (const [memberId, roleIds] of this.memberRoles) {
           if (roleIds.has(role.id)) {
             roleIds.delete(role.id);
             roleIds.add(replacement.id);
+            reassignedMemberIds.push(memberId);
           }
         }
       } else {
@@ -633,6 +635,7 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
       target_id: role.id,
       target_kind: "role",
     });
+    return { reassignedMemberIds };
   }
 
   async inspectGraph(): Promise<AthenaAuthorizationInspectGraph> {

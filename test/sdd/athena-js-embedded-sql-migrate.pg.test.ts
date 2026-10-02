@@ -293,7 +293,7 @@ test("P?: packaged embedded ledgers apply on a live database and stay idempotent
   }
 });
 
-test("P?: physical Auth generation 34 upgrades to generation 35 without losing assignments", async (t) => {
+test("P?: physical Auth generation 34 upgrades to current without losing assignments", async (t) => {
   const connectionString = disposableAuthFinalityUrl();
   if (!connectionString) {
     t.skip(
@@ -356,6 +356,37 @@ test("P?: physical Auth generation 34 upgrades to generation 35 without losing a
     assert.equal(afterUpgrade.requiredGeneration, generation);
     assert.deepEqual(afterUpgrade.missingMigrations, []);
     assert.equal(afterUpgrade.physicalSchemaValid, true);
+    const oidcColumns = await database.query<{
+      column_name: string;
+      table_name: string;
+    }>(`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'athena'
+        AND table_name = ANY($1::text[])
+        AND column_name = ANY($2::text[])
+    `, [
+      [
+        "oauth_authorization_grants",
+        "oauth_authorization_requests",
+        "oauth_authorization_codes",
+      ],
+      ["identity_scopes", "nonce", "max_age", "prompt"],
+    ]);
+    assert.deepEqual(
+      oidcColumns.rows
+        .map((row) => `${row.table_name}.${row.column_name}`)
+        .sort(),
+      [
+        "oauth_authorization_codes.identity_scopes",
+        "oauth_authorization_codes.nonce",
+        "oauth_authorization_grants.identity_scopes",
+        "oauth_authorization_requests.identity_scopes",
+        "oauth_authorization_requests.max_age",
+        "oauth_authorization_requests.nonce",
+        "oauth_authorization_requests.prompt",
+      ].sort(),
+    );
 
     const afterAssignments = await database.query<{
       assigned_by: string;

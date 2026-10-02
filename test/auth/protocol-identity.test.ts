@@ -15,6 +15,17 @@ import {
 import { AthenaConfigurationError } from "../../src/config/errors.ts";
 
 const ISSUER = "https://issuer.example";
+test("protocol identity publishes UserInfo beneath the configured base path", () => {
+  const identity = createAthenaAuthProtocolIdentity({
+    appIdentity: { hostname: "issuer.example", name: "app", origin: ISSUER },
+    authorizationServer: normalizeAthenaAuthConfig({
+      authorizationServer: { enabled: true, issuer: ISSUER },
+    }).authorizationServer,
+    basePath: "/api/auth",
+  });
+
+  assert.equal(identity.userInfoEndpoint, `${ISSUER}/api/auth/userinfo`);
+});
 
 function hasher() {
   return {
@@ -254,18 +265,40 @@ test("production memory Auth refuses ephemeral JWT signing keys", async () => {
   }
 });
 
-test("legacy discovery is jwt capability not oidc", async () => {
+test("OIDC Provider discovery and UserInfo are classified in the operation catalog", async () => {
   const { ATHENA_AUTH_OPERATIONS } = await import(
     "../../src/auth/contract/operations.generated.ts"
   );
-  const discovery = ATHENA_AUTH_OPERATIONS.find(
+  const oidcDiscovery = ATHENA_AUTH_OPERATIONS.find(
     (operation) => operation.path === "/.well-known/openid-configuration"
   );
-  assert.ok(discovery);
-  assert.equal(discovery.capability, "jwt");
-  assert.equal(discovery.id, "jwt.discovery");
-  const oidcOps = ATHENA_AUTH_OPERATIONS.filter(
-    (operation) => operation.capability === "oidc"
+  assert.ok(oidcDiscovery);
+  const userInfo = ATHENA_AUTH_OPERATIONS.find(
+    (operation) => operation.path === "/userinfo" && operation.method === "GET"
   );
-  assert.equal(oidcOps.length, 0);
+  const userInfoPost = ATHENA_AUTH_OPERATIONS.find(
+    (operation) => operation.path === "/userinfo" && operation.method === "POST"
+  );
+  assert.equal(oidcDiscovery?.capability, "oidc");
+  assert.equal(oidcDiscovery?.id, "oidc.discovery");
+  assert.equal(oidcDiscovery?.rust, "unsupported");
+  assert.equal(oidcDiscovery?.embedded, "supported");
+  assert.equal(oidcDiscovery?.availability, "embedded-only");
+  assert.equal(oidcDiscovery?.sdkEndpoint, "known");
+  assert.equal(oidcDiscovery?.sdkBindingRequired, false);
+  assert.equal(userInfo?.capability, "oidc");
+  assert.equal(userInfo?.id, "oidc.userinfo");
+  assert.equal(userInfo?.rust, "unsupported");
+  assert.equal(userInfo?.embedded, "supported");
+  assert.equal(userInfo?.availability, "embedded-only");
+  assert.equal(userInfo?.sdkEndpoint, "known");
+  assert.equal(userInfo?.sdkBindingRequired, false);
+  assert.equal(userInfoPost?.capability, "oidc");
+  assert.equal(userInfoPost?.id, "oidc.userinfo.post");
+  assert.equal(userInfoPost?.rust, "unsupported");
+  assert.equal(userInfoPost?.embedded, "supported");
+  assert.equal(userInfoPost?.availability, "embedded-only");
+  assert.equal(userInfoPost?.mutation, false);
+  assert.equal(userInfoPost?.sdkEndpoint, "known");
+  assert.equal(userInfoPost?.sdkBindingRequired, false);
 });

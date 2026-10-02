@@ -12,6 +12,7 @@ export type {
   AthenaAuthOperationAuth,
   AthenaAuthOperationCapability,
   AthenaAuthOperationDefinition,
+  AthenaAuthGeneratedOperationDefinition,
   AthenaAuthRuntimeSupport,
 } from "./operations.ts";
 export {
@@ -70,6 +71,8 @@ export const ATHENA_AUTH_TABLES = {
   emails: "athena.emails",
   emailTemplates: "athena.email_templates",
   invitation: "athena.invitation",
+  identityConnections: "athena.identity_connections",
+  federatedIdentities: "athena.federated_identities",
   member: "athena.member",
   notificationPreferences: "athena.notification_preferences",
   oauthAuthorizationCodes: "athena.oauth_authorization_codes",

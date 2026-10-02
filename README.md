@@ -1,6 +1,6 @@
 # Athena JS
 
-current version: `5.6.10`
+current version: `5.7.0`
 
 [![npm](https://img.shields.io/npm/v/@xylex-group/athena?label=%40xylex-group%2Fathena&logo=npm)](https://www.npmjs.com/package/@xylex-group/athena)
 [![npm downloads](https://img.shields.io/npm/dm/@xylex-group/athena?logo=npm)](https://www.npmjs.com/package/@xylex-group/athena)
@@ -13,7 +13,7 @@ pnpm add @xylex-group/athena
 
 Docs: [https://athena.xbp.app](https://athena.xbp.app)
 
-This repository is the public source for the npm package. Canonical development lands in [`packages/athena-js` in xylex-group/athena](https://github.com/xylex-group/athena/tree/main/packages/athena-js) and is mirrored here with `pnpm sync:mirror`.
+Canonical development is this package in [xylex-group/athena](https://github.com/xylex-group/athena). The public source tree is [xylex-group/athena-js](https://github.com/xylex-group/athena-js).
 
 ## Create a client
 
@@ -95,6 +95,8 @@ Credential flags are redacted. Athena does not upload CLI logs.
 
 ## Development
 
+Clone this repo or work in the monorepo package:
+
 ```bash
 pnpm install
 pnpm build
@@ -102,12 +104,6 @@ pnpm test:finality
 ```
 
 Local `pnpm test:finality` is the release source of truth. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-To refresh this tree from the monorepo package:
-
-```bash
-pnpm sync:mirror
-```
 
 ## License
 

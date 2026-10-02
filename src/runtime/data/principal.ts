@@ -11,6 +11,7 @@ import {
   type AthenaRightKey,
   tryParseAthenaRightKey,
 } from "../../rights/key.ts";
+import type { OidcIdentityScope } from "../../auth/authorization-server/types.ts";
 import {
   type AthenaMalformedRightsSource,
   emitAthenaMalformedRightsDiagnostic,
@@ -43,6 +44,7 @@ export interface AthenaPrincipal {
 export interface AthenaOAuthPrincipalContext {
   clientId: string;
   grantId: string;
+  identityScopes?: readonly OidcIdentityScope[];
   resource: string;
   scopes: readonly string[];
 }
@@ -271,6 +273,9 @@ export function normalizeAthenaPrincipal(
           oauth: Object.freeze({
             clientId: principal.oauth.clientId,
             grantId: principal.oauth.grantId,
+            ...(principal.oauth.identityScopes
+              ? { identityScopes: Object.freeze([...principal.oauth.identityScopes]) }
+              : {}),
             resource: principal.oauth.resource,
             scopes: Object.freeze([...principal.oauth.scopes]),
           }),

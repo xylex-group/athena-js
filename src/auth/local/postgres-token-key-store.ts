@@ -15,6 +15,7 @@ import {
   type TokenKeyStatus,
   type TokenKeyStore,
   type TokenSigningKey,
+  type TokenSigningAlgorithm,
   type TokenVerificationKey,
 } from "./token-key-store.ts";
 
@@ -59,16 +60,18 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
     return () => undefined;
   }
 
-  async getActiveSigningKey(): Promise<TokenSigningKey | undefined> {
+  async getActiveSigningKey(
+    algorithm: TokenSigningAlgorithm = "ES256"
+  ): Promise<TokenSigningKey | undefined> {
     return this.withLock(async (tx) => {
       await this.pruneExpired(tx);
       const result = await tx.query<SigningKeyRow>(
         `SELECT kid, issuer, status, algorithm, public_jwk, private_jwk_ciphertext,
 				        created_at, activated_at, retires_at, expires_at
 				 FROM ${ATHENA_AUTH_TABLES.authSigningKeys}
-				 WHERE issuer = $1 AND status = 'active'
+				 WHERE issuer = $1 AND status = 'active' AND algorithm = $2
 				 LIMIT 1`,
-        [this.input.issuer]
+        [this.input.issuer, algorithm]
       );
       const row = result.rows[0];
       return row ? this.hydrateSigningKey(row) : undefined;
@@ -94,6 +97,7 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
           const key = await this.hydrateSigningKey(row);
           return {
             kid: key.kid,
+            algorithm: key.algorithm,
             publicJwk: key.publicJwk,
             status: key.status === "active" ? "active" : "retiring",
           };
@@ -106,9 +110,9 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
     await this.withLock(async (tx) => {
       const existing = await tx.query<{ kid: string }>(
         `SELECT kid FROM ${ATHENA_AUTH_TABLES.authSigningKeys}
-				 WHERE issuer = $1 AND status = 'active'
+				 WHERE issuer = $1 AND status = 'active' AND algorithm = $2
 				 LIMIT 1`,
-        [this.input.issuer]
+        [this.input.issuer, key.algorithm]
       );
       if (existing.rows[0]) {
         return;
@@ -121,8 +125,10 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
     await this.compareAndActivate(key);
   }
 
-  async rotateSigningKey(): Promise<TokenSigningKey> {
-    const next = await generateSigningKey();
+  async rotateSigningKey(
+    algorithm: TokenSigningAlgorithm = "ES256"
+  ): Promise<TokenSigningKey> {
+    const next = await generateSigningKey(algorithm);
     const windowMs =
       this.input.retireWindowMs ?? DEFAULT_TOKEN_RETIRE_WINDOW_MS;
     const retiresAt = new Date(Date.now() + windowMs);
@@ -130,9 +136,9 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
       await this.pruneExpired(tx);
       const active = await tx.query<{ kid: string }>(
         `SELECT kid FROM ${ATHENA_AUTH_TABLES.authSigningKeys}
-				 WHERE issuer = $1 AND status = 'active'
+				 WHERE issuer = $1 AND status = 'active' AND algorithm = $2
 				 FOR UPDATE`,
-        [this.input.issuer]
+        [this.input.issuer, algorithm]
       );
       const current = active.rows[0];
       if (current) {
@@ -209,8 +215,8 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
       `INSERT INTO ${ATHENA_AUTH_TABLES.authSigningKeys} (
 				kid, issuer, status, algorithm, public_jwk, private_jwk_ciphertext,
 				activated_at
-			) VALUES ($1, $2, 'active', 'ES256', $3::jsonb, $4, NOW())`,
-      [key.kid, this.input.issuer, JSON.stringify(key.publicJwk), ciphertext]
+			) VALUES ($1, $2, 'active', $3, $4::jsonb, $5, NOW())`,
+      [key.kid, this.input.issuer, key.algorithm, JSON.stringify(key.publicJwk), ciphertext]
     );
   }
 
@@ -223,15 +229,16 @@ export class PostgresTokenKeyStore implements TokenKeyStore {
       this.input.encryptionSecret
     );
     const privateKey = (await importJWK(
-      { ...privateJwk, alg: "ES256" },
-      "ES256"
+      { ...privateJwk, alg: row.algorithm },
+      row.algorithm as TokenSigningAlgorithm
     )) as CryptoKey;
     const publicKey = (await importJWK(
-      { ...publicJwk, alg: "ES256" },
-      "ES256"
+      { ...publicJwk, alg: row.algorithm },
+      row.algorithm as TokenSigningAlgorithm
     )) as CryptoKey;
     const status = row.status === "active" ? "active" : "retiring";
     return {
+      algorithm: row.algorithm as TokenSigningAlgorithm,
       expiresAt: asDate(row.expires_at),
       kid: row.kid,
       privateKey,

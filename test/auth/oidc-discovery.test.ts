@@ -43,6 +43,45 @@ test("OIDC discovery requires exact issuer match and caches metadata", async () 
   assert.equal(second.authorizationEndpoint, first.authorizationEndpoint);
 });
 
+test("OIDC endpoints require HTTPS except development loopback", async () => {
+  await assert.rejects(
+    resolveOidcProviderEndpoints({
+      cache: new Map(),
+      issuer: "http://idp.example",
+      fetch: async () => {
+        throw new Error("insecure issuer must be rejected before discovery");
+      },
+    }),
+    AthenaConfigurationError
+  );
+  await assert.rejects(
+    resolveOidcProviderEndpoints({
+      cache: new Map(),
+      issuer: "https://idp.example",
+      fetch: async () =>
+        Response.json({
+          authorization_endpoint: "http://idp.example/authorize",
+          issuer: "https://idp.example",
+          token_endpoint: "https://idp.example/token",
+        }),
+    }),
+    AthenaConfigurationError
+  );
+  if (process.env.NODE_ENV !== "production") {
+    const local = await resolveOidcProviderEndpoints({
+      cache: new Map(),
+      issuer: "http://localhost:8080",
+      fetch: async () =>
+        Response.json({
+          authorization_endpoint: "http://localhost:8080/authorize",
+          issuer: "http://localhost:8080",
+          token_endpoint: "http://localhost:8080/token",
+        }),
+    });
+    assert.equal(local.tokenEndpoint, "http://localhost:8080/token");
+  }
+});
+
 test("OIDC discovery rejects issuer mismatch and missing endpoints", async () => {
   await assert.rejects(
     () =>

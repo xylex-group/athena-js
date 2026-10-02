@@ -1,9 +1,9 @@
 {
   "package": "@xylex-group/athena",
-  "version": "5.6.10",
-  "publicSymbols": 5726,
+  "version": "5.7.0",
+  "publicSymbols": 5782,
   "documented": 1609,
-  "publicUnlisted": 4117,
+  "publicUnlisted": 4173,
   "withDescriptions": 1609,
   "withExamples": 7,
   "canonical": 4,

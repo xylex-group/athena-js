@@ -266,7 +266,7 @@ test("T-SOR-NO-TOKEN-REDIRECT: P?: post-auth redirect query never contains acces
   );
 });
 
-test("T-SOR-RUNTIME-COMPOSE: P?: lazy getSocialRuntime composes engine+store+key and returns null when social is unconfigured", async () => {
+test("T-SOR-RUNTIME-COMPOSE: P?: lazy getSocialRuntime composes an empty engine for dynamic identity connections", async () => {
   assert.equal(existsSync(join(localSocialDir, "runtime.ts")), true);
   const depsSrc = readPkg("src/auth/local/runtime-dependencies.ts");
   const body = extractInterfaceBody(depsSrc, "AuthRuntimeDependencies");
@@ -283,7 +283,9 @@ test("T-SOR-RUNTIME-COMPOSE: P?: lazy getSocialRuntime composes engine+store+key
     secret: RUNTIME_SECRET,
   });
   assert.equal(typeof empty.getSocialRuntime, "function");
-  assert.equal(await empty.getSocialRuntime(), null);
+  const emptyRuntime = await empty.getSocialRuntime();
+  assert.ok(emptyRuntime);
+  assert.deepEqual(emptyRuntime.social.providers, {});
 
   const configured = createRuntimeDependencies({
     autoMigrate: false,

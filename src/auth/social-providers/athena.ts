@@ -1,5 +1,6 @@
 import { logger } from "../env/index.ts";
 import { athenaFetch as betterFetch } from "../fetch.ts";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { OAuthProvider, ProviderOptions } from "../oauth2/index.ts";
 import {
   createAuthorizationURL,
@@ -43,6 +44,7 @@ export interface AthenaOptions extends ProviderOptions<AthenaProfile> {
    */
   authorizationEndpoint?: string | undefined;
   clientId: string;
+  resource?: string | undefined;
   /**
    * Base issuer URL for the Athena identity provider
    * (e.g. `https://auth.example.com` or a tenant-specific auth root).
@@ -135,6 +137,9 @@ export const athena = (options: AthenaOptions) => {
         id: "athena",
         loginHint,
         options,
+        ...(options.resource
+          ? { additionalParams: { resource: options.resource } }
+          : {}),
         prompt: options.prompt,
         redirectURI,
         scopes: _scopes,
@@ -193,6 +198,9 @@ export const athena = (options: AthenaOptions) => {
               clientSecret: options.clientSecret,
             },
             refreshToken,
+            ...(options.resource
+              ? { extraParams: { resource: options.resource } }
+              : {}),
             tokenEndpoint: endpoints.tokenEndpoint,
           });
         },
@@ -212,8 +220,31 @@ export const athena = (options: AthenaOptions) => {
         codeVerifier,
         options,
         redirectURI,
+        resource: options.resource,
         tokenEndpoint: endpoints.tokenEndpoint,
       });
+    },
+    verifyIdToken: async (token: string, nonce?: string) => {
+      try {
+        const endpoints = await resolveEndpoints();
+        if (!endpoints.jwksUri) {
+          return false;
+        }
+        const jwks = createRemoteJWKSet(new URL(endpoints.jwksUri));
+        const { payload } = await jwtVerify(token, jwks, {
+          audience: options.clientId,
+          issuer: endpoints.issuer,
+        });
+        if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+          return false;
+        }
+        if (nonce && payload.nonce !== nonce) {
+          return false;
+        }
+        return { claims: payload };
+      } catch {
+        return false;
+      }
     },
   } satisfies OAuthProvider<AthenaProfile, AthenaOptions>;
 };

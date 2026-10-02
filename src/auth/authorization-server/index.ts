@@ -23,7 +23,7 @@ export {
   parseScopes,
   scopesToString,
 } from "./scopes.ts";
-export type { OidcIdentityScope, ParsedProtocolScopes } from "./scopes.ts";
+export type { ParsedProtocolScopes } from "./scopes.ts";
 export {
   createAccessTokenClaims,
   generateOpaqueSecret,
@@ -50,5 +50,7 @@ export type {
   OAuthRegistrationKind,
   OAuthRevokedAccessToken,
   OAuthTokenEndpointAuthMethod,
+  OidcIdentityScope,
+  OidcPrompt,
   VerifiedOAuthAccessToken,
 } from "./types.ts";

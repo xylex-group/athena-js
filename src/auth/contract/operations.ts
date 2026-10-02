@@ -9,6 +9,11 @@
 import type { AthenaAuthDomainEvent } from "../hooks/events.ts";
 
 export type AthenaAuthRuntimeSupport = "supported" | "unsupported";
+export type AthenaAuthRouteAvailability =
+  | "portable"
+  | "dedicated-only"
+  | "embedded-only";
+export type AthenaAuthRouteLifecycle = "canonical" | "compatibility";
 
 export type AthenaAuthOperationAuth =
   | "public"
@@ -37,15 +42,38 @@ export type AthenaAuthOperationCapability =
 
 export interface AthenaAuthOperationDefinition {
   auth: AthenaAuthOperationAuth;
+  availability?: AthenaAuthRouteAvailability;
   capability: AthenaAuthOperationCapability | string;
+  canonicalReplacement?: string;
   domainEvent?: AthenaAuthDomainEvent;
   embedded: AthenaAuthRuntimeSupport;
   id: string;
+  lifecycle?: AthenaAuthRouteLifecycle;
   method: string;
   mutation: boolean;
   nonportable?: boolean;
+  operation?: string;
   path: string;
   rust: AthenaAuthRuntimeSupport;
+  runtimes?: {
+    dedicated: AthenaAuthRuntimeSupport;
+    embedded: AthenaAuthRuntimeSupport;
+  };
+  sdkBindingRequired?: boolean;
+  sdkEndpoint?: "known" | "missing";
+}
+
+export interface AthenaAuthGeneratedOperationDefinition
+  extends AthenaAuthOperationDefinition {
+  availability: AthenaAuthRouteAvailability;
+  lifecycle: AthenaAuthRouteLifecycle;
+  operation: string;
+  runtimes: {
+    dedicated: AthenaAuthRuntimeSupport;
+    embedded: AthenaAuthRuntimeSupport;
+  };
+  sdkBindingRequired: boolean;
+  sdkEndpoint: "known" | "missing";
 }
 
 export function operationKey(
@@ -56,7 +84,7 @@ export function operationKey(
 
 /**
  * Product-portable gaps: Rust serves the route, embedded does not, and the
- * route is not a dedicated-service operator surface (`nonportable`).
+ * route is not explicitly excluded or admin-only.
  *
  * Wave 0 keeps `KNOWN_MISSING_IN_LOCAL` as a freeze snapshot of this list.
  * Later waves delete the Set once this function returns [].
@@ -69,6 +97,7 @@ export function listMissingEmbeddedOperations(
       (operation) =>
         operation.rust === "supported" &&
         operation.embedded === "unsupported" &&
+        operation.auth !== "admin" &&
         operation.nonportable !== true
     )
     .map(operationKey)
@@ -97,6 +126,7 @@ export function deriveEmbeddedCapabilityAdvertisement(
       (operation) =>
         operation.capability === capability &&
         operation.rust === "supported" &&
+        operation.auth !== "admin" &&
         operation.nonportable !== true
     );
 

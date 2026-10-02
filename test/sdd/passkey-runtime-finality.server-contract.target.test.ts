@@ -717,7 +717,7 @@ test("Slice 01 target T-SRV-FAIL-CLOSED: snapshot false; six remaining /passkey/
   );
   assert.match(
     authParity,
-    /WebAuthn\s*\/\s*passkeys\s*\|\s*\*\*FAIL-CLOSED\*\*/
+    /WebAuthn\s*\/\s*passkeys\s*\|\s*\*\*Implemented; operator-gated\.\*\*/
   );
 
   const pkgJson = JSON.parse(readPkg("package.json")) as {

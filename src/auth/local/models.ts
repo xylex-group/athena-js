@@ -108,6 +108,36 @@ export interface AuthPasskeyRow {
   user_id: string;
 }
 
+export interface AuthIdentityConnectionRow {
+  authentication_required: boolean;
+  client_id: string;
+  connection_type: "oidc";
+  created_at: Date | string;
+  credential_ref: string | null;
+  domains: string[] | string;
+  enabled: boolean;
+  id: string;
+  issuer: string;
+  jit_default_role_id: string | null;
+  jit_enabled: boolean;
+  name: string;
+  organization_id: string;
+  resource_uri: string | null;
+  updated_at: Date | string;
+  token_endpoint_auth_method: "client_secret_basic" | "client_secret_post" | "none";
+}
+
+export interface AuthFederatedIdentityRow {
+  connection_id: string;
+  created_at: Date | string;
+  id: string;
+  issuer: string;
+  last_authenticated_at: Date | string | null;
+  subject: string;
+  updated_at: Date | string;
+  user_id: string;
+}
+
 function asIso(value: Date | string | null | undefined): string | null {
   if (!value) {
     return null;

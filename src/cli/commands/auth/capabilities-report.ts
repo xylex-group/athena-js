@@ -31,7 +31,7 @@ function mark(
   side: "rust" | "embedded"
 ): AuthRuntimeSupportMark {
   const portable = operations.filter(
-    (operation) => operation.nonportable !== true
+    (operation) => operation.auth !== "admin" && operation.nonportable !== true
   );
   if (portable.length === 0) {
     return "no";

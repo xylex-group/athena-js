@@ -6,6 +6,8 @@ import {
 import { resolveAuthenticationContext } from "./authentication-context.ts";
 import type {
   AuthAccountRow,
+  AuthFederatedIdentityRow,
+  AuthIdentityConnectionRow,
   AuthInvitationRow,
   AuthMemberRow,
   AuthOrganizationRow,
@@ -14,6 +16,11 @@ import type {
   AuthUserRow,
   AuthVerificationRow,
 } from "./models.ts";
+import type {
+  CreateAuthFederatedIdentityInput,
+  CreateAuthIdentityConnectionInput,
+  UpdateAuthIdentityConnectionInput,
+} from "./identity-connections/types.ts";
 import type {
   AuthApiKeyRow,
   AuthTwoFactorRow,
@@ -30,10 +37,25 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
+export interface OrganizationAuthenticationPostureRow {
+  hasPasskey: boolean;
+  hasPassword: boolean;
+  hasSocial: boolean;
+  twoFactorEnabled: boolean;
+  userId: string;
+}
+
+export interface OrganizationAuthenticationPosturePage {
+  members: OrganizationAuthenticationPostureRow[];
+  total: number;
+}
+
 export class MemoryAuthStores {
   readonly authorization = new MemoryAuthorizationStore();
   readonly accounts = new Map<string, AuthAccountRow>();
   readonly invitations = new Map<string, AuthInvitationRow>();
+  readonly identityConnections = new Map<string, AuthIdentityConnectionRow>();
+  readonly federatedIdentities = new Map<string, AuthFederatedIdentityRow>();
   readonly members = new Map<string, AuthMemberRow>();
   readonly organizations = new Map<string, AuthOrganizationRow>();
   readonly sessions = new Map<string, AuthSessionRow>();
@@ -41,6 +63,8 @@ export class MemoryAuthStores {
   readonly verifications = new Map<string, AuthVerificationRow>();
   readonly apiKeys = new Map<string, AuthApiKeyRow>();
   readonly twoFactors = new Map<string, AuthTwoFactorRow>();
+
+  async lockIdentityConnectionDomainRouting(): Promise<void> {}
   readonly rateLimits = new Map<string, { count: number; resetAt: number }>();
   readonly verificationReplacementLocks = new Map<string, Promise<void>>();
   readonly passkeys = new Map<string, AuthPasskeyRow>();
@@ -58,6 +82,165 @@ export class MemoryAuthStores {
       user_handle: string;
     }
   >();
+
+  async createIdentityConnection(
+    input: CreateAuthIdentityConnectionInput
+  ): Promise<AuthIdentityConnectionRow> {
+    if (this.identityConnections.has(input.id)) {
+      throw new Error("identity connection already exists");
+    }
+    const timestamp = now();
+    const row: AuthIdentityConnectionRow = {
+      authentication_required: input.authenticationRequired,
+      client_id: input.clientId,
+      connection_type: input.connectionType,
+      created_at: timestamp,
+      credential_ref: input.credentialRef,
+      domains: [...input.domains],
+      enabled: input.enabled,
+      id: input.id,
+      issuer: input.issuer,
+      jit_default_role_id: input.jitDefaultRoleId,
+      jit_enabled: input.jitEnabled,
+      name: input.name,
+      organization_id: input.organizationId,
+      resource_uri: input.resource,
+      token_endpoint_auth_method: input.tokenEndpointAuthMethod,
+      updated_at: timestamp,
+    };
+    this.identityConnections.set(row.id, row);
+    return clone(row);
+  }
+
+  async getIdentityConnection(
+    id: string
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const row = this.identityConnections.get(id);
+    return row ? clone(row) : undefined;
+  }
+
+  async listIdentityConnections(
+    organizationId: string
+  ): Promise<AuthIdentityConnectionRow[]> {
+    return [...this.identityConnections.values()]
+      .filter((row) => row.organization_id === organizationId)
+      .sort(
+        (left, right) =>
+          new Date(right.created_at).getTime() -
+            new Date(left.created_at).getTime() ||
+          left.id.localeCompare(right.id)
+      )
+      .map(clone);
+  }
+
+  async updateIdentityConnection(
+    id: string,
+    patch: UpdateAuthIdentityConnectionInput
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const row = this.identityConnections.get(id);
+    if (!row) {
+      return;
+    }
+    if (patch.authenticationRequired !== undefined) {
+      row.authentication_required = patch.authenticationRequired;
+    }
+    if (patch.clientId !== undefined) row.client_id = patch.clientId;
+    if (patch.credentialRef !== undefined) {
+      row.credential_ref = patch.credentialRef;
+    }
+    if (patch.domains !== undefined) row.domains = [...patch.domains];
+    if (patch.enabled !== undefined) row.enabled = patch.enabled;
+    if (patch.jitDefaultRoleId !== undefined) {
+      row.jit_default_role_id = patch.jitDefaultRoleId;
+    }
+    if (patch.jitEnabled !== undefined) row.jit_enabled = patch.jitEnabled;
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.resource !== undefined) row.resource_uri = patch.resource;
+    if (patch.tokenEndpointAuthMethod !== undefined) {
+      row.token_endpoint_auth_method = patch.tokenEndpointAuthMethod;
+    }
+    row.updated_at = now();
+    return clone(row);
+  }
+
+  async disableIdentityConnection(id: string): Promise<boolean> {
+    const row = this.identityConnections.get(id);
+    if (!row) {
+      return false;
+    }
+    row.enabled = false;
+    row.updated_at = now();
+    return true;
+  }
+
+  async findIdentityConnectionByDomain(
+    domain: string
+  ): Promise<AuthIdentityConnectionRow | undefined> {
+    const needle = domain.trim().toLowerCase();
+    const matches = [...this.identityConnections.values()].filter(
+      (connection) =>
+        connection.enabled &&
+        Array.isArray(connection.domains) &&
+        connection.domains.some((value) => value.toLowerCase() === needle)
+    );
+    if (matches.length > 1) {
+      throw new Error("email domain matches multiple identity connections");
+    }
+    return matches[0] ? clone(matches[0]) : undefined;
+  }
+
+  async findFederatedIdentity(
+    connectionId: string,
+    issuer: string,
+    subject: string
+  ): Promise<AuthFederatedIdentityRow | undefined> {
+    const row = [...this.federatedIdentities.values()].find(
+      (identity) =>
+        identity.connection_id === connectionId &&
+        identity.issuer === issuer &&
+        identity.subject === subject
+    );
+    return row ? clone(row) : undefined;
+  }
+
+  async linkFederatedIdentity(
+    input: CreateAuthFederatedIdentityInput
+  ): Promise<AuthFederatedIdentityRow> {
+    const existing = await this.findFederatedIdentity(
+      input.connectionId,
+      input.issuer,
+      input.subject
+    );
+    if (existing) {
+      if (existing.user_id !== input.userId) {
+        throw new Error("federated identity is already linked");
+      }
+      return existing;
+    }
+    const timestamp = now();
+    const row: AuthFederatedIdentityRow = {
+      connection_id: input.connectionId,
+      created_at: timestamp,
+      id: input.id,
+      issuer: input.issuer,
+      last_authenticated_at: null,
+      subject: input.subject,
+      updated_at: timestamp,
+      user_id: input.userId,
+    };
+    this.federatedIdentities.set(row.id, row);
+    return clone(row);
+  }
+
+  async touchFederatedIdentity(id: string, at: Date): Promise<boolean> {
+    const row = this.federatedIdentities.get(id);
+    if (!row) {
+      return false;
+    }
+    row.last_authenticated_at = new Date(at);
+    row.updated_at = now();
+    return true;
+  }
 
   async getUserById(id: string): Promise<AuthUserRow | undefined> {
     const row = this.users.get(id);
@@ -634,6 +817,47 @@ export class MemoryAuthStores {
     return [...this.members.values()]
       .filter((member) => member.organization_id === organizationId)
       .map((member) => clone(member));
+  }
+
+  async listAuthenticationPosture(input: {
+    limit: number;
+    offset: number;
+    organizationId: string;
+  }): Promise<OrganizationAuthenticationPosturePage> {
+    const members = [...this.members.values()]
+      .filter((member) => member.organization_id === input.organizationId)
+      .sort((left, right) => {
+        const dateOrder =
+          new Date(left.created_at).getTime() -
+          new Date(right.created_at).getTime();
+        return dateOrder || left.user_id.localeCompare(right.user_id);
+      });
+    return {
+      members: members
+        .slice(input.offset, input.offset + input.limit)
+        .map((member) => {
+          const user = this.users.get(member.user_id);
+          const accounts = [...this.accounts.values()].filter(
+            (account) => account.user_id === member.user_id
+          );
+          return {
+            hasPasskey: [...this.passkeys.values()].some(
+              (passkey) => passkey.user_id === member.user_id
+            ),
+            hasPassword: accounts.some(
+              (account) =>
+                account.provider_id === "credential" &&
+                Boolean(account.password)
+            ),
+            hasSocial: accounts.some(
+              (account) => account.provider_id !== "credential"
+            ),
+            twoFactorEnabled: Boolean(user?.two_factor_enabled),
+            userId: member.user_id,
+          };
+        }),
+      total: members.length,
+    };
   }
 
   async updateMemberRole(

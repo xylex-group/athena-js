@@ -16,20 +16,25 @@ import {
   sealOAuthState,
   verifyCodeVerifier,
 } from "../../authorization-server/index.ts";
+import { normalizeResourceUri } from "../../authorization-server/resource.ts";
 import type { IssuedOAuthTokenSet } from "../../authorization-server/tokens.ts";
 import type {
   OAuthAuthorizationGrant,
   OAuthAuthorizationRequest,
   OAuthClient,
+  OidcIdentityScope,
+  OidcPrompt,
 } from "../../authorization-server/types.ts";
 import type { NormalizedAthenaAuthorizationServerConfig } from "../../config.ts";
 import type { AthenaAuthMutationScope } from "../../hooks/scope.ts";
 import type { AthenaTokenAuthority } from "../athena-token-authority.ts";
 import type { AuthClock } from "../clock.ts";
+import type { AuthUserRow } from "../models.ts";
 import { systemAuthClock } from "../clock.ts";
 import type { AthenaAuthStores } from "../store-contract.ts";
 import type { TokenKeyStore } from "../token-key-store.ts";
 import type { OAuthAuthorizationServerStores } from "./store.ts";
+import { projectOidcClaims } from "../../authorization-server/oidc-claims.ts";
 
 export interface OAuthUserEligibilityInput {
   organizationId: string | null;
@@ -39,7 +44,9 @@ export interface OAuthUserEligibilityInput {
 export interface OAuthAuthorizationServerServiceOptions {
   clock?: AuthClock;
   config: NormalizedAthenaAuthorizationServerConfig;
+  getUser?: (userId: string) => Promise<AuthUserRow | null>;
   issuer: string;
+  userInfoEndpoint?: string;
   keyStore: TokenKeyStore;
   signing: AthenaTokenAuthority;
   stateSecret: string;
@@ -145,9 +152,40 @@ export class OAuthAuthorizationServerService {
 
   validateResourceAndScopes(
     client: OAuthClient,
-    resource: string,
+    resource: string | undefined,
     scope: string | null | undefined
-  ): { resource: string; scopes: string[] } {
+  ): {
+    identityScopes: ReturnType<typeof parseProtocolScopes>["identity"];
+    resource: string;
+    scopes: string[];
+  } {
+    const parsed = parseProtocolScopes(scope);
+    if (
+      parsed.identity.some(
+        (identityScope) => !client.scopes.includes(identityScope)
+      )
+    ) {
+      throw new OAuthProtocolError(
+        "invalid_scope",
+        "The requested identity scope is not allowed for this client."
+      );
+    }
+    if (parsed.identity.length > 0 && parsed.resource.length === 0 && !resource) {
+      if (!this.options.userInfoEndpoint) {
+        throw new OAuthProtocolError("invalid_request", "The OIDC identity resource is unavailable.");
+      }
+      return {
+        identityScopes: parsed.identity,
+        resource: normalizeResourceUri(this.options.userInfoEndpoint),
+        scopes: parsed.resource,
+      };
+    }
+    if (!resource) {
+      throw new OAuthProtocolError(
+        "invalid_request",
+        "The resource parameter is required."
+      );
+    }
     const normalizedResource = assertClientResource(client, resource);
     const resourceConfig = this.options.config.resources[normalizedResource];
     if (!resourceConfig) {
@@ -156,15 +194,12 @@ export class OAuthAuthorizationServerService {
         "The requested resource is not configured."
       );
     }
-    const parsed = parseProtocolScopes(scope);
-    if (parsed.identity.length > 0) {
-      throw new OAuthProtocolError(
-        "invalid_scope",
-        "OpenID identity scopes are not supported."
-      );
-    }
     assertClientScopes(client, resourceConfig.scopes, parsed.resource);
-    return { resource: normalizedResource, scopes: parsed.resource };
+    return {
+      identityScopes: parsed.identity,
+      resource: normalizedResource,
+      scopes: parsed.resource,
+    };
   }
 
   validateAuthorizationRequest(input: {
@@ -172,11 +207,15 @@ export class OAuthAuthorizationServerService {
     codeChallenge: string;
     codeChallengeMethod: string;
     redirectUri: string;
-    resource: string;
+    resource?: string;
     responseType: string;
     scope: string | null | undefined;
+    maxAge?: number | null;
+    nonce?: string | null;
+    prompt?: readonly OidcPrompt[];
   }): Promise<{
     client: OAuthClient;
+    identityScopes: ReturnType<typeof parseProtocolScopes>["identity"];
     resource: string;
     scopes: string[];
   }> {
@@ -193,13 +232,44 @@ export class OAuthAuthorizationServerService {
         registeredUris: client.redirectUris,
         requestedUri: input.redirectUri,
       });
-      const { resource, scopes } = this.validateResourceAndScopes(
-        client,
-        input.resource,
-        input.scope
-      );
+      const { identityScopes, resource, scopes } =
+        this.validateResourceAndScopes(
+          client,
+          input.resource,
+          input.scope
+        );
+      const prompt = input.prompt ?? [];
+      if (
+        identityScopes.length === 0 &&
+        (input.maxAge != null || input.nonce != null || prompt.length > 0)
+      ) {
+        throw new OAuthProtocolError(
+          "invalid_request",
+          "OIDC request parameters require the openid scope."
+        );
+      }
+      if (
+        input.maxAge != null &&
+        (!Number.isSafeInteger(input.maxAge) || input.maxAge < 0 || input.maxAge > 2_147_483_647)
+      ) {
+        throw new OAuthProtocolError(
+          "invalid_request",
+          "The max_age value must be an integer from 0 through 2147483647."
+        );
+      }
+      if (
+        prompt.some((value) =>
+          value !== "none" && value !== "login" && value !== "consent"
+        ) ||
+        (prompt.includes("none") && prompt.length !== 1)
+      ) {
+        throw new OAuthProtocolError(
+          "invalid_request",
+          "The requested prompt value is not supported."
+        );
+      }
       assertS256CodeChallenge(input.codeChallenge, input.codeChallengeMethod);
-      return { client, resource, scopes };
+      return { client, identityScopes, resource, scopes };
     })();
   }
 
@@ -208,9 +278,12 @@ export class OAuthAuthorizationServerService {
     codeChallenge: string;
     codeChallengeMethod: "S256";
     redirectUri: string;
-    resource: string;
+    resource?: string;
     scope: string | null | undefined;
     state: string;
+    maxAge?: number | null;
+    nonce?: string | null;
+    prompt?: readonly OidcPrompt[];
   }): Promise<OAuthAuthorizationRequest> {
     const validated = await this.validateAuthorizationRequest({
       ...input,
@@ -229,6 +302,10 @@ export class OAuthAuthorizationServerService {
           this.options.config.authorizationRequestTtlSeconds * 1000
       ),
       id,
+      identityScopes: validated.identityScopes,
+      maxAge: input.maxAge ?? null,
+      nonce: input.nonce ?? null,
+      prompt: input.prompt ?? [],
       redirectUri: input.redirectUri,
       requestedScopes: validated.scopes,
       requestHash,
@@ -247,8 +324,11 @@ export class OAuthAuthorizationServerService {
   }
 
   async approveAuthorizationRequest(input: {
+    authenticatedAt: Date;
+    authenticationMethods: readonly string[];
     id: string;
     organizationId: string | null;
+    preserveExistingGrant?: boolean;
     scopes?: readonly string[];
     userId: string;
   }): Promise<{
@@ -297,6 +377,11 @@ export class OAuthAuthorizationServerService {
       ),
       grantId: crypto.randomUUID(),
       id: crypto.randomUUID(),
+      authenticatedAt: input.authenticatedAt,
+      authenticationMethods: input.authenticationMethods,
+      identityScopes: request.identityScopes,
+      nonce: request.nonce,
+      preserveExistingGrant: input.preserveExistingGrant,
       organizationId: input.organizationId,
       redirectUri: request.redirectUri,
       requestId: input.id,
@@ -330,10 +415,9 @@ export class OAuthAuthorizationServerService {
     code: string;
     codeVerifier: string;
     redirectUri: string;
-    resource: string;
+    resource?: string;
   }): Promise<OAuthTokenResponse> {
     const client = await this.getClient(input.clientId);
-    const resource = assertClientResource(client, input.resource);
     const codeHash = await hashOAuthSecret(input.code);
     const candidate =
       await this.options.stores.authorizationCodes.getByHash(codeHash);
@@ -341,7 +425,7 @@ export class OAuthAuthorizationServerService {
       !candidate ||
       candidate.clientId !== client.id ||
       candidate.redirectUri !== input.redirectUri ||
-      candidate.resource !== resource ||
+      (input.resource != null && candidate.resource !== normalizeResourceUri(input.resource)) ||
       candidate.consumedAt ||
       candidate.expiresAt.getTime() <= this.now().getTime()
     ) {
@@ -378,7 +462,7 @@ export class OAuthAuthorizationServerService {
       codeChallenge: candidate.codeChallenge,
       codeHash,
       redirectUri: input.redirectUri,
-      resource,
+      resource: candidate.resource,
     });
     if (!consumed) {
       throw new OAuthProtocolError(
@@ -387,9 +471,21 @@ export class OAuthAuthorizationServerService {
       );
     }
     await this.options.stores.grants.touch(grant.id);
+    const identityScopes = intersectScopes(
+      candidate.identityScopes,
+      grant.identityScopes
+    ) as typeof candidate.identityScopes;
     return this.issueInitialTokens({
       client,
       grant,
+      identityScopes,
+      oidc: identityScopes.includes("openid")
+        ? {
+            amr: candidate.authenticationMethods,
+            authTime: candidate.authenticatedAt,
+            nonce: candidate.nonce,
+          }
+        : undefined,
       scopes: scopesIssuedForGrant(candidate.scopes, grant),
     });
   }
@@ -443,6 +539,10 @@ export class OAuthAuthorizationServerService {
       );
     }
     const scopes = scopesIssuedForGrant(requestedScopes, grant);
+    const identityScopes = intersectScopes(
+      current.identityScopes,
+      grant.identityScopes
+    ) as typeof current.identityScopes;
     const replacementToken = generateOpaqueSecret();
     const result = await this.options.stores.refreshTokens.rotate({
       clientId: client.id,
@@ -459,6 +559,7 @@ export class OAuthAuthorizationServerService {
         parentTokenId: current.id,
         resource,
         scopes,
+        identityScopes,
         tokenHash: await hashOAuthSecret(replacementToken),
         userId: current.userId,
       },
@@ -513,6 +614,7 @@ export class OAuthAuthorizationServerService {
       client,
       familyId: current.familyId,
       grant,
+      identityScopes,
       scopes,
     });
     return {
@@ -671,6 +773,12 @@ export class OAuthAuthorizationServerService {
   private async issueInitialTokens(input: {
     client: OAuthClient;
     grant: OAuthAuthorizationGrant;
+    identityScopes: readonly OidcIdentityScope[];
+    oidc?: {
+      amr: readonly string[];
+      authTime: Date;
+      nonce: string | null;
+    };
     scopes: readonly string[];
   }): Promise<OAuthTokenResponse> {
     const familyId = this.options.config.issueRefreshTokens
@@ -679,9 +787,36 @@ export class OAuthAuthorizationServerService {
     const response = await this.issueAccessToken({
       ...input,
       ...(familyId ? { familyId } : {}),
+      identityScopes: input.identityScopes,
     });
+    let idToken: string | undefined;
+    if (input.oidc) {
+      const user = await this.options.getUser?.(input.grant.userId);
+      if (!user) {
+        throw new OAuthProtocolError(
+          "invalid_grant",
+          "The authorization subject is no longer available."
+        );
+      }
+      const identity = projectOidcClaims({
+        identityScopes: input.identityScopes,
+        user,
+      });
+      const issuedAt = Math.floor(this.now().getTime() / 1000);
+      idToken = await this.options.signing.signOidcIdToken({
+        ...identity,
+        amr: input.oidc.amr,
+        aud: input.client.id,
+        auth_time: Math.floor(input.oidc.authTime.getTime() / 1000),
+        exp: issuedAt + this.options.config.accessTokenTtlSeconds,
+        iat: issuedAt,
+        iss: this.options.issuer,
+        ...(input.oidc.nonce != null ? { nonce: input.oidc.nonce } : {}),
+        sub: input.grant.userId,
+      });
+    }
     if (!familyId) {
-      return response;
+      return { ...response, ...(idToken ? { idToken } : {}) };
     }
     const refreshToken = generateOpaqueSecret();
     await this.options.stores.refreshTokens.create({
@@ -692,26 +827,37 @@ export class OAuthAuthorizationServerService {
       familyId,
       grantId: input.grant.id,
       id: crypto.randomUUID(),
+      identityScopes: input.identityScopes,
       organizationId: input.grant.organizationId,
       resource: input.grant.resource,
       scopes: input.scopes,
       tokenHash: await hashOAuthSecret(refreshToken),
       userId: input.grant.userId,
     });
-    return { ...response, refreshToken };
+    return {
+      ...response,
+      ...(idToken ? { idToken } : {}),
+      refreshToken,
+    };
   }
 
   private async issueAccessToken(input: {
     client: OAuthClient;
     familyId?: string;
     grant: OAuthAuthorizationGrant;
+    identityScopes?: readonly OidcIdentityScope[];
     scopes: readonly string[];
   }): Promise<IssuedOAuthTokenSet> {
     const scopes = scopesIssuedForGrant(input.scopes, input.grant);
+    const identityScopes = intersectScopes(
+      input.identityScopes ?? [],
+      input.grant.identityScopes
+    );
     const claims = createAccessTokenClaims({
       clientId: input.client.id,
       familyId: input.familyId,
       grantId: input.grant.id,
+      identityScopes,
       issuer: this.options.issuer,
       now: this.now(),
       organizationId: input.grant.organizationId,
@@ -726,6 +872,7 @@ export class OAuthAuthorizationServerService {
       expiresIn: this.options.config.accessTokenTtlSeconds,
       familyId: input.familyId,
       grantId: input.grant.id,
+      identityScopes,
       scopes,
     };
   }

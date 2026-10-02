@@ -44,6 +44,7 @@ import type {
 } from "../../passkey/server/types.ts";
 import { parseStoredPasskeyTransports } from "../../passkey/transports.ts";
 import { AthenaAuthRuntimeError, jsonResponse } from "../errors.ts";
+import { requireIdentityConnectionForEmail } from "../identity-connections/policy.ts";
 import type { AthenaAuthStores } from "../memory-stores.ts";
 import type { AuthSessionRow, AuthUserRow } from "../models.ts";
 import { toPublicSession, toPublicUser } from "../models.ts";
@@ -487,6 +488,14 @@ export async function handleVerifyRegistrationRoute(
         },
         event: "passkey.register",
         execute: async (scope) => {
+          const onboardingEmail =
+            "existingUserId" in resolution
+              ? (await scope.stores.getUserById(resolution.existingUserId))?.email
+              : resolution.create.email;
+          await requireIdentityConnectionForEmail(
+            scope.stores,
+            onboardingEmail
+          );
           await createPasskeyRegistrationTransactionStore(scope.stores).consume(
             { challengeHash, rpId: rp.id }
           );

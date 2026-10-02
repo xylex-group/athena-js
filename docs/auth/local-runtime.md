@@ -102,16 +102,32 @@ auth server implementation.
 Local mode uses the Athena Auth PostgreSQL schema (`athena.users`,
 `athena.sessions`, `athena.accounts`, organizations, …). The TypeScript runtime
 applies the same core tables the Rust service uses, plus a schema ledger and
-runtime keyring. Ledger generation **22** adds `athena.passkeys.updated_at`
-(`ALTER TABLE … ADD COLUMN IF NOT EXISTS`; generation 5 `CREATE TABLE` is not
-rewritten). Ledger generation **28** adds `athena.oauth_transactions` (hashed
-OAuth CSRF state + encrypted PKCE; not served on HTTP yet). Call
+runtime keyring. The current schema generation is **48**. Generations **45–48**
+add session authentication context, OIDC authorization context and refresh-token
+scope provenance, OIDC signing metadata, and organization identity connections
+with federated identities. Generation **28** adds durable social sign-in state
+(`athena.oauth_transactions`). Call
 `athena.auth.server.migrate()` explicitly in production if you disable
 auto-migrate.
 
 ## Implemented locally vs fail-closed
 
-Implemented against the Rust HTTP contract:
+The generated operation catalog
+(`contracts/auth/routes.generated.json` / `ATHENA_AUTH_OPERATIONS`) is the
+source of truth for runtime support. Embedded Auth also serves the following
+local-only capabilities:
+
+- OAuth Authorization Server and OIDC Provider: authorization code with PKCE
+  S256, RS256 ID tokens, scope-limited UserInfo (`GET` and `POST`), OIDC
+  discovery, and prompt / `max_age` / nonce handling. OIDC-only requests may
+  omit `resource`; mixed identity and API-scope requests name one explicitly.
+- `auth.admin.authorizationServer.client` and `.grant` manage the same clients
+  and delegated grants used by the OAuth protocol endpoints.
+- `auth.admin.connection` manages organization-owned OIDC connections and
+  federated identities. Connection secrets remain in the application's secret
+  store; Auth stores only `credentialRef`.
+
+Common Auth routes include:
 
 - `GET /ok`, `GET /health`
 - `GET|POST /get-session` (cookie, bearer, or `x-api-key` virtual session)
@@ -126,15 +142,15 @@ Implemented against the Rust HTTP contract:
 - Argon2id PHC hashes (`m=1024,t=2,p=1`) stored in `users.metadata.password_hash`
 - session tokens `session_<uuid>` and cookie `athena-auth.session-token`
 
-Not yet implemented in the TypeScript runtime (unknown routes return `404`,
-not a silent success). The generated catalog
-(`contracts/auth/routes.generated.json` / `ATHENA_AUTH_OPERATIONS`) is
-authoritative:
+Not implemented in the TypeScript runtime (unknown routes return `404`, not a
+silent success):
 
 - Social HTTP is **served** when `auth.social.providers` is configured ([ADR 0050](../../../../docs/adr/technical/0050-athena-js-social-oauth-orchestration.md) engine + [ADR 0053](../../../../docs/adr/technical/0053-athena-js-embedded-social-http-and-hooks.md) routes). Advertised `social.providers` lists only configured served ids. Unconfigured apps stay `[]`.
-- passkeys / WebAuthn advertisement (`passkeys: true` once every portable passkeys operation is embedded-supported). Construct `passkeys` / `webauthn` still throw (not config keys). Local runtime serves registration, authentication, list/update/delete, and `GET /.well-known/webauthn`.
-- grants / ABAC evaluator
+- general Auth grants / ABAC evaluator
 - session intelligence / geo IP
+
+Passkey/WebAuthn implementation is present in Embedded Auth. Its capability
+advertisement is operator-gated by `auth.passkey.enabled`; see [Passkeys](./passkey.mdx).
 
 Admin email records, templates, failures, and event-type list **are** served
 locally (`embedded: "supported"` in the catalog). Do not list them as a gap.
@@ -161,7 +177,9 @@ routes (`POST /sign-in/social`, `GET /callback/{provider}`, `POST /link-social`,
 `POST /unlink-account`) are served. Unconfigured apps stay `social.providers: []`.
 Ids that are not in the built-in registry may declare `issuer` (or explicit
 authorize/token/userinfo URLs) for a local/OIDC fixture — used by packed
-`testProvider` tests. Do not add `createOAuthClient`.
+`testProvider` tests. The distinct Authorization Server client admin API is
+`auth.admin.authorizationServer.client`; it manages apps that use Athena as
+issuer and does not configure social providers or callback allowlists.
 
 ```ts
 import { createClient } from "@xylex-group/athena/server";
@@ -187,7 +205,9 @@ export const athena = createClient({
 ```
 
 `auth.social: true` / `auth.oauth: true` is invalid (`ATHENA_RUNTIME_CONFIG_INVALID`).
-There is no `createOAuthClient`, `createSocialClient`, or `athena.oauth`.
+There is no standalone `createOAuthClient`, `createSocialClient`, or
+`athena.oauth` namespace. Social providers remain under `auth.social.providers`;
+dedicated Rust callback allowlists are Social Callback Registrations.
 `clientSecret` and the transaction store are server-only (not in browser /
 Next client / React Native / Auth UI). Post-auth redirects must match
 `security.trustedOrigins`; tokens never appear in the redirect query. Last-credential

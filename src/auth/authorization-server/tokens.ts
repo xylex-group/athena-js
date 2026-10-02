@@ -72,6 +72,8 @@ export interface IssuedOAuthTokenSet {
   expiresIn: number;
   familyId?: string;
   grantId: string;
+  idToken?: string;
+  identityScopes?: readonly string[];
   refreshToken?: string;
   scopes: readonly string[];
 }
@@ -79,6 +81,7 @@ export interface IssuedOAuthTokenSet {
 export interface OAuthTokenEndpointResponse {
   access_token: string;
   expires_in: number;
+  id_token?: string;
   refresh_token?: string;
   scope: string;
   token_type: "Bearer";
@@ -90,8 +93,11 @@ export function projectOAuthTokenEndpointResponse(
   return {
     access_token: issued.accessToken,
     expires_in: issued.expiresIn,
+    ...(issued.idToken ? { id_token: issued.idToken } : {}),
     ...(issued.refreshToken ? { refresh_token: issued.refreshToken } : {}),
-    scope: [...issued.scopes].sort().join(" "),
+    scope: [...new Set([...issued.scopes, ...(issued.identityScopes ?? [])])]
+      .sort()
+      .join(" "),
     token_type: "Bearer",
   };
 }
@@ -100,6 +106,7 @@ export function createAccessTokenClaims(input: {
   clientId: string;
   familyId?: string;
   grantId: string;
+  identityScopes?: readonly string[];
   issuer: string;
   organizationId?: string | null;
   resource: string;
@@ -113,6 +120,7 @@ export function createAccessTokenClaims(input: {
   return {
     aud: input.resource,
     athena_grant_id: input.grantId,
+    athena_identity_scopes: [...new Set(input.identityScopes ?? [])].sort() as OAuthAccessTokenClaims["athena_identity_scopes"],
     ...(input.familyId ? { athena_token_family_id: input.familyId } : {}),
     ...(input.organizationId
       ? { athena_organization_id: input.organizationId }

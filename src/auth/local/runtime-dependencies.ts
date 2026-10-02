@@ -67,8 +67,6 @@ import {
 import { AthenaAuthRuntimeError } from "./errors.ts";
 import { resolveRuntimeKey } from "./keyring.ts";
 import { MemoryAuthStores } from "./memory-stores.ts";
-import { applyAthenaAuthSqliteSchema, SqliteAuthStores } from "./sqlite-stores.ts";
-import type { AthenaAuthStores } from "./store-contract.ts";
 import type { AuthSessionRow, AuthUserRow } from "./models.ts";
 import { createAuthMutationTransaction } from "./mutation-transaction.ts";
 import { normalizeSessionActiveOrganization } from "./organization-invariants.ts";
@@ -98,6 +96,11 @@ import {
   composeEmbeddedSocialRuntime,
   resolveSocialEncryptionSecret,
 } from "./social/runtime.ts";
+import {
+  applyAthenaAuthSqliteSchema,
+  SqliteAuthStores,
+} from "./sqlite-stores.ts";
+import type { AthenaAuthStores } from "./store-contract.ts";
 import { PostgresAuthStores } from "./stores.ts";
 import { createLocalTokenAuthority } from "./token-authority.ts";
 import {
@@ -144,6 +147,7 @@ export interface AuthRuntimeDependencies {
   getOAuthStores(): Promise<OAuthAuthorizationServerStores>;
   getProtocolRuntime(): Promise<AuthProtocolRuntime>;
   getSocialRuntime(): Promise<AthenaEmbeddedSocialRuntime | null>;
+  resolveIdentityConnectionCredential?: CreateAthenaAuthRuntimeOptions["resolveIdentityConnectionCredential"];
   getTokenAuthority(): AuthRuntimeTokenAuthority | undefined;
   getTokenKeyStore(issuer?: string): Promise<TokenKeyStore>;
   hasher: AthenaAuthPasswordHasher;
@@ -169,6 +173,11 @@ export interface AuthRuntimeDependencies {
     headers: Headers,
     authentication: IssueSessionAuthentication
   ) => Promise<AuthSessionRow>;
+  listOrganizationLifecycleAuditRows(input: {
+    after?: { createdAt: string; eventId: string };
+    limit: number;
+    organizationId: string;
+  }): Promise<{ hasMore: boolean; rows: Record<string, unknown>[] }>;
   migrate(): Promise<void>;
   mutate: AuthRuntimeMutate;
   oauthRateLimiter: StoreRateLimiter;
@@ -245,9 +254,9 @@ export function createRuntimeDependencies(
   };
   let protocolIdentity = config.authorizationServer.enabled
     ? createAthenaAuthProtocolIdentity({
-      ...protocolIdentityInput,
-      environment: protocolEnvironment,
-    })
+        ...protocolIdentityInput,
+        environment: protocolEnvironment,
+      })
     : tryCreateAthenaAuthProtocolIdentity(protocolIdentityInput);
   const rejectProductionEphemeralTokenKeys = (): never => {
     throw new AthenaAuthRuntimeError(
@@ -472,6 +481,95 @@ export function createRuntimeDependencies(
     fn: (scope: AthenaAuthMutationScope) => Promise<T>
   ): Promise<T> => ensureTransaction().then((run) => run(fn));
 
+  const listOrganizationLifecycleAuditRows = async (input: {
+    after?: { createdAt: string; eventId: string };
+    limit: number;
+    organizationId: string;
+  }): Promise<{ hasMore: boolean; rows: Record<string, unknown>[] }> => {
+    if (!observability.auditLog) {
+      throw AthenaAuthRuntimeError.capabilityDisabled("Auth audit logging");
+    }
+    const limit = Math.max(1, Math.min(100, Math.trunc(input.limit)));
+    const events = [
+      "authorization.member.roles.replace",
+      "organization.member.add",
+      "organization.member.remove",
+      "organization.member.role.update",
+    ];
+    if (database) {
+      const result = await database.query<{
+        created_at: string;
+        event: string;
+        event_id: string;
+        organization_id: string;
+        previous: unknown;
+        result: unknown;
+        subject_id: string;
+        subject_type: string;
+      }>(
+        `SELECT event_id, event, subject_type, subject_id, organization_id, previous, result, created_at::text AS created_at
+           FROM athena.audit_log_auth
+          WHERE organization_id = $1
+            AND event = ANY($2::text[])
+            AND outcome = 'success'
+            AND ($3::timestamptz IS NULL OR (created_at, event_id) < ($3::timestamptz, $4::uuid))
+          ORDER BY created_at DESC, event_id DESC
+          LIMIT $5`,
+        [
+          input.organizationId,
+          events,
+          input.after?.createdAt ?? null,
+          input.after?.eventId ?? null,
+          limit + 1,
+        ]
+      );
+      return {
+        hasMore: result.rows.length > limit,
+        rows: result.rows.slice(0, limit) as Record<string, unknown>[],
+      };
+    }
+
+    const rows = auditSink.entries
+      .filter(
+        (entry) =>
+          entry.organizationId === input.organizationId &&
+          entry.outcome === "success" &&
+          events.includes(entry.event) &&
+          (entry.subject?.type === "organization.member" ||
+            entry.subject?.type === "authorization.role")
+      )
+      .map((entry) => ({
+        created_at:
+          auditSink.createdAt?.get(entry.eventId)?.toISOString() ??
+          new Date(0).toISOString(),
+        event: entry.event,
+        event_id: entry.eventId,
+        organization_id: entry.organizationId,
+        previous: entry.previous,
+        result: entry.result,
+        subject_id: entry.subject?.id,
+        subject_type: entry.subject?.type,
+      }))
+      .filter((row) => {
+        if (!input.after) {
+          return true;
+        }
+        const at = new Date(row.created_at).getTime();
+        const cursorAt = new Date(input.after.createdAt).getTime();
+        return (
+          at < cursorAt ||
+          (at === cursorAt && row.event_id < input.after.eventId)
+        );
+      })
+      .sort((left, right) => {
+        const byDate =
+          new Date(right.created_at).getTime() -
+          new Date(left.created_at).getTime();
+        return byDate || right.event_id.localeCompare(left.event_id);
+      });
+    return { hasMore: rows.length > limit, rows: rows.slice(0, limit) };
+  };
+
   const resolveSession = async (
     request: Request,
     currentStores: AthenaAuthStores
@@ -520,7 +618,7 @@ export function createRuntimeDependencies(
       if (
         !config.session.disableSessionRefresh &&
         Date.now() - new Date(sessionWithOrg.updated_at).getTime() >=
-        config.session.updateAgeSeconds * 1000
+          config.session.updateAgeSeconds * 1000
       ) {
         await timeAuthSpan("session_refresh", async () => {
           const expiresAt = new Date(
@@ -613,6 +711,7 @@ export function createRuntimeDependencies(
       }
       await ensureReady();
       socialRuntime = composeEmbeddedSocialRuntime({
+        allowEmptyProviders: true,
         database,
         secret: resolveSocialEncryptionSecret({
           configSecret: config.secret,
@@ -721,7 +820,12 @@ export function createRuntimeDependencies(
     const oauth = new OAuthAuthorizationServerService({
       clock,
       config: config.authorizationServer,
+      getUser: async (userId) => {
+        const user = await (await ensureReady()).getUserById(userId);
+        return user ?? null;
+      },
       issuer: identity.issuer,
+      userInfoEndpoint: identity.userInfoEndpoint,
       keyStore,
       signing,
       stateSecret,
@@ -793,6 +897,9 @@ export function createRuntimeDependencies(
           oauth: {
             clientId: claims.client_id,
             grantId: claims.athena_grant_id,
+            ...(claims.athena_identity_scopes
+              ? { identityScopes: claims.athena_identity_scopes }
+              : {}),
             resource,
             scopes,
           },
@@ -838,6 +945,8 @@ export function createRuntimeDependencies(
     getOAuthStores,
     getProtocolRuntime,
     getSocialRuntime,
+    resolveIdentityConnectionCredential:
+      options.resolveIdentityConnectionCredential,
     getTokenAuthority: () => tokenAuthority,
     getTokenKeyStore,
     hasher,
@@ -845,6 +954,7 @@ export function createRuntimeDependencies(
     hooksRef: options.hooks,
     identityOf,
     issueSession,
+    listOrganizationLifecycleAuditRows,
     migrate: async () => {
       if (stores instanceof SqliteAuthStores) {
         if (database) {

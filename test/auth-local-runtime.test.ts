@@ -435,6 +435,85 @@ test("organization create/list/invite/accept stay scoped to the member", async (
   );
   assert.equal(accepted.status, 200);
 
+  const otherCreated = await runtime.handle(
+    new Request("http://app.local/api/auth/organization/create", {
+      body: JSON.stringify({ name: "Beta", slug: "beta" }),
+      headers: {
+        "content-type": "application/json",
+        cookie: ownerCookie,
+      },
+      method: "POST",
+    })
+  );
+  assert.equal(otherCreated.status, 200);
+  const otherOrganization = (await json(otherCreated)).organization as {
+    id: string;
+  };
+  const createdRole = await runtime.handle(
+    new Request("http://app.local/api/auth/authorization/roles", {
+      body: JSON.stringify({
+        name: "Readless member",
+        organizationId: otherOrganization.id,
+        rights: [],
+        scope: "organization",
+      }),
+      headers: {
+        "content-type": "application/json",
+        cookie: ownerCookie,
+      },
+      method: "POST",
+    })
+  );
+  assert.equal(createdRole.status, 200);
+  const role = (await json(createdRole)).role as { key: string };
+  const invitedToOther = await runtime.handle(
+    new Request("http://app.local/api/auth/organization/invite-member", {
+      body: JSON.stringify({
+        email: "member@example.com",
+        organizationId: otherOrganization.id,
+        role: role.key,
+      }),
+      headers: {
+        "content-type": "application/json",
+        cookie: ownerCookie,
+      },
+      method: "POST",
+    })
+  );
+  assert.equal(invitedToOther.status, 200);
+  const otherInvitation = (await json(invitedToOther)).invitation as {
+    id: string;
+  };
+  const acceptedOther = await runtime.handle(
+    new Request("http://app.local/api/auth/organization/accept-invitation", {
+      body: JSON.stringify({ invitationId: otherInvitation.id }),
+      headers: {
+        "content-type": "application/json",
+        cookie: memberCookie,
+      },
+      method: "POST",
+    })
+  );
+  assert.equal(acceptedOther.status, 200);
+  for (const cookie of [ownerCookie, memberCookie]) {
+    const activated = await runtime.handle(
+      new Request("http://app.local/api/auth/organization/set-active", {
+        body: JSON.stringify({ organizationId: organization.id }),
+        headers: { "content-type": "application/json", cookie },
+        method: "POST",
+      })
+    );
+    assert.equal(activated.status, 200);
+  }
+
+  const listedFromOtherMemberOrganization = await runtime.handle(
+    new Request(
+      `http://app.local/api/auth/organization/list-members?organizationId=${otherOrganization.id}`,
+      { headers: { cookie: memberCookie } }
+    )
+  );
+  assert.equal(listedFromOtherMemberOrganization.status, 200);
+
   const listed = await runtime.handle(
     new Request(
       `http://app.local/api/auth/organization/list-members?organizationId=${organization.id}`,
@@ -442,6 +521,12 @@ test("organization create/list/invite/accept stay scoped to the member", async (
     )
   );
   assert.equal(listed.status, 200);
+  const listedFromActiveOrganization = await runtime.handle(
+    new Request("http://app.local/api/auth/organization/list-members", {
+      headers: { cookie: ownerCookie },
+    })
+  );
+  assert.equal(listedFromActiveOrganization.status, 200);
   const listedBody = await json(listed);
   const listedMembers = listedBody.members as Array<{
     email?: string | null;

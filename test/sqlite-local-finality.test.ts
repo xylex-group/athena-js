@@ -230,8 +230,33 @@ test("SQLite Auth stores persist with SQLite placeholders and handlers start", a
     name: "Ada",
   });
   assert.equal(user.id, "user-1");
+  const connection = await stores.createIdentityConnection({
+    authenticationRequired: true,
+    clientId: "enterprise-client",
+    connectionType: "oidc",
+    credentialRef: null,
+    domains: ["example.com"],
+    enabled: true,
+    id: "connection-1",
+    issuer: "https://id.example.com",
+    jitDefaultRoleId: null,
+    jitEnabled: true,
+    name: "Enterprise SSO",
+    organizationId: "org-1",
+    resource: null,
+    tokenEndpointAuthMethod: "none",
+  });
+  assert.equal(connection.id, "connection-1");
+  assert.equal(
+    (await stores.findIdentityConnectionByDomain("EXAMPLE.COM"))?.id,
+    "connection-1"
+  );
   assert.equal(
     sql.some((statement) => statement.includes("INSERT INTO athena_auth_user") && statement.includes("?")),
+    true,
+  );
+  assert.equal(
+    sql.some((statement) => statement.includes("INSERT INTO athena_auth_identity_connection") && statement.includes("?")),
     true,
   );
   assert.equal(sql.some((statement) => statement.includes("$1")), false);

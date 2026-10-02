@@ -73,6 +73,41 @@ export const ATHENA_AUTH_SQLITE_SCHEMA = Object.freeze([
     FOREIGN KEY (organization_id) REFERENCES athena_auth_organization(id),
     FOREIGN KEY (user_id) REFERENCES athena_auth_user(id)
   )`,
+  `CREATE TABLE IF NOT EXISTS athena_auth_identity_connection (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    connection_type TEXT NOT NULL DEFAULT 'oidc' CHECK (connection_type = 'oidc'),
+    name TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    resource_uri TEXT,
+    token_endpoint_auth_method TEXT NOT NULL DEFAULT 'none'
+      CHECK (token_endpoint_auth_method IN ('client_secret_basic', 'client_secret_post', 'none')),
+    credential_ref TEXT,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    domains TEXT NOT NULL DEFAULT '[]',
+    jit_enabled INTEGER NOT NULL DEFAULT 0,
+    jit_default_role_id TEXT,
+    authentication_required INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (organization_id) REFERENCES athena_auth_organization(id) ON DELETE CASCADE
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_athena_auth_identity_connection_org
+    ON athena_auth_identity_connection (organization_id, enabled)`,
+  `CREATE TABLE IF NOT EXISTS athena_auth_federated_identity (
+    id TEXT PRIMARY KEY,
+    connection_id TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    last_authenticated_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (connection_id, issuer, subject),
+    FOREIGN KEY (connection_id) REFERENCES athena_auth_identity_connection(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES athena_auth_user(id) ON DELETE CASCADE
+  )`,
   `CREATE TABLE IF NOT EXISTS athena_auth_user_role (
     user_id TEXT NOT NULL,
     role_key TEXT NOT NULL,

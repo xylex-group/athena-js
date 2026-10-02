@@ -10,6 +10,7 @@ export interface AthenaAuthAuditWriter {
 }
 
 export interface MemoryAuthAuditSink {
+  createdAt?: Map<string, Date>;
   entries: AthenaAuthAuditEntry[];
 }
 
@@ -23,6 +24,10 @@ export function createMemoryAuthAuditWriter(
   return {
     async write(_scope, entry) {
       sink.entries.push({ ...entry });
+      if (!sink.createdAt) {
+        sink.createdAt = new Map();
+      }
+      sink.createdAt.set(entry.eventId, new Date());
     },
   };
 }

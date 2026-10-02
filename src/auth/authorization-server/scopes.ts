@@ -1,11 +1,9 @@
 import { OAuthProtocolError } from "./errors.ts";
-import type { OAuthClient } from "./types.ts";
+import type { OAuthClient, OidcIdentityScope } from "./types.ts";
 
 const SCOPE_PATTERN = /^[\x21-\x7e]+$/;
 
 export const OIDC_IDENTITY_SCOPES = ["openid", "profile", "email"] as const;
-
-export type OidcIdentityScope = (typeof OIDC_IDENTITY_SCOPES)[number];
 
 const IDENTITY_SCOPE_SET = new Set<string>(OIDC_IDENTITY_SCOPES);
 

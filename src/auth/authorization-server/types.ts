@@ -15,6 +15,9 @@ export type OAuthRefreshTokenStatus =
   | "revoked"
   | "rotated";
 
+export type OidcIdentityScope = "openid" | "profile" | "email";
+export type OidcPrompt = "consent" | "login" | "none";
+
 export interface OAuthClient {
   clientName: string;
   clientType: OAuthClientType;
@@ -39,6 +42,7 @@ export interface OAuthAuthorizationGrant {
   createdAt: Date;
   expiresAt: Date | null;
   id: string;
+  identityScopes: readonly OidcIdentityScope[];
   lastUsedAt: Date | null;
   organizationId: string | null;
   resource: string;
@@ -58,7 +62,11 @@ export interface OAuthAuthorizationRequest {
   createdAt: Date;
   expiresAt: Date;
   id: string;
+  identityScopes: readonly OidcIdentityScope[];
+  maxAge: number | null;
+  nonce: string | null;
   organizationId: string | null;
+  prompt: readonly OidcPrompt[];
   redirectUri: string;
   requestedScopes: readonly string[];
   resolvedAt: Date | null;
@@ -69,6 +77,8 @@ export interface OAuthAuthorizationRequest {
 }
 
 export interface OAuthAuthorizationCode {
+  authenticatedAt: Date;
+  authenticationMethods: readonly string[];
   clientId: string;
   codeChallenge: string;
   codeChallengeMethod: "S256";
@@ -78,6 +88,8 @@ export interface OAuthAuthorizationCode {
   expiresAt: Date;
   grantId: string;
   id: string;
+  identityScopes: readonly OidcIdentityScope[];
+  nonce: string | null;
   organizationId: string | null;
   redirectUri: string;
   resource: string;
@@ -92,6 +104,7 @@ export interface OAuthRefreshToken {
   familyId: string;
   grantId: string;
   id: string;
+  identityScopes: readonly OidcIdentityScope[];
   organizationId: string | null;
   parentTokenId: string | null;
   resource: string;
@@ -115,6 +128,7 @@ export interface OAuthRevokedAccessToken {
 export interface OAuthAccessTokenClaims {
   aud: string;
   athena_grant_id: string;
+  athena_identity_scopes?: readonly OidcIdentityScope[];
   athena_organization_id?: string;
   athena_token_family_id?: string;
   client_id: string;
@@ -124,6 +138,22 @@ export interface OAuthAccessTokenClaims {
   jti: string;
   nbf: number;
   scope: string;
+  sub: string;
+}
+
+export interface AthenaOidcIdTokenClaims {
+  amr: readonly string[];
+  aud: string;
+  auth_time: number;
+  exp: number;
+  iat: number;
+  iss: string;
+  nonce?: string;
+  email?: string;
+  email_verified?: boolean;
+  name?: string;
+  picture?: string;
+  preferred_username?: string;
   sub: string;
 }
 

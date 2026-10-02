@@ -50,6 +50,65 @@ test("identity scopes are classified only when openid is present", () => {
   });
 });
 
+test("Memory OAuth stores persist OIDC authorization context separately from resource scopes", async () => {
+  const stores = createMemoryOAuthAuthorizationServerStores();
+  await stores.clients.create({
+    clientName: "OIDC client",
+    id: "client-oidc",
+    redirectUris: ["https://client.example/callback"],
+    resourceUris: ["https://resource.example"],
+    scopes: ["invoice:read", "openid", "profile"],
+  });
+  const suffix = crypto.randomUUID();
+  const request = await stores.authorizationRequests.create({
+    clientId: "client-oidc",
+    codeChallenge: "c".repeat(43),
+    codeChallengeMethod: "S256",
+    expiresAt: new Date(Date.now() + 60_000),
+    id: `request-${suffix}`,
+    identityScopes: ["openid", "profile"],
+    maxAge: 300,
+    nonce: "consumer-nonce",
+    prompt: ["consent"],
+    redirectUri: "https://client.example/callback",
+    requestHash: `request-hash-${suffix}`,
+    requestedScopes: ["invoice:read"],
+    resource: "https://resource.example",
+    stateCiphertext: "state-ciphertext",
+  });
+  assert.deepEqual(request.identityScopes, ["openid", "profile"]);
+  assert.deepEqual(request.requestedScopes, ["invoice:read"]);
+  assert.equal(request.nonce, "consumer-nonce");
+  assert.equal(request.maxAge, 300);
+  assert.deepEqual(request.prompt, ["consent"]);
+
+  const completed = await stores.completeAuthorization({
+    clientId: "client-oidc",
+    codeChallenge: await generateCodeChallenge("o".repeat(43)),
+    codeChallengeMethod: "S256",
+    codeHash: `code-hash-${suffix}`,
+    expiresAt: new Date(Date.now() + 60_000),
+    authenticationMethods: ["passkey"],
+    authenticatedAt: new Date("2026-01-01T00:00:00Z"),
+    grantId: `grant-${suffix}`,
+    id: `code-${suffix}`,
+    identityScopes: request.identityScopes,
+    nonce: request.nonce,
+    organizationId: null,
+    redirectUri: "https://client.example/callback",
+    requestId: request.id,
+    resource: request.resource,
+    scopes: request.requestedScopes,
+    userId: "oidc-user",
+  });
+  assert.deepEqual(completed.grant.identityScopes, ["openid", "profile"]);
+  const code = await stores.authorizationCodes.getByHash(`code-hash-${suffix}`);
+  assert.equal(code?.nonce, "consumer-nonce");
+  assert.deepEqual(code?.identityScopes, ["openid", "profile"]);
+  assert.equal(code?.authenticatedAt.toISOString(), "2026-01-01T00:00:00.000Z");
+  assert.deepEqual(code?.authenticationMethods, ["passkey"]);
+});
+
 test("unsupported response type is not mapped to unsupported_grant_type", async () => {
   const stores = createMemoryOAuthAuthorizationServerStores();
   await stores.clients.create({
@@ -116,14 +175,14 @@ test("OAuth interaction secret is not the issuer", async () => {
   assert.deepEqual(request.requestedScopes, ["invoice:read"]);
 });
 
-test("OAuth rejects identity scopes until OIDC is supported", async () => {
+test("OAuth authorization requests accept identity scopes separately from resource scopes", async () => {
   const stores = createMemoryOAuthAuthorizationServerStores();
   await stores.clients.create({
     clientName: "OIDC client",
     id: "client-oidc",
     redirectUris: ["https://client.example/callback"],
     resourceUris: ["https://resource.example"],
-    scopes: ["email", "invoice:read", "profile"],
+    scopes: ["email", "invoice:read", "openid", "profile"],
   });
   const keyStore = new MemoryTokenKeyStore();
   const service = new OAuthAuthorizationServerService({
@@ -137,29 +196,29 @@ test("OAuth rejects identity scopes until OIDC is supported", async () => {
   });
   const client = await stores.clients.get("client-oidc");
   assert.ok(client);
-  for (const scope of [
-    "openid",
-    "openid profile",
-    "openid email invoice:read",
-  ]) {
-    assert.throws(
-      () =>
-        service.validateResourceAndScopes(
-          client,
-          "https://resource.example",
-          scope
-        ),
-      (error: unknown) =>
-        error instanceof OAuthProtocolError && error.code === "invalid_scope"
-    );
-  }
+  assert.deepEqual(
+    service.validateResourceAndScopes(
+      client,
+      "https://resource.example",
+      "openid profile invoice:read"
+    ),
+    {
+      identityScopes: ["openid", "profile"],
+      resource: "https://resource.example",
+      scopes: ["invoice:read"],
+    }
+  );
   assert.deepEqual(
     service.validateResourceAndScopes(
       client,
       "https://resource.example",
       "profile"
     ),
-    { resource: "https://resource.example", scopes: ["profile"] }
+    {
+      identityScopes: [],
+      resource: "https://resource.example",
+      scopes: ["profile"],
+    }
   );
   assert.deepEqual(
     service.validateResourceAndScopes(
@@ -167,7 +226,11 @@ test("OAuth rejects identity scopes until OIDC is supported", async () => {
       "https://resource.example",
       "email"
     ),
-    { resource: "https://resource.example", scopes: ["email"] }
+    {
+      identityScopes: [],
+      resource: "https://resource.example",
+      scopes: ["email"],
+    }
   );
   assert.deepEqual(
     service.validateResourceAndScopes(
@@ -175,7 +238,25 @@ test("OAuth rejects identity scopes until OIDC is supported", async () => {
       "https://resource.example",
       "email invoice:read"
     ),
-    { resource: "https://resource.example", scopes: ["email", "invoice:read"] }
+    {
+      identityScopes: [],
+      resource: "https://resource.example",
+      scopes: ["email", "invoice:read"],
+    }
+  );
+  await assert.rejects(
+    service.validateAuthorizationRequest({
+      clientId: "client-oidc",
+      codeChallenge: "n".repeat(43),
+      codeChallengeMethod: "S256",
+      nonce: "nonce-without-openid",
+      redirectUri: "https://client.example/callback",
+      resource: "https://resource.example",
+      responseType: "code",
+      scope: "invoice:read",
+    }),
+    (error: unknown) =>
+      error instanceof OAuthProtocolError && error.code === "invalid_request"
   );
 });
 

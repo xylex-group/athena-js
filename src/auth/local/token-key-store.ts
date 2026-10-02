@@ -7,7 +7,10 @@ export type TokenKeyStatus =
   | "retired"
   | "revoked";
 
+export type TokenSigningAlgorithm = "ES256" | "RS256";
+
 export interface TokenVerificationKey {
+  algorithm: TokenSigningAlgorithm;
   kid: string;
   publicJwk: JWK;
   status: "active" | "retiring";
@@ -29,10 +32,12 @@ export interface TokenKeyStore {
   acquireBootstrapLock(): Promise<() => void>;
   activateKey(key: TokenSigningKey): Promise<void>;
   compareAndActivate(key: TokenSigningKey): Promise<void>;
-  getActiveSigningKey(): Promise<TokenSigningKey | undefined>;
+  getActiveSigningKey(
+    algorithm?: TokenSigningAlgorithm
+  ): Promise<TokenSigningKey | undefined>;
   listVerificationKeys(now?: Date): Promise<TokenVerificationKey[]>;
   retireKey(kid: string): Promise<void>;
-  rotateSigningKey(): Promise<TokenSigningKey>;
+  rotateSigningKey(algorithm?: TokenSigningAlgorithm): Promise<TokenSigningKey>;
 }
 
 /** retireWindow = maxTokenTtl + jwksCache max-age + SWR. */
@@ -84,10 +89,12 @@ export class MemoryTokenKeyStore implements TokenKeyStore {
     };
   }
 
-  async getActiveSigningKey(): Promise<TokenSigningKey | undefined> {
+  async getActiveSigningKey(
+    algorithm: TokenSigningAlgorithm = "ES256"
+  ): Promise<TokenSigningKey | undefined> {
     this.prune(new Date());
     for (const key of this.keys.values()) {
-      if (key.status === "active") {
+      if (key.status === "active" && key.algorithm === algorithm) {
         return key;
       }
     }
@@ -107,6 +114,7 @@ export class MemoryTokenKeyStore implements TokenKeyStore {
       }
       out.push({
         kid: key.kid,
+        algorithm: key.algorithm,
         publicJwk: key.publicJwk,
         status: key.status,
       });
@@ -116,7 +124,7 @@ export class MemoryTokenKeyStore implements TokenKeyStore {
 
   async compareAndActivate(key: TokenSigningKey): Promise<void> {
     this.prune(new Date());
-    const existing = await this.getActiveSigningKey();
+    const existing = await this.getActiveSigningKey(key.algorithm);
     if (existing) {
       return;
     }
@@ -127,11 +135,13 @@ export class MemoryTokenKeyStore implements TokenKeyStore {
     await this.compareAndActivate(key);
   }
 
-  async rotateSigningKey(): Promise<TokenSigningKey> {
+  async rotateSigningKey(
+    algorithm: TokenSigningAlgorithm = "ES256"
+  ): Promise<TokenSigningKey> {
     const unlock = await this.acquireBootstrapLock();
     try {
-      const current = await this.getActiveSigningKey();
-      const next = await generateSigningKey();
+      const current = await this.getActiveSigningKey(algorithm);
+      const next = await generateSigningKey(algorithm);
       if (current) {
         await this.retireKey(current.kid);
       }
@@ -184,17 +194,18 @@ function stripPrivateJwk(jwk: JWK): JWK {
 }
 
 export async function ensureActiveSigningKey(
-  store: TokenKeyStore
+  store: TokenKeyStore,
+  algorithm: TokenSigningAlgorithm = "ES256"
 ): Promise<TokenSigningKey> {
   const unlock = await store.acquireBootstrapLock();
   try {
-    const existing = await store.getActiveSigningKey();
+    const existing = await store.getActiveSigningKey(algorithm);
     if (existing) {
       return existing;
     }
-    const generated = await generateSigningKey();
+    const generated = await generateSigningKey(algorithm);
     await store.compareAndActivate(generated);
-    const active = await store.getActiveSigningKey();
+    const active = await store.getActiveSigningKey(algorithm);
     if (!active) {
       throw new Error(
         "Signing key activation did not persist an active committed key"
@@ -207,24 +218,29 @@ export async function ensureActiveSigningKey(
 }
 
 export async function rotateSigningKey(
-  store: TokenKeyStore
+  store: TokenKeyStore,
+  algorithm: TokenSigningAlgorithm = "ES256"
 ): Promise<TokenSigningKey> {
-  return store.rotateSigningKey();
+  return store.rotateSigningKey(algorithm);
 }
 
-export async function generateSigningKey(): Promise<TokenSigningKey> {
-  const { privateKey, publicKey } = await generateKeyPair("ES256", {
+export async function generateSigningKey(
+  algorithm: TokenSigningAlgorithm = "ES256"
+): Promise<TokenSigningKey> {
+  const { privateKey, publicKey } = await generateKeyPair(algorithm, {
     extractable: true,
+    ...(algorithm === "RS256" ? { modulusLength: 2048 } : {}),
   });
   const kid = crypto.randomUUID();
   const jwk = await exportJWK(publicKey);
   const publicJwk: JWK = {
     ...jwk,
-    alg: "ES256",
+    alg: algorithm,
     kid,
     use: "sig",
   };
   return {
+    algorithm,
     kid,
     privateKey,
     publicJwk,

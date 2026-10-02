@@ -1,6 +1,6 @@
 import type { AthenaRightsAuthority } from "../rights/authority.ts";
-import { getAthenaAuthorizationRightsAuthority } from "../runtime/authorization/catalog.ts";
 import { parseAthenaRightKey } from "../rights/key.ts";
+import { getAthenaAuthorizationRightsAuthority } from "../runtime/authorization/catalog.ts";
 import { parseAthenaRoleId } from "./id.ts";
 import { parseAthenaRoleKey } from "./key.ts";
 import type { AthenaRoleDefinition } from "./types.ts";
@@ -137,6 +137,8 @@ export function createAthenaBuiltinRoleDefinitions(
       key: "organization_owner",
       rights: availableRights(authority, [
         parseAthenaRightKey("organization.members.read"),
+        parseAthenaRightKey("organization.authentication.read"),
+        parseAthenaRightKey("organization.auth_events.read"),
         parseAthenaRightKey("organization.members.write"),
         parseAthenaRightKey("organization.members.invite"),
         parseAthenaRightKey("organization.owners.assign"),
@@ -154,6 +156,8 @@ export function createAthenaBuiltinRoleDefinitions(
       key: "organization_admin",
       rights: availableRights(authority, [
         parseAthenaRightKey("organization.members.read"),
+        parseAthenaRightKey("organization.authentication.read"),
+        parseAthenaRightKey("organization.auth_events.read"),
         parseAthenaRightKey("organization.members.write"),
         parseAthenaRightKey("organization.members.invite"),
         parseAthenaRightKey("authorization.roles.read"),

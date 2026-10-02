@@ -53,6 +53,12 @@ export function createGenericOidcSocialProvider(
   providerId: string,
   options: AthenaAuthSocialProviderOptions
 ): OAuthProvider {
+  const authentication =
+    options.tokenEndpointAuthMethod === "client_secret_basic"
+      ? "basic"
+      : "post";
+  const clientSecret =
+    options.tokenEndpointAuthMethod === "none" ? undefined : options.clientSecret;
   const cache = new Map<string, ResolvedOidcProviderMetadata>();
   const resolveEndpoints = () =>
     resolveOidcProviderEndpoints({
@@ -93,6 +99,9 @@ export function createGenericOidcSocialProvider(
           clientSecret: options.clientSecret,
         },
         redirectURI,
+        ...(options.resource
+          ? { additionalParams: { resource: options.resource } }
+          : {}),
         scopes: resolvedScopes,
         state,
       });
@@ -142,11 +151,15 @@ export function createGenericOidcSocialProvider(
     refreshAccessToken: async (refreshToken: string) => {
       const endpoints = await resolveEndpoints();
       return refreshAccessToken({
+        authentication,
         options: {
           clientId: options.clientId,
-          clientSecret: options.clientSecret,
+          clientSecret,
         },
         refreshToken,
+        ...(options.resource
+          ? { extraParams: { resource: options.resource } }
+          : {}),
         tokenEndpoint: endpoints.tokenEndpoint,
       });
     },
@@ -157,9 +170,11 @@ export function createGenericOidcSocialProvider(
         codeVerifier,
         options: {
           clientId: options.clientId,
-          clientSecret: options.clientSecret,
+          clientSecret,
         },
+        authentication,
         redirectURI,
+        resource: options.resource,
         tokenEndpoint: endpoints.tokenEndpoint,
       });
     },
@@ -174,10 +189,13 @@ export function createGenericOidcSocialProvider(
           audience: options.clientId,
           issuer: endpoints.issuer,
         });
+        if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+          return false;
+        }
         if (nonce && payload.nonce !== nonce) {
           return false;
         }
-        return true;
+        return { claims: payload };
       } catch {
         return false;
       }

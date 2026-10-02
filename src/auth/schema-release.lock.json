@@ -1,5 +1,5 @@
 {
-	"authSchemaGeneration": 45,
-	"canonicalMigrationFingerprint": "c96d63e1c315ee2ff6450b933cbb40227db83cbe5c5891f6290e134756dab096",
-	"packageVersion": "5.6.10"
+	"authSchemaGeneration": 48,
+	"canonicalMigrationFingerprint": "a32ea82584dc8d5b2290d331907b1a2a37d808a303a0143111584074556afbae",
+	"packageVersion": "5.7.0"
 }

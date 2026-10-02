@@ -41,12 +41,12 @@ test("Auth schema release gate enumerates every schema proof", () => {
   }
 });
 
-test("Auth N-1 to N release proof is a physical generation 34 to 35 upgrade", () => {
+test("Auth release proof upgrades an older physical generation to current", () => {
   const source = readFileSync(
     join(packageRoot, "test/sdd/athena-js-embedded-sql-migrate.pg.test.ts"),
     "utf8"
   );
-  assert.match(source, /physical Auth generation 34 upgrades to generation 35/);
+  assert.match(source, /physical Auth generation 34 upgrades to current/);
   assert.match(source, /prepareAuthGeneration\(database, 34\)/);
   assert.match(
     source,

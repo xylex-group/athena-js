@@ -5,6 +5,8 @@ import type {
   AthenaAuthFetchCompatibleInput,
   AthenaAuthGuardResult,
   AthenaAuthOrganization,
+  AthenaAuthOrganizationAuthenticationPostureListQuery,
+  AthenaAuthOrganizationAuthenticationPostureListResponse,
   AthenaAuthOrganizationBindings,
   AthenaAuthOrganizationCheckSlugRequest,
   AthenaAuthOrganizationCreateRequest,
@@ -15,6 +17,8 @@ import type {
   AthenaAuthOrganizationInvitationActionRequest,
   AthenaAuthOrganizationInviteMemberRequest,
   AthenaAuthOrganizationLeaveRequest,
+  AthenaAuthOrganizationLifecycleEventsListQuery,
+  AthenaAuthOrganizationLifecycleEventsListResponse,
   AthenaAuthOrganizationListInvitationsQuery,
   AthenaAuthOrganizationListMembersQuery,
   AthenaAuthOrganizationListUserInvitationsQuery,
@@ -41,6 +45,28 @@ export function createOrganizationClientModule(input: {
   const { resolvedConfig } = transport;
 
   return {
+    authenticationPosture: {
+      list: (input, options) => {
+        const { fetchOptions, payload } = transport.extractFetchOptions(input);
+        return transport.executeGetWithQueryCompatibleInput<
+          AthenaAuthOrganizationAuthenticationPostureListQuery,
+          AthenaAuthOrganizationAuthenticationPostureListResponse
+        >(
+          resolvedConfig,
+          {
+            endpoint: "/organization/list-authentication-posture",
+            method: "GET",
+          },
+          {
+            fetchOptions,
+            query: payload as
+              | AthenaAuthOrganizationAuthenticationPostureListQuery
+              | undefined,
+          },
+          options
+        );
+      },
+    },
     checkSlug: (input, options) =>
       transport.executePostWithCompatibleInput<
         AthenaAuthOrganizationCheckSlugRequest & AthenaAuthFetchCompatibleInput,
@@ -156,6 +182,28 @@ export function createOrganizationClientModule(input: {
         input,
         options
       ),
+    lifecycleEvents: {
+      list: (input, options) => {
+        const { fetchOptions, payload } = transport.extractFetchOptions(input);
+        return transport.executeGetWithQueryCompatibleInput<
+          AthenaAuthOrganizationLifecycleEventsListQuery,
+          AthenaAuthOrganizationLifecycleEventsListResponse
+        >(
+          resolvedConfig,
+          {
+            endpoint: "/organization/list-lifecycle-events",
+            method: "GET",
+          },
+          {
+            fetchOptions,
+            query: payload as
+              | AthenaAuthOrganizationLifecycleEventsListQuery
+              | undefined,
+          },
+          options
+        );
+      },
+    },
     list: (input, options) =>
       transport.getGeneric<AthenaAuthOrganization[]>(
         "/organization/list",

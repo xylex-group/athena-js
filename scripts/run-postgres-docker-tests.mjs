@@ -32,6 +32,9 @@ const FINALITY_DATABASE = "athena_js_auth_finality";
 
 const AUTH_SUITE = [
   "test/auth/authorization-server-postgres.test.ts",
+  "test/auth/oidc-provider-conformance.test.ts",
+  "test/auth/identity-connections-postgres.test.ts",
+  "test/auth/organization-lifecycle-postgres.test.ts",
   "test/finality/token-key-store-postgres.test.ts",
   "test/auth-postgres-timeouts.live.test.ts",
 ];

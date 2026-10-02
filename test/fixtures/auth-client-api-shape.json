@@ -156,7 +156,9 @@
           "apiKey",
           "athenaClient",
           "auditLog",
+          "authorizationServer",
           "banUser",
+          "connection",
           "createUser",
           "email",
           "emailEventType",
@@ -222,10 +224,112 @@
               }
             }
           },
+          "authorizationServer": {
+            "keys": [
+              "client",
+              "grant"
+            ],
+            "kind": "object",
+            "members": {
+              "client": {
+                "keys": [
+                  "create",
+                  "disable",
+                  "get",
+                  "list",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "disable": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "disable"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
+              },
+              "grant": {
+                "keys": [
+                  "list",
+                  "revoke"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "revoke": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "revoke"
+                  }
+                }
+              }
+            }
+          },
           "banUser": {
             "arity": 2,
             "kind": "fn",
             "name": "banUser"
+          },
+          "connection": {
+            "keys": [
+              "create",
+              "disable",
+              "get",
+              "list",
+              "update"
+            ],
+            "kind": "object",
+            "members": {
+              "create": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "create"
+              },
+              "disable": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "disable"
+              },
+              "get": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "get"
+              },
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              },
+              "update": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "update"
+              }
+            }
           },
           "createUser": {
             "arity": 2,
@@ -877,6 +981,7 @@
       },
       "organization": {
         "keys": [
+          "authenticationPosture",
           "checkSlug",
           "create",
           "delete",
@@ -884,6 +989,7 @@
           "hasPermission",
           "invitation",
           "leave",
+          "lifecycleEvents",
           "list",
           "listUserInvitations",
           "member",
@@ -893,6 +999,19 @@
         ],
         "kind": "object",
         "members": {
+          "authenticationPosture": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
+          },
           "checkSlug": {
             "arity": 2,
             "kind": "fn",
@@ -959,6 +1078,19 @@
             "arity": 2,
             "kind": "fn",
             "name": "leave"
+          },
+          "lifecycleEvents": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
           },
           "list": {
             "arity": 2,
@@ -1498,7 +1630,9 @@
               "apiKey",
               "athenaClient",
               "auditLog",
+              "authorizationServer",
               "banUser",
+              "connection",
               "createUser",
               "email",
               "emailEventType",
@@ -1564,10 +1698,112 @@
                   }
                 }
               },
+              "authorizationServer": {
+                "keys": [
+                  "client",
+                  "grant"
+                ],
+                "kind": "object",
+                "members": {
+                  "client": {
+                    "keys": [
+                      "create",
+                      "disable",
+                      "get",
+                      "list",
+                      "update"
+                    ],
+                    "kind": "object",
+                    "members": {
+                      "create": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "create"
+                      },
+                      "disable": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "disable"
+                      },
+                      "get": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "get"
+                      },
+                      "list": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "list"
+                      },
+                      "update": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "update"
+                      }
+                    }
+                  },
+                  "grant": {
+                    "keys": [
+                      "list",
+                      "revoke"
+                    ],
+                    "kind": "object",
+                    "members": {
+                      "list": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "list"
+                      },
+                      "revoke": {
+                        "arity": 2,
+                        "kind": "fn",
+                        "name": "revoke"
+                      }
+                    }
+                  }
+                }
+              },
               "banUser": {
                 "arity": 2,
                 "kind": "fn",
                 "name": "banUser"
+              },
+              "connection": {
+                "keys": [
+                  "create",
+                  "disable",
+                  "get",
+                  "list",
+                  "update"
+                ],
+                "kind": "object",
+                "members": {
+                  "create": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "create"
+                  },
+                  "disable": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "disable"
+                  },
+                  "get": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "get"
+                  },
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  },
+                  "update": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "update"
+                  }
+                }
               },
               "createUser": {
                 "arity": 2,
@@ -2219,6 +2455,7 @@
           },
           "organization": {
             "keys": [
+              "authenticationPosture",
               "checkSlug",
               "create",
               "delete",
@@ -2226,6 +2463,7 @@
               "hasPermission",
               "invitation",
               "leave",
+              "lifecycleEvents",
               "list",
               "listUserInvitations",
               "member",
@@ -2235,6 +2473,19 @@
             ],
             "kind": "object",
             "members": {
+              "authenticationPosture": {
+                "keys": [
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  }
+                }
+              },
               "checkSlug": {
                 "arity": 2,
                 "kind": "fn",
@@ -2301,6 +2552,19 @@
                 "arity": 2,
                 "kind": "fn",
                 "name": "leave"
+              },
+              "lifecycleEvents": {
+                "keys": [
+                  "list"
+                ],
+                "kind": "object",
+                "members": {
+                  "list": {
+                    "arity": 2,
+                    "kind": "fn",
+                    "name": "list"
+                  }
+                }
               },
               "list": {
                 "arity": 2,
@@ -2902,6 +3166,7 @@
       },
       "organization": {
         "keys": [
+          "authenticationPosture",
           "checkSlug",
           "create",
           "delete",
@@ -2909,6 +3174,7 @@
           "hasPermission",
           "invitation",
           "leave",
+          "lifecycleEvents",
           "list",
           "listUserInvitations",
           "member",
@@ -2918,6 +3184,19 @@
         ],
         "kind": "object",
         "members": {
+          "authenticationPosture": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
+          },
           "checkSlug": {
             "arity": 2,
             "kind": "fn",
@@ -2984,6 +3263,19 @@
             "arity": 2,
             "kind": "fn",
             "name": "leave"
+          },
+          "lifecycleEvents": {
+            "keys": [
+              "list"
+            ],
+            "kind": "object",
+            "members": {
+              "list": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "list"
+              }
+            }
           },
           "list": {
             "arity": 2,
@@ -3314,6 +3606,20 @@
     "AthenaAuthorizationAssignmentConflictError",
     "AthenaAuthorizationRightDefinition",
     "AthenaAuthorizationRoleDetail",
+    "AthenaAuthorizationServerClient",
+    "AthenaAuthorizationServerClientCreateRequest",
+    "AthenaAuthorizationServerClientDisableRequest",
+    "AthenaAuthorizationServerClientDisableResponse",
+    "AthenaAuthorizationServerClientGetRequest",
+    "AthenaAuthorizationServerClientListRequest",
+    "AthenaAuthorizationServerClientListResponse",
+    "AthenaAuthorizationServerClientResponse",
+    "AthenaAuthorizationServerClientUpdateRequest",
+    "AthenaAuthorizationServerGrant",
+    "AthenaAuthorizationServerGrantListRequest",
+    "AthenaAuthorizationServerGrantListResponse",
+    "AthenaAuthorizationServerGrantRevokeRequest",
+    "AthenaAuthorizationServerGrantRevokeResponse",
     "AthenaChangeEmailRequest",
     "AthenaChangePasswordRequest",
     "AthenaDeleteUserCallbackRequest",

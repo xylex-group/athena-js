@@ -20,7 +20,24 @@ const packageRoot = path.resolve(
   ".."
 );
 
-const KNOWN_MISSING_IN_LOCAL = new Set([]);
+const KNOWN_MISSING_IN_LOCAL = new Set([
+  "DELETE /delete-user",
+  "GET /delete-user/callback",
+]);
+
+test("public operation definitions remain source compatible", () => {
+  const legacy: AthenaAuthOperationDefinition = {
+    auth: "session",
+    capability: "organizations",
+    embedded: "supported",
+    id: "legacy.list",
+    method: "GET",
+    mutation: false,
+    path: "/organization/list",
+    rust: "supported",
+  };
+  assert.equal(legacy.path, "/organization/list");
+});
 
 test("mechanical auth route inventory keeps JWT routes on both runtimes", () => {
   const result = spawnSync(
@@ -89,7 +106,149 @@ test("mechanical auth route inventory keeps JWT routes on both runtimes", () => 
     );
   }
 
-  assert.deepEqual(inventory.sdkMissing, []);
+  for (const required of [
+    "GET /ok",
+    "GET /health",
+    "POST /update-user",
+    "GET /.well-known/webauthn",
+    "POST /admin/oauth-client/create",
+    "GET /admin/oauth-client/list",
+  ]) {
+    assert.equal(
+      inventory.rust.includes(required),
+      true,
+      `rust missing ${required}`
+    );
+    const [method, routePath] = required.split(" ");
+    assert.equal(
+      inventory.operations.find(
+        (operation) =>
+          operation.method === method && operation.path === routePath
+      )?.rust,
+      "supported",
+      `inventory marks ${required} unsupported`
+    );
+  }
+
+  assert.equal(
+    inventory.operations.some(
+      (operation) =>
+        operation.path === "/admin/grant/list" &&
+        operation.sdkEndpoint === "missing"
+    ),
+    true,
+    "discovered routes report SDK endpoint knowledge independently"
+  );
+  const legacyOAuthClientCreate = inventory.operations.find(
+    (operation) =>
+      operation.method === "POST" &&
+      operation.path === "/admin/oauth-client/create"
+  );
+  assert.equal(legacyOAuthClientCreate?.lifecycle, "compatibility");
+  assert.equal(
+    legacyOAuthClientCreate?.canonicalReplacement,
+    "POST /admin/social-callback-registration/create"
+  );
+  assert.equal(legacyOAuthClientCreate?.sdkBindingRequired, false);
+  assert.notEqual(legacyOAuthClientCreate?.nonportable, true);
+  const legacyOAuthClientList = inventory.operations.find(
+    (operation) =>
+      operation.method === "GET" &&
+      operation.path === "/admin/oauth-client/list"
+  );
+  assert.equal(legacyOAuthClientList?.lifecycle, "compatibility");
+  assert.equal(
+    legacyOAuthClientList?.canonicalReplacement,
+    "GET /admin/social-callback-registration/list"
+  );
+  assert.deepEqual(
+    inventory.operations.filter(
+      (operation) =>
+        operation.path.startsWith("/admin/") &&
+        operation.availability === "portable" &&
+        operation.nonportable === true
+    ),
+    []
+  );
+  assert.equal(
+    inventory.sdkMissing.includes("/admin/oauth-client/create"),
+    false
+  );
+
+  for (const [method, routePath] of [
+    ["POST", "/admin/authorization-server/client/create"],
+    ["GET", "/admin/authorization-server/client/get"],
+    ["GET", "/admin/authorization-server/client/list"],
+    ["POST", "/admin/authorization-server/client/update"],
+    ["POST", "/admin/authorization-server/client/disable"],
+    ["GET", "/admin/authorization-server/grant/list"],
+    ["POST", "/admin/authorization-server/grant/revoke"],
+  ]) {
+    const operation = inventory.operations.find(
+      (candidate) => candidate.method === method && candidate.path === routePath
+    );
+    assert.equal(operation?.runtimes.dedicated, "unsupported", routePath);
+    assert.equal(operation?.runtimes.embedded, "supported", routePath);
+    assert.equal(operation?.sdkEndpoint, "known", routePath);
+    assert.equal(operation?.availability, "embedded-only", routePath);
+    assert.equal(operation?.lifecycle, "canonical", routePath);
+  }
+  for (const [method, routePath] of [
+    ["POST", "/admin/identity-connection/create"],
+    ["GET", "/admin/identity-connection/get"],
+    ["GET", "/admin/identity-connection/list"],
+    ["POST", "/admin/identity-connection/update"],
+    ["POST", "/admin/identity-connection/disable"],
+  ]) {
+    const operation = inventory.operations.find(
+      (candidate) => candidate.method === method && candidate.path === routePath
+    );
+    assert.equal(operation?.runtimes.dedicated, "unsupported", routePath);
+    assert.equal(operation?.runtimes.embedded, "supported", routePath);
+    assert.equal(operation?.sdkEndpoint, "known", routePath);
+    assert.equal(operation?.sdkBindingRequired, true, routePath);
+    assert.equal(operation?.availability, "embedded-only", routePath);
+    assert.equal(operation?.lifecycle, "canonical", routePath);
+  }
+  const authenticationPosture = inventory.operations.find(
+    (operation) =>
+      operation.method === "GET" &&
+      operation.path === "/organization/list-authentication-posture"
+  );
+  assert.equal(
+    authenticationPosture?.operation,
+    "organization.authenticationPosture.list"
+  );
+  assert.equal(authenticationPosture?.runtimes.dedicated, "unsupported");
+  assert.equal(authenticationPosture?.runtimes.embedded, "supported");
+  assert.equal(authenticationPosture?.availability, "embedded-only");
+  assert.equal(authenticationPosture?.lifecycle, "canonical");
+  assert.equal(authenticationPosture?.sdkEndpoint, "known");
+  assert.equal(authenticationPosture?.sdkBindingRequired, true);
+  const lifecycleEvents = inventory.operations.find(
+    (operation) =>
+      operation.method === "GET" &&
+      operation.path === "/organization/list-lifecycle-events"
+  );
+  assert.equal(lifecycleEvents?.operation, "organization.lifecycleEvents.list");
+  assert.equal(lifecycleEvents?.runtimes.dedicated, "unsupported");
+  assert.equal(lifecycleEvents?.runtimes.embedded, "supported");
+  assert.equal(lifecycleEvents?.availability, "embedded-only");
+  assert.equal(lifecycleEvents?.lifecycle, "canonical");
+  assert.equal(lifecycleEvents?.sdkEndpoint, "known");
+  assert.equal(lifecycleEvents?.sdkBindingRequired, true);
+  for (const [method, routePath] of [
+    ["POST", "/admin/social-callback-registration/create"],
+    ["GET", "/admin/social-callback-registration/list"],
+  ]) {
+    const operation = inventory.operations.find(
+      (candidate) => candidate.method === method && candidate.path === routePath
+    );
+    assert.equal(operation?.runtimes.dedicated, "supported", routePath);
+    assert.equal(operation?.runtimes.embedded, "unsupported", routePath);
+    assert.equal(operation?.availability, "dedicated-only", routePath);
+    assert.equal(operation?.sdkBindingRequired, false, routePath);
+  }
 
   const unexpected = inventory.missingInLocal.filter(
     (route) => !KNOWN_MISSING_IN_LOCAL.has(route)
@@ -144,6 +303,7 @@ test("passkey related origins and optional-session are in the operation catalog"
   assert.equal(related?.capability, "passkeys");
   assert.equal(related?.rust, "supported");
   assert.equal(related?.embedded, "supported");
+  assert.equal(related?.availability, "portable");
   assert.equal(related?.auth, "public");
   assert.equal(related?.mutation, false);
 

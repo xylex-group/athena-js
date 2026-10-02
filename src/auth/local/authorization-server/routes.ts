@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose";
 import {
   buildAuthorizationServerMetadata,
   type IssuedOAuthTokenSet,
@@ -7,11 +8,18 @@ import {
   parseScopes,
   projectOAuthTokenEndpointResponse,
 } from "../../authorization-server/index.ts";
+import type { OidcPrompt } from "../../authorization-server/types.ts";
+import type { OidcIdentityScope } from "../../authorization-server/types.ts";
+import { intersectScopes } from "../../authorization-server/scopes.ts";
+import { buildOpenIdProviderMetadata } from "../../authorization-server/metadata.ts";
 import type { AthenaAuthMutationScope } from "../../hooks/scope.ts";
+import { authenticationContextFromSession } from "../authentication-context.ts";
 import type { AthenaAuthStores } from "../memory-stores.ts";
 import type { AuthRuntimeDependencies } from "../runtime-dependencies.ts";
+import { projectOidcClaims } from "../../authorization-server/oidc-claims.ts";
 import { readFormBody, requestClientIp } from "../security.ts";
 import type { OAuthAuthorizationServerService } from "./service.ts";
+import { handleAuthorizationServerAdminRoutes } from "./admin-routes.ts";
 
 export interface AuthorizationServerRouteContext {
   deps: AuthRuntimeDependencies;
@@ -39,6 +47,17 @@ function queryValue(url: URL, key: string): string | undefined {
   return value?.trim() || undefined;
 }
 
+export function queryOpaqueValue(url: URL, key: string): string | undefined {
+  const values = url.searchParams.getAll(key);
+  if (values.length > 1) {
+    throw new OAuthProtocolError(
+      "invalid_request",
+      `OAuth parameter "${key}" must be supplied once.`
+    );
+  }
+  return values[0];
+}
+
 function requiredQueryValue(url: URL, key: string): string {
   const value = queryValue(url, key);
   if (!value) {
@@ -47,12 +66,88 @@ function requiredQueryValue(url: URL, key: string): string {
   return value;
 }
 
+function oidcRequestParameters(url: URL): {
+  maxAge?: number;
+  nonce?: string;
+  prompt?: OidcPrompt[];
+} {
+  const maxAgeValue = queryValue(url, "max_age");
+  let maxAge: number | undefined;
+  if (maxAgeValue !== undefined) {
+    if (!/^\d+$/.test(maxAgeValue) || !Number.isSafeInteger(Number(maxAgeValue))) {
+      throw new OAuthProtocolError(
+        "invalid_request",
+        "The max_age value must be a non-negative integer."
+      );
+    }
+    maxAge = Number(maxAgeValue);
+  }
+  const promptValue = queryValue(url, "prompt");
+  const promptValues = promptValue?.split(/\s+/);
+  if (
+    promptValues?.some(
+      (value) => value !== "none" && value !== "login" && value !== "consent"
+    )
+  ) {
+    throw new OAuthProtocolError(
+      "invalid_request",
+      "The requested prompt value is not supported."
+    );
+  }
+  const prompt = promptValues as OidcPrompt[] | undefined;
+  if (prompt && new Set(prompt).size !== prompt.length) {
+    throw new OAuthProtocolError(
+      "invalid_request",
+      "The prompt value must not contain duplicates."
+    );
+  }
+  const nonce = queryOpaqueValue(url, "nonce");
+  return {
+    ...(maxAge !== undefined ? { maxAge } : {}),
+    ...(nonce !== undefined ? { nonce } : {}),
+    ...(prompt ? { prompt } : {}),
+  };
+}
+
 function requiredFormValue(body: Record<string, string>, key: string): string {
   const value = body[key]?.trim();
   if (!value) {
     throw new OAuthProtocolError("invalid_request", `${key} is required.`);
   }
   return value;
+}
+
+function needsReauthentication(
+  session: { session: { authenticated_at: Date | string } },
+  interaction: { createdAt: Date; maxAge: number | null; prompt: readonly OidcPrompt[] },
+  now: Date
+): boolean {
+  const authenticatedAt = new Date(session.session.authenticated_at).getTime();
+  if (!Number.isFinite(authenticatedAt) || authenticatedAt > now.getTime()) {
+    return true;
+  }
+  if (interaction.maxAge === 0) {
+    return authenticatedAt < interaction.createdAt.getTime();
+  }
+  return (
+    (interaction.prompt.includes("login") &&
+      authenticatedAt < interaction.createdAt.getTime()) ||
+    (interaction.maxAge !== null &&
+      now.getTime() - authenticatedAt > interaction.maxAge * 1000)
+  );
+}
+
+function signInRedirect(
+  signInUrl: string,
+  interaction: { id: string },
+  forceLogin: boolean
+): Response {
+  const signIn = new URL(signInUrl);
+  signIn.searchParams.set("interaction_id", interaction.id);
+  if (forceLogin) {
+    signIn.searchParams.set("prompt", "login");
+  }
+  return Response.redirect(signIn, 302);
 }
 
 function oauthRedirect(
@@ -93,11 +188,24 @@ function isAuthorizationServerPath(path: string): boolean {
   return (
     path === "/oauth/authorize" ||
     path === "/oauth/token" ||
+    path === "/userinfo" ||
     path === "/oauth/revoke" ||
+    path === "/.well-known/openid-configuration" ||
     path === "/.well-known/oauth-authorization-server" ||
     path === "/authorization/grants" ||
     /^\/authorization\/grants\/[^/]+\/revoke$/.test(path)
   );
+}
+
+function invalidUserInfoToken(headers: Headers): Response {
+  const response = oauthErrorResponse(
+    new OAuthProtocolError("invalid_token", "A valid OIDC access token is required.", {
+      status: 401,
+    }),
+    headers
+  );
+  response.headers.set("www-authenticate", 'Bearer error="invalid_token"');
+  return response;
 }
 
 function protocolTokenBody(response: IssuedOAuthTokenSet) {
@@ -139,6 +247,9 @@ export async function handleAuthorizationServerRoutes(
   method: string,
   context: AuthorizationServerRouteContext
 ): Promise<Response | undefined> {
+  if (path.startsWith("/admin/authorization-server/")) {
+    return handleAuthorizationServerAdminRoutes(request, path, method, context);
+  }
   const config = context.deps.config.authorizationServer;
   if (!(config.enabled && isAuthorizationServerPath(path))) {
     return undefined;
@@ -230,6 +341,65 @@ export async function handleAuthorizationServerRoutes(
     );
   }
 
+  if (path === "/.well-known/openid-configuration" && method === "GET") {
+    return oauthJsonResponse(
+      200,
+      buildOpenIdProviderMetadata({ config, identity: protocol.identity }),
+      context.headers
+    );
+  }
+
+  if (path === "/userinfo" && (method === "GET" || method === "POST")) {
+    const authorization = request.headers.get("authorization") ?? "";
+    const bearer = /^Bearer\s+(.+)$/i.exec(authorization)?.[1];
+    if (!bearer) {
+      return invalidUserInfoToken(context.headers);
+    }
+    try {
+      const audience = decodeJwt(bearer).aud;
+      if (
+        typeof audience !== "string" ||
+        (!Object.hasOwn(config.resources, audience) &&
+          audience !== protocol.identity.userInfoEndpoint)
+      ) {
+        return invalidUserInfoToken(context.headers);
+      }
+      const verifier = await context.deps.getOAuthRuntimeJwtVerifier(audience);
+      const resolved = await verifier({
+        headers: request.headers,
+        request,
+      });
+      const principal = resolved?.principal;
+      const oauth = principal?.oauth;
+      if (
+        !principal ||
+        typeof principal.userId !== "string" ||
+        !oauth
+      ) {
+        return invalidUserInfoToken(context.headers);
+      }
+      const grant = await oauthStores.grants.get(oauth.grantId);
+      const identityScopes = intersectScopes(
+        oauth.identityScopes ?? [],
+        grant?.identityScopes ?? []
+      ) as OidcIdentityScope[];
+      if (!grant || !identityScopes.includes("openid")) {
+        return invalidUserInfoToken(context.headers);
+      }
+      const user = await context.stores.getUserById(principal.userId);
+      if (!user) {
+        return invalidUserInfoToken(context.headers);
+      }
+      const claims = projectOidcClaims({
+        identityScopes,
+        user,
+      });
+      return oauthJsonResponse(200, claims, context.headers);
+    } catch {
+      return invalidUserInfoToken(context.headers);
+    }
+  }
+
   if (path === "/oauth/token" && method === "POST") {
     try {
       const body = await readFormBody(
@@ -251,7 +421,7 @@ export async function handleAuthorizationServerRoutes(
             code: requiredFormValue(body, "code"),
             codeVerifier: requiredFormValue(body, "code_verifier"),
             redirectUri: requiredFormValue(body, "redirect_uri"),
-            resource: requiredFormValue(body, "resource"),
+        resource: body.resource || undefined,
           })
         );
         return oauthJsonResponse(
@@ -359,7 +529,7 @@ export async function handleAuthorizationServerRoutes(
               error.cause &&
               typeof error.cause === "object" &&
               (error.cause as Record<string, unknown>).event ===
-              "oauth.refresh.outcome_mismatch"
+                "oauth.refresh.outcome_mismatch"
             ) {
               return runRefreshMutation(1);
             }
@@ -406,7 +576,7 @@ export async function handleAuthorizationServerRoutes(
           token: requiredFormValue(body, "token"),
           tokenTypeHint:
             body.token_type_hint === "access_token" ||
-              body.token_type_hint === "refresh_token"
+            body.token_type_hint === "refresh_token"
               ? body.token_type_hint
               : undefined,
         })
@@ -441,10 +611,90 @@ export async function handleAuthorizationServerRoutes(
         context.stores
       );
       if (!session) {
+        if (interaction.prompt.includes("none")) {
+          throw new OAuthProtocolError(
+            "login_required",
+            "The user is not authenticated."
+          );
+        }
+        if (config.signInUrl) {
+          return signInRedirect(config.signInUrl, interaction, true);
+        }
         throw new OAuthProtocolError(
-          "invalid_request",
+          "login_required",
           "Authentication is required to continue authorization."
         );
+      }
+      if (needsReauthentication(session, interaction, new Date())) {
+        if (interaction.prompt.includes("none")) {
+          throw new OAuthProtocolError(
+            "login_required",
+            "The current authentication does not satisfy the request."
+          );
+        }
+        if (config.signInUrl) {
+          return signInRedirect(config.signInUrl, interaction, true);
+        }
+        throw new OAuthProtocolError(
+          "login_required",
+          "The user must authenticate again."
+        );
+      }
+      if (interaction.prompt.includes("none")) {
+        const state = await service.readAuthorizationState(interaction);
+        try {
+          const approved = await context.deps.mutate({
+          context: {
+            actor: {
+              kind: "user",
+              sessionId: session.session.id,
+              userId: session.user.id,
+            },
+            request: context.deps.hookRequest(request, path),
+            traceId: context.traceId,
+          },
+          event: "oauth.grant.authorized",
+          execute: async (scope) => {
+            const authentication = authenticationContextFromSession(
+              session.session
+            );
+            return serviceInMutation(service, scope).approveAuthorizationRequest({
+              authenticatedAt: authentication.authenticatedAt,
+              authenticationMethods: authentication.methods,
+              id: interaction.id,
+              organizationId: session.session.active_organization_id ?? null,
+              preserveExistingGrant: true,
+              userId: session.user.id,
+            });
+          },
+          input: {
+            clientId: interaction.clientId,
+            grantId: interaction.id,
+            resource: interaction.resource,
+            scopes: interaction.requestedScopes,
+            userId: session.user.id,
+          },
+          resultOf: (result) => ({
+            grantId: result.grant.id,
+            userId: session.user.id,
+          }),
+          });
+          return oauthRedirect(interaction.redirectUri, {
+            code: approved.code,
+            iss: issuer,
+            state,
+          });
+        } catch (error) {
+          if (error instanceof OAuthProtocolError) {
+            return oauthRedirect(interaction.redirectUri, {
+              error: error.code,
+              errorDescription: error.description,
+              iss: issuer,
+              state,
+            });
+          }
+          throw error;
+        }
       }
       if (config.consentUrl) {
         const consent = new URL(config.consentUrl);
@@ -472,6 +722,7 @@ export async function handleAuthorizationServerRoutes(
         kind: "authorize",
         request,
       });
+      const oidc = oidcRequestParameters(url);
       const interaction = await service.createAuthorizationRequest({
         clientId,
         codeChallenge: requiredQueryValue(url, "code_challenge"),
@@ -479,8 +730,9 @@ export async function handleAuthorizationServerRoutes(
           url,
           "code_challenge_method"
         ) as "S256",
+        ...oidc,
         redirectUri,
-        resource: requiredQueryValue(url, "resource"),
+        resource: queryValue(url, "resource") ?? undefined,
         scope: queryValue(url, "scope") ?? null,
         state,
       });
@@ -488,16 +740,62 @@ export async function handleAuthorizationServerRoutes(
         request,
         context.stores
       );
-      if (!session && config.signInUrl) {
-        const signIn = new URL(config.signInUrl);
-        signIn.searchParams.set("interaction_id", interaction.id);
-        return Response.redirect(signIn, 302);
-      }
       if (!session) {
+        if (interaction.prompt.includes("none")) {
+          throw new OAuthProtocolError(
+            "login_required",
+            "The user is not authenticated."
+          );
+        }
+        if (config.signInUrl) {
+          return signInRedirect(config.signInUrl, interaction, false);
+        }
         throw new OAuthProtocolError(
-          "invalid_request",
+          "login_required",
           "Authentication is required to authorize this client."
         );
+      }
+      if (needsReauthentication(session, interaction, new Date())) {
+        if (interaction.prompt.includes("none")) {
+          throw new OAuthProtocolError(
+            "login_required",
+            "The current authentication does not satisfy the request."
+          );
+        }
+        if (config.signInUrl) {
+          return signInRedirect(config.signInUrl, interaction, true);
+        }
+        throw new OAuthProtocolError(
+          "login_required",
+          "The user must authenticate again."
+        );
+      }
+      if (interaction.prompt.includes("none")) {
+        const existing = await oauthStores.grants.findActive({
+          clientId: interaction.clientId,
+          organizationId: session.session.active_organization_id ?? null,
+          resource: interaction.resource,
+          userId: session.user.id,
+        });
+        if (
+          !existing ||
+          interaction.requestedScopes.some(
+            (entry) => !existing.scopes.includes(entry)
+          ) ||
+          interaction.identityScopes.some(
+            (entry) => !existing.identityScopes.includes(entry)
+          )
+        ) {
+          throw new OAuthProtocolError(
+            "consent_required",
+            "The user has not consented to this request."
+          );
+        }
+        const continuation = new URL(request.url);
+        continuation.search = new URLSearchParams({
+          interaction_id: interaction.id,
+        }).toString();
+        return Response.redirect(continuation, 302);
       }
       if (config.consentUrl) {
         const consent = new URL(config.consentUrl);
@@ -629,6 +927,7 @@ export async function handleAuthorizationServerRoutes(
           "Consent cannot widen the requested scope."
         );
       }
+      const authentication = authenticationContextFromSession(session.session);
       const approved = await context.deps.mutate({
         context: {
           actor: {
@@ -642,6 +941,8 @@ export async function handleAuthorizationServerRoutes(
         event: "oauth.grant.authorized",
         execute: async (scope) =>
           serviceInMutation(service, scope).approveAuthorizationRequest({
+            authenticatedAt: authentication.authenticatedAt,
+            authenticationMethods: authentication.methods,
             id: interactionId,
             organizationId: session.session.active_organization_id ?? null,
             ...(approvedScopes ? { scopes: approvedScopes } : {}),

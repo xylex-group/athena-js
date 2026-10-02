@@ -132,6 +132,16 @@ maybe("Postgres TokenKeyStore: two runtimes one active kid", async () => {
       ensureActiveSigningKey(rightStore),
     ]);
     assert.equal(a.kid, b.kid);
+    const [rsaLeft, rsaRight] = await Promise.all([
+      ensureActiveSigningKey(leftStore, "RS256"),
+      ensureActiveSigningKey(rightStore, "RS256"),
+    ]);
+    assert.equal(rsaLeft.kid, rsaRight.kid);
+    assert.notEqual(rsaLeft.kid, a.kid);
+    assert.deepEqual(
+      (await leftStore.listVerificationKeys()).map((key) => key.algorithm).sort(),
+      ["ES256", "RS256"]
+    );
   } finally {
     await left.close?.();
     await right.close?.();

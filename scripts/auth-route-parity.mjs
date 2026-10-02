@@ -16,12 +16,18 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  collectRustRouteConstants,
+  duplicateRustRouteKeys,
+  scanRustRouteSource,
+} from "./lib/auth-route-inventory.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(here, "..");
 const repoRoot = path.resolve(packageRoot, "../..");
 
 const RUST_ROOTS = [
+  path.join(repoRoot, "services/athena-auth/src"),
   path.join(repoRoot, "services/athena-auth/crates/api/src"),
   path.join(repoRoot, "services/athena-auth/crates/core/src"),
 ];
@@ -30,41 +36,17 @@ const JS_LOCAL_ROOT = path.join(packageRoot, "src/auth/local");
 const JS_TYPES = path.join(packageRoot, "src/auth/types/catalog.ts");
 
 const NONPORTABLE = new Set([
+  "GET /",
+  "GET /debug/schema",
+  "GET /debug/schema/view",
+  "GET /error",
+  "GET /ping",
   "GET /reference/openapi.json",
   "GET /admin/docs.html",
   "GET /admin/api-config.json",
   "GET /schema-debug",
   "GET /schema-debug.html",
 ]);
-
-/**
- * Rust serves these but the AuthRoute:: string scanner misses const /
- * ADMIN_ROUTES table registration. Overlay support only — do not invent
- * routes that the dedicated service does not actually expose.
- */
-const RUST_SERVED_OVERLAY = [
-  "GET /ok",
-  "GET /health",
-  "GET /.well-known/webauthn",
-  "POST /update-user",
-  "GET /admin/email-event-type/list",
-  "GET /admin/email-failure/get",
-  "GET /admin/email-failure/list",
-  "GET /admin/email-template/get",
-  "GET /admin/email-template/list",
-  "GET /admin/email/get",
-  "GET /admin/email/list",
-  "POST /admin/email-failure/create",
-  "POST /admin/email-failure/delete",
-  "POST /admin/email-failure/update",
-  "POST /admin/email-template/create",
-  "POST /admin/email-template/delete",
-  "POST /admin/email-template/send",
-  "POST /admin/email-template/update",
-  "POST /admin/email/create",
-  "POST /admin/email/delete",
-  "POST /admin/email/update",
-];
 
 const PUBLIC_PATHS = new Set([
   "/ok",
@@ -85,6 +67,7 @@ const PUBLIC_PATHS = new Set([
   "/delete-user/callback",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
+  "/userinfo",
   "/.well-known/webauthn",
   "/token",
   "/reference/openapi.json",
@@ -107,10 +90,28 @@ const NON_MUTATING_POST = new Set([
 ]);
 
 const OPERATION_IDS = {
+  "GET /admin/identity-connection/get": "admin.identity_connection.get",
+  "GET /admin/identity-connection/list": "admin.identity_connection.list",
+  "GET /admin/authorization-server/client/get": "admin.authorization_server.client.get",
+  "GET /admin/authorization-server/client/list": "admin.authorization_server.client.list",
+  "GET /admin/authorization-server/grant/list": "admin.authorization_server.grant.list",
+  "GET /admin/social-callback-registration/list": "admin.social_callback_registration.list",
+  "POST /admin/authorization-server/client/create": "admin.authorization_server.client.create",
+  "POST /admin/authorization-server/client/disable": "admin.authorization_server.client.disable",
+  "POST /admin/authorization-server/client/update": "admin.authorization_server.client.update",
+  "POST /admin/authorization-server/grant/revoke": "admin.authorization_server.grant.revoke",
+  "POST /admin/identity-connection/create": "admin.identity_connection.create",
+  "POST /admin/identity-connection/disable": "admin.identity_connection.disable",
+  "POST /admin/identity-connection/update": "admin.identity_connection.update",
+  "POST /admin/social-callback-registration/create": "admin.social_callback_registration.create",
+  "GET /admin/oauth-client/list": "admin.oauth_client.list",
+  "POST /admin/oauth-client/create": "admin.oauth_client.create",
   "GET /authorization/grants": "oauth.grant.list",
   "GET /.well-known/oauth-authorization-server": "oauth.metadata",
   "GET /.well-known/jwks.json": "jwt.jwks",
-  "GET /.well-known/openid-configuration": "jwt.discovery",
+  "GET /.well-known/openid-configuration": "oidc.discovery",
+  "GET /userinfo": "oidc.userinfo",
+  "POST /userinfo": "oidc.userinfo.post",
   "GET /.well-known/webauthn": "passkey.relatedOrigins",
   "GET /api-key/get": "apiKey.get",
   "GET /api-key/list": "apiKey.list",
@@ -131,6 +132,10 @@ const OPERATION_IDS = {
   "GET /organization/get-full-organization": "organization.get",
   "GET /organization/get-invitation": "invitation.get",
   "GET /organization/list": "organization.list",
+  "GET /organization/list-authentication-posture":
+    "organization.authenticationPosture.list",
+  "GET /organization/list-lifecycle-events":
+    "organization.lifecycleEvents.list",
   "GET /organization/list-invitations": "invitation.list",
   "GET /organization/list-members": "member.list",
   "GET /organization/list-user-invitations": "invitation.listUser",
@@ -210,6 +215,41 @@ const OPERATION_IDS = {
     "authorization.assignments.users.replace",
 };
 
+const ROUTE_POLICY = {
+  "GET /.well-known/openid-configuration": {
+    runtimes: {
+      dedicated: "unsupported",
+      embedded: "supported",
+    },
+    sdkBindingRequired: false,
+  },
+  "GET /userinfo": {
+    sdkBindingRequired: false,
+  },
+  "POST /userinfo": {
+    mutation: false,
+    sdkBindingRequired: false,
+  },
+  "POST /admin/oauth-client/create": {
+    canonicalReplacement: "POST /admin/social-callback-registration/create",
+    lifecycle: "compatibility",
+    sdkBindingRequired: false,
+  },
+  "GET /admin/oauth-client/list": {
+    canonicalReplacement: "GET /admin/social-callback-registration/list",
+    lifecycle: "compatibility",
+    sdkBindingRequired: false,
+  },
+  "POST /admin/social-callback-registration/create": {
+    lifecycle: "canonical",
+    sdkBindingRequired: false,
+  },
+  "GET /admin/social-callback-registration/list": {
+    lifecycle: "canonical",
+    sdkBindingRequired: false,
+  },
+};
+
 const DOMAIN_EVENTS = {
   "GET /verify-email": "user.email.verify",
   "POST /api-key/create": "apiKey.create",
@@ -271,52 +311,28 @@ function walk(dir, acc = []) {
 }
 
 function rustRoutes() {
+  const found = [];
+  const sources = RUST_ROOTS.flatMap((root) =>
+    walk(root).map((file) => ({ file, source: readFileSync(file, "utf8") }))
+  );
+  const constants = sources.reduce(
+    (all, { source }) => collectRustRouteConstants(source, all),
+    new Map()
+  );
+  for (const { file, source } of sources) {
+    found.push(
+      ...scanRustRouteSource(
+        source,
+        path.relative(repoRoot, file),
+        constants
+      )
+    );
+  }
   const routes = new Map();
-  const pattern = /AuthRoute::(get|post|put|delete|patch)\(\s*"([^"]+)"/g;
-  const constPattern = /AuthRoute::(get|post)\(\s*([A-Z0-9_]+)/g;
-  const constValues = {
-    CHANGE_EMAIL: "/change-email",
-    DELETE_USER: "/delete-user",
-    DELETE_USER_CALLBACK: "/delete-user/callback",
-    DISCOVERY_PATH: "/.well-known/openid-configuration",
-    ERROR: "/error",
-    HEALTH: "/health",
-    JWKS_PATH: "/.well-known/jwks.json",
-    OK: "/ok",
-    OPENAPI_SPEC: "/reference/openapi.json",
-    TOKEN_PATH: "/token",
-    UPDATE_USER: "/update-user",
-  };
-
-  for (const root of RUST_ROOTS) {
-    for (const file of walk(root)) {
-      const text = readFileSync(file, "utf8");
-      for (const match of text.matchAll(pattern)) {
-        const key = `${match[1].toUpperCase()} ${match[2]}`;
-        routes.set(key, { file: path.relative(repoRoot, file), key });
-      }
-      for (const match of text.matchAll(
-        /\b(get|post|put|delete|patch)\s+"(\/[^"]+)"\s*=>/g
-      )) {
-        const key = `${match[1].toUpperCase()} ${match[2]}`;
-        routes.set(key, { file: path.relative(repoRoot, file), key });
-      }
-      for (const match of text.matchAll(constPattern)) {
-        const resolved = constValues[match[2]];
-        if (resolved) {
-          const key = `${match[1].toUpperCase()} ${resolved}`;
-          routes.set(key, { file: path.relative(repoRoot, file), key });
-        }
-      }
-    }
+  for (const route of found) {
+    if (!routes.has(route.key)) routes.set(route.key, route);
   }
-
-  for (const key of RUST_SERVED_OVERLAY) {
-    if (!routes.has(key)) {
-      routes.set(key, { file: "overlay:rust-served", key });
-    }
-  }
-  return routes;
+  return { routes, duplicates: duplicateRustRouteKeys(found) };
 }
 
 function jsSdkPaths() {
@@ -378,6 +394,12 @@ function defaultOperationId(method, routePath) {
 }
 
 function classifyCapability(routePath) {
+  if (
+    routePath === "/userinfo" ||
+    routePath === "/.well-known/openid-configuration"
+  ) {
+    return "oidc";
+  }
   if (
     routePath.startsWith("/oauth/") ||
     routePath === "/.well-known/oauth-authorization-server" ||
@@ -466,7 +488,9 @@ function classifyCapability(routePath) {
 function classifyAuth(routePath) {
   if (
     routePath.startsWith("/oauth/") ||
-    routePath === "/.well-known/oauth-authorization-server"
+    routePath === "/.well-known/oauth-authorization-server" ||
+    routePath === "/userinfo" ||
+    routePath === "/.well-known/openid-configuration"
   ) {
     return "protocol";
   }
@@ -492,19 +516,40 @@ function isMutation(method, routePath) {
   return true;
 }
 
-function classifyOperation(key, rust, local) {
+function classifyOperation(key, rust, local, sdk) {
   const method = key.split(" ")[0];
   const routePath = pathOnly(key);
+  const policy = ROUTE_POLICY[key];
+  const dedicated =
+    policy?.runtimes?.dedicated ??
+    (rust.has(key) ? "supported" : "unsupported");
+  const embedded =
+    policy?.runtimes?.embedded ??
+    (local.has(key) ? "supported" : "unsupported");
   const operation = {
     auth: classifyAuth(routePath),
     capability: classifyCapability(routePath),
-    embedded: local.has(key) ? "supported" : "unsupported",
+    availability:
+      dedicated === "supported" && embedded === "supported"
+        ? "portable"
+        : dedicated === "supported"
+          ? "dedicated-only"
+          : "embedded-only",
+    embedded,
     id: OPERATION_IDS[key] ?? defaultOperationId(method, routePath),
+    lifecycle: policy?.lifecycle ?? "canonical",
     method,
-    mutation: isMutation(method, routePath),
+    mutation: policy?.mutation ?? isMutation(method, routePath),
+    operation: OPERATION_IDS[key] ?? defaultOperationId(method, routePath),
     path: routePath,
-    rust: rust.has(key) ? "supported" : "unsupported",
+    rust: dedicated,
+    runtimes: { dedicated, embedded },
+    sdkEndpoint: sdk.has(routePath) ? "known" : "missing",
+    sdkBindingRequired: policy?.sdkBindingRequired ?? true,
   };
+  if (policy?.canonicalReplacement) {
+    operation.canonicalReplacement = policy.canonicalReplacement;
+  }
   if (DOMAIN_EVENTS[key]) {
     operation.domainEvent = DOMAIN_EVENTS[key];
   }
@@ -515,29 +560,37 @@ function classifyOperation(key, rust, local) {
 }
 
 export function buildAuthRouteInventory() {
-  const rust = rustRoutes();
+  const { routes: rust, duplicates: rustDuplicates } = rustRoutes();
   const local = jsLocalRoutes();
   const sdk = jsSdkPaths();
   const rustKeys = [...rust.keys()].sort();
   const unionKeys = [...new Set([...rustKeys, ...local])].sort();
   const operations = unionKeys.map((key) =>
-    classifyOperation(key, rust, local)
+    classifyOperation(key, rust, local, sdk)
   );
-  const missingInLocal = rustKeys.filter(
-    (key) => !(NONPORTABLE.has(key) || local.has(key))
-  );
+  const missingInLocal = operations
+    .filter(
+      (operation) =>
+        operation.rust === "supported" &&
+        operation.embedded === "unsupported" &&
+        operation.auth !== "admin" &&
+        operation.nonportable !== true
+    )
+    .map((operation) => `${operation.method} ${operation.path}`)
+    .sort();
   const extraLocal = [...local].filter((key) => !rust.has(key)).sort();
   const sdkMissing = rustKeys
-    .map(pathOnly)
-    .filter(
-      (routePath) =>
-        !(
-          routePath.includes("{") ||
-          sdk.has(routePath) ||
-          NONPORTABLE.has(`GET ${routePath}`) ||
-          NONPORTABLE.has(`POST ${routePath}`)
-        )
-    );
+    .filter((key) => {
+      const routePath = pathOnly(key);
+      return !(
+        routePath.includes("{") ||
+        sdk.has(routePath) ||
+        ROUTE_POLICY[key]?.sdkBindingRequired === false ||
+        NONPORTABLE.has(`GET ${routePath}`) ||
+        NONPORTABLE.has(`POST ${routePath}`)
+      );
+    })
+    .map(pathOnly);
 
   return {
     extraLocal,
@@ -550,6 +603,7 @@ export function buildAuthRouteInventory() {
     operations,
     rust: rustKeys,
     rustCount: rustKeys.length,
+    rustDuplicates,
     sdkMissing: [...new Set(sdkMissing)].sort(),
     sdkPathCount: sdk.size,
   };
@@ -561,9 +615,9 @@ function emitOperationsTs(operations) {
  * Generated by scripts/auth-route-parity.mjs. Do not edit.
  * Wave 0 Auth Finality operation catalog (live rust + embedded scan).
  */
-import type { AthenaAuthOperationDefinition } from "./operations.ts";
+import type { AthenaAuthGeneratedOperationDefinition } from "./operations.ts";
 
-export const ATHENA_AUTH_OPERATIONS: AthenaAuthOperationDefinition[] = ${body};
+export const ATHENA_AUTH_OPERATIONS: AthenaAuthGeneratedOperationDefinition[] = ${body};
 `;
 }
 
