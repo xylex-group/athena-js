@@ -104,6 +104,7 @@ export function createServerSessionResolver(
       resolveActiveOrganizationId: config.resolveActiveOrganizationId,
       sessionDataHeader: config.sessionDataHeader,
       skipFetchWithoutCredentials: config.skipFetchWithoutCredentials,
+      trustSessionDataHeader: config.trustSessionDataHeader,
       ...fromGetter,
       ...override,
       client,

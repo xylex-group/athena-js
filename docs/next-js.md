@@ -465,7 +465,7 @@ const athena = await createAthenaServerClient({
 
 ### Pipeline
 
-1. Middleware header `x-session-data` (`ATHENA_SESSION_DATA_HEADER`) when present
+1. Middleware header `x-session-data` (`ATHENA_SESSION_DATA_HEADER`) when present. Header identity data is accepted as an application convention; authorization and rights from it are discarded unless the caller sets `trustSessionDataHeader: true` after ensuring external requests cannot supply or override the header.
 2. Else `GET /api/auth/get-session?disableCookieCache=true` with request cookies/bearer
 3. Optional `resolveActiveOrganizationId` (product hook)
 4. Optional `organization.ensureActive` / `ensureActiveOrganization` injectables (`list` / `setActive`, `persist`, `onEmpty`)

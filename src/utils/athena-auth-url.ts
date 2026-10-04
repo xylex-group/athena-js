@@ -406,8 +406,10 @@ export const DISABLE_COOKIE_CACHE_QUERY_VALUE =
   ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_VALUE;
 
 /**
- * Optional request/response header some apps use to pass serialized session
- * payload between edge middleware and the app (not set by the SDK itself).
+ * Optional header some apps use to pass serialized session payload between
+ * trusted edge middleware and the app (not set by the SDK itself). Consumers
+ * must authenticate its source; getServerSession discards header authorization
+ * unless `trustSessionDataHeader` is explicitly enabled.
  */
 export const ATHENA_SESSION_DATA_HEADER = "x-session-data";
 

@@ -302,6 +302,7 @@ export async function createAthenaServerClient<
 }
 
 export type {
+  AthenaSessionAuthorizationSnapshot,
   AthenaSessionData,
   ToSessionDataOptions,
 } from "../auth/session-data.ts";

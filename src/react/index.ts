@@ -5,6 +5,7 @@
  */
 
 export type {
+  AthenaSessionAuthorizationSnapshot,
   AthenaSessionData,
   ToSessionDataOptions,
 } from "../auth/session-data.ts";

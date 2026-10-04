@@ -3655,6 +3655,7 @@
     "AthenaPasskeyRecord",
     "AthenaResetPasswordRequest",
     "AthenaSendVerificationEmailRequest",
+    "AthenaSessionAuthorizationSnapshot",
     "AthenaSessionData",
     "AthenaSessionError",
     "AthenaSessionErrorCode",

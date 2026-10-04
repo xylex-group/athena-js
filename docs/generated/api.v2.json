@@ -2,10 +2,10 @@
   "schema": "athena/docs-api/v2",
   "package": {
     "name": "@xylex-group/athena",
-    "version": "5.7.2"
+    "version": "5.7.3"
   },
   "source": {
-    "packageJsonDigest": "decf5ac150415cc32d9e67ee4d30424afdc99cdd2eca539460edf0edeeb6eeca"
+    "packageJsonDigest": "418edac711618e2ca67a6151735f643b215e550e8c722715dd3d45bc66eba846"
   },
   "entrypoints": [
     {
@@ -73638,7 +73638,7 @@
           "kind": "variable",
           "classification": "documented",
           "signature": "\"x-session-data\"",
-          "summary": "Optional request/response header some apps use to pass serialized session payload between edge middleware and the app (not set by the SDK itself).",
+          "summary": "Optional header some apps use to pass serialized session payload between trusted edge middleware and the app (not set by the SDK itself). Consumers must authenticate its source; getServerSession discards header authorization unless `trustSessionDataHeader` is explicitly enabled.",
           "deprecated": false,
           "source": "src/utils/athena-auth-url.ts",
           "examples": [],
@@ -75260,12 +75260,33 @@
           }
         },
         {
+          "id": "@xylex-group/athena/next/server#AthenaSessionAuthorizationSnapshot",
+          "name": "AthenaSessionAuthorizationSnapshot",
+          "kind": "type",
+          "classification": "documented",
+          "signature": "any",
+          "summary": "Readonly application view of Athena's canonical authorization snapshot.",
+          "deprecated": false,
+          "source": "src/auth/session-data.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/next/server#AthenaSessionData",
           "name": "AthenaSessionData",
           "kind": "interface",
           "classification": "documented",
           "signature": "any",
-          "summary": "Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level object, organization, user, and session are Object.freeze'd shallow copies (nested unknown fields on user/session are not deep-frozen).",
+          "summary": "Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level and known authorization collections are frozen copies. User/session are shallow copies (nested unknown fields are not deep-frozen).",
           "deprecated": false,
           "source": "src/auth/session-data.ts",
           "examples": [],
@@ -76531,7 +76552,7 @@
           "kind": "variable",
           "classification": "documented",
           "signature": "\"x-session-data\"",
-          "summary": "Optional request/response header some apps use to pass serialized session payload between edge middleware and the app (not set by the SDK itself).",
+          "summary": "Optional header some apps use to pass serialized session payload between trusted edge middleware and the app (not set by the SDK itself). Consumers must authenticate its source; getServerSession discards header authorization unless `trustSessionDataHeader` is explicitly enabled.",
           "deprecated": false,
           "source": "src/utils/athena-auth-url.ts",
           "examples": [],
@@ -78673,9 +78694,9 @@
           "id": "@xylex-group/athena/next/server#parseAthenaSessionDataHeader",
           "name": "parseAthenaSessionDataHeader",
           "kind": "function",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(raw: string | null | undefined) => AthenaAuthSessionResponse | null",
-          "summary": "",
+          "summary": "Parse the header shape only. Callers must authenticate the header source before using its identity or authorization as trusted application state.",
           "deprecated": false,
           "source": "src/next/get-server-session.ts",
           "examples": [],
@@ -79977,9 +79998,9 @@
           "id": "@xylex-group/athena/next/session#parseAthenaSessionDataHeader",
           "name": "parseAthenaSessionDataHeader",
           "kind": "function",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(raw: string | null | undefined) => AthenaAuthSessionResponse | null",
-          "summary": "",
+          "summary": "Parse the header shape only. Callers must authenticate the header source before using its identity or authorization as trusted application state.",
           "deprecated": false,
           "source": "src/next/get-server-session.ts",
           "examples": [],
@@ -100040,12 +100061,33 @@
       "kind": "module",
       "symbols": [
         {
+          "id": "@xylex-group/athena/react#AthenaSessionAuthorizationSnapshot",
+          "name": "AthenaSessionAuthorizationSnapshot",
+          "kind": "type",
+          "classification": "documented",
+          "signature": "any",
+          "summary": "Readonly application view of Athena's canonical authorization snapshot.",
+          "deprecated": false,
+          "source": "src/auth/session-data.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/react#AthenaSessionData",
           "name": "AthenaSessionData",
           "kind": "interface",
           "classification": "documented",
           "signature": "any",
-          "summary": "Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level object, organization, user, and session are Object.freeze'd shallow copies (nested unknown fields on user/session are not deep-frozen).",
+          "summary": "Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level and known authorization collections are frozen copies. User/session are shallow copies (nested unknown fields are not deep-frozen).",
           "deprecated": false,
           "source": "src/auth/session-data.ts",
           "examples": [],
@@ -117838,7 +117880,7 @@
           "kind": "variable",
           "classification": "documented",
           "signature": "\"x-session-data\"",
-          "summary": "Optional request/response header some apps use to pass serialized session payload between edge middleware and the app (not set by the SDK itself).",
+          "summary": "Optional header some apps use to pass serialized session payload between trusted edge middleware and the app (not set by the SDK itself). Consumers must authenticate its source; getServerSession discards header authorization unless `trustSessionDataHeader` is explicitly enabled.",
           "deprecated": false,
           "source": "src/utils/athena-auth-url.ts",
           "examples": [],

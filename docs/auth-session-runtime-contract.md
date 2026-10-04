@@ -6,10 +6,13 @@ Canonical application session APIs for `@xylex-group/athena`.
 
 | Layer | Type | Role |
 | ----- | ---- | ---- |
-| Transport / wire | `AthenaAuthSessionResponse` | Auth `get-session` JSON (`session` + `user`) |
-| Application | `AthenaSessionData` | Immutable snapshot with `organization.activeId` / `rawActiveId` |
+| Transport / wire | `AthenaAuthSessionResponse` | Auth `get-session` JSON (`session`, `user`, `rights`, `grants`, and optional `authorization`) |
+| Application | `AthenaSessionData` | Immutable snapshot preserving `session`, `user`, `rights`, `grants`, optional `authorization`, and adding `organization.activeId` / `rawActiveId` |
 
 Never treat transport and app session as the same public type.
+Normalization preserves validated authorization state while the organization scope remains the same. Supplied authorization snapshots are copied into immutable application snapshots.
+If server-side organization resolution changes the active organization from the transport scope, the normalized snapshot omits authorization and exposes no rights until the caller reads a fresh session for that organization.
+`x-session-data` authorization is accepted only when `GetServerSessionOptions.trustSessionDataHeader` is true and the caller guarantees the header came from trusted middleware; untrusted header authorization and rights are discarded.
 
 ## Server
 
@@ -88,6 +91,8 @@ Thrown helpers use `toAthenaSessionError` →:
 - `data: AthenaSessionData | null`
 - derived: `isAuthenticated`, `user`, `session`, `organization`, `organizationId`
 - status: `isPending`, `isRefetching`, `error`, `refetch`
+
+Its `data` preserves transport `authorization`, `rights`, and legacy `grants` while adding organization context. The server and browser paths use the same `toSessionData` snapshot shape.
 
 Browser path: `organization.activeId === organization.rawActiveId` (no server repair).
 Concurrent default `getSession` calls are deduped in-process per getter.

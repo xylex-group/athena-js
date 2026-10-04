@@ -2,9 +2,9 @@
 
 Generated from Docs API IR (`docs/generated/api.v2.json`). Do not edit by hand.
 
-Package: `@xylex-group/athena@5.7.2`
+Package: `@xylex-group/athena@5.7.3`
 
-Total documented symbols: **5803**
+Total documented symbols: **5805**
 
 Regenerate with: `pnpm docs:generate`
 
@@ -3061,7 +3061,7 @@ Runtime: browser. Source: `src/next/client.ts`.
 | `ATHENA_AUTH_UPSTREAM_ENV_KEYS` | `readonly ["ATHENA_AUTH_UPSTREAM_URL", "ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]` | — | Environment keys checked (in order) for the Athena Auth upstream URL. Prefer server-only keys first so private upstream hosts are not forced to rely on `NEXT_PUBLIC_*` values. |
 | `ATHENA_AUTH_UPSTREAM_URL_ENV_NAMES` | `readonly ["ATHENA_AUTH_UPSTREAM_URL", "ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]` | — | Auth UI naming parity (`base-url.ts`). Same ordered list as {@link ATHENA_AUTH_UPSTREAM_ENV_KEYS}. |
 | `ATHENA_AUTH_VERIFY_EMAIL_PATH` | `"verify-email"` | — | Relative auth path for email verification (`GET /verify-email`). |
-| `ATHENA_SESSION_DATA_HEADER` | `"x-session-data"` | — | Optional request/response header some apps use to pass serialized session payload between edge middleware and the app (not set by the SDK itself). |
+| `ATHENA_SESSION_DATA_HEADER` | `"x-session-data"` | — | Optional header some apps use to pass serialized session payload between trusted edge middleware and the app (not set by the SDK itself). Consumers must authenticate its source; getServerSession discards header authorization unless `trustSessionDataHeader` is explicitly enabled. |
 | `athena.admin.query` | `<T = unknown, TParams extends readonly unknown[] = readonly unknown[]>(input: AthenaAdminQueryInput<TParams>, options?: AthenaGatewayCallOptions) => Promise<AthenaAdminQueryResult<T>>` | — | Explicit raw SQL with operation + expected shape metadata. Preferred over root `query()` for Dragunov / Athena 5. |
 | `athena.auth.account.list` | `(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthLinkedAccount[]>>` | — | List linked provider accounts. Route: `GET /list-accounts`. |
 | `athena.auth.account.unlink` | `(input: AthenaUnlinkAccountRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthStatusResponse>>` | — | Unlink a provider account. Route: `POST /unlink-account`. |
@@ -3700,7 +3700,7 @@ Runtime: node. Source: `src/next/server.ts`.
 | `ATHENA_AUTH_UPSTREAM_ENV_KEYS` | `readonly ["ATHENA_AUTH_UPSTREAM_URL", "ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]` | — | Environment keys checked (in order) for the Athena Auth upstream URL. Prefer server-only keys first so private upstream hosts are not forced to rely on `NEXT_PUBLIC_*` values. |
 | `ATHENA_AUTH_UPSTREAM_URL_ENV_NAMES` | `readonly ["ATHENA_AUTH_UPSTREAM_URL", "ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]` | — | Auth UI naming parity (`base-url.ts`). Same ordered list as {@link ATHENA_AUTH_UPSTREAM_ENV_KEYS}. |
 | `ATHENA_AUTH_VERIFY_EMAIL_PATH` | `"verify-email"` | — | Relative auth path for email verification (`GET /verify-email`). |
-| `ATHENA_SESSION_DATA_HEADER` | `"x-session-data"` | — | Optional request/response header some apps use to pass serialized session payload between edge middleware and the app (not set by the SDK itself). |
+| `ATHENA_SESSION_DATA_HEADER` | `"x-session-data"` | — | Optional header some apps use to pass serialized session payload between trusted edge middleware and the app (not set by the SDK itself). Consumers must authenticate its source; getServerSession discards header authorization unless `trustSessionDataHeader` is explicitly enabled. |
 | `ATHENA_TABLE_SCHEMA_ROUTE` | `"/api/tables/schema"` | — | Default path for the table schema catalog App Router route. |
 | `AthenaAuthBridgeExchangeInput` | `any` | — | Options for catch-all / dynamic-segment handlers under `/api/auth/*`. Extends {@link AthenaAuthSessionBridgeOptions} with path matching. |
 | `AthenaAuthBridgeExchangeResult` | `any` | — | — |
@@ -3751,7 +3751,8 @@ Runtime: node. Source: `src/next/server.ts`.
 | `AthenaServerRequestOptions` | `any` | — | — |
 | `AthenaServerScope` | `any` | — | Explicit gateway identity for request-scoped server clients. Maps to `X-User-Id` / `X-Organization-Id` via {@link AthenaRequestContext}. When both `session` and `scope` are provided, any field present on `scope` overrides the session-derived value (including explicit `null` to clear). |
 | `AthenaServerSessionInput` | `any` | — | Minimal session shape used to derive gateway identity headers. Accepts full transport session, {@link AthenaSessionData}, or a partial payload. |
-| `AthenaSessionData` | `any` | — | Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level object, organization, user, and session are Object.freeze'd shallow copies (nested unknown fields on user/session are not deep-frozen). |
+| `AthenaSessionAuthorizationSnapshot` | `any` | — | Readonly application view of Athena's canonical authorization snapshot. |
+| `AthenaSessionData` | `any` | — | Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level and known authorization collections are frozen copies. User/session are shallow copies (nested unknown fields are not deep-frozen). |
 | `AthenaSessionError` | `typeof AthenaSessionError` | — | Base error for Next/server session helpers (`require*`, `OrNull` throws). |
 | `AthenaSessionErrorCode` | `any` | — | — |
 | `AthenaSessionErrorContext` | `any` | — | — |
@@ -3856,7 +3857,7 @@ Runtime: node. Source: `src/next/server.ts`.
 | `normalizeAthenaAuthBaseUrl` | `(urlOrPath: string) => string` | — | Normalize a consumer-supplied auth base URL so it targets `/api/auth` (unless the path already ends with that segment). Absolute URLs keep origin and rewrite pathname; relative paths are ensured to end with `/api/auth`. |
 | `OrganizationLike` | `any` | — | — |
 | `OrganizationResolution` | `any` | — | — |
-| `parseAthenaSessionDataHeader` | `(raw: string \| null \| undefined) => AthenaAuthSessionResponse \| null` | — | — |
+| `parseAthenaSessionDataHeader` | `(raw: string \| null \| undefined) => AthenaAuthSessionResponse \| null` | — | Parse the header shape only. Callers must authenticate the header source before using its identity or authorization as trusted application state. |
 | `parseAthenaSessionDataHeaderResult` | `(raw: string \| null \| undefined) => ParseSessionDataHeaderResult` | — | — |
 | `parseAthenaTableSchemaScope` | `(value: string) => string[]` | — | Parse a comma-separated schema scope into unique non-empty names. |
 | `ParseSessionDataHeaderResult` | `any` | — | — |
@@ -3918,7 +3919,7 @@ Runtime: node. Source: `src/next/session.ts`.
 | `mapGetServerSessionOrNull` | `(result: GetServerSessionResult) => AthenaSessionData \| null` | — | — |
 | `mapRequireServerSession` | `(result: GetServerSessionResult, options?: { onUnauthenticated?: () => void; }) => AthenaSessionData` | — | — |
 | `OrganizationResolution` | `any` | — | — |
-| `parseAthenaSessionDataHeader` | `(raw: string \| null \| undefined) => AthenaAuthSessionResponse \| null` | — | — |
+| `parseAthenaSessionDataHeader` | `(raw: string \| null \| undefined) => AthenaAuthSessionResponse \| null` | — | Parse the header shape only. Callers must authenticate the header source before using its identity or authorization as trusted application state. |
 | `parseAthenaSessionDataHeaderResult` | `(raw: string \| null \| undefined) => ParseSessionDataHeaderResult` | — | — |
 | `ParseSessionDataHeaderResult` | `any` | — | — |
 | `requireServerSession` | `(options?: RequireServerSessionOptions) => Promise<AthenaSessionData>` | — | — |
@@ -4974,7 +4975,8 @@ Runtime: browser. Source: `src/react/index.ts`.
 | `AthenaRuntimeBaseEvent` | `any` | — | — |
 | `AthenaRuntimeEvent` | `any` | — | — |
 | `AthenaRuntimeEventType` | `any` | — | — |
-| `AthenaSessionData` | `any` | — | Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level object, organization, user, and session are Object.freeze'd shallow copies (nested unknown fields on user/session are not deep-frozen). |
+| `AthenaSessionAuthorizationSnapshot` | `any` | — | Readonly application view of Athena's canonical authorization snapshot. |
+| `AthenaSessionData` | `any` | — | Canonical application session snapshot. Distinct from the transport {@link AthenaAuthSessionResponse}: organization fields may be adapter-resolved (server ensureActive) and are always present. Values are immutable snapshots — not live auth state. Runtime: top-level and known authorization collections are frozen copies. User/session are shallow copies (nested unknown fields are not deep-frozen). |
 | `AthenaStateAdapter` | `any` | — | — |
 | `AthenaUnsubscribe` | `any` | — | — |
 | `AthenaUpdatePayload` | `any` | — | — |
@@ -5797,7 +5799,7 @@ Runtime: node, browser, workerd. Source: `src/utils/index.ts`.
 | `ATHENA_AUTH_UPSTREAM_ENV_KEYS` | `readonly ["ATHENA_AUTH_UPSTREAM_URL", "ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]` | — | Environment keys checked (in order) for the Athena Auth upstream URL. Prefer server-only keys first so private upstream hosts are not forced to rely on `NEXT_PUBLIC_*` values. |
 | `ATHENA_AUTH_UPSTREAM_URL_ENV_NAMES` | `readonly ["ATHENA_AUTH_UPSTREAM_URL", "ATHENA_AUTH_URL", "NEXT_PUBLIC_ATHENA_AUTH_UPSTREAM_URL", "NEXT_PUBLIC_ATHENA_AUTH_URL"]` | — | Auth UI naming parity (`base-url.ts`). Same ordered list as {@link ATHENA_AUTH_UPSTREAM_ENV_KEYS}. |
 | `ATHENA_AUTH_VERIFY_EMAIL_PATH` | `"verify-email"` | — | Relative auth path for email verification (`GET /verify-email`). |
-| `ATHENA_SESSION_DATA_HEADER` | `"x-session-data"` | — | Optional request/response header some apps use to pass serialized session payload between edge middleware and the app (not set by the SDK itself). |
+| `ATHENA_SESSION_DATA_HEADER` | `"x-session-data"` | — | Optional header some apps use to pass serialized session payload between trusted edge middleware and the app (not set by the SDK itself). Consumers must authenticate its source; getServerSession discards header authorization unless `trustSessionDataHeader` is explicitly enabled. |
 | `AthenaAuthClientBaseUrlOptions` | `any` | — | — |
 | `AthenaAuthUpstreamEnv` | `any` | — | — |
 | `AthenaAuthUpstreamEnvKey` | `any` | — | — |

@@ -40,7 +40,27 @@ export function createExampleAuthSessionResponse(
     id: overrides.sessionId ?? "sess_1",
     token: overrides.token ?? "token_example",
   } as AthenaAuthSession;
-  return { grants: [], rights: [], session, user };
+  return {
+    authorization: {
+      activeOrganizationId: session.activeOrganizationId ?? undefined,
+      assignableRoles: [],
+      capabilities: {
+        canChangeMemberRole: false,
+        canDeleteOrganization: false,
+        canInviteMembers: false,
+        canManageOrganizationRoles: false,
+        canManagePlatformRoles: false,
+        canRemoveMember: false,
+      },
+      effectiveRights: [],
+      revision: 1,
+      roles: [],
+    },
+    grants: [],
+    rights: [],
+    session,
+    user,
+  };
 }
 
 /**

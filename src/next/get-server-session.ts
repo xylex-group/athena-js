@@ -1,3 +1,4 @@
+import { authCallOptionsFromRequestContext } from "../auth/client/request.ts";
 import type { AthenaSessionData } from "../auth/session-data.ts";
 import { toSessionData } from "../auth/session-data.ts";
 import { isAbortError, toAthenaSessionError } from "../auth/session-errors.ts";
@@ -8,8 +9,10 @@ import type {
   AthenaAuthResult,
   AthenaAuthSessionResponse,
 } from "../auth/types.ts";
-import { authCallOptionsFromRequestContext } from "../auth/client/request.ts";
 import type { OrganizationLike } from "../organization/ensure-active-organization.ts";
+import { type AthenaRightKey, tryParseAthenaRightKey } from "../rights/key.ts";
+import { parseAuthorizationSnapshot } from "../runtime/authorization/parse-snapshot.ts";
+import type { AuthorizationSnapshot } from "../runtime/authorization/types.ts";
 import {
   ATHENA_SESSION_DATA_HEADER,
   createFreshSessionLookupUrl,
@@ -78,6 +81,11 @@ export interface GetServerSessionOptions extends AthenaServerRequestOptions {
   ) => string | null | Promise<string | null>;
   sessionDataHeader?: string | null;
   skipFetchWithoutCredentials?: boolean;
+  /**
+   * Accept authorization material from x-session-data only when the caller
+   * guarantees that untrusted requests cannot supply or override that header.
+   */
+  trustSessionDataHeader?: boolean;
 }
 
 export interface OrganizationResolution {
@@ -259,6 +267,10 @@ export function parseAthenaSessionDataHeaderResult(
   return { session, status: "ok" };
 }
 
+/**
+ * Parse the header shape only. Callers must authenticate the header source
+ * before using its identity or authorization as trusted application state.
+ */
 export function parseAthenaSessionDataHeader(
   raw: string | null | undefined
 ): AthenaAuthSessionResponse | null {
@@ -306,9 +318,65 @@ function coerceSessionResponse(
     return null;
   }
 
+  const rawRights = payload.rights;
+  const rights: AthenaRightKey[] = [];
+  if (rawRights !== undefined) {
+    if (!Array.isArray(rawRights)) {
+      return null;
+    }
+    for (const value of rawRights) {
+      if (typeof value !== "string") {
+        return null;
+      }
+      const right = tryParseAthenaRightKey(value);
+      if (right === undefined) {
+        return null;
+      }
+      rights.push(right);
+    }
+  }
+
+  const rawGrants = payload.grants;
+  const grants: string[] = [];
+  if (rawGrants !== undefined) {
+    if (!Array.isArray(rawGrants)) {
+      return null;
+    }
+    for (const grant of rawGrants) {
+      if (typeof grant !== "string") {
+        return null;
+      }
+      grants.push(grant);
+    }
+  }
+
+  let authorization: AuthorizationSnapshot | undefined;
+  if (payload.authorization !== undefined) {
+    try {
+      authorization = parseAuthorizationSnapshot(payload.authorization);
+    } catch {
+      return null;
+    }
+    if (
+      normalizeId(authorization.activeOrganizationId) !==
+        normalizeId(
+          typeof sessionRecord.activeOrganizationId === "string"
+            ? sessionRecord.activeOrganizationId
+            : null
+        ) ||
+      rights.length !== authorization.effectiveRights.length ||
+      rights.some(
+        (right, index) => right !== authorization?.effectiveRights[index]
+      )
+    ) {
+      return null;
+    }
+  }
+
   return {
-    grants: [],
-    rights: [],
+    ...(authorization === undefined ? {} : { authorization }),
+    grants,
+    rights,
     session: {
       activeOrganizationId: normalizeId(
         typeof sessionRecord.activeOrganizationId === "string"
@@ -750,7 +818,9 @@ export async function getServerSession(
 
   const headerParsed = parseAthenaSessionDataHeaderResult(headerRaw);
   if (headerParsed.status === "ok") {
-    transport = headerParsed.session;
+    transport = options.trustSessionDataHeader
+      ? headerParsed.session
+      : { ...headerParsed.session, authorization: undefined, rights: [] };
     fromSessionDataHeader = true;
   } else if (headerParsed.status === "invalid") {
     return {

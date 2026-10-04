@@ -1,6 +1,6 @@
 # Athena JS
 
-current version: `5.7.2`
+current version: `5.7.3`
 
 [![npm](https://img.shields.io/npm/v/@xylex-group/athena?label=%40xylex-group%2Fathena&logo=npm)](https://www.npmjs.com/package/@xylex-group/athena)
 [![npm downloads](https://img.shields.io/npm/dm/@xylex-group/athena?logo=npm)](https://www.npmjs.com/package/@xylex-group/athena)

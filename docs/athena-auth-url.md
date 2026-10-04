@@ -226,6 +226,11 @@ Constants: `ATHENA_AUTH_GET_SESSION_PATH` (`get-session`),
 `ATHENA_AUTH_DISABLE_COOKIE_CACHE_QUERY_PARAM` / `_VALUE`,
 `ATHENA_SESSION_DATA_HEADER`.
 
+Treat the header as untrusted unless ingress prevents external requests from
+supplying or overriding it. `getServerSession` discards header authorization
+and rights by default; set `trustSessionDataHeader: true` only for a trusted
+middleware path.
+
 Default when nothing is configured: `DEFAULT_ATHENA_AUTH_ORIGIN`
 (`https://auth.athena-auth.com`).
 

@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert/strict";
 import { test } from "node:test";
-import { createAuthModule } from "../src/auth/client.ts";
 import { authCallOptionsFromRequestContext } from "../src/auth/client/request.ts";
+import { createAuthModule } from "../src/auth/client.ts";
 import {
   AthenaAuthConfigurationError,
   AthenaAuthProtocolError,
@@ -30,6 +30,42 @@ const sampleSession = {
     id: "session_1",
   },
   user: { email: "user@example.com", id: "user_1", name: "User" },
+};
+
+const authorizedSession = {
+  authorization: {
+    activeOrganizationId: "org_1",
+    assignableRoles: [],
+    capabilities: {
+      canChangeMemberRole: true,
+      canDeleteOrganization: false,
+      canInviteMembers: true,
+      canManageOrganizationRoles: true,
+      canManagePlatformRoles: true,
+      canRemoveMember: true,
+    },
+    effectiveRights: [
+      "authorization.platform.read",
+      "authorization.platform.write",
+    ],
+    revision: 1,
+    roles: [
+      {
+        displayName: "Customer",
+        key: "platform_customer",
+        scopeKind: "platform" as const,
+      },
+      {
+        displayName: "Organization owner",
+        key: "organization_owner",
+        scopeKind: "organization" as const,
+      },
+    ],
+  },
+  grants: ["legacy:session"],
+  rights: ["authorization.platform.read", "authorization.platform.write"],
+  session: { activeOrganizationId: "org_1", id: "session_1" },
+  user: { email: "owner@example.com", id: "user_1" },
 };
 
 test("auth request context conversion keeps custom headers separate from credentials", () => {
@@ -77,6 +113,22 @@ test("parseAthenaSessionDataHeader accepts wrapped data payload", () => {
   assert.equal(parsed?.user.id, "user_1");
 });
 
+test("session header paths preserve full authorization state", () => {
+  for (const payload of [authorizedSession, { data: authorizedSession }]) {
+    const parsed = parseAthenaSessionDataHeader(JSON.stringify(payload));
+    assert.deepEqual(
+      parsed?.authorization?.roles,
+      authorizedSession.authorization.roles
+    );
+    assert.deepEqual(
+      parsed?.authorization?.effectiveRights,
+      authorizedSession.authorization.effectiveRights
+    );
+    assert.deepEqual(parsed?.rights, authorizedSession.rights);
+    assert.deepEqual(parsed?.grants, authorizedSession.grants);
+  }
+});
+
 test("parseAthenaSessionDataHeader returns null for garbage", () => {
   assert.equal(parseAthenaSessionDataHeader("not-json"), null);
   assert.equal(parseAthenaSessionDataHeader("{}"), null);
@@ -106,25 +158,43 @@ test("getServerSession uses middleware session header without fetch", async () =
   assert.equal(result.error, null);
 });
 
+test("untrusted session headers cannot inject authorization", async () => {
+  const result = await getServerSession({
+    requestCookies: "",
+    requestHeaders: {
+      [ATHENA_SESSION_DATA_HEADER]: JSON.stringify(authorizedSession),
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.authenticated, true);
+  assert.equal(result.meta.fromSessionDataHeader, true);
+  assert.equal(result.data?.authorization, undefined);
+  assert.deepEqual(result.data?.rights, []);
+});
+
 test("getServerSession applies product resolveActiveOrganizationId hook", async () => {
   const result = await getServerSession({
     requestCookies: "",
     requestHeaders: {
-      [ATHENA_SESSION_DATA_HEADER]: JSON.stringify(sampleSession),
+      [ATHENA_SESSION_DATA_HEADER]: JSON.stringify(authorizedSession),
     },
     resolveActiveOrganizationId: async ({
       userId,
       rawActiveOrganizationId,
     }) => {
       assert.equal(userId, "user_1");
-      assert.equal(rawActiveOrganizationId, "org_raw");
-      return "org_product";
+      assert.equal(rawActiveOrganizationId, "org_1");
+      return "org_2";
     },
+    trustSessionDataHeader: true,
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.data?.organization.activeId, "org_product");
-  assert.equal(result.data?.organization.rawActiveId, "org_raw");
+  assert.equal(result.data?.organization.activeId, "org_2");
+  assert.equal(result.data?.organization.rawActiveId, "org_1");
+  assert.equal(result.data?.authorization, undefined);
+  assert.deepEqual(result.data?.rights, []);
 });
 
 test("getServerSession fetches get-session when header absent", async () => {
@@ -147,6 +217,132 @@ test("getServerSession fetches get-session when header absent", async () => {
   assert.equal(result.meta.fromSessionDataHeader, false);
   assert.equal(result.data?.user.id, "user_1");
   assert.equal(result.data?.organization.activeId, "org_raw");
+});
+
+test("getServerSession fetch preserves authorization state", async () => {
+  const result = await getServerSession({
+    appOrigin: "https://app.example.com",
+    fetchImpl: (async () =>
+      new Response(JSON.stringify(authorizedSession), {
+        status: 200,
+      })) as typeof fetch,
+    requestCookies: "athena-auth.session_token=abc",
+    requestHeaders: {},
+  });
+  const headerResult = await getServerSession({
+    requestCookies: "",
+    requestHeaders: {
+      [ATHENA_SESSION_DATA_HEADER]: JSON.stringify(authorizedSession),
+    },
+    trustSessionDataHeader: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(headerResult.ok, true);
+  assert.deepEqual(result.data, headerResult.data);
+  assert.deepEqual(
+    result.data?.authorization?.roles,
+    authorizedSession.authorization.roles
+  );
+  assert.deepEqual(
+    result.data?.authorization?.effectiveRights,
+    authorizedSession.authorization.effectiveRights
+  );
+  assert.deepEqual(result.data?.rights, authorizedSession.rights);
+  assert.deepEqual(result.data?.grants, authorizedSession.grants);
+  assert.deepEqual(
+    result.data?.authorization?.roles.map((role) => role.scopeKind),
+    ["platform", "organization"]
+  );
+});
+
+test("malformed session authorization and provenance fail as protocol errors", async () => {
+  const malformed = [
+    {
+      authorization: {
+        ...authorizedSession.authorization,
+        roles: "organization_owner",
+      },
+    },
+    { rights: ["not a real right"] },
+    { grants: [123] },
+    {
+      authorization: {
+        ...authorizedSession.authorization,
+        roles: [
+          authorizedSession.authorization.roles[0],
+          authorizedSession.authorization.roles[0],
+        ],
+      },
+    },
+    {
+      authorization: {
+        ...authorizedSession.authorization,
+        roles: [
+          { displayName: "Legacy", key: "owner", scopeKind: "organization" },
+        ],
+      },
+    },
+    {
+      authorization: {
+        ...authorizedSession.authorization,
+        capabilities: {
+          ...authorizedSession.authorization.capabilities,
+          canManagePlatformRoles: false,
+        },
+      },
+    },
+    { rights: [] },
+    {
+      authorization: {
+        ...authorizedSession.authorization,
+        activeOrganizationId: "org_2",
+      },
+    },
+  ];
+
+  for (const patch of malformed) {
+    const payload = { ...authorizedSession, ...patch };
+    const result = await getServerSession({
+      appOrigin: "https://app.example.com",
+      fetchImpl: (async () =>
+        new Response(JSON.stringify(payload), { status: 200 })) as typeof fetch,
+      requestCookies: "athena-auth.session_token=abc",
+      requestHeaders: {},
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.authenticated, false);
+    assert.equal(result.error?.hint, SESSION_ERROR_HINT.protocol);
+    assert.equal(
+      parseAthenaSessionDataHeaderResult(
+        JSON.stringify({ ...authorizedSession, ...patch })
+      ).status,
+      "invalid"
+    );
+  }
+});
+
+test("trusted session header preserves authorization", async () => {
+  const result = await getServerSession({
+    requestCookies: "",
+    requestHeaders: {
+      [ATHENA_SESSION_DATA_HEADER]: JSON.stringify(authorizedSession),
+    },
+    trustSessionDataHeader: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.data?.authorization?.effectiveRights,
+    authorizedSession.authorization.effectiveRights
+  );
+});
+
+test("legacy session payloads without authorization normalize to empty arrays", () => {
+  const parsed = parseAthenaSessionDataHeader(JSON.stringify(sampleSession));
+  assert.equal(parsed?.authorization, undefined);
+  assert.deepEqual(parsed?.rights, []);
+  assert.deepEqual(parsed?.grants, []);
 });
 
 test("getServerSession skips fetch without credentials by default", async () => {
@@ -194,6 +390,46 @@ test("getServerSession ensureActiveOrganization fills missing org", async () => 
   assert.equal(result.meta.organizationResolution?.persisted, true);
   assert.equal(result.data?.organization.activeId, "org_first");
   assert.equal(result.data?.organization.rawActiveId, null);
+});
+
+test("getServerSession drops authorization when ensureActive repairs its scope", async () => {
+  const sessionWithoutOrg = {
+    authorization: {
+      activeOrganizationId: undefined,
+      assignableRoles: [],
+      capabilities: {
+        canChangeMemberRole: false,
+        canDeleteOrganization: false,
+        canInviteMembers: false,
+        canManageOrganizationRoles: false,
+        canManagePlatformRoles: false,
+        canRemoveMember: false,
+      },
+      effectiveRights: [],
+      revision: 1,
+      roles: [],
+    },
+    grants: [],
+    rights: [],
+    session: { activeOrganizationId: null, id: "session_1" },
+    user: { email: "user@example.com", id: "user_1" },
+  };
+  const result = await getServerSession({
+    ensureActiveOrganization: {
+      listOrganizations: async () => [{ id: "org_next" }],
+      setActiveOrganization: async () => undefined,
+    },
+    requestCookies: "",
+    requestHeaders: {
+      [ATHENA_SESSION_DATA_HEADER]: JSON.stringify(sessionWithoutOrg),
+    },
+    trustSessionDataHeader: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.data?.organization.activeId, "org_next");
+  assert.equal(result.data?.authorization, undefined);
+  assert.deepEqual(result.data?.rights, []);
 });
 
 test("getServerSession ensureActive forwards request cookie through client-backed repair", async () => {
@@ -805,9 +1041,7 @@ test("long-lived resolver isolates concurrent organization repair credentials", 
     );
     if (endpoint.endsWith("/organization/list")) {
       return new Response(
-        JSON.stringify([
-          { id: cookie === cookieA ? "org_A" : "org_B" },
-        ]),
+        JSON.stringify([{ id: cookie === cookieA ? "org_A" : "org_B" }]),
         { status: 200 }
       );
     }
@@ -818,7 +1052,10 @@ test("long-lived resolver isolates concurrent organization repair credentials", 
       const suffix = cookie === cookieA ? "A" : "B";
       return new Response(
         JSON.stringify({
-          session: { activeOrganizationId: `org_${suffix}`, id: `session_${suffix}` },
+          session: {
+            activeOrganizationId: `org_${suffix}`,
+            id: `session_${suffix}`,
+          },
           user: { email: `${suffix}@example.com`, id: `user_${suffix}` },
         }),
         { status: 200 }
@@ -870,10 +1107,7 @@ test("long-lived resolver isolates concurrent organization repair credentials", 
   for (const call of repairCalls) {
     assert.ok(call.cookie === cookieA || call.cookie === cookieB);
     if (call.endpoint.endsWith("/organization/list")) {
-      assert.equal(
-        call.organizationId,
-        undefined
-      );
+      assert.equal(call.organizationId, undefined);
     } else {
       assert.equal(
         call.organizationId,
@@ -1052,7 +1286,9 @@ test("mapGetServerSessionOrNull and mapRequireServerSession cover branches", () 
   const authed = {
     authenticated: true as const,
     data: {
+      grants: [],
       organization: { activeId: "o", rawActiveId: "o" },
+      rights: [],
       session: { activeOrganizationId: "o", id: "s" },
       user: { email: "e", id: "u" },
     },
