@@ -2,10 +2,10 @@
   "schema": "athena/docs-api/v2",
   "package": {
     "name": "@xylex-group/athena",
-    "version": "5.7.0"
+    "version": "5.7.2"
   },
   "source": {
-    "packageJsonDigest": "2fdd68ebc1c91b421d3bf41a6a23a7b68102ff792c734543af1943992970dcf0"
+    "packageJsonDigest": "decf5ac150415cc32d9e67ee4d30424afdc99cdd2eca539460edf0edeeb6eeca"
   },
   "entrypoints": [
     {
@@ -283,6 +283,27 @@
           "summary": "Conservative multi-statement detection (semicolon outside simple quotes). Does not attempt a full SQL parser.",
           "deprecated": false,
           "source": "src/admin/query.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAccessGrant",
+          "name": "AthenaAccessGrant",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/access-grants.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -2312,6 +2333,69 @@
           }
         },
         {
+          "id": "@xylex-group/athena#AthenaAuthorizationAssignmentProvenance",
+          "name": "AthenaAuthorizationAssignmentProvenance",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationAuthoritySnapshotInput",
+          "name": "AthenaAuthorizationAuthoritySnapshotInput",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationAuthoritySnapshotResponse",
+          "name": "AthenaAuthorizationAuthoritySnapshotResponse",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena#AthenaAuthorizationRightDefinition",
           "name": "AthenaAuthorizationRightDefinition",
           "kind": "type",
@@ -2341,6 +2425,111 @@
           "summary": "",
           "deprecated": false,
           "source": "src/runtime/authorization/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationSnapshotAssignment",
+          "name": "AthenaAuthorizationSnapshotAssignment",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationSnapshotIr",
+          "name": "AthenaAuthorizationSnapshotIr",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationSnapshotMetadata",
+          "name": "AthenaAuthorizationSnapshotMetadata",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationSnapshotScope",
+          "name": "AthenaAuthorizationSnapshotScope",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationSnapshotSubject",
+          "name": "AthenaAuthorizationSnapshotSubject",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -3551,6 +3740,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena#AuthorizationAuthorityVersion",
+          "name": "AuthorizationAuthorityVersion",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/assignment-snapshot.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena#AuthorizationCapabilities",
           "name": "AuthorizationCapabilities",
           "kind": "interface",
@@ -3702,7 +3912,7 @@
           "name": "ATHENA_AUTH_DOMAIN_EVENTS",
           "kind": "variable",
           "classification": "documented",
-          "signature": "{ readonly \"account.link\": { readonly status: \"implemented\"; }; readonly \"account.unlink\": { readonly status: \"implemented\"; }; readonly \"apiKey.create\": { readonly status: \"implemented\"; }; readonly \"apiKey.delete\": { readonly status: \"implemented\"; }; readonly \"apiKey.update\": { readonly status: \"implemented\"; }; readonly \"authorization.member.roles.replace\": { readonly status: \"implemented\"; }; readonly \"authorization.role.delete\": { readonly status: \"implemented\"; }; readonly \"organization.create\": { readonly status: \"implemented\"; }; readonly \"organization.delete\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.accept\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.cancel\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.create\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.reject\": { readonly status: \"implemented\"; }; readonly \"organization.member.add\": { readonly status: \"implemented\"; }; readonly \"organization.member.invite.reminder\": { readonly status: \"implemented\"; }; readonly \"organization.member.remove\": { readonly status: \"implemented\"; }; readonly \"organization.member.role.update\": { readonly status: \"implemented\"; }; readonly \"organization.update\": { readonly status: \"implemented\"; }; readonly \"oauth.authorization.denied\": { readonly status: \"implemented\"; }; readonly \"oauth.client.disabled\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.authorized\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.revoked\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.reuse_detected\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.rotated\": { readonly status: \"implemented\"; }; readonly \"passkey.delete\": { readonly status: \"implemented\"; }; readonly \"passkey.register\": { readonly status: \"implemented\"; }; readonly \"passkey.update\": { readonly status: \"implemented\"; }; readonly \"session.activeOrganization.update\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.end\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.start\": { readonly status: \"implemented\"; }; readonly \"session.issue\": { readonly status: \"implemented\"; }; readonly \"session.revoke\": { readonly status: \"implemented\"; }; readonly \"twoFactor.disable\": { readonly status: \"implemented\"; }; readonly \"twoFactor.enable\": { readonly status: \"implemented\"; }; readonly \"user.ban\": { readonly status: \"implemented\"; }; readonly \"user.create\": { readonly status: \"implemented\"; }; readonly \"user.delete\": { readonly status: \"implemented\"; }; readonly \"user.email.update\": { readonly status: \"implemented\"; }; readonly \"user.email.verify\": { readonly status: \"implemented\"; }; readonly \"user.password.change\": { readonly status: \"implemented\"; }; readonly \"user.password.reset\": { readonly status: \"implemented\"; }; readonly \"user.role.update\": { readonly status: \"implemented\"; }; readonly \"user.security.alert\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.email\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.social\": { readonly status: \"implemented\"; }; readonly \"user.unban\": { readonly status: \"implemented\"; }; readonly \"user.update\": { readonly status: \"implemented\"; }; readonly \"identity.connection.create\": { readonly status: \"implemented\"; }; readonly \"identity.connection.update\": { readonly status: \"implemented\"; }; readonly \"identity.connection.disable\": { readonly status: \"implemented\"; }; }",
+          "signature": "{ readonly \"account.link\": { readonly status: \"implemented\"; }; readonly \"account.unlink\": { readonly status: \"implemented\"; }; readonly \"apiKey.create\": { readonly status: \"implemented\"; }; readonly \"apiKey.delete\": { readonly status: \"implemented\"; }; readonly \"apiKey.update\": { readonly status: \"implemented\"; }; readonly \"authorization.member.roles.replace\": { readonly status: \"implemented\"; }; readonly \"authorization.user.roles.replace\": { readonly status: \"implemented\"; }; readonly \"authorization.role.create\": { readonly status: \"implemented\"; }; readonly \"authorization.role.update\": { readonly status: \"implemented\"; }; readonly \"authorization.role.rights.replace\": { readonly status: \"implemented\"; }; readonly \"authorization.role.delete\": { readonly status: \"implemented\"; }; readonly \"organization.create\": { readonly status: \"implemented\"; }; readonly \"organization.delete\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.accept\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.cancel\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.create\": { readonly status: \"implemented\"; }; readonly \"organization.invitation.reject\": { readonly status: \"implemented\"; }; readonly \"organization.member.add\": { readonly status: \"implemented\"; }; readonly \"organization.member.invite.reminder\": { readonly status: \"implemented\"; }; readonly \"organization.member.remove\": { readonly status: \"implemented\"; }; readonly \"organization.member.role.update\": { readonly status: \"implemented\"; }; readonly \"organization.update\": { readonly status: \"implemented\"; }; readonly \"oauth.authorization.denied\": { readonly status: \"implemented\"; }; readonly \"oauth.client.disabled\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.authorized\": { readonly status: \"implemented\"; }; readonly \"oauth.grant.revoked\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.reuse_detected\": { readonly status: \"implemented\"; }; readonly \"oauth.refresh.rotated\": { readonly status: \"implemented\"; }; readonly \"passkey.delete\": { readonly status: \"implemented\"; }; readonly \"passkey.register\": { readonly status: \"implemented\"; }; readonly \"passkey.update\": { readonly status: \"implemented\"; }; readonly \"session.activeOrganization.update\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.end\": { readonly status: \"implemented\"; }; readonly \"session.impersonation.start\": { readonly status: \"implemented\"; }; readonly \"session.issue\": { readonly status: \"implemented\"; }; readonly \"session.revoke\": { readonly status: \"implemented\"; }; readonly \"twoFactor.disable\": { readonly status: \"implemented\"; }; readonly \"twoFactor.enable\": { readonly status: \"implemented\"; }; readonly \"user.ban\": { readonly status: \"implemented\"; }; readonly \"user.create\": { readonly status: \"implemented\"; }; readonly \"user.delete\": { readonly status: \"implemented\"; }; readonly \"user.email.update\": { readonly status: \"implemented\"; }; readonly \"user.email.verify\": { readonly status: \"implemented\"; }; readonly \"user.password.change\": { readonly status: \"implemented\"; }; readonly \"user.password.reset\": { readonly status: \"implemented\"; }; readonly \"user.role.update\": { readonly status: \"implemented\"; }; readonly \"user.security.alert\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.email\": { readonly status: \"implemented\"; }; readonly \"user.sign-in.social\": { readonly status: \"implemented\"; }; readonly \"user.unban\": { readonly status: \"implemented\"; }; readonly \"user.update\": { readonly status: \"implemented\"; }; readonly \"identity.connection.create\": { readonly status: \"implemented\"; }; readonly \"identity.connection.update\": { readonly status: \"implemented\"; }; readonly \"identity.connection.disable\": { readonly status: \"implemented\"; }; }",
           "summary": "Domain lifecycle events for embedded Auth. Status is mechanical: only `implemented` keys are hookable. Flip status in the same change that migrates the handler through `executeAuthMutation`.",
           "deprecated": false,
           "source": "src/auth/hooks/events.ts",
@@ -3887,6 +4097,48 @@
           }
         },
         {
+          "id": "@xylex-group/athena#ATHENA_AUTHORIZATION_SNAPSHOT_IR_KIND",
+          "name": "ATHENA_AUTHORIZATION_SNAPSHOT_IR_KIND",
+          "kind": "variable",
+          "classification": "public-unlisted",
+          "signature": "\"athena.authorization.snapshot\"",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#ATHENA_AUTHORIZATION_SNAPSHOT_IR_VERSION",
+          "name": "ATHENA_AUTHORIZATION_SNAPSHOT_IR_VERSION",
+          "kind": "variable",
+          "classification": "public-unlisted",
+          "signature": "1",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena#AthenaAuthOperationError",
           "name": "AthenaAuthOperationError",
           "kind": "class",
@@ -3895,6 +4147,27 @@
           "summary": "",
           "deprecated": false,
           "source": "src/auth/authorization/result.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthorizationSnapshotIrValidationError",
+          "name": "AthenaAuthorizationSnapshotIrValidationError",
+          "kind": "class",
+          "classification": "public-unlisted",
+          "signature": "typeof AthenaAuthorizationSnapshotIrValidationError",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/errors.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -4001,6 +4274,48 @@
           "deprecated": true,
           "replacement": "Use authorizationAffordancesFromRights for new code.",
           "source": "src/runtime/authorization/capabilities.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#canonicalizeAthenaAuthorizationSnapshotIr",
+          "name": "canonicalizeAthenaAuthorizationSnapshotIr",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(value: unknown) => AthenaAuthorizationSnapshotIr",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/canonicalize.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#fingerprintAthenaAuthorizationSnapshotIr",
+          "name": "fingerprintAthenaAuthorizationSnapshotIr",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(value: unknown) => string",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/fingerprint.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -4266,6 +4581,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena#projectAthenaAccessGrantsFromAuthorizationSnapshot",
+          "name": "projectAthenaAccessGrantsFromAuthorizationSnapshot",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(value: AthenaAuthorizationSnapshotIr) => readonly AthenaAccessGrant[]",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/projection.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena#renderAthenaReactEmail",
           "name": "renderAthenaReactEmail",
           "kind": "function",
@@ -4337,6 +4673,27 @@
           "summary": "Social providers to show: only when known (or partial with explicit list). Never invent an empty \"disabled\" list from unknown.",
           "deprecated": false,
           "source": "src/auth/capabilities.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#validateAthenaAuthorizationSnapshotIr",
+          "name": "validateAthenaAuthorizationSnapshotIr",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "(value: unknown) => AthenaAuthorizationSnapshotIr",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/authorization/snapshot-ir/validate.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -22449,7 +22806,7 @@
           "name": "ATHENA_AUTH_SCHEMA_GENERATION",
           "kind": "variable",
           "classification": "documented",
-          "signature": "48",
+          "signature": "50",
           "summary": "Browser-safe Embedded Auth schema generation. SQL catalog stays in `migrations.ts` (Node / CLI). This number must equal the maximum `version` in that catalog; `migrations.ts` fail-closes on mismatch.",
           "deprecated": false,
           "source": "src/auth/schema/generation.ts",
@@ -27511,6 +27868,27 @@
           "classification": "documented",
           "signature": "(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaApiKeyDeleteAllExpiredResponse>>",
           "summary": "Delete all expired API keys. Route: `POST /api-key/delete-all-expired-api-keys`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#athena.auth.authorization.getAuthoritySnapshot",
+          "name": "athena.auth.authorization.getAuthoritySnapshot",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],
@@ -62865,6 +63243,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/next/client#athena.auth.authorization.getAuthoritySnapshot",
+          "name": "athena.auth.authorization.getAuthoritySnapshot",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/next/client#athena.auth.authorization.cloneRole",
           "name": "athena.auth.authorization.cloneRole",
           "kind": "member",
@@ -87853,6 +88252,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/server#athena.auth.authorization.getAuthoritySnapshot",
+          "name": "athena.auth.authorization.getAuthoritySnapshot",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/server#athena.auth.authorization.cloneRole",
           "name": "athena.auth.authorization.cloneRole",
           "kind": "member",
@@ -103593,6 +104013,27 @@
           "classification": "documented",
           "signature": "(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaApiKeyDeleteAllExpiredResponse>>",
           "summary": "Delete all expired API keys. Route: `POST /api-key/delete-all-expired-api-keys`.",
+          "deprecated": false,
+          "source": "src/auth/types/catalog.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "supported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/react-native#athena.auth.authorization.getAuthoritySnapshot",
+          "name": "athena.auth.authorization.getAuthoritySnapshot",
+          "kind": "member",
+          "classification": "public-unlisted",
+          "signature": "(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>",
+          "summary": "",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
           "examples": [],

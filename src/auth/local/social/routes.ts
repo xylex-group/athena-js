@@ -185,6 +185,10 @@ async function runUserSignInSocial(
             createdMember = await scope.stores.addMember({
               id: crypto.randomUUID(),
               organizationId: input.federation.organization_id,
+              provisioningSource: {
+                sourceId: input.federation.id,
+                sourceKind: "identity_connection",
+              },
               role: input.federation.jit_default_role_id ?? "organization_member",
               userId: resolved.user.id,
             });

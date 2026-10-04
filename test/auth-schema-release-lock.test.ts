@@ -36,7 +36,10 @@ test("auth schema release lock matches package version and canonical generation"
     readFileSync(join(pkgRoot, "package.json"), "utf8")
   ) as { version: string };
   assert.equal(PACKAGE_VERSION, pkg.version);
-  assert.equal(ATHENA_AUTH_SCHEMA_GENERATION, ATHENA_AUTH_LATEST_MIGRATION.version);
+  assert.equal(
+    ATHENA_AUTH_SCHEMA_GENERATION,
+    ATHENA_AUTH_LATEST_MIGRATION.version
+  );
 
   const lock = JSON.parse(
     readFileSync(
@@ -69,6 +72,18 @@ test("verify-auth-schema-release.mjs exits 0 against the committed lock", () => 
     result.stdout,
     new RegExp(`generation ${ATHENA_AUTH_SCHEMA_GENERATION}`)
   );
+});
+
+test("Auth schema release verification enforces migration history before lock writes", () => {
+  const source = readFileSync(
+    join(pkgRoot, "scripts", "verify-auth-schema-release.mjs"),
+    "utf8"
+  );
+  assert.match(source, /verify-auth-migration-history\.mjs/);
+  const historyCheck = source.indexOf("verifyAuthMigrationHistory();");
+  const lockWrite = source.indexOf("if (write)");
+  assert.ok(historyCheck >= 0);
+  assert.ok(lockWrite > historyCheck);
 });
 
 test("Auth schema fingerprint is invariant to source file line endings", () => {

@@ -26,6 +26,9 @@ const billingFiles = [
 const authSchemaFiles = [
   "test/sdd/billing-release/auth-schema-release.target.test.ts",
   "test/sdd/billing-release/upgrade-fixtures.target.test.ts",
+  "test/auth-migration-history.test.ts",
+  "test/auth-schema-release-lock.test.ts",
+  "test/auth-local-schema-history.test.ts",
   "test/auth-schema-catalog-finality.test.ts",
   "test/sdd/athena-js-embedded-sql-migrate.pg.test.ts",
 ];
@@ -50,8 +53,7 @@ const requiredDatabaseEnvironment =
     : "ATHENA_AUTH_FINALITY_DATABASE_URL";
 const requiredDatabaseUrl = process.env[requiredDatabaseEnvironment]?.trim();
 if (
-  !requiredDatabaseUrl ||
-  !/^postgres(ql)?:\/\//i.test(requiredDatabaseUrl)
+  !(requiredDatabaseUrl && /^postgres(ql)?:\/\//i.test(requiredDatabaseUrl))
 ) {
   console.error(
     `${mode} release gate requires ${requiredDatabaseEnvironment} to execute PostgreSQL proofs.`
@@ -73,8 +75,8 @@ const result = spawnSync(
   ],
   {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
-    stdio: "inherit",
     shell: false,
+    stdio: "inherit",
   }
 );
 

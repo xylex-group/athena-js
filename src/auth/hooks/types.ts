@@ -8,6 +8,7 @@ import type {
   AthenaAuthReservedDomainEvent,
 } from "./events.ts";
 import type {
+  AthenaAuthHookAuthorizationRole,
   AthenaAuthHookAccount,
   AthenaAuthHookInvitation,
   AthenaAuthHookMember,
@@ -160,11 +161,53 @@ export interface AthenaAuthHookEventPayloads {
       }[];
     };
   };
+  "authorization.user.roles.replace": {
+    input: {
+      changes: readonly { roleIds: readonly string[]; userId: string }[];
+    };
+    previous: {
+      changes: readonly { roleIds: readonly string[]; userId: string }[];
+    };
+    result: {
+      changes: readonly {
+        previousRoleIds: readonly string[];
+        roleIds: readonly string[];
+        user: AthenaAuthHookUser;
+      }[];
+      revision: number;
+    };
+  };
+  "authorization.role.create": {
+    input: {
+      name: string;
+      organizationId?: string;
+      rights?: readonly string[];
+      sourceRoleId?: string;
+      scopeKind: "organization" | "platform";
+    };
+    previous: undefined;
+    result: { role: AthenaAuthHookAuthorizationRole };
+  };
+  "authorization.role.update": {
+    input: { name: string; organizationId?: string; roleId: string };
+    previous: { role: AthenaAuthHookAuthorizationRole };
+    result: { role: AthenaAuthHookAuthorizationRole };
+  };
+  "authorization.role.rights.replace": {
+    input: {
+      organizationId?: string;
+      rights: readonly string[];
+      roleId: string;
+    };
+    previous: { role: AthenaAuthHookAuthorizationRole };
+    result: { role: AthenaAuthHookAuthorizationRole };
+  };
   "authorization.role.delete": {
     input: {
-      organizationId: string;
+      organizationId?: string;
       reassignmentRoleId?: string;
       roleId: string;
+      scopeKind?: "organization" | "platform";
     };
     previous: { roleId: string };
     result: {
@@ -175,6 +218,11 @@ export interface AthenaAuthHookEventPayloads {
       }[];
       deleted: true;
       id: string;
+      userChanges: readonly {
+        previousRoleIds: readonly string[];
+        roleIds: readonly string[];
+        user: AthenaAuthHookUser;
+      }[];
     };
   };
   "organization.create": {

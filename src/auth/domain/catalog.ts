@@ -71,11 +71,46 @@ export const ATHENA_AUTH_EVENT_DEFINITIONS = {
     result: "resource",
     subjectType: "organization.member",
   },
+  "authorization.user.roles.replace": {
+    audit: true,
+    mutationKind: "update",
+    previous: "required",
+    resolveSubject: ({ result }) =>
+      subject("platform.user", result.changes[0]?.user.id),
+    result: "resource",
+    subjectType: "platform.user",
+  },
+  "authorization.role.create": {
+    audit: true,
+    mutationKind: "create",
+    previous: "none",
+    resolveSubject: ({ result }) =>
+      subject("authorization.role", result.role.id),
+    result: "resource",
+    subjectType: "authorization.role",
+  },
+  "authorization.role.update": {
+    audit: true,
+    mutationKind: "update",
+    previous: "required",
+    resolveSubject: ({ input }) =>
+      subject("authorization.role", input.roleId),
+    result: "resource",
+    subjectType: "authorization.role",
+  },
+  "authorization.role.rights.replace": {
+    audit: true,
+    mutationKind: "update",
+    previous: "required",
+    resolveSubject: ({ input }) =>
+      subject("authorization.role", input.roleId),
+    result: "resource",
+    subjectType: "authorization.role",
+  },
   "authorization.role.delete": {
     audit: true,
     mutationKind: "delete",
     previous: "required",
-    resolveOrganizationId: ({ input }) => input.organizationId,
     resolveSubject: ({ input }) => subject("authorization.role", input.roleId),
     result: "receipt",
     subjectType: "authorization.role",

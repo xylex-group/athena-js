@@ -18,6 +18,14 @@ import {
   createAuthRouter,
 } from "../src/auth/local/runtime.ts";
 import { createRuntimeDependencies } from "../src/auth/local/runtime-dependencies.ts";
+import {
+  BUILTIN_AUTHORIZATION_ROLES,
+  ORGANIZATION_MEMBER_ROLE,
+  ORGANIZATION_OWNER_ROLE,
+  PLATFORM_ADMIN_ROLE,
+  PLATFORM_CUSTOMER_ROLE,
+  PLATFORM_UNAUTHORIZED_ROLE,
+} from "../src/runtime/authorization/templates.ts";
 import { createClient } from "../src/v3-client.ts";
 
 function createTestHasher() {
@@ -140,8 +148,93 @@ test("T-ADMIN-03 createUser produces a sign-inable credential", async () => {
   assert.equal(created.status, 200, await created.clone().text());
   const createdBody = (await created.json()) as { user: { id: string } };
   assertPublicAdminUserSafe(createdBody);
+  const assignments = await stores.authorization.readUserRoleAssignmentsSnapshot({
+    userIds: [createdBody.user.id],
+  });
+  assert.deepEqual(assignments.assignments[0]?.roleIds, [
+    PLATFORM_UNAUTHORIZED_ROLE,
+  ]);
   const signed = await signIn(runtime, "member@example.com", "MemberPass123!");
   assert.equal(signed.status, 200);
+});
+
+test("legacy platform role updates preserve additional role assignments", async () => {
+  const stores = new MemoryAuthStores();
+  await stores.createUser({ email: "admin@example.com", id: "admin-1" });
+  await stores.updateUser("admin-1", { role: "admin" });
+  await stores.createUser({ email: "target@example.com", id: "target-1" });
+  const admin = BUILTIN_AUTHORIZATION_ROLES.find(
+    (role) => role.key === PLATFORM_ADMIN_ROLE
+  );
+  assert.ok(admin);
+  const snapshot = await stores.authorization.readUserRoleAssignmentsSnapshot();
+  await stores.authorization.replaceUserRoleAssignments({
+    actorRights: admin.rights,
+    actorUserId: "admin-1",
+    expectedVersion: snapshot.revision,
+    roleIds: [PLATFORM_CUSTOMER_ROLE, "billing_admin"],
+    userId: "target-1",
+  });
+
+  await stores.updateUser("target-1", { role: "admin" });
+
+  const assigned = await stores.authorization.readUserRoleAssignmentsSnapshot({
+    userIds: ["target-1"],
+  });
+  const assignment = assigned.assignments[0];
+  assert.ok(assignment);
+  assert.deepEqual([...assignment.roleIds].sort(), [
+    "billing_admin",
+    PLATFORM_ADMIN_ROLE,
+  ]);
+});
+
+test("legacy organization role updates preserve additional role assignments", async () => {
+  const stores = new MemoryAuthStores();
+  await stores.createUser({ email: "member@example.com", id: "member-user" });
+  await stores.addMember({
+    id: "member-1",
+    organizationId: "org-1",
+    role: "member",
+    userId: "member-user",
+  });
+  const owner = BUILTIN_AUTHORIZATION_ROLES.find(
+    (role) => role.key === ORGANIZATION_OWNER_ROLE
+  );
+  assert.ok(owner);
+  const reviewer = await stores.authorization.createRole({
+    actorRights: owner.rights,
+    actorUserId: "owner-1",
+    name: "Security reviewer",
+    organizationId: "org-1",
+    rights: ["organization.members.read"],
+    scopeKind: "organization",
+    unrestrictedGrant: true,
+  });
+  const snapshot = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: "org-1",
+  });
+  await stores.authorization.replaceMemberRoleAssignments({
+    actorRights: owner.rights,
+    actorUserId: "owner-1",
+    expectedVersion: snapshot.revision,
+    memberId: "member-1",
+    memberUserId: "member-user",
+    organizationId: "org-1",
+    roleIds: [ORGANIZATION_MEMBER_ROLE, reviewer.id],
+  });
+
+  await stores.updateMemberRole("org-1", "member-user", "admin");
+
+  const assigned = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: "org-1",
+  });
+  const assignment = assigned.assignments[0];
+  assert.ok(assignment);
+  assert.deepEqual([...assignment.roleIds].sort(), [
+    reviewer.id,
+    "organization_admin",
+  ]);
 });
 
 test("T-ADMIN-04 expired ban is treated as unbanned", async () => {

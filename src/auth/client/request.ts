@@ -173,6 +173,7 @@ export function inferDefaultMethod(
     case "/organization/list-members":
     case "/organization/get-active-member":
     case "/authorization/snapshot":
+    case "/authorization/authority-snapshot":
     case "/authorization/rights":
     case "/authorization/roles":
     case "/authorization/audit":

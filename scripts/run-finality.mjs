@@ -22,13 +22,17 @@
  */
 import { spawnSync } from "node:child_process";
 import {
+	cpSync,
 	existsSync,
+	mkdtempSync,
 	mkdirSync,
 	readdirSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertFinalityMatrixProofs } from "./finality-matrix.mjs";
@@ -38,6 +42,7 @@ const tmpDir = join(root, ".tmp");
 const reportPath = join(tmpDir, "athena-finality.json");
 const packDir = join(tmpDir, "packages");
 const statePath = join(tmpDir, "finality-state.json");
+const temporaryWorkspaces = new Set();
 
 const CHECK_KEYS = [
 	"unit",
@@ -236,6 +241,10 @@ function restoreFixtureTrees() {
 		}
 	}
 	fixtureSnapshots.clear();
+	for (const path of temporaryWorkspaces) {
+		rmSync(path, { recursive: true, force: true });
+	}
+	temporaryWorkspaces.clear();
 }
 
 function rewriteFileDep(manifestPath, tarballPath, extraDeps = {}) {
@@ -317,7 +326,32 @@ function generateCreateAthenaAppFixture() {
 		"create-athena-app.mjs",
 	);
 	if (existsSync(generator)) {
-		const help = spawnSync(process.execPath, [generator, "--help"], {
+		const createAthenaAppRoot = join(root, "..", "create-athena-app");
+		const isolatedParent = mkdtempSync(
+			join(tmpdir(), "athena-create-app-finality-"),
+		);
+		temporaryWorkspaces.add(isolatedParent);
+		const isolatedRoot = join(isolatedParent, "create-athena-app");
+		cpSync(createAthenaAppRoot, isolatedRoot, {
+			recursive: true,
+			filter(source) {
+				const relative = source.slice(createAthenaAppRoot.length);
+				return !/(^|[\\/])(?:node_modules|dist|\.git)(?:[\\/]|$)/.test(
+					relative,
+				);
+			},
+		});
+		const isolatedGenerator = join(
+			isolatedRoot,
+			"bin",
+			"create-athena-app.mjs",
+		);
+		run("pnpm", ["install", "--frozen-lockfile"], {
+			cwd: isolatedRoot,
+		});
+		run("pnpm", ["build"], { cwd: isolatedRoot });
+
+		const help = spawnSync(process.execPath, [isolatedGenerator, "--help"], {
 			cwd: root,
 			encoding: "utf8",
 			shell: false,
@@ -513,7 +547,7 @@ try {
 	);
 	const expoRn53 = join(root, "test", "fixtures", "expo-rn53");
 	installPackedConsumer(expoRn53, tarball);
-	run("pnpm", ["check"], { cwd: expoRn53 });
+	run("pnpm", ["check"], { cwd: realpathSync.native(expoRn53) });
 	nodeTest(["test/finality/package-install.test.ts"]);
 	nodeTest(["test/finality/package-finality.test.ts"]);
 	nodeTest(["test/finality/next-webpack-package.test.ts"]);

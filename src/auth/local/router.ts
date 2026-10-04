@@ -47,6 +47,8 @@ import { handleAdminEmailRoutes } from "./email/routes.ts";
 import { handleUserMailRoutes, tokenizedUrl } from "./email/user-routes.ts";
 import { AthenaAuthRuntimeError, jsonResponse } from "./errors.ts";
 import { handleExtendedRoute, resolveApiKeyUser } from "./extended-routes.ts";
+import { handleIdentityConnectionAdminRoute } from "./identity-connections/admin-routes.ts";
+import { requireIdentityConnectionForEmail } from "./identity-connections/policy.ts";
 import type { AthenaAuthStores } from "./memory-stores.ts";
 import { MemoryAuthStores } from "./memory-stores.ts";
 import type { AuthOrganizationRow, AuthUserRow } from "./models.ts";
@@ -66,8 +68,6 @@ import {
 } from "./organization-invariants.ts";
 import { handleOrganizationInvitationRoutes } from "./organization-invitation-routes.ts";
 import { handleOrganizationLifecycleEventRoute } from "./organization-lifecycle-event-routes.ts";
-import { handleIdentityConnectionAdminRoute } from "./identity-connections/admin-routes.ts";
-import { requireIdentityConnectionForEmail } from "./identity-connections/policy.ts";
 import { handleGenerateAuthenticateOptionsRoute } from "./passkey/generate-authenticate-options.ts";
 import { handleGenerateRegisterOptionsRoute } from "./passkey/generate-register-options.ts";
 import {
@@ -207,6 +207,17 @@ function resolveAuthRouteDomain(path: string): AuthRouteDomain | undefined {
   }
 }
 
+// SQLite has no durable authorization catalog, assignments, revisions, or
+// audit history. Gate only those APIs; legacy Auth lifecycle and role-projection
+// routes retain their SQLite compatibility behavior.
+function sqliteAuthorizationRouteUnsupported(path: string): boolean {
+  return (
+    path.startsWith("/authorization/roles") ||
+    path.startsWith("/authorization/assignments") ||
+    path === "/authorization/audit"
+  );
+}
+
 export function createAuthRouter(deps: AuthRuntimeDependencies) {
   const domains: Record<AuthRouteDomain, AuthRouteHandler[]> = {
     admin: [],
@@ -316,6 +327,7 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
         200,
         {
           capabilities: createEmbeddedCapabilitySnapshot({
+            authorizationAssignments: deps.authorizationAssignmentsSupported,
             passkeyEnabled: config.passkey.enabled,
             passkeyOnboarding: config.passkey.onboardingEnabled,
             socialProviders: advertisedSocialProviderIds(config.social),
@@ -1658,7 +1670,8 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
           const next = await scope.stores.updateMemberRole(
             organizationId,
             target.user_id,
-            granted.persistedRole
+            granted.persistedRole,
+            resolved.user.id
           );
           return next ?? target;
         },
@@ -2038,11 +2051,12 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
       return authorizationResponse;
     }
 
-    const adminStore = database
-      ? new PostgresAdminAuthStore(database)
-      : currentStores instanceof MemoryAuthStores
+    const adminStore =
+      currentStores instanceof MemoryAuthStores
         ? new MemoryAdminAuthStore(currentStores)
-        : undefined;
+        : database
+          ? new PostgresAdminAuthStore(database)
+          : undefined;
     if (adminStore && path.startsWith("/admin/")) {
       const identityConnectionResponse =
         await handleIdentityConnectionAdminRoute(
@@ -2126,6 +2140,15 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
         "content-type, authorization, cookie, x-athena-sdk, x-athena-trace-id, x-request-id"
       );
       return new Response(null, { headers, status: 204 });
+    }
+
+    if (
+      !deps.authorizationAssignmentsSupported &&
+      sqliteAuthorizationRouteUnsupported(path)
+    ) {
+      throw AthenaAuthRuntimeError.capabilityDisabled(
+        "Authorization assignment management"
+      );
     }
 
     const domain = resolveAuthRouteDomain(path);

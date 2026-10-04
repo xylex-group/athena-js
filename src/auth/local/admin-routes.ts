@@ -296,7 +296,7 @@ export async function handleAdminRoute(
           password,
           role: requestedRole,
           username: asStringField(body, "username"),
-        });
+        }, actor.user.id);
       },
       input: {
         email,
@@ -408,7 +408,7 @@ export async function handleAdminRoute(
             new Error("Admin store is required")
           );
         }
-        return scope.admin.updateUser({ role, userId });
+        return scope.admin.updateUser({ role, userId }, actor.user.id);
       },
       input: { role, userId },
       previous: async () => ({ role: target.role }),

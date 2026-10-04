@@ -7,6 +7,7 @@ export {
   AuthorizationSnapshotInvalidError,
   parseAuthorizationSnapshot,
 } from "../runtime/authorization/parse-snapshot.ts";
+export * from "../runtime/authorization/snapshot-ir/index.ts";
 export type {
   AthenaAuthorizationRightDefinition,
   AthenaAuthorizationRoleDetail,
@@ -147,6 +148,8 @@ export {
   tokenNeedsRefresh,
 } from "./token-provider.ts";
 export type {
+  AthenaAuthorizationAuthoritySnapshotInput,
+  AthenaAuthorizationAuthoritySnapshotResponse,
   AthenaAuthorizationServerClient,
   AthenaAuthorizationServerClientCreateRequest,
   AthenaAuthorizationServerClientDisableRequest,

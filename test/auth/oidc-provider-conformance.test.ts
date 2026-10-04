@@ -67,6 +67,7 @@ async function runAthenaConformance(
     ...(!database ? { stores: new MemoryAuthStores() } : {}),
   });
   const jitMemberAdds: string[] = [];
+  const storesBMemory = new MemoryAuthStores();
   const depsB = createRuntimeDependencies({
     config: normalizeAthenaAuthConfig({
       mode: "local",
@@ -96,7 +97,7 @@ async function runAthenaConformance(
         },
       },
     },
-    stores: new MemoryAuthStores(),
+    stores: storesBMemory,
   });
   const originalFetch = globalThis.fetch;
   const storesA = await depsA.ensureReady();
@@ -353,10 +354,19 @@ async function runAthenaConformance(
       assert.notEqual(sessionBody.user.id, owner.id);
     }
     if (useIdentityConnection) {
-      assert.ok(
-        await storesB.getMember(organization.id, sessionBody.user.id)
-      );
+      const member = await storesB.getMember(organization.id, sessionBody.user.id);
+      assert.ok(member);
       assert.deepEqual(jitMemberAdds, [sessionBody.user.id]);
+      const roleGrant = [
+        ...(storesBMemory.authorization.snapshot().memberRoles.get(member.id)?.values() ?? []),
+      ][0] as { sourceId?: string; sourceKind?: string } | undefined;
+      assert.deepEqual(
+        {
+          sourceId: roleGrant?.sourceId,
+          sourceKind: roleGrant?.sourceKind,
+        },
+        { sourceId: connectionId, sourceKind: "identity_connection" }
+      );
       const linkedAccount = await storesB.findAccountByProvider(
         providerId,
         issuerAccount.id

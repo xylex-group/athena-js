@@ -676,6 +676,25 @@ export const ATHENA_AUTH_OPERATIONS: AthenaAuthGeneratedOperationDefinition[] = 
   },
   {
     "auth": "session",
+    "capability": "sessions",
+    "availability": "embedded-only",
+    "embedded": "supported",
+    "id": "authorization.authoritySnapshot",
+    "lifecycle": "canonical",
+    "method": "GET",
+    "mutation": false,
+    "operation": "authorization.authoritySnapshot",
+    "path": "/authorization/authority-snapshot",
+    "rust": "unsupported",
+    "runtimes": {
+      "dedicated": "unsupported",
+      "embedded": "supported"
+    },
+    "sdkEndpoint": "known",
+    "sdkBindingRequired": true
+  },
+  {
+    "auth": "session",
     "capability": "oauthAuthorizationServer",
     "availability": "embedded-only",
     "embedded": "supported",

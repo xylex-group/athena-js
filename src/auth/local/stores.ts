@@ -1,6 +1,8 @@
 import { PostgresAuthorizationStore } from "../../runtime/authorization/postgres.ts";
+import type { AthenaAuthorizationAssignmentSource } from "../../runtime/authorization/assignment-snapshot.ts";
 import {
-  mapLegacyUserRole,
+  compatibilityMemberRole,
+  mapLegacyMemberRole,
   resolveMemberAssignmentRole,
 } from "../../runtime/authorization/templates.ts";
 import type { AthenaRuntimeAuthSessionStore } from "../../runtime/data/principal.ts";
@@ -329,14 +331,23 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
     if (!row) {
       throw new Error("Failed to create user");
     }
-    await this.authorization.assignUserRole(
-      row.id,
-      mapLegacyUserRole(row.role)
-    );
+    await this.authorization.replaceLegacyPlatformRole({
+      role: row.role,
+      userId: row.id,
+    });
     return row;
   }
 
-  async updateUser(id: string, patch: UpdateUserPatch): Promise<AuthUserRow> {
+  async updateUser(
+    id: string,
+    patch: UpdateUserPatch,
+    assignedBy?: string
+  ): Promise<AuthUserRow> {
+    if (patch.role !== undefined && !this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAuthStores(tx).updateUser(id, patch, assignedBy)
+      );
+    }
     const result = await this.db.query<AuthUserRow>(
       `UPDATE ${ATHENA_AUTH_TABLES.users}
        SET
@@ -378,19 +389,48 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
       throw new Error("User not found");
     }
     if (patch.role !== undefined) {
-      await this.authorization.assignUserRole(
-        row.id,
-        mapLegacyUserRole(patch.role)
-      );
+      await this.authorization.replaceLegacyPlatformRole({
+        assignedBy,
+        role: patch.role,
+        userId: row.id,
+      });
     }
     return row;
   }
 
   async deleteUser(id: string): Promise<void> {
-    await this.db.query(
-      `DELETE FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1`,
-      [id]
-    );
+    await this.db.transaction(async (tx) => {
+      const user = await tx.query<{ id: string }>(
+        `SELECT id FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (!user.rows[0]) {
+        return;
+      }
+      const authorization = new PostgresAuthorizationStore(tx);
+      await authorization.assertUserDeletionAllowed({ userId: id });
+      const memberships = await tx.query<{
+        id: string;
+        organization_id: string;
+      }>(
+        `SELECT id, organization_id FROM ${ATHENA_AUTH_TABLES.member}
+         WHERE user_id = $1 ORDER BY organization_id, id FOR UPDATE`,
+        [id]
+      );
+      const deleted = await tx.query(
+        `DELETE FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1 RETURNING id`,
+        [id]
+      );
+      if (deleted.rowCount > 0) {
+        await authorization.recordUserDeletion({
+          memberships: memberships.rows.map((row) => ({
+            memberId: row.id,
+            organizationId: row.organization_id,
+          })),
+          userId: id,
+        });
+      }
+    });
   }
 
   async createSession(input: CreateSessionInput): Promise<AuthSessionRow> {
@@ -733,18 +773,27 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
     name: string;
     slug: string;
   }): Promise<AuthOrganizationRow> {
-    const result = await this.db.query<AuthOrganizationRow>(
-      `INSERT INTO ${ATHENA_AUTH_TABLES.organization}
-        (id, name, slug, created_by_user_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [input.id, input.name, input.slug, input.createdByUserId]
-    );
-    const row = result.rows[0];
-    if (!row) {
-      throw new Error("Failed to create organization");
-    }
-    return row;
+    return this.db.transaction(async (tx) => {
+      const result = await tx.query<AuthOrganizationRow>(
+        `INSERT INTO ${ATHENA_AUTH_TABLES.organization}
+          (id, name, slug, created_by_user_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [input.id, input.name, input.slug, input.createdByUserId]
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new Error("Failed to create organization");
+      }
+      await tx.query(
+        `INSERT INTO athena.authorization_revisions
+          (scope_kind, organization_id, revision)
+         VALUES ('organization', $1, 1)
+         ON CONFLICT DO NOTHING`,
+        [input.id]
+      );
+      return row;
+    });
   }
 
   async getOrganization(id: string): Promise<AuthOrganizationRow | undefined> {
@@ -817,6 +866,7 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
     assignedBy?: string;
     id: string;
     organizationId: string;
+    provisioningSource?: AthenaAuthorizationAssignmentSource;
     role: string;
     userId: string;
   }): Promise<AuthMemberRow> {
@@ -835,7 +885,9 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
       row.id,
       resolveMemberAssignmentRole(row.role),
       input.assignedBy,
-      input.organizationId
+      input.organizationId,
+      row.user_id,
+      input.provisioningSource
     );
     return row;
   }
@@ -927,34 +979,45 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
   async updateMemberRole(
     organizationId: string,
     userId: string,
-    role: string
+    role: string,
+    assignedBy?: string
   ): Promise<AuthMemberRow | undefined> {
-    const result = await this.db.query<AuthMemberRow>(
-      `UPDATE ${ATHENA_AUTH_TABLES.member}
-       SET role = $3
-       WHERE organization_id = $1 AND user_id = $2
-       RETURNING *`,
-      [organizationId, userId, role]
-    );
-    const updated = result.rows[0];
-    if (updated) {
-      await this.authorization.assignMemberRole(
-        updated.id,
-        resolveMemberAssignmentRole(role),
-        undefined,
-        organizationId
-      );
+    const member = await this.getMember(organizationId, userId);
+    if (!member) {
+      return;
     }
-    return updated;
+    await this.authorization.replaceOrganizationBaseRole({
+      memberId: member.id,
+      memberUserId: userId,
+      organizationId,
+      role,
+      assignedBy,
+    });
+    return {
+      ...member,
+      role: compatibilityMemberRole(mapLegacyMemberRole(role)),
+    };
   }
 
   async removeMember(organizationId: string, userId: string): Promise<boolean> {
-    const result = await this.db.query(
-      `DELETE FROM ${ATHENA_AUTH_TABLES.member}
-       WHERE organization_id = $1 AND user_id = $2`,
-      [organizationId, userId]
-    );
-    return result.rowCount > 0;
+    return this.db.transaction(async (tx) => {
+      const result = await tx.query<{ id: string }>(
+        `DELETE FROM ${ATHENA_AUTH_TABLES.member}
+         WHERE organization_id = $1 AND user_id = $2
+         RETURNING id`,
+        [organizationId, userId]
+      );
+      const memberId = result.rows[0]?.id;
+      if (!memberId) {
+        return false;
+      }
+      await new PostgresAuthorizationStore(tx).recordMemberRemoval({
+        memberId,
+        organizationId,
+        userId,
+      });
+      return true;
+    });
   }
 
   async createInvitation(input: {

@@ -10,7 +10,9 @@ import {
   createAuthDatabaseFromPool,
   createPostgresAuthDatabase,
 } from "../../src/auth/local/database.ts";
+import { AthenaAuthRuntimeError } from "../../src/auth/local/errors.ts";
 import {
+  getAthenaAuthExpectedLedger,
   inspectAthenaAuthSchema,
   migrateAthenaAuthSchema,
   withAthenaAuthMigrationLock,
@@ -42,6 +44,10 @@ import { createPostgresPool } from "../../src/postgres/driver.ts";
 import { createPostgresPoolManager } from "../../src/postgres/pool/manager.ts";
 
 const silentUi = { info() { } } as unknown as AthenaCliUI;
+const CANONICAL_033_CHECKSUM =
+  "483af951e47a72cdffb6b8a21f5878a1e9c2ce250079e7535bad35a47d5a1418";
+const ATHENA_570_033_CHECKSUM =
+  "044557ff8b79810d05e43f4fb9f0203e42b68ad0ea9c62c4e1c1970440a6b764";
 
 function liveUrl(): string | undefined {
   const connectionString = process.env.DATABASE_URL?.trim();
@@ -143,6 +149,54 @@ async function prepareAuthGeneration(
       operationTimeoutMs: ATHENA_AUTH_SCHEMA_MIGRATE_TIMEOUT_MS,
     },
   );
+}
+
+async function prepareAthena570AuthGeneration(
+  database: Awaited<ReturnType<typeof createPostgresAuthDatabase>>
+): Promise<void> {
+  await prepareAuthGeneration(database, 32);
+  const migration033 = ATHENA_AUTH_CANONICAL_MIGRATIONS.find(
+    (migration) => migration.version === 33
+  );
+  assert.ok(migration033);
+  const accidentalSql = migration033.sql.replace(
+    "ON athena.auth_signing_keys (issuer)",
+    "ON athena.auth_signing_keys (issuer, algorithm)"
+  );
+  assert.notEqual(accidentalSql, migration033.sql);
+  assert.equal(checksumMigrationSql(accidentalSql), ATHENA_570_033_CHECKSUM);
+
+  await withAthenaAuthMigrationLock(database, async (tx) => {
+    await tx.query(accidentalSql);
+    await tx.query(
+      "INSERT INTO athena.auth_schema_migrations (version, name, checksum) VALUES ($1, $2, $3)",
+      [33, migration033.name, ATHENA_570_033_CHECKSUM]
+    );
+    for (const migration of ATHENA_AUTH_CANONICAL_MIGRATIONS) {
+      if (migration.version <= 33) {
+        continue;
+      }
+      await tx.query(migration.sql);
+      await tx.query(
+        "INSERT INTO athena.auth_schema_migrations (version, name, checksum) VALUES ($1, $2, $3)",
+        [migration.version, migration.name, checksumMigrationSql(migration.sql)]
+      );
+    }
+  });
+}
+
+async function readActiveSigningKeyIndexDefinition(
+  database: Awaited<ReturnType<typeof createPostgresAuthDatabase>>
+): Promise<string> {
+  const result = await database.query<{ indexdef: string }>(`
+    SELECT indexdef
+    FROM pg_indexes
+    WHERE schemaname = 'athena'
+      AND indexname = 'uq_auth_signing_keys_active_issuer'
+  `);
+  const definition = result.rows[0]?.indexdef;
+  assert.ok(definition, "active signing key index must exist");
+  return definition;
 }
 
 test("P?: packaged embedded ledgers apply on a live database and stay idempotent", async (t) => {
@@ -475,5 +529,139 @@ test("P?: physical Auth generation 34 upgrades to current without losing assignm
     });
   } finally {
     await database.close?.();
+  }
+});
+
+test("Auth migration history cohorts preserve 033 receipts and converge through 047", async (t) => {
+  const connectionString = disposableAuthFinalityUrl();
+  if (!connectionString) {
+    t.skip(
+      "ATHENA_AUTH_FINALITY_DATABASE_URL must point to a disposable PostgreSQL database"
+    );
+    return;
+  }
+
+  const database = await createPostgresAuthDatabase(connectionString);
+  try {
+    await t.test(
+      "pre-5.7.0 generation 45 upgrades from canonical issuer-only 033",
+      async () => {
+        await prepareAuthGeneration(database, 45);
+        const before = await database.query<{ checksum: string }>(`
+          SELECT checksum FROM athena.auth_schema_migrations WHERE version = 33
+        `);
+        assert.equal(before.rows[0]?.checksum, CANONICAL_033_CHECKSUM);
+        assert.match(
+          await readActiveSigningKeyIndexDefinition(database),
+          /\(issuer\)/
+        );
+        assert.doesNotMatch(
+          await readActiveSigningKeyIndexDefinition(database),
+          /\(issuer, algorithm\)/
+        );
+
+        const upgraded = await migrateAthenaAuthSchema(database);
+        const readiness = await inspectAthenaAuthSchema(database);
+        const after = await database.query<{ checksum: string }>(`
+          SELECT checksum FROM athena.auth_schema_migrations WHERE version = 33
+        `);
+        assert.equal(upgraded.compatible, true);
+        assert.equal(readiness.ready, true);
+        assert.equal(after.rows[0]?.checksum, CANONICAL_033_CHECKSUM);
+        assert.match(
+          await readActiveSigningKeyIndexDefinition(database),
+          /\(issuer, algorithm\)/
+        );
+      }
+    );
+
+    await t.test(
+      "Athena JS 5.7.0 history is accepted without rewriting its receipt",
+      async () => {
+        await prepareAthena570AuthGeneration(database);
+        const before = await database.query<{ checksum: string }>(`
+          SELECT checksum FROM athena.auth_schema_migrations WHERE version = 33
+        `);
+        assert.equal(before.rows[0]?.checksum, ATHENA_570_033_CHECKSUM);
+        assert.match(
+          await readActiveSigningKeyIndexDefinition(database),
+          /\(issuer, algorithm\)/
+        );
+
+        const upgraded = await migrateAthenaAuthSchema(database);
+        const readiness = await inspectAthenaAuthSchema(database);
+        const second = await migrateAthenaAuthSchema(database);
+        const after = await database.query<{ checksum: string }>(`
+          SELECT checksum FROM athena.auth_schema_migrations WHERE version = 33
+        `);
+        assert.equal(upgraded.compatible, true);
+        assert.equal(second.compatible, true);
+        assert.equal(readiness.ready, true);
+        assert.equal(after.rows[0]?.checksum, ATHENA_570_033_CHECKSUM);
+        assert.match(
+          await readActiveSigningKeyIndexDefinition(database),
+          /\(issuer, algorithm\)/
+        );
+      }
+    );
+
+    await t.test(
+      "fresh installation records canonical 033 and reaches composite index through 047",
+      async () => {
+        await database.query("DROP SCHEMA IF EXISTS athena CASCADE");
+        const migrated = await migrateAthenaAuthSchema(database);
+        const readiness = await inspectAthenaAuthSchema(database);
+        const ledger = await database.query<{ checksum: string }>(`
+          SELECT checksum FROM athena.auth_schema_migrations WHERE version = 33
+        `);
+        const migration047 = ATHENA_AUTH_CANONICAL_MIGRATIONS.find(
+          (migration) => migration.version === 47
+        );
+        assert.ok(migration047);
+        assert.match(migration047.sql, /\(issuer, algorithm\)/);
+        assert.equal(migrated.compatible, true);
+        assert.equal(readiness.ready, true);
+        assert.equal(ledger.rows[0]?.checksum, CANONICAL_033_CHECKSUM);
+        assert.match(
+          await readActiveSigningKeyIndexDefinition(database),
+          /\(issuer, algorithm\)/
+        );
+        assert.deepEqual(
+          getAthenaAuthExpectedLedger().find(
+            (migration) => migration.version === 33
+          )?.checksum,
+          CANONICAL_033_CHECKSUM
+        );
+      }
+    );
+
+    await t.test(
+      "arbitrary migration 033 receipt still fails closed as schema drift",
+      async () => {
+        await prepareAuthGeneration(database, 45);
+        await database.query(
+          "UPDATE athena.auth_schema_migrations SET checksum = $1 WHERE version = 33",
+          ["deadbeef"]
+        );
+
+        await assert.rejects(
+          () => migrateAthenaAuthSchema(database),
+          (error: unknown) =>
+            error instanceof AthenaAuthRuntimeError &&
+            error.code === "ATHENA_AUTH_SCHEMA_DRIFT"
+        );
+
+        const receipt = await database.query<{ checksum: string }>(`
+          SELECT checksum FROM athena.auth_schema_migrations WHERE version = 33
+        `);
+        assert.equal(receipt.rows[0]?.checksum, "deadbeef");
+      }
+    );
+  } finally {
+    try {
+      await database.query("DROP SCHEMA IF EXISTS athena CASCADE");
+    } finally {
+      await database.close();
+    }
   }
 });

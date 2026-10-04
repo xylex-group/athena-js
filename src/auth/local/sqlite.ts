@@ -84,6 +84,9 @@ export async function createSqliteAuthRuntime(
     executor: AthenaSqliteExecutor;
   },
 ): Promise<ReturnType<typeof createAthenaAuthRuntime>> {
+  if (input.stores && !(input.stores instanceof SqliteAuthStores)) {
+    throw new Error("createSqliteAuthRuntime requires SqliteAuthStores.");
+  }
   const database =
     input.database != null && typeof input.database !== "string"
       ? input.database

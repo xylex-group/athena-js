@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS athena.auth_signing_keys (
     expires_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_signing_keys_active_issuer
-    ON athena.auth_signing_keys (issuer, algorithm)
+    ON athena.auth_signing_keys (issuer)
     WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_auth_signing_keys_issuer_status
     ON athena.auth_signing_keys (issuer, status);

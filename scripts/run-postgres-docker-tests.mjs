@@ -31,6 +31,8 @@ const EMBEDDED_DATABASE = "athena_js_embedded";
 const FINALITY_DATABASE = "athena_js_auth_finality";
 
 const AUTH_SUITE = [
+  "test/authorization-snapshot-capture.test.ts",
+  "test/auth/authorization-integrity-postgres.test.ts",
   "test/auth/authorization-server-postgres.test.ts",
   "test/auth/oidc-provider-conformance.test.ts",
   "test/auth/identity-connections-postgres.test.ts",

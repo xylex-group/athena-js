@@ -8,8 +8,10 @@
 
 import {
   ATHENA_AUTHORIZATION_ASSIGNMENT_SQL,
+  ATHENA_AUTHORIZATION_ASSIGNMENT_PROVENANCE_SQL,
   ATHENA_AUTHORIZATION_CONSTRAINTS_SQL,
   ATHENA_AUTHORIZATION_MULTI_ROLE_SQL,
+  ATHENA_AUTHORIZATION_REVISION_BACKFILL_SQL,
 } from "../local/authorization-sql.ts";
 import { ATHENA_AUTH_EMAIL_SCHEMA_STATEMENTS } from "../local/email/schema-sql.ts";
 import {
@@ -780,6 +782,16 @@ CREATE INDEX IF NOT EXISTS idx_federated_identities_user
   ON athena.federated_identities (user_id);
 `,
     version: 48,
+  },
+  {
+    name: "049_authorization_revision_backfill",
+    sql: ATHENA_AUTHORIZATION_REVISION_BACKFILL_SQL,
+    version: 49,
+  },
+  {
+    name: "050_authorization_assignment_provenance",
+    sql: ATHENA_AUTHORIZATION_ASSIGNMENT_PROVENANCE_SQL,
+    version: 50,
   },
 ];
 

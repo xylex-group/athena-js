@@ -13,6 +13,7 @@
     "src/**/*",
     "test/**/*.ts",
     "test-sdk/src/**/*.ts",
+    "scripts/verify-auth-migration-history.d.mts",
     "scripts/verify-auth-schema-release.d.mts",
     "bin/bootstrap-logging.d.ts"
   ],

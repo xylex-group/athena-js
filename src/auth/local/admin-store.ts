@@ -2,6 +2,7 @@ import {
   ATHENA_AUTH_CREDENTIAL_PROVIDER_ID,
   ATHENA_AUTH_TABLES,
 } from "../contract/index.ts";
+import { PostgresAuthorizationStore } from "../../runtime/authorization/postgres.ts";
 import type {
   AthenaAuthAdminCreateUserInput,
   AthenaAuthAdminListUsersInput,
@@ -93,7 +94,8 @@ export class PostgresAdminAuthStore implements AthenaAuthAdminStore {
     input: AthenaAuthAdminCreateUserInput & {
       id: string;
       metadata?: Record<string, unknown>;
-    }
+    },
+    assignedBy?: string
   ): Promise<AuthUserRow> {
     return this.db.transaction(async (tx) => {
       const result = await tx.query<AuthUserRow>(
@@ -133,13 +135,24 @@ export class PostgresAdminAuthStore implements AthenaAuthAdminStore {
           ]
         );
       }
+      await new PostgresAuthorizationStore(tx).replaceLegacyPlatformRole({
+        assignedBy,
+        role: input.role ?? "user",
+        userId: row.id,
+      });
       return row;
     });
   }
 
   async updateUser(
-    input: AthenaAuthAdminUpdateUserInput
+    input: AthenaAuthAdminUpdateUserInput,
+    assignedBy?: string
   ): Promise<AuthUserRow> {
+    if (input.role !== undefined && !this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAdminAuthStore(tx).updateUser(input, assignedBy)
+      );
+    }
     const result = await this.db.query<AuthUserRow>(
       `UPDATE ${ATHENA_AUTH_TABLES.users}
        SET
@@ -175,6 +188,13 @@ export class PostgresAdminAuthStore implements AthenaAuthAdminStore {
     if (!row) {
       throw new Error("User not found");
     }
+    if (input.role !== undefined) {
+      await new PostgresAuthorizationStore(this.db).replaceLegacyPlatformRole({
+        assignedBy,
+        role: input.role,
+        userId: input.userId,
+      });
+    }
     return row;
   }
 
@@ -187,11 +207,39 @@ export class PostgresAdminAuthStore implements AthenaAuthAdminStore {
   }
 
   async deleteUser(userId: string): Promise<boolean> {
-    const result = await this.db.query(
-      `DELETE FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1`,
-      [userId]
-    );
-    return result.rowCount > 0;
+    return this.db.transaction(async (tx) => {
+      const user = await tx.query<{ id: string }>(
+        `SELECT id FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1 FOR UPDATE`,
+        [userId]
+      );
+      if (!user.rows[0]) {
+        return false;
+      }
+      const authorization = new PostgresAuthorizationStore(tx);
+      await authorization.assertUserDeletionAllowed({ userId });
+      const memberships = await tx.query<{
+        id: string;
+        organization_id: string;
+      }>(
+        `SELECT id, organization_id FROM ${ATHENA_AUTH_TABLES.member}
+         WHERE user_id = $1 ORDER BY organization_id, id FOR UPDATE`,
+        [userId]
+      );
+      const result = await tx.query(
+        `DELETE FROM ${ATHENA_AUTH_TABLES.users} WHERE id = $1 RETURNING id`,
+        [userId]
+      );
+      if (result.rowCount > 0) {
+        await authorization.recordUserDeletion({
+          memberships: memberships.rows.map((row) => ({
+            memberId: row.id,
+            organizationId: row.organization_id,
+          })),
+          userId,
+        });
+      }
+      return result.rowCount > 0;
+    });
   }
 
   async deleteUserSessions(
@@ -306,7 +354,8 @@ export class MemoryAdminAuthStore implements AthenaAuthAdminStore {
     input: AthenaAuthAdminCreateUserInput & {
       id: string;
       metadata?: Record<string, unknown>;
-    }
+    },
+    assignedBy?: string
   ) {
     const user = await this.stores.createUser({
       email: input.email,
@@ -316,15 +365,12 @@ export class MemoryAdminAuthStore implements AthenaAuthAdminStore {
       name: input.name,
       username: input.username,
     });
-    if (input.role) {
-      await this.stores.updateUser(user.id, { role: input.role });
-    }
     const passwordHash =
       typeof input.metadata?.password_hash === "string"
         ? input.metadata.password_hash
         : undefined;
-    if (passwordHash) {
-      try {
+    try {
+      if (passwordHash) {
         await this.stores.createAccount({
           accountId: user.id,
           id: crypto.randomUUID(),
@@ -332,15 +378,20 @@ export class MemoryAdminAuthStore implements AthenaAuthAdminStore {
           providerId: ATHENA_AUTH_CREDENTIAL_PROVIDER_ID,
           userId: user.id,
         });
-      } catch (error) {
-        await this.stores.deleteUser(user.id);
-        throw error;
       }
+      await this.stores.updateUser(
+        user.id,
+        { role: input.role ?? "user" },
+        assignedBy
+      );
+    } catch (error) {
+      await this.stores.deleteUser(user.id);
+      throw error;
     }
     return (await this.stores.getUserById(user.id)) ?? user;
   }
 
-  updateUser(input: AthenaAuthAdminUpdateUserInput) {
+  updateUser(input: AthenaAuthAdminUpdateUserInput, assignedBy?: string) {
     return this.stores.updateUser(input.userId, {
       banExpires: input.banExpires,
       banned: input.banned,
@@ -350,7 +401,7 @@ export class MemoryAdminAuthStore implements AthenaAuthAdminStore {
       image: input.image,
       name: input.name,
       role: input.role,
-    });
+    }, assignedBy);
   }
 
   deleteSession(token: string) {

@@ -27,6 +27,12 @@ test("P14: check:release exists and prepublishOnly is not weaker", async () => {
     pkg.scripts["release:verify"] ?? "",
     /verify-auth-schema-release/
   );
+  const authSchemaVerifier = await readFile(
+    new URL("../scripts/verify-auth-schema-release.mjs", import.meta.url),
+    "utf8"
+  );
+  assert.match(authSchemaVerifier, /verify-auth-migration-history\.mjs/);
+  assert.match(authSchemaVerifier, /verifyAuthMigrationHistory\(\)/);
   assert.match(
     pkg.scripts["release:verify"] ?? "",
     /test:finality\s*&&\s*(?:pnpm\s+)?test:tarball\s*&&\s*(?:pnpm\s+)?test:examples/
@@ -64,7 +70,10 @@ test("P14: publish refreshes stale finality before validating the release report
   assert.match(source, /function finalityReportNeedsRefresh/);
   assert.match(source, /function refreshFinalityReportIfStale/);
   assert.match(source, /scripts\/run-finality\.mjs/);
-  assert.match(source, /refreshFinalityReportIfStale\(\);\s*requireFinalityReport\(\)/);
+  assert.match(
+    source,
+    /refreshFinalityReportIfStale\(\);\s*requireFinalityReport\(\)/
+  );
 });
 
 test("P14: finality refreshes the Auth schema release lock before tests", async () => {

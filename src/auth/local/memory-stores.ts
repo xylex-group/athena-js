@@ -1,9 +1,16 @@
+import type { AthenaAuthorizationAssignmentSource } from "../../runtime/authorization/assignment-snapshot.ts";
 import { MemoryAuthorizationStore } from "../../runtime/authorization/memory.ts";
 import {
-  mapLegacyUserRole,
+  compatibilityMemberRole,
+  mapLegacyMemberRole,
   resolveMemberAssignmentRole,
 } from "../../runtime/authorization/templates.ts";
 import { resolveAuthenticationContext } from "./authentication-context.ts";
+import type {
+  CreateAuthFederatedIdentityInput,
+  CreateAuthIdentityConnectionInput,
+  UpdateAuthIdentityConnectionInput,
+} from "./identity-connections/types.ts";
 import type {
   AuthAccountRow,
   AuthFederatedIdentityRow,
@@ -16,11 +23,6 @@ import type {
   AuthUserRow,
   AuthVerificationRow,
 } from "./models.ts";
-import type {
-  CreateAuthFederatedIdentityInput,
-  CreateAuthIdentityConnectionInput,
-  UpdateAuthIdentityConnectionInput,
-} from "./identity-connections/types.ts";
 import type {
   AuthApiKeyRow,
   AuthTwoFactorRow,
@@ -144,18 +146,30 @@ export class MemoryAuthStores {
     if (patch.authenticationRequired !== undefined) {
       row.authentication_required = patch.authenticationRequired;
     }
-    if (patch.clientId !== undefined) row.client_id = patch.clientId;
+    if (patch.clientId !== undefined) {
+      row.client_id = patch.clientId;
+    }
     if (patch.credentialRef !== undefined) {
       row.credential_ref = patch.credentialRef;
     }
-    if (patch.domains !== undefined) row.domains = [...patch.domains];
-    if (patch.enabled !== undefined) row.enabled = patch.enabled;
+    if (patch.domains !== undefined) {
+      row.domains = [...patch.domains];
+    }
+    if (patch.enabled !== undefined) {
+      row.enabled = patch.enabled;
+    }
     if (patch.jitDefaultRoleId !== undefined) {
       row.jit_default_role_id = patch.jitDefaultRoleId;
     }
-    if (patch.jitEnabled !== undefined) row.jit_enabled = patch.jitEnabled;
-    if (patch.name !== undefined) row.name = patch.name;
-    if (patch.resource !== undefined) row.resource_uri = patch.resource;
+    if (patch.jitEnabled !== undefined) {
+      row.jit_enabled = patch.jitEnabled;
+    }
+    if (patch.name !== undefined) {
+      row.name = patch.name;
+    }
+    if (patch.resource !== undefined) {
+      row.resource_uri = patch.resource;
+    }
     if (patch.tokenEndpointAuthMethod !== undefined) {
       row.token_endpoint_auth_method = patch.tokenEndpointAuthMethod;
     }
@@ -294,14 +308,18 @@ export class MemoryAuthStores {
       username: input.username ?? null,
     };
     this.users.set(row.id, row);
-    await this.authorization.assignUserRole(
-      row.id,
-      mapLegacyUserRole(row.role)
-    );
+    await this.authorization.replaceLegacyPlatformRole({
+      role: row.role,
+      userId: row.id,
+    });
     return clone(row);
   }
 
-  async updateUser(id: string, patch: UpdateUserPatch): Promise<AuthUserRow> {
+  async updateUser(
+    id: string,
+    patch: UpdateUserPatch,
+    assignedBy?: string
+  ): Promise<AuthUserRow> {
     const existing = this.users.get(id);
     if (!existing) {
       throw new Error("User not found");
@@ -325,13 +343,14 @@ export class MemoryAuthStores {
       two_factor_enabled: patch.twoFactorEnabled ?? existing.two_factor_enabled,
       updated_at: now(),
     };
-    this.users.set(id, next);
     if (patch.role !== undefined) {
-      await this.authorization.assignUserRole(
-        id,
-        mapLegacyUserRole(patch.role)
-      );
+      await this.authorization.replaceLegacyPlatformRole({
+        assignedBy,
+        role: patch.role,
+        userId: id,
+      });
     }
+    this.users.set(id, next);
     return clone(next);
   }
 
@@ -353,6 +372,19 @@ export class MemoryAuthStores {
   }
 
   async deleteUser(id: string): Promise<void> {
+    if (!this.users.has(id)) {
+      return;
+    }
+    const memberships = [...this.members.values()]
+      .filter((member) => member.user_id === id)
+      .map((member) => ({
+        memberId: member.id,
+        organizationId: member.organization_id,
+      }));
+    await this.authorization.recordUserDeletion({
+      memberships,
+      userId: id,
+    });
     this.users.delete(id);
     for (const [key, session] of this.sessions) {
       if (session.user_id === id) {
@@ -756,6 +788,9 @@ export class MemoryAuthStores {
   }
 
   async deleteOrganization(id: string): Promise<void> {
+    await this.authorization.recordOrganizationDeletion({
+      organizationId: id,
+    });
     this.organizations.delete(id);
     for (const [key, apiKey] of this.apiKeys) {
       if (apiKey.organization_id === id) {
@@ -778,6 +813,7 @@ export class MemoryAuthStores {
     assignedBy?: string;
     id: string;
     organizationId: string;
+    provisioningSource?: AthenaAuthorizationAssignmentSource;
     role: string;
     userId: string;
   }): Promise<AuthMemberRow> {
@@ -794,7 +830,9 @@ export class MemoryAuthStores {
       row.id,
       resolveMemberAssignmentRole(row.role),
       input.assignedBy,
-      input.organizationId
+      input.organizationId,
+      row.user_id,
+      input.provisioningSource
     );
     return clone(row);
   }
@@ -863,20 +901,22 @@ export class MemoryAuthStores {
   async updateMemberRole(
     organizationId: string,
     userId: string,
-    role: string
+    role: string,
+    assignedBy?: string
   ): Promise<AuthMemberRow | undefined> {
     for (const member of this.members.values()) {
       if (
         member.organization_id === organizationId &&
         member.user_id === userId
       ) {
-        member.role = role;
-        await this.authorization.assignMemberRole(
-          member.id,
-          resolveMemberAssignmentRole(role),
-          undefined,
-          organizationId
-        );
+        await this.authorization.replaceOrganizationBaseRole({
+          assignedBy,
+          memberId: member.id,
+          memberUserId: userId,
+          organizationId,
+          role,
+        });
+        member.role = compatibilityMemberRole(mapLegacyMemberRole(role));
         return clone(member);
       }
     }
@@ -889,6 +929,11 @@ export class MemoryAuthStores {
         member.user_id === userId
       ) {
         this.members.delete(key);
+        await this.authorization.recordMemberRemoval({
+          memberId: member.id,
+          organizationId,
+          userId,
+        });
         return true;
       }
     }

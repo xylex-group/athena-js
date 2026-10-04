@@ -363,6 +363,7 @@ test("memory snapshots round-trip organization template roles for the active org
     "organization_owner",
     undefined,
     "org-1",
+    member.user_id,
   );
   const snapshot = await store.readSnapshot({
     activeOrganizationId: "org-1",

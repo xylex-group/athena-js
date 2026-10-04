@@ -13,9 +13,17 @@ import {
   requireExpectedVersion,
   throwAssignmentVersionConflict,
 } from "../../runtime/authorization/role-invariants.ts";
+import { fingerprintAthenaAuthorizationSnapshotIr } from "../../runtime/authorization/snapshot-ir/fingerprint.ts";
 import type { AuthDomainMutate } from "../hooks/execute.ts";
-import type { AthenaAuthHookMember } from "../hooks/sanitize.ts";
-import { sanitizeHookMember } from "../hooks/sanitize.ts";
+import type {
+  AthenaAuthHookMember,
+  AthenaAuthHookUser,
+} from "../hooks/sanitize.ts";
+import {
+  sanitizeHookAuthorizationRole,
+  sanitizeHookMember,
+  sanitizeHookUser,
+} from "../hooks/sanitize.ts";
 import type { AthenaAuthMutationScope } from "../hooks/scope.ts";
 import { apiKeyScopeKind, bindApiKeyAuthorization } from "./api-key.ts";
 import {
@@ -106,6 +114,27 @@ function roleIdFromPath(path: string): string | undefined {
   return id;
 }
 
+function authorizationMutationContext(
+  request: Request,
+  resolved: { session: AuthSessionRow; user: AuthUserRow },
+  organizationId?: string
+) {
+  return {
+    actor: {
+      kind: "user" as const,
+      ...(organizationId ? { organizationId } : {}),
+      sessionId: resolved.session.id,
+      userId: resolved.user.id,
+    },
+    request: {
+      method: request.method.toUpperCase(),
+      path: new URL(request.url).pathname,
+      userAgent: request.headers.get("user-agent") ?? undefined,
+    },
+    traceId: crypto.randomUUID(),
+  };
+}
+
 export async function handleAuthorizationRoute(
   request: Request,
   path: string,
@@ -127,6 +156,89 @@ export async function handleAuthorizationRoute(
     const resolved = await requireSession(request, stores);
     const snapshot = await buildSnapshot(stores, resolved);
     return jsonResponse(200, snapshot, headers);
+  }
+
+  if (path === "/authorization/authority-snapshot" && method === "GET") {
+    const params = new URL(request.url).searchParams;
+    const scopeValues = params.getAll("scope");
+    const organizationValues = params.getAll("organizationId");
+    if (
+      [...new Set([...params.keys()])].some(
+        (key) => key !== "scope" && key !== "organizationId"
+      ) ||
+      scopeValues.length !== 1 ||
+      (scopeValues[0] !== "platform" && scopeValues[0] !== "organization")
+    ) {
+      throw AthenaAuthRuntimeError.badRequest(
+        "An explicit authorization snapshot scope is required"
+      );
+    }
+    const scope = scopeValues[0];
+    if (
+      (scope === "platform" && organizationValues.length !== 0) ||
+      (scope === "organization" && organizationValues.length !== 1)
+    ) {
+      throw AthenaAuthRuntimeError.badRequest(
+        "organizationId must be provided only for organization scope"
+      );
+    }
+    const organizationId = organizationValues[0];
+    if (
+      organizationId !== undefined &&
+      (organizationId.length === 0 || organizationId.trim() !== organizationId)
+    ) {
+      throw AthenaAuthRuntimeError.badRequest(
+        "organizationId must be a non-empty canonical identifier"
+      );
+    }
+    if (scope === "organization" && organizationId === undefined) {
+      throw AthenaAuthRuntimeError.badRequest(
+        "organizationId must be provided for organization scope"
+      );
+    }
+    const apiKeyRead = await organizationApiKeyRead(
+      request,
+      stores,
+      resolveApiKey,
+      AUTHORIZATION_ROLES_READ
+    );
+    if (apiKeyRead) {
+      const snapshot = await stores.authorization.readAuthoritySnapshot({
+        scope: { kind: "organization", organizationId: apiKeyRead.organizationId },
+      });
+      return jsonResponse(
+        200,
+        {
+          fingerprint: fingerprintAthenaAuthorizationSnapshotIr(snapshot),
+          snapshot,
+        },
+        headers
+      );
+    }
+    const resolved = await requireSession(request, stores);
+    await requireRoleAccess(
+      stores,
+      resolved,
+      request,
+      "read",
+      undefined,
+      scope,
+      scope
+    );
+    const snapshot = await stores.authorization.readAuthoritySnapshot({
+      scope:
+        scope === "platform"
+          ? { kind: "platform" }
+          : { kind: "organization", organizationId },
+    });
+    return jsonResponse(
+      200,
+      {
+        fingerprint: fingerprintAthenaAuthorizationSnapshotIr(snapshot),
+        snapshot,
+      },
+      headers
+    );
   }
 
   if (path === "/authorization/rights" && method === "GET") {
@@ -197,16 +309,41 @@ export async function handleAuthorizationRoute(
       body
     );
     const name = requireStringField(body, "name");
-    const role = await stores.authorization.createRole({
-      actorRights: command.snapshot.effectiveRights,
-      actorUserId: resolved.user.id,
-      name,
-      organizationId: command.scope.organizationId,
-      rights: asStringArray(body, "rights"),
-      scopeKind: command.scope.kind,
-      unrestrictedGrant: command.unrestrictedGrant,
+    const rights = asStringArray(body, "rights");
+    const organizationId = command.scope.organizationId ?? undefined;
+    const created = await mutate({
+      context: authorizationMutationContext(request, resolved, organizationId),
+      event: "authorization.role.create",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        const role = await scope.stores.authorization.createRole({
+          actorRights: command.snapshot.effectiveRights,
+          actorUserId: resolved.user.id,
+          name,
+          organizationId,
+          rights,
+          scopeKind: command.scope.kind,
+          unrestrictedGrant: command.unrestrictedGrant,
+        });
+        const detail = await scope.stores.authorization.getRole(
+          role.id,
+          organizationId
+        );
+        if (!detail) {
+          throw AthenaAuthRuntimeError.internal(
+            new Error("ATHENA_AUTH_CREATED_ROLE_MISSING")
+          );
+        }
+        return { role: sanitizeHookAuthorizationRole(detail) };
+      },
+      input: {
+        name,
+        organizationId,
+        rights,
+        scopeKind: command.scope.kind,
+      },
+      resultOf: (result) => result,
     });
-    return jsonResponse(200, { role }, headers);
+    return jsonResponse(200, { role: created.role }, headers);
   }
 
   if (path === "/authorization/roles/clone" && method === "POST") {
@@ -230,15 +367,34 @@ export async function handleAuthorizationRoute(
         throw AthenaAuthRuntimeError.forbidden();
       }
     }
-    const cloned = await stores.authorization.cloneRole({
-      actorRights: command.snapshot.effectiveRights,
-      actorUserId: resolved.user.id,
-      name,
-      organizationId: command.scope.organizationId,
-      sourceRoleId,
-      unrestrictedGrant: command.unrestrictedGrant,
+    const organizationId = command.scope.organizationId ?? undefined;
+    const created = await mutate({
+      context: authorizationMutationContext(request, resolved, organizationId),
+      event: "authorization.role.create",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        const cloned = await scope.stores.authorization.cloneRole({
+          actorRights: command.snapshot.effectiveRights,
+          actorUserId: resolved.user.id,
+          name,
+          organizationId,
+          sourceRoleId,
+          unrestrictedGrant: command.unrestrictedGrant,
+        });
+        const detail = await scope.stores.authorization.getRole(
+          cloned.id,
+          organizationId
+        );
+        if (!detail) {
+          throw AthenaAuthRuntimeError.internal(
+            new Error("ATHENA_AUTH_CLONED_ROLE_MISSING")
+          );
+        }
+        return { role: sanitizeHookAuthorizationRole(detail) };
+      },
+      input: { name, organizationId, sourceRoleId, scopeKind: command.scope.kind },
+      resultOf: (result) => result,
     });
-    return jsonResponse(200, { role: cloned }, headers);
+    return jsonResponse(200, { role: created.role }, headers);
   }
 
   const roleId = roleIdFromPath(path);
@@ -308,17 +464,34 @@ export async function handleAuthorizationRoute(
     if (rights === undefined && typeof body.name !== "string") {
       throw AthenaAuthRuntimeError.badRequest("name or rights is required");
     }
-    const role = await stores.authorization.updateRole({
-      actorRights: command.snapshot.effectiveRights,
-      actorUserId: resolved.user.id,
-      expectedVersion: requireExpectedVersion(body.expectedVersion),
-      id,
-      name,
-      organizationId: command.scope.organizationId,
-      ...(rights ? { rights } : {}),
-      unrestrictedGrant: command.unrestrictedGrant,
+    const organizationId = command.scope.organizationId ?? undefined;
+    const updated = await mutate({
+      context: authorizationMutationContext(request, resolved, organizationId),
+      event: "authorization.role.update",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        await scope.stores.authorization.updateRole({
+          actorRights: command.snapshot.effectiveRights,
+          actorUserId: resolved.user.id,
+          expectedVersion: requireExpectedVersion(body.expectedVersion),
+          id,
+          name,
+          organizationId,
+          ...(rights ? { rights } : {}),
+          unrestrictedGrant: command.unrestrictedGrant,
+        });
+        const detail = await scope.stores.authorization.getRole(id, organizationId);
+        if (!detail) {
+          throw AthenaAuthRuntimeError.internal(
+            new Error("ATHENA_AUTH_UPDATED_ROLE_MISSING")
+          );
+        }
+        return { role: sanitizeHookAuthorizationRole(detail) };
+      },
+      input: { name, organizationId, roleId: id },
+      previous: async () => ({ role: sanitizeHookAuthorizationRole(existing) }),
+      resultOf: (result) => result,
     });
-    return jsonResponse(200, { role }, headers);
+    return jsonResponse(200, { role: updated.role }, headers);
   }
 
   if (
@@ -336,16 +509,41 @@ export async function handleAuthorizationRoute(
       body
     );
     const id = roleIdFromPath(path) ?? "";
-    const role = await stores.authorization.replaceRoleRights({
-      actorRights: command.snapshot.effectiveRights,
-      actorUserId: resolved.user.id,
-      expectedVersion: requireExpectedVersion(body.expectedVersion),
+    const existing = await stores.authorization.getRole(
       id,
-      organizationId: command.scope.organizationId,
-      rights: asStringArray(body, "rights"),
-      unrestrictedGrant: command.unrestrictedGrant,
+      command.scope.organizationId
+    );
+    if (!existing) {
+      throw AthenaAuthRuntimeError.notFound("Role not found");
+    }
+    const organizationId = command.scope.organizationId ?? undefined;
+    const rights = asStringArray(body, "rights");
+    const updated = await mutate({
+      context: authorizationMutationContext(request, resolved, organizationId),
+      event: "authorization.role.rights.replace",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        await scope.stores.authorization.replaceRoleRights({
+          actorRights: command.snapshot.effectiveRights,
+          actorUserId: resolved.user.id,
+          expectedVersion: requireExpectedVersion(body.expectedVersion),
+          id,
+          organizationId,
+          rights,
+          unrestrictedGrant: command.unrestrictedGrant,
+        });
+        const detail = await scope.stores.authorization.getRole(id, organizationId);
+        if (!detail) {
+          throw AthenaAuthRuntimeError.internal(
+            new Error("ATHENA_AUTH_UPDATED_ROLE_MISSING")
+          );
+        }
+        return { role: sanitizeHookAuthorizationRole(detail) };
+      },
+      input: { organizationId, rights, roleId: id },
+      previous: async () => ({ role: sanitizeHookAuthorizationRole(existing) }),
+      resultOf: (result) => result,
     });
-    return jsonResponse(200, { role }, headers);
+    return jsonResponse(200, { role: updated.role }, headers);
   }
 
   if (
@@ -375,49 +573,38 @@ export async function handleAuthorizationRoute(
       id,
       command.scope.organizationId
     );
+    if (!role) {
+      throw AthenaAuthRuntimeError.notFound("Role not found");
+    }
     const organizationId =
-      role?.scopeKind === "organization"
-        ? (role.organizationId ?? undefined)
+      role.scopeKind === "organization"
+        ? command.scope.organizationId ?? role.organizationId ?? undefined
         : undefined;
     const normalizedReassignmentRoleId = reassignmentRoleId ?? undefined;
-    const deleteRole = (targetStores: AthenaAuthStores) =>
-      targetStores.authorization.deleteRole({
-        actorUserId: resolved.user.id,
-        expectedVersion: requireExpectedVersion(
-          body.expectedVersion ?? url.searchParams.get("expectedVersion")
-        ),
-        id,
-        organizationId: command.scope.organizationId,
-        reassignmentRoleId: normalizedReassignmentRoleId,
-      });
-    if (organizationId) {
-      await mutate<
-        "authorization.role.delete",
-        {
-          id: string;
-          changes: Array<{
-            member: AthenaAuthHookMember;
-            previousRoleIds: readonly string[];
-            roleIds: readonly string[];
-          }>;
-        }
-      >({
-        context: {
-          actor: {
-            kind: "user",
-            organizationId,
-            sessionId: resolved.session.id,
-            userId: resolved.user.id,
-          },
-          request: {
-            method: request.method.toUpperCase(),
-            path: new URL(request.url).pathname,
-            userAgent: request.headers.get("user-agent") ?? undefined,
-          },
-          traceId: crypto.randomUUID(),
-        },
-        event: "authorization.role.delete",
-        execute: async (scope: AthenaAuthMutationScope) => {
+    const expectedVersion = requireExpectedVersion(
+      body.expectedVersion ?? url.searchParams.get("expectedVersion")
+    );
+    await mutate<
+      "authorization.role.delete",
+      {
+        changes: Array<{
+          member: AthenaAuthHookMember;
+          previousRoleIds: readonly string[];
+          roleIds: readonly string[];
+        }>;
+        id: string;
+        userChanges: Array<{
+          previousRoleIds: readonly string[];
+          roleIds: readonly string[];
+          user: AthenaAuthHookUser;
+        }>;
+        userRevision: number;
+      }
+    >({
+      context: authorizationMutationContext(request, resolved, organizationId),
+      event: "authorization.role.delete",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        if (organizationId) {
           const connections = await scope.stores.listIdentityConnections(
             organizationId
           );
@@ -432,92 +619,157 @@ export async function handleAuthorizationRoute(
               { code: "ATHENA_AUTH_IDENTITY_CONNECTION_ROLE_IN_USE" }
             );
           }
-          const before = await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
-            organizationId,
-          });
-          const deleted = await deleteRole(scope.stores);
-          const after = await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
-            organizationId,
-          });
-          const previousByMember = new Map(
-            before.assignments.map((assignment) => [assignment.memberId, assignment])
-          );
-          const nextByMember = new Map(
-            after.assignments.map((assignment) => [assignment.memberId, assignment.roleIds])
-          );
-          const members = await scope.stores.listMembers(organizationId);
-          const changes = await Promise.all(
-            deleted.reassignedMemberIds.map(async (memberId) => {
-              const previous = previousByMember.get(memberId);
-              if (!previous) {
-                throw AthenaAuthRuntimeError.internal(
-                  new Error("ATHENA_AUTH_ROLE_ASSIGNMENT_MEMBER_MISSING")
-                );
-              }
-              const member = members.find(
-                (entry) => entry.id === memberId
-              );
-              if (!member) {
-                throw AthenaAuthRuntimeError.internal(
-                  new Error("ATHENA_AUTH_ROLE_REASSIGNMENT_MEMBER_MISSING")
-                );
-              }
-              return {
-                member: await toPublicMemberWithUser(member, (userId) =>
-                  scope.stores.getUserById(userId)
-                ),
-                previousRoleIds: previous.roleIds,
-                roleIds: nextByMember.get(memberId) ?? [],
-              };
-            })
-          );
-          return { changes, id };
-        },
-        input: {
+        }
+        const beforeMembers =
+          role.scopeKind === "organization"
+            ? await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
+                organizationId: organizationId ?? "",
+              })
+            : undefined;
+        const beforeUsers =
+          role.scopeKind === "platform"
+            ? await scope.stores.authorization.readUserRoleAssignmentsSnapshot()
+            : undefined;
+        const result = await scope.stores.authorization.deleteRole({
+          actorUserId: resolved.user.id,
+          expectedVersion,
+          id,
           organizationId,
           reassignmentRoleId: normalizedReassignmentRoleId,
-          roleId: id,
-        },
-        previous: async () => ({ roleId: id }),
-        resultOf: (result: {
-          id: string;
-          changes: Array<{
-            member: AthenaAuthHookMember;
-            previousRoleIds: readonly string[];
-            roleIds: readonly string[];
-          }>;
-        }) => ({
-          changes: result.changes.map((change) => ({ ...change })),
-          deleted: true,
-          id: result.id,
-        }),
-        secondaryEvents: (result: {
-          changes: Array<{
-            member: AthenaAuthHookMember;
-            previousRoleIds: readonly string[];
-            roleIds: readonly string[];
-          }>;
-        }) =>
-          result.changes.map((change) => ({
-            event: "authorization.member.roles.replace" as const,
-            input: {
-              changes: [{ memberId: change.member.id, roleIds: change.roleIds }],
-              organizationId,
-            },
-            previous: {
-              changes: [
-                {
-                  memberId: change.member.id,
-                  roleIds: change.previousRoleIds,
-                },
-              ],
-            },
-            result: { changes: [change] },
-          })),
-      });
-    } else {
-      await deleteRole(stores);
-    }
+        });
+        const afterMembers =
+          role.scopeKind === "organization"
+            ? await scope.stores.authorization.readMemberRoleAssignmentsSnapshot({
+                organizationId: organizationId ?? "",
+              })
+            : undefined;
+        const afterUsers =
+          role.scopeKind === "platform"
+            ? await scope.stores.authorization.readUserRoleAssignmentsSnapshot()
+            : undefined;
+        const changes: {
+          member: AthenaAuthHookMember;
+          previousRoleIds: readonly string[];
+          roleIds: readonly string[];
+        }[] = [];
+        if (beforeMembers && afterMembers) {
+          const previousByMember = new Map(
+            beforeMembers.assignments.map((assignment) => [assignment.memberId, assignment])
+          );
+          const nextByMember = new Map(
+            afterMembers.assignments.map((assignment) => [assignment.memberId, assignment.roleIds])
+          );
+          const members = await scope.stores.listMembers(organizationId ?? "");
+          for (const memberId of result.reassignedMemberIds) {
+            const previous = previousByMember.get(memberId);
+            const member = members.find((entry) => entry.id === memberId);
+            if (!previous || !member) {
+              throw AthenaAuthRuntimeError.internal(
+                new Error("ATHENA_AUTH_ROLE_REASSIGNMENT_MEMBER_MISSING")
+              );
+            }
+            changes.push({
+              member: await toPublicMemberWithUser(member, (userId) =>
+                scope.stores.getUserById(userId)
+              ),
+              previousRoleIds: previous.roleIds,
+              roleIds: nextByMember.get(memberId) ?? [],
+            });
+          }
+        }
+        const userChanges: {
+          previousRoleIds: readonly string[];
+          roleIds: readonly string[];
+          user: AthenaAuthHookUser;
+        }[] = [];
+        if (beforeUsers && afterUsers) {
+          const previousByUser = new Map(
+            beforeUsers.assignments.map((assignment) => [assignment.userId, assignment.roleIds])
+          );
+          const nextByUser = new Map(
+            afterUsers.assignments.map((assignment) => [assignment.userId, assignment.roleIds])
+          );
+          const users = new Map(
+            (await scope.stores.listUsers()).map((user) => [user.id, user])
+          );
+          for (const userId of result.reassignedUserIds) {
+            const previousRoleIds = previousByUser.get(userId);
+            const user = users.get(userId);
+            if (!previousRoleIds || !user) {
+              throw AthenaAuthRuntimeError.internal(
+                new Error("ATHENA_AUTH_ROLE_REASSIGNMENT_USER_MISSING")
+              );
+            }
+            userChanges.push({
+              previousRoleIds,
+              roleIds: nextByUser.get(userId) ?? [],
+              user: sanitizeHookUser(user),
+            });
+          }
+        }
+        return {
+          changes,
+          id,
+          userChanges,
+          userRevision: afterUsers?.revision ?? 0,
+        };
+      },
+      input: {
+        organizationId,
+        reassignmentRoleId: normalizedReassignmentRoleId,
+        roleId: id,
+        scopeKind: role.scopeKind,
+      },
+      previous: async () => ({ roleId: id }),
+      resultOf: (result) => ({
+        changes: result.changes,
+        deleted: true,
+        id: result.id,
+        userChanges: result.userChanges,
+      }),
+      secondaryEvents: (result: {
+        changes: {
+          member: AthenaAuthHookMember;
+          previousRoleIds: readonly string[];
+          roleIds: readonly string[];
+        }[];
+        id: string;
+        userChanges: {
+          previousRoleIds: readonly string[];
+          roleIds: readonly string[];
+          user: AthenaAuthHookUser;
+        }[];
+        userRevision: number;
+      }) => [
+        ...result.changes.map((change) => ({
+          event: "authorization.member.roles.replace" as const,
+          input: {
+            changes: [{ memberId: change.member.id, roleIds: change.roleIds }],
+            organizationId: organizationId ?? "",
+          },
+          previous: {
+            changes: [{
+              memberId: change.member.id,
+              roleIds: change.previousRoleIds,
+            }],
+          },
+          result: { changes: [change] },
+        })),
+        ...result.userChanges.map((change) => ({
+          event: "authorization.user.roles.replace" as const,
+          input: {
+            changes: [{ roleIds: change.roleIds, userId: change.user.id }],
+          },
+          previous: {
+            changes: [{ roleIds: change.previousRoleIds, userId: change.user.id }],
+          },
+          result: {
+            changes: [change],
+            revision: result.userRevision,
+          },
+        })),
+      ],
+    });
     return jsonResponse(200, { ok: true }, headers);
   }
 
@@ -605,14 +857,59 @@ export async function handleAuthorizationRoute(
     if (userId.trim().length === 0) {
       throw AthenaAuthRuntimeError.badRequest("userId is required");
     }
-    const result = await stores.authorization.replaceUserRoleAssignments({
-      actorRights: command.snapshot.effectiveRights,
-      actorUserId: resolved.user.id,
-      expectedVersion: requireExpectedVersion(body.expectedVersion),
-      roleIds: asStringArray(body, "roleIds"),
-      userId,
+    const expectedVersion = requireExpectedVersion(body.expectedVersion);
+    const roleIds = [...new Set(asStringArray(body, "roleIds"))].sort();
+    const before = await stores.authorization.readUserRoleAssignmentsSnapshot({
+      userIds: [userId],
     });
-    return jsonResponse(200, result, headers);
+    if (before.revision !== expectedVersion) {
+      throwAssignmentVersionConflict();
+    }
+    const previousRoleIds = before.assignments[0]?.roleIds ?? [];
+    if (
+      JSON.stringify([...previousRoleIds].sort()) === JSON.stringify(roleIds)
+    ) {
+      return jsonResponse(200, { revision: before.revision }, headers);
+    }
+    const result = await mutate({
+      context: authorizationMutationContext(request, resolved),
+      event: "authorization.user.roles.replace",
+      execute: async (scope: AthenaAuthMutationScope) => {
+        const current =
+          await scope.stores.authorization.readUserRoleAssignmentsSnapshot({
+            userIds: [userId],
+          });
+        const currentRoleIds = current.assignments[0]?.roleIds ?? [];
+        const assignment =
+          await scope.stores.authorization.replaceUserRoleAssignments({
+            actorRights: command.snapshot.effectiveRights,
+            actorUserId: resolved.user.id,
+            expectedVersion,
+            roleIds,
+            userId,
+          });
+        const user = await scope.stores.getUserById(userId);
+        if (!user) {
+          throw AthenaAuthRuntimeError.notFound("User not found");
+        }
+        return {
+          changes: [
+            {
+              previousRoleIds: currentRoleIds,
+              roleIds,
+              user: sanitizeHookUser(user),
+            },
+          ],
+          revision: assignment.revision,
+        };
+      },
+      input: { changes: [{ roleIds, userId }] },
+      previous: async () => ({
+        changes: [{ roleIds: previousRoleIds, userId }],
+      }),
+      resultOf: (result) => result,
+    });
+    return jsonResponse(200, { revision: result.revision }, headers);
   }
 
   if (path === "/authorization/assignments/members" && method === "GET") {

@@ -7,6 +7,7 @@ import type {
   AuthSessionRow,
   AuthUserRow,
 } from "../local/models.ts";
+import type { AthenaAuthorizationRoleDetail } from "../../runtime/authorization/types.ts";
 import {
   toPublicInvitation,
   toPublicMember,
@@ -54,6 +55,37 @@ export type AthenaAuthHookOrganization = ReturnType<
 >;
 export type AthenaAuthHookMember = ReturnType<typeof toPublicMember>;
 export type AthenaAuthHookInvitation = ReturnType<typeof toPublicInvitation>;
+
+export type AthenaAuthHookAuthorizationRole = Pick<
+  AthenaAuthorizationRoleDetail,
+  | "assignable"
+  | "id"
+  | "key"
+  | "name"
+  | "organizationId"
+  | "protected"
+  | "rights"
+  | "scopeKind"
+  | "systemKind"
+  | "version"
+>;
+
+export function sanitizeHookAuthorizationRole(
+  role: AthenaAuthorizationRoleDetail
+): AthenaAuthHookAuthorizationRole {
+  return {
+    assignable: role.assignable,
+    id: role.id,
+    key: role.key,
+    name: role.name,
+    organizationId: role.organizationId,
+    protected: role.protected,
+    rights: [...role.rights],
+    scopeKind: role.scopeKind,
+    systemKind: role.systemKind,
+    version: role.version,
+  };
+}
 
 export function sanitizeHookUser(row: AuthUserRow): AthenaAuthHookUser {
   return toPublicUser(row);

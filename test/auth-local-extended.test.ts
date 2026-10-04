@@ -484,6 +484,72 @@ test("organization-scoped authorization read keys are limited to their organizat
   assert.equal((await request("/authorization/roles", "POST")).status, 401);
 });
 
+test("authority snapshot route requires an explicit scope and binds organization authority to the caller's membership", async () => {
+  const runtime = createRuntime();
+  const { cookie } = await signUp(runtime, "authority-snapshot@example.com");
+  const stores = await runtime.getStores();
+  const user = await stores.getUserByEmail("authority-snapshot@example.com");
+  assert.ok(user);
+  const organization = await stores.createOrganization({
+    createdByUserId: user.id,
+    id: "authority-snapshot-org",
+    name: "Authority snapshot",
+    slug: "authority-snapshot-org",
+  });
+  await stores.addMember({
+    id: "authority-snapshot-member",
+    organizationId: organization.id,
+    role: "owner",
+    userId: user.id,
+  });
+  const session = (await stores.listUserSessions(user.id))[0];
+  assert.ok(session);
+  await stores.setSessionActiveOrganization(session.token, organization.id);
+
+  const request = (query: string) => runtime.handle(new Request(
+    `http://app.local/api/auth/authorization/authority-snapshot${query}`,
+    { headers: { cookie } },
+  ));
+  const response = await request(`?scope=organization&organizationId=${organization.id}`);
+  assert.equal(response.status, 200, await response.clone().text());
+  const body = await json(response);
+  assert.match(body.fingerprint as string, /^[a-f0-9]{64}$/);
+  const snapshot = body.snapshot as { scope: { organizationId: string }; assignments: Array<{ subject: { userId: string } }> };
+  assert.equal(snapshot.scope.organizationId, organization.id);
+  assert.equal(snapshot.assignments[0]?.subject.userId, user.id);
+  assert.equal((await request(`?scope=organization&organizationId=other-org`)).status, 403);
+  assert.equal((await request("?scope=platform")).status, 403);
+  assert.equal((await request(`?scope=organization&organizationId=${organization.id}&limit=1`)).status, 400);
+  assert.equal((await request(`?organizationId=${organization.id}`)).status, 400);
+
+  const created = await runtime.handle(
+    new Request("http://app.local/api/auth/api-key/create", {
+      body: JSON.stringify({
+        permissions: JSON.stringify({ authorization: ["roles.read"] }),
+      }),
+      headers: { "content-type": "application/json", cookie },
+      method: "POST",
+    })
+  );
+  assert.equal(created.status, 200);
+  const apiKey = (await json(created)).key as string;
+  const apiKeySnapshot = await runtime.handle(
+    new Request(
+      `http://app.local/api/auth/authorization/authority-snapshot?scope=organization&organizationId=${organization.id}`,
+      { headers: { "x-api-key": apiKey } }
+    )
+  );
+  assert.equal(apiKeySnapshot.status, 200, await apiKeySnapshot.clone().text());
+  assert.match((await json(apiKeySnapshot)).fingerprint as string, /^[a-f0-9]{64}$/);
+  const platformSnapshot = await runtime.handle(
+    new Request(
+      "http://app.local/api/auth/authorization/authority-snapshot?scope=platform",
+      { headers: { "x-api-key": apiKey } }
+    )
+  );
+  assert.equal(platformSnapshot.status, 403);
+});
+
 test("organization authorization routes reject keys without authorization.roles.read", async () => {
   const runtime = createRuntime();
   const { cookie } = await signUp(runtime, "authorization-no-read@example.com");

@@ -9,6 +9,7 @@ import {
 import { MemoryAdminAuthStore, PostgresAdminAuthStore } from "./admin-store.ts";
 import type { AthenaAuthDatabase } from "./database.ts";
 import { MemoryAuthStores } from "./memory-stores.ts";
+import { SqliteAuthStores } from "./sqlite-stores.ts";
 import { PostgresAuthStores } from "./stores.ts";
 import {
   createMemoryOAuthAuthorizationServerStores,
@@ -28,6 +29,7 @@ type PostgresTokenKeyOptions = {
 interface MemoryStoreSnapshot {
   accounts: MemoryAuthStores["accounts"];
   apiKeys: MemoryAuthStores["apiKeys"];
+  authorization: ReturnType<MemoryAuthStores["authorization"]["snapshot"]>;
   invitations: MemoryAuthStores["invitations"];
   identityConnections: MemoryAuthStores["identityConnections"];
   federatedIdentities: MemoryAuthStores["federatedIdentities"];
@@ -51,6 +53,7 @@ function snapshotMemoryStores(stores: MemoryAuthStores): MemoryStoreSnapshot {
   return {
     accounts: cloneMap(stores.accounts),
     apiKeys: cloneMap(stores.apiKeys),
+    authorization: stores.authorization.snapshot(),
     invitations: cloneMap(stores.invitations),
     identityConnections: cloneMap(stores.identityConnections),
     federatedIdentities: cloneMap(stores.federatedIdentities),
@@ -73,6 +76,7 @@ function restoreMemoryStores(
 ): void {
   replaceMap(stores.accounts, snapshot.accounts);
   replaceMap(stores.apiKeys, snapshot.apiKeys);
+  stores.authorization.restore(snapshot.authorization);
   replaceMap(stores.invitations, snapshot.invitations);
   replaceMap(stores.identityConnections, snapshot.identityConnections);
   replaceMap(stores.federatedIdentities, snapshot.federatedIdentities);
@@ -186,16 +190,36 @@ export function createAuthMutationTransaction(input: {
   persistAudit?: boolean;
   tokenKeyOptions?: () => PostgresTokenKeyOptions | undefined;
   tokenKeys?: () => TokenKeyStore | undefined;
-  stores: MemoryAuthStores | PostgresAuthStores;
+  stores: MemoryAuthStores | PostgresAuthStores | SqliteAuthStores;
 }): AuthMutationTransaction {
-  if (input.database) {
+  if (input.stores instanceof SqliteAuthStores) {
+    const sqliteStores = input.stores;
+    const memoryTransaction = createMemoryAuthMutationTransaction(
+      sqliteStores,
+      undefined,
+      input.auditSink,
+      input.oauthState,
+      input.tokenKeys
+    );
+    return async (fn) =>
+      memoryTransaction((scope) =>
+        sqliteStores.transaction((stores) =>
+          fn({
+            ...scope,
+            admin: new MemoryAdminAuthStore(stores),
+            stores,
+          })
+        )
+      );
+  }
+  if (input.stores instanceof PostgresAuthStores && input.database) {
     return createPostgresAuthMutationTransaction(
       input.database,
       input.persistAudit === true,
       input.tokenKeyOptions
     );
   }
-  if (input.stores instanceof MemoryAuthStores) {
+  if (input.stores instanceof MemoryAuthStores && !input.database) {
     return createMemoryAuthMutationTransaction(
       input.stores,
       undefined,
@@ -205,6 +229,6 @@ export function createAuthMutationTransaction(input: {
     );
   }
   throw new Error(
-    "Auth mutation transactions require a database or MemoryAuthStores"
+    "Auth mutation transactions require matching backend database and stores"
   );
 }

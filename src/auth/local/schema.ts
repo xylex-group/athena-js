@@ -33,6 +33,32 @@ import {
 
 const SCHEMA_STATEMENTS = ATHENA_AUTH_SCHEMA_STATEMENTS;
 
+const ATHENA_AUTH_HISTORICAL_CHECKSUM_ALIASES: ReadonlyMap<
+  number,
+  ReadonlySet<string>
+> = new Map([
+  [
+    33,
+    new Set([
+      "044557ff8b79810d05e43f4fb9f0203e42b68ad0ea9c62c4e1c1970440a6b764",
+    ]),
+  ],
+]);
+
+function isAcceptedAuthMigrationChecksum(
+  version: number,
+  actual: string,
+  canonical: string
+): boolean {
+  if (actual === canonical) {
+    return true;
+  }
+
+  return (
+    ATHENA_AUTH_HISTORICAL_CHECKSUM_ALIASES.get(version)?.has(actual) === true
+  );
+}
+
 export type AthenaAuthSchemaDirection =
   | "current"
   | "upgrade-required"
@@ -179,7 +205,10 @@ export function compareAthenaAuthLedgers(
       checksumMissing.push(entry.version);
       continue;
     }
-    if (entry.checksum && checksum !== entry.checksum) {
+    if (
+      entry.checksum &&
+      !isAcceptedAuthMigrationChecksum(entry.version, checksum, entry.checksum)
+    ) {
       checksumMismatch.push(entry.version);
     }
   }

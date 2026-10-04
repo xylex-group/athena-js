@@ -117,7 +117,11 @@ export const ATHENA_AUTH_SQLITE_SCHEMA = Object.freeze([
   `CREATE TABLE IF NOT EXISTS athena_auth_member_role (
     member_id TEXT NOT NULL,
     role_key TEXT NOT NULL,
+    source_kind TEXT,
+    source_id TEXT,
     PRIMARY KEY (member_id, role_key),
+    CHECK ((source_kind IS NULL AND source_id IS NULL) OR
+      (source_kind IS NOT NULL AND source_kind = 'identity_connection' AND source_id IS NOT NULL AND trim(source_id) <> '')),
     FOREIGN KEY (member_id) REFERENCES athena_auth_member(id)
   )`,
 ] as const);

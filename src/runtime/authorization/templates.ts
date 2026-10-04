@@ -6,6 +6,11 @@ export const PLATFORM_ADMIN_ROLE = "platform_admin";
 export const PLATFORM_BILLING_ADMIN_ROLE = "billing_admin";
 export const PLATFORM_CUSTOMER_ROLE = "platform_customer";
 export const PLATFORM_UNAUTHORIZED_ROLE = "platform_unauthorized";
+export const LEGACY_PLATFORM_ROLE_KEYS: readonly string[] = Object.freeze([
+  PLATFORM_ADMIN_ROLE,
+  PLATFORM_CUSTOMER_ROLE,
+  PLATFORM_UNAUTHORIZED_ROLE,
+]);
 export const ORGANIZATION_OWNER_ROLE = "organization_owner";
 export const ORGANIZATION_ADMIN_ROLE = "organization_admin";
 export const ORGANIZATION_MEMBER_ROLE = "organization_member";

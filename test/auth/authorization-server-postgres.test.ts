@@ -11,12 +11,20 @@ import { createPostgresOAuthAuthorizationServerStores } from "../../src/auth/loc
 import { ATHENA_AUTH_TABLES } from "../../src/auth/contract/index.ts";
 import { OAuthAuthorizationServerService } from "../../src/auth/local/authorization-server/service.ts";
 import { createPostgresAuthDatabase } from "../../src/auth/local/database.ts";
+import { PostgresAdminAuthStore } from "../../src/auth/local/admin-store.ts";
 import { migrateAthenaAuthSchema } from "../../src/auth/local/schema.ts";
 import { MemoryTokenKeyStore } from "../../src/auth/local/token-key-store.ts";
 import { createTestOAuthSigning } from "./oauth-test-signing.ts";
 import { PostgresTokenKeyStore } from "../../src/auth/local/postgres-token-key-store.ts";
 import { PostgresAuthStores } from "../../src/auth/local/stores.ts";
 import { PostgresAuthorizationStore } from "../../src/runtime/authorization/postgres.ts";
+import {
+  BUILTIN_AUTHORIZATION_ROLES,
+  ORGANIZATION_MEMBER_ROLE,
+  ORGANIZATION_OWNER_ROLE,
+  PLATFORM_ADMIN_ROLE,
+  PLATFORM_CUSTOMER_ROLE,
+} from "../../src/runtime/authorization/templates.ts";
 
 class FailingTokenKeyStore extends MemoryTokenKeyStore {
   override async compareAndActivate(): Promise<void> {
@@ -498,6 +506,349 @@ maybe("Postgres OAuth code exchange rolls back code consumption on issuance fail
     assert.ok(retry.accessToken);
     assert.ok(retry.refreshToken);
   } finally {
+    await database.close?.();
+  }
+});
+
+maybe("Postgres legacy role writers preserve canonical additional assignments", async () => {
+  const database = await createPostgresAuthDatabase(url as string);
+  const suffix = crypto.randomUUID();
+  const adminId = `authz-admin-${suffix}`;
+  const userId = `authz-user-${suffix}`;
+  const organizationId = `authz-org-${suffix}`;
+  try {
+    await migrateAthenaAuthSchema(database);
+    const authorization = new PostgresAuthorizationStore(database);
+    await authorization.ensureCatalog();
+    const stores = new PostgresAuthStores(database);
+    const platformAdmin = BUILTIN_AUTHORIZATION_ROLES.find(
+      (role) => role.key === PLATFORM_ADMIN_ROLE
+    );
+    const organizationOwner = BUILTIN_AUTHORIZATION_ROLES.find(
+      (role) => role.key === ORGANIZATION_OWNER_ROLE
+    );
+    assert.ok(platformAdmin);
+    assert.ok(organizationOwner);
+
+    await database.transaction((tx) =>
+      new PostgresAdminAuthStore(tx).createUser(
+        {
+          email: `${adminId}@example.com`,
+          id: adminId,
+          role: "admin",
+        },
+        adminId
+      )
+    );
+    await database.transaction((tx) =>
+      new PostgresAdminAuthStore(tx).createUser(
+        {
+          email: `${userId}@example.com`,
+          id: userId,
+          role: "customer",
+        },
+        adminId
+      )
+    );
+    const createdAssignment = await authorization.readUserRoleAssignmentsSnapshot({
+      userIds: [userId],
+    });
+    assert.deepEqual(createdAssignment.assignments[0]?.roleIds, [
+      PLATFORM_CUSTOMER_ROLE,
+    ]);
+    await authorization.replaceUserRoleAssignments({
+      actorRights: platformAdmin.rights,
+      actorUserId: adminId,
+      expectedVersion: createdAssignment.revision,
+      roleIds: [PLATFORM_CUSTOMER_ROLE, "billing_admin"],
+      userId,
+    });
+    await database.transaction((tx) =>
+      new PostgresAdminAuthStore(tx).updateUser({ role: "admin", userId }, adminId)
+    );
+    const platformAssignments = await authorization.readUserRoleAssignmentsSnapshot({
+      userIds: [userId],
+    });
+    const platformAssignment = platformAssignments.assignments[0];
+    assert.ok(platformAssignment);
+    assert.deepEqual(
+      [...platformAssignment.roleIds].sort(),
+      [
+        "billing_admin",
+        PLATFORM_ADMIN_ROLE,
+      ]
+    );
+    const platformProvenance = await database.query<{
+      assigned_by: string | null;
+    }>(
+      `SELECT ur.assigned_by
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1 AND r.key = $2`,
+      [userId, PLATFORM_ADMIN_ROLE]
+    );
+    assert.equal(platformProvenance.rows[0]?.assigned_by, adminId);
+
+    await stores.createOrganization({
+      createdByUserId: adminId,
+      id: organizationId,
+      name: "Authorization Integrity",
+      slug: organizationId,
+    });
+    await stores.addMember({
+      id: `${organizationId}-member`,
+      organizationId,
+      role: "member",
+      userId,
+    });
+    const reviewer = await authorization.createRole({
+      actorRights: organizationOwner.rights,
+      actorUserId: adminId,
+      name: "Security reviewer",
+      organizationId,
+      rights: ["organization.members.read"],
+      scopeKind: "organization",
+    });
+    const memberAssignments =
+      await authorization.readMemberRoleAssignmentsSnapshot({
+        organizationId,
+      });
+    await authorization.replaceMemberRoleAssignments({
+      actorRights: organizationOwner.rights,
+      actorUserId: adminId,
+      expectedVersion: memberAssignments.revision,
+      memberId: `${organizationId}-member`,
+      memberUserId: userId,
+      organizationId,
+      roleIds: [ORGANIZATION_MEMBER_ROLE, reviewer.id],
+    });
+    await stores.updateMemberRole(organizationId, userId, "admin", adminId);
+    const organizationAssignments =
+      await authorization.readMemberRoleAssignmentsSnapshot({
+        organizationId,
+      });
+    const organizationAssignment = organizationAssignments.assignments[0];
+    assert.ok(organizationAssignment);
+    assert.deepEqual(
+      [...organizationAssignment.roleIds].sort(),
+      [reviewer.id, "organization_admin"]
+    );
+    const memberProvenance = await database.query<{
+      assigned_by: string | null;
+    }>(
+      `SELECT mr.assigned_by
+       FROM athena.authorization_member_roles mr
+       JOIN athena.authorization_roles r ON r.id = mr.role_id
+       WHERE mr.member_id = $1 AND r.key = 'organization_admin'`,
+      [`${organizationId}-member`]
+    );
+    assert.equal(memberProvenance.rows[0]?.assigned_by, adminId);
+  } finally {
+    await database.query("DELETE FROM athena.organization WHERE id = $1", [
+      organizationId,
+    ]);
+    await database.query("DELETE FROM athena.users WHERE id = ANY($1::text[])", [
+      [adminId, userId],
+    ]);
+    await database.close?.();
+  }
+});
+
+maybe("Postgres assignment replacement retains provenance and treats reductions and no-ops correctly", async () => {
+  const database = await createPostgresAuthDatabase(url as string);
+  const suffix = crypto.randomUUID();
+  const adminId = `authz-diff-admin-${suffix}`;
+  const userId = `authz-diff-user-${suffix}`;
+  const organizationId = `authz-diff-org-${suffix}`;
+  const memberId = `${organizationId}-member`;
+  try {
+    await migrateAthenaAuthSchema(database);
+    const authorization = new PostgresAuthorizationStore(database);
+    await authorization.ensureCatalog();
+    const stores = new PostgresAuthStores(database);
+    const adminStore = new PostgresAdminAuthStore(database);
+    const platformAdmin = BUILTIN_AUTHORIZATION_ROLES.find(
+      (role) => role.key === PLATFORM_ADMIN_ROLE
+    );
+    const organizationOwner = BUILTIN_AUTHORIZATION_ROLES.find(
+      (role) => role.key === ORGANIZATION_OWNER_ROLE
+    );
+    assert.ok(platformAdmin);
+    assert.ok(organizationOwner);
+    await adminStore.createUser({
+      email: `${adminId}@example.com`,
+      id: adminId,
+      role: "admin",
+    });
+    await stores.createUser({
+      email: `${userId}@example.com`,
+      id: userId,
+    });
+
+    const platform = await authorization.readUserRoleAssignmentsSnapshot({
+      userIds: [userId],
+    });
+    const basePlatform = await authorization.replaceUserRoleAssignments({
+      actorRights: platformAdmin.rights,
+      actorUserId: adminId,
+      expectedVersion: platform.revision,
+      roleIds: [PLATFORM_CUSTOMER_ROLE],
+      userId,
+    });
+    const beforePlatformGrant = await database.query<{
+      assigned_by: string | null;
+      created_at: string;
+    }>(
+      `SELECT ur.assigned_by, ur.created_at::text
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1 AND r.key = $2`,
+      [userId, PLATFORM_CUSTOMER_ROLE]
+    );
+    const expanded = await authorization.replaceUserRoleAssignments({
+      actorRights: platformAdmin.rights,
+      actorUserId: adminId,
+      expectedVersion: basePlatform.revision,
+      roleIds: [PLATFORM_CUSTOMER_ROLE, "billing_admin"],
+      userId,
+    });
+    const afterPlatformGrant = await database.query<{
+      assigned_by: string | null;
+      created_at: string;
+      key: string;
+    }>(
+      `SELECT ur.assigned_by, ur.created_at::text, r.key
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1 AND r.key = ANY($2::text[])
+       ORDER BY r.key`,
+      [userId, [PLATFORM_CUSTOMER_ROLE, "billing_admin"]]
+    );
+    const originalPlatformGrant = beforePlatformGrant.rows[0];
+    const retainedPlatformGrant = afterPlatformGrant.rows.find(
+      (row) => row.key === PLATFORM_CUSTOMER_ROLE
+    );
+    const addedPlatformGrant = afterPlatformGrant.rows.find(
+      (row) => row.key === "billing_admin"
+    );
+    assert.ok(originalPlatformGrant);
+    assert.ok(retainedPlatformGrant);
+    assert.ok(addedPlatformGrant);
+    assert.equal(retainedPlatformGrant.assigned_by, originalPlatformGrant.assigned_by);
+    assert.equal(retainedPlatformGrant.created_at, originalPlatformGrant.created_at);
+    assert.equal(addedPlatformGrant.assigned_by, adminId);
+
+    const beforeNoop = await authorization.readUserRoleAssignmentsSnapshot({
+      userIds: [userId],
+    });
+    const auditBeforeNoop = await database.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM athena.authorization_audit_log
+       WHERE action = 'user.roles.replace' AND target_id = $1`,
+      [userId]
+    );
+    const noOp = await authorization.replaceUserRoleAssignments({
+      actorRights: platformAdmin.rights,
+      actorUserId: adminId,
+      expectedVersion: beforeNoop.revision,
+      roleIds: [PLATFORM_CUSTOMER_ROLE, "billing_admin"],
+      userId,
+    });
+    const auditAfterNoop = await database.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM athena.authorization_audit_log
+       WHERE action = 'user.roles.replace' AND target_id = $1`,
+      [userId]
+    );
+    assert.equal(noOp.revision, beforeNoop.revision);
+    assert.equal(auditAfterNoop.rows[0]?.count, auditBeforeNoop.rows[0]?.count);
+    assert.ok(expanded.revision > basePlatform.revision);
+
+    await stores.createOrganization({
+      createdByUserId: adminId,
+      id: organizationId,
+      name: "Authorization assignment differential",
+      slug: organizationId,
+    });
+    await stores.addMember({
+      assignedBy: adminId,
+      id: memberId,
+      organizationId,
+      role: "member",
+      userId,
+    });
+    const reviewer = await authorization.createRole({
+      actorRights: organizationOwner.rights,
+      actorUserId: adminId,
+      name: "Review access",
+      organizationId,
+      rights: ["organization.members.read"],
+      scopeKind: "organization",
+    });
+    const beforeMember = await authorization.readMemberRoleAssignmentsSnapshot({
+      organizationId,
+    });
+    const expandedMember = await authorization.replaceMemberRoleAssignments({
+      actorRights: organizationOwner.rights,
+      actorUserId: adminId,
+      expectedVersion: beforeMember.revision,
+      memberId,
+      memberUserId: userId,
+      organizationId,
+      roleIds: [ORGANIZATION_MEMBER_ROLE, reviewer.id],
+    });
+    const beforeMemberGrant = await database.query<{
+      assigned_by: string | null;
+      created_at: string;
+    }>(
+      `SELECT mr.assigned_by, mr.created_at::text
+       FROM athena.authorization_member_roles mr
+       JOIN athena.authorization_roles r ON r.id = mr.role_id
+       WHERE mr.member_id = $1 AND r.key = $2`,
+      [memberId, ORGANIZATION_MEMBER_ROLE]
+    );
+    const reducedMember = await authorization.replaceMemberRoleAssignments({
+      actorRights: [],
+      actorUserId: adminId,
+      expectedVersion: expandedMember.revision,
+      memberId,
+      memberUserId: userId,
+      organizationId,
+      roleIds: [ORGANIZATION_MEMBER_ROLE],
+    });
+    const afterMemberGrant = await database.query<{
+      assigned_by: string | null;
+      created_at: string;
+    }>(
+      `SELECT mr.assigned_by, mr.created_at::text
+       FROM athena.authorization_member_roles mr
+       JOIN athena.authorization_roles r ON r.id = mr.role_id
+       WHERE mr.member_id = $1 AND r.key = $2`,
+      [memberId, ORGANIZATION_MEMBER_ROLE]
+    );
+    assert.equal(
+      afterMemberGrant.rows[0]?.assigned_by,
+      beforeMemberGrant.rows[0]?.assigned_by
+    );
+    assert.equal(
+      afterMemberGrant.rows[0]?.created_at,
+      beforeMemberGrant.rows[0]?.created_at
+    );
+    const memberNoOp = await authorization.replaceMemberRoleAssignments({
+      actorRights: [],
+      actorUserId: adminId,
+      expectedVersion: reducedMember.revision,
+      memberId,
+      memberUserId: userId,
+      organizationId,
+      roleIds: [ORGANIZATION_MEMBER_ROLE],
+    });
+    assert.equal(memberNoOp.revision, reducedMember.revision);
+  } finally {
+    await database.query("DELETE FROM athena.organization WHERE id = $1", [
+      organizationId,
+    ]);
+    await database.query("DELETE FROM athena.users WHERE id = ANY($1::text[])", [
+      [adminId, userId],
+    ]);
     await database.close?.();
   }
 });

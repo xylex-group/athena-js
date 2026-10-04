@@ -102,11 +102,12 @@ auth server implementation.
 Local mode uses the Athena Auth PostgreSQL schema (`athena.users`,
 `athena.sessions`, `athena.accounts`, organizations, …). The TypeScript runtime
 applies the same core tables the Rust service uses, plus a schema ledger and
-runtime keyring. The current schema generation is **48**. Generations **45–48**
+runtime keyring. The current schema generation is **50**. Generations **45–50**
 add session authentication context, OIDC authorization context and refresh-token
-scope provenance, OIDC signing metadata, and organization identity connections
-with federated identities. Generation **28** adds durable social sign-in state
-(`athena.oauth_transactions`). Call
+scope provenance, OIDC signing metadata, organization identity connections with
+federated identities, organization authorization revision backfill, and member
+assignment provisioning provenance.
+Generation **28** adds durable social sign-in state (`athena.oauth_transactions`). Call
 `athena.auth.server.migrate()` explicitly in production if you disable
 auto-migrate.
 

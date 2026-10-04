@@ -327,6 +327,16 @@ export const ATHENA_AUTH_MIGRATION_EXPECTATIONS: Readonly<
     constraint("athena", "identity_connections", "identity_connections_jit_default_role_id_fkey"),
     constraint("athena", "federated_identities", "federated_identities_connection_issuer_subject_key"),
   ],
+  49: [table("athena", "authorization_revisions")],
+  50: [
+    column("athena", "authorization_member_roles", "source_kind"),
+    column("athena", "authorization_member_roles", "source_id"),
+    constraint(
+      "athena",
+      "authorization_member_roles",
+      "authorization_member_roles_source_check"
+    ),
+  ],
 };
 
 /**

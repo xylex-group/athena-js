@@ -5,26 +5,32 @@ import {
 import { AthenaAuthRuntimeError } from "../../auth/local/errors.ts";
 import type { AuthMemberRow } from "../../auth/local/models.ts";
 import {
-  FOUNDING_OWNER_REMOVE_FORBIDDEN,
-  FOUNDING_OWNER_ROLE_LOCKED,
+	FOUNDING_OWNER_REMOVE_FORBIDDEN,
+	FOUNDING_OWNER_ROLE_LOCKED,
 } from "../../auth/local/organization-invariants.ts";
+import { createAthenaRightsAuthority } from "../../rights/authority.ts";
 import {
   type AthenaRightKey,
   parseAthenaRightKey,
   tryParseAthenaRightKey,
 } from "../../rights/key.ts";
 import {
-  projectAuthorizationSnapshotRole,
-  tryHydrateAthenaRoleDefinition,
+	canonicalizeAthenaRolesIr,
+	hydrateAthenaRoleDefinition,
+	projectAuthorizationSnapshotRole,
+	tryHydrateAthenaRoleDefinition,
 } from "../../roles/index.ts";
 import {
   assertNotLastPlatformAdmin,
   assertOrganizationAssignmentRoles,
   assertPlatformAssignmentRoles,
+  ORGANIZATION_BASE_ROLE_KEYS,
 } from "./assignment-replace.ts";
 import {
+  type AthenaAuthorizationAssignmentSource,
   asOrganizationAssignmentRevision,
   asPlatformAssignmentRevision,
+  createAuthorizationAuthorityVersion,
   groupOrganizationMemberAssignments,
   groupPlatformUserAssignments,
   type OrganizationMemberAssignmentSnapshot,
@@ -32,6 +38,12 @@ import {
   type PlatformUserAssignmentSnapshot,
   type PlatformUserRoleAssignment,
 } from "./assignment-snapshot.ts";
+import {
+  projectAthenaAccessGrants,
+  type AthenaAccessGrant,
+  type AthenaAccessGrantRecord,
+} from "./access-grants.ts";
+import { canonicalGrantId } from "./grant-identity.ts";
 import { capabilitiesFromRights } from "./capabilities.ts";
 import {
   AUTHORIZATION_CATALOG_VERSION,
@@ -57,9 +69,16 @@ import {
   throwRoleVersionConflict,
 } from "./role-invariants.ts";
 import { projectAssignableRoles } from "./snapshot-catalog.ts";
+import { canonicalizeAthenaAuthorizationSnapshotIr } from "./snapshot-ir/canonicalize.ts";
+import type {
+	AthenaAuthorizationSnapshotIr,
+	AthenaAuthorizationSnapshotScope,
+} from "./snapshot-ir/types.ts";
 import type { AthenaAuthorizationStore } from "./store.ts";
 import {
   BUILTIN_AUTHORIZATION_ROLES,
+  compatibilityMemberRole,
+  LEGACY_PLATFORM_ROLE_KEYS,
   mapLegacyMemberRole,
   mapLegacyUserRole,
   ORGANIZATION_OWNER_ROLE,
@@ -78,6 +97,14 @@ import type {
 
 export const ATHENA_AUTHORIZATION_ROLE_KEY_MISMATCH =
   "ATHENA_AUTHORIZATION_ROLE_KEY_MISMATCH";
+
+function throwAuthorizationRevisionMissing(): never {
+  throw new AthenaAuthRuntimeError(
+    500,
+    "Authorization revision row is missing",
+    { code: "ATHENA_AUTHORIZATION_REVISION_MISSING" }
+  );
+}
 
 interface RoleRow {
   assignable: boolean;
@@ -216,60 +243,27 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
         [template.id, [...template.rights]]
       );
     }
-    await db.query(
+    const platformAssignments = await db.query(
       `INSERT INTO athena.authorization_user_roles (user_id, role_id)
-			 SELECT u.id, r.id
-			 FROM athena.users u
-			 JOIN athena.authorization_roles r
-			   ON r.id = $1
-			  AND r.organization_id IS NULL
-			 WHERE COALESCE(u.role, '') = 'admin'
-			   AND NOT EXISTS (
-			     SELECT 1 FROM athena.authorization_user_roles a WHERE a.user_id = u.id
-			   )`,
-      ["platform_admin"]
+       SELECT u.id, r.id
+       FROM athena.users u
+       JOIN athena.authorization_roles r
+         ON r.key = CASE
+           WHEN u.role = 'admin' THEN 'platform_admin'
+           WHEN u.role = 'unauthorized' THEN 'platform_unauthorized'
+           WHEN COALESCE(u.role, '') IN ('', 'customer') THEN 'platform_customer'
+           ELSE 'platform_unauthorized'
+         END
+        AND r.organization_id IS NULL
+       WHERE NOT EXISTS (
+         SELECT 1 FROM athena.authorization_user_roles a WHERE a.user_id = u.id
+       )
+       RETURNING user_id`
     );
-    await db.query(
-      `INSERT INTO athena.authorization_user_roles (user_id, role_id)
-			 SELECT u.id, r.id
-			 FROM athena.users u
-			 JOIN athena.authorization_roles r
-			   ON r.id = $1
-			  AND r.organization_id IS NULL
-			 WHERE COALESCE(u.role, '') = 'unauthorized'
-			   AND NOT EXISTS (
-			     SELECT 1 FROM athena.authorization_user_roles a WHERE a.user_id = u.id
-			   )`,
-      ["platform_unauthorized"]
-    );
-    await db.query(
-      `INSERT INTO athena.authorization_user_roles (user_id, role_id)
-			 SELECT u.id, r.id
-			 FROM athena.users u
-			 JOIN athena.authorization_roles r
-			   ON r.id = $1
-			  AND r.organization_id IS NULL
-			 WHERE COALESCE(u.role, '') IN ('', 'customer')
-			   AND NOT EXISTS (
-			     SELECT 1 FROM athena.authorization_user_roles a WHERE a.user_id = u.id
-			   )`,
-      ["platform_customer"]
-    );
-    await db.query(
-      `INSERT INTO athena.authorization_user_roles (user_id, role_id)
-			 SELECT u.id, r.id
-			 FROM athena.users u
-			 JOIN athena.authorization_roles r
-			   ON r.id = $1
-			  AND r.organization_id IS NULL
-			 WHERE u.role IS NOT NULL
-			   AND u.role NOT IN ('admin', 'unauthorized', 'customer')
-			   AND NOT EXISTS (
-			     SELECT 1 FROM athena.authorization_user_roles a WHERE a.user_id = u.id
-			   )`,
-      ["platform_unauthorized"]
-    );
-    await db.query(
+    if (platformAssignments.rowCount > 0) {
+      await new PostgresAuthorizationStore(db).bumpRevision(null);
+    }
+    const memberAssignments = await db.query<{ member_id: string }>(
       `INSERT INTO athena.authorization_member_roles (member_id, role_id)
 			 SELECT m.id, r.id
 			 FROM athena.member m
@@ -279,10 +273,25 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 			     WHEN m.role = 'admin' THEN 'organization_admin'
 			     ELSE 'organization_member'
 			   END
-			 WHERE NOT EXISTS (
-			   SELECT 1 FROM athena.authorization_member_roles a WHERE a.member_id = m.id
-			 )`
+       WHERE NOT EXISTS (
+         SELECT 1 FROM athena.authorization_member_roles a WHERE a.member_id = m.id
+       )
+       RETURNING member_id`
     );
+    if (memberAssignments.rowCount > 0) {
+      const organizations = await db.query<{ organization_id: string }>(
+        `SELECT DISTINCT organization_id
+         FROM athena.member WHERE id = ANY($1::text[])`,
+        [memberAssignments.rows.map((row) => row.member_id)]
+      );
+      for (const organizationId of organizations.rows.map(
+        (row) => row.organization_id
+      )) {
+        await new PostgresAuthorizationStore(db).bumpRevision(
+          organizationId
+        );
+      }
+    }
     await this.persistCatalogState(db);
   }
 
@@ -346,28 +355,48 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     roleKey: string,
     assignedBy?: string
   ): Promise<void> {
-    const mapped = mapLegacyUserRole(
-      roleKey === "admin" ||
-        roleKey === "customer" ||
-        roleKey === "unauthorized"
-        ? roleKey
-        : roleKey
+    if (!this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAuthorizationStore(tx).assignUserRole(
+          userId,
+          roleKey,
+          assignedBy
+        )
+      );
+    }
+    const normalizedLegacyRole = roleKey.trim();
+    const isLegacyAlias =
+      normalizedLegacyRole.length === 0 ||
+      normalizedLegacyRole === "admin" ||
+      normalizedLegacyRole === "customer" ||
+      normalizedLegacyRole === "unauthorized";
+    const key = isLegacyAlias ? mapLegacyUserRole(roleKey) : roleKey;
+    let role = await this.db.query<{ id: string }>(
+      `SELECT id FROM athena.authorization_roles
+       WHERE key = $1 AND organization_id IS NULL AND scope_kind = 'platform'`,
+      [key]
     );
-    const key = roleKey.startsWith("platform_") ? roleKey : mapped;
-    const inserted = await this.db.query(
-      "DELETE FROM athena.authorization_user_roles WHERE user_id = $1",
-      [userId]
-    );
-    void inserted;
+    const fallbackKey = mapLegacyUserRole(roleKey);
+    if (!role.rows[0] && fallbackKey !== key) {
+      role = await this.db.query<{ id: string }>(
+        `SELECT id FROM athena.authorization_roles
+         WHERE key = $1 AND organization_id IS NULL AND scope_kind = 'platform'`,
+        [fallbackKey]
+      );
+    }
+    const roleId = role.rows[0]?.id;
+    if (!roleId) {
+      throw AthenaAuthRuntimeError.badRequest("Unknown platform role");
+    }
     const assigned = await this.db.query(
       `INSERT INTO athena.authorization_user_roles (user_id, role_id, assigned_by)
-			 SELECT $1, id, $3
-			 FROM athena.authorization_roles
-			 WHERE key = $2 AND organization_id IS NULL AND scope_kind = 'platform'`,
-      [userId, key, assignedBy ?? null]
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, role_id) DO NOTHING
+       RETURNING role_id`,
+      [userId, roleId, assignedBy ?? null]
     );
-    if (assigned.rowCount < 1) {
-      throw AthenaAuthRuntimeError.badRequest("Unknown platform role");
+    if (assigned.rowCount === 0) {
+      return;
     }
     await this.bumpRevision(null);
     await this.writeAudit({
@@ -383,8 +412,22 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     memberId: string,
     roleKey: string,
     assignedBy?: string,
-    organizationId?: string | null
+    organizationId?: string | null,
+    memberUserId?: string,
+    source?: AthenaAuthorizationAssignmentSource
   ): Promise<void> {
+    if (!this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAuthorizationStore(tx).assignMemberRole(
+          memberId,
+          roleKey,
+          assignedBy,
+          organizationId,
+          memberUserId,
+          source
+        )
+      );
+    }
     const member = await this.db.query<{ organization_id: string }>(
       "SELECT organization_id FROM athena.member WHERE id = $1",
       [memberId]
@@ -397,15 +440,33 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     if (!role) {
       throw AthenaAuthRuntimeError.badRequest("Unknown or unassignable role");
     }
-    await this.db.query(
-      "DELETE FROM athena.authorization_member_roles WHERE member_id = $1",
-      [memberId]
+    if (
+      source &&
+      (source.sourceKind !== "identity_connection" ||
+        source.sourceId.trim().length === 0)
+    ) {
+      throw AthenaAuthRuntimeError.badRequest(
+        "Authorization assignment sourceId is required"
+      );
+    }
+    const assigned = await this.db.query(
+      `INSERT INTO athena.authorization_member_roles (
+         member_id, role_id, assigned_by, source_kind, source_id
+       )
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (member_id, role_id) DO NOTHING
+       RETURNING role_id`,
+      [
+        memberId,
+        role.id,
+        assignedBy ?? null,
+        source?.sourceKind ?? null,
+        source?.sourceId ?? null,
+      ]
     );
-    await this.db.query(
-      `INSERT INTO athena.authorization_member_roles (member_id, role_id, assigned_by)
-			 VALUES ($1, $2, $3)`,
-      [memberId, role.id, assignedBy ?? null]
-    );
+    if (assigned.rowCount === 0) {
+      return;
+    }
     await this.bumpRevision(orgId);
     await this.writeAudit({
       action: "member.role.assign",
@@ -413,6 +474,196 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       after: { roleKey: role.key },
       organizationId: orgId,
       targetId: memberId,
+      targetKind: "member",
+    });
+  }
+
+  async replaceLegacyPlatformRole(input: {
+    assignedBy?: string;
+    role: string | null | undefined;
+    userId: string;
+  }): Promise<void> {
+    if (!this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAuthorizationStore(tx).replaceLegacyPlatformRole(input)
+      );
+    }
+    const user = await this.db.query<{ id: string }>(
+      `SELECT id FROM athena.users WHERE id = $1 FOR UPDATE`,
+      [input.userId]
+    );
+    if (!user.rows[0]) {
+      throw AthenaAuthRuntimeError.notFound("User not found");
+    }
+    const roleKey = mapLegacyUserRole(input.role);
+    const roleResult = await this.db.query<RoleRow>(
+      `SELECT * FROM athena.authorization_roles
+       WHERE key = $1 AND scope_kind = 'platform' AND organization_id IS NULL`,
+      [roleKey]
+    );
+    const roleRow = roleResult.rows[0];
+    if (!roleRow) {
+      throw AthenaAuthRuntimeError.badRequest("Unknown platform role");
+    }
+    const role = mapRoleRow(roleRow);
+    const current = await this.db.query<{ key: string; role_id: string }>(
+      `SELECT r.key, ur.role_id
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1
+       FOR UPDATE OF ur`,
+      [input.userId]
+    );
+    const existingRoleIds = current.rows.map((row) => row.role_id);
+    const existingLegacyRoleIds = current.rows
+      .filter((row) => LEGACY_PLATFORM_ROLE_KEYS.includes(row.key))
+      .map((row) => row.role_id);
+    const existingHasTarget = existingRoleIds.includes(role.id);
+    const assignmentChanges =
+      existingLegacyRoleIds.some((id) => id !== role.id) ||
+      (!existingHasTarget && existingLegacyRoleIds.length === 0);
+    if (!assignmentChanges) {
+      return;
+    }
+    const admins = await this.db.query<{ user_id: string }>(
+      `SELECT DISTINCT ur.user_id
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE r.key = $1`,
+      [PLATFORM_ADMIN_ROLE]
+    );
+    const currentAdminUserIds = admins.rows.map((row) => row.user_id);
+    if (
+      role.key === PLATFORM_ADMIN_ROLE ||
+      currentAdminUserIds.includes(input.userId)
+    ) {
+      assertNotLastPlatformAdmin({
+        currentAdminUserIds,
+        nextHasAdmin: role.key === PLATFORM_ADMIN_ROLE,
+        targetUserId: input.userId,
+      });
+    }
+    const removedIds = existingLegacyRoleIds.filter((id) => id !== role.id);
+    if (removedIds.length > 0) {
+      await this.db.query(
+        `DELETE FROM athena.authorization_user_roles
+         WHERE user_id = $1 AND role_id = ANY($2::text[])`,
+        [input.userId, removedIds]
+      );
+    }
+    if (!existingHasTarget) {
+      await this.db.query(
+        `INSERT INTO athena.authorization_user_roles (user_id, role_id, assigned_by)
+         VALUES ($1, $2, $3)`,
+        [input.userId, role.id, input.assignedBy ?? null]
+      );
+    }
+    await this.bumpRevision(null);
+    await this.writeAudit({
+      action: "user.legacy_role.replace",
+      actorUserId: input.assignedBy,
+      after: { roleKey },
+      before: { roleKeys: current.rows.map((row) => row.key) },
+      targetId: input.userId,
+      targetKind: "user",
+    });
+  }
+
+  async replaceOrganizationBaseRole(input: {
+    assignedBy?: string;
+    foundingOwnerUserId?: string | null;
+    memberId: string;
+    memberUserId: string;
+    organizationId: string;
+    role: string;
+  }): Promise<void> {
+    if (!this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAuthorizationStore(tx).replaceOrganizationBaseRole(input)
+      );
+    }
+    const roleKey = mapLegacyMemberRole(input.role);
+    const roleResult = await this.db.query<RoleRow>(
+      `SELECT * FROM athena.authorization_roles
+       WHERE key = $1 AND scope_kind = 'organization'
+         AND protected = TRUE AND (organization_id IS NULL OR organization_id = $2)
+       ORDER BY CASE WHEN organization_id IS NOT NULL THEN 0 ELSE 1 END
+       LIMIT 1`,
+      [roleKey, input.organizationId]
+    );
+    const roleRow = roleResult.rows[0];
+    if (!roleRow) {
+      throw AthenaAuthRuntimeError.badRequest("Unknown organization base role");
+    }
+    const role = mapRoleRow(roleRow);
+    const member = await this.db.query<{ role: string }>(
+      `SELECT role FROM athena.member
+       WHERE id = $1 AND organization_id = $2
+       FOR UPDATE`,
+      [input.memberId, input.organizationId]
+    );
+    if (!member.rows[0]) {
+      throw AthenaAuthRuntimeError.notFound("Member not found");
+    }
+    const current = await this.db.query<{ key: string; role_id: string }>(
+      `SELECT r.key, mr.role_id
+       FROM athena.authorization_member_roles mr
+       JOIN athena.authorization_roles r ON r.id = mr.role_id
+       WHERE mr.member_id = $1
+       FOR UPDATE OF mr`,
+      [input.memberId]
+    );
+    const currentRoleIds = current.rows.map((row) => row.role_id);
+    const baseRoleIds = current.rows
+      .filter((row) => ORGANIZATION_BASE_ROLE_KEYS.has(row.key))
+      .map((row) => row.role_id);
+    const nextRoleIds = [
+      ...currentRoleIds.filter((id) => !baseRoleIds.includes(id)),
+      role.id,
+    ];
+    const nextRoles: AthenaAuthorizationRoleRecord[] = [];
+    for (const id of nextRoleIds) {
+      nextRoles.push(await this.requireScopedRole(id, input.organizationId));
+    }
+    assertOrganizationAssignmentRoles({
+      foundingOwnerUserId: input.foundingOwnerUserId,
+      memberUserId: input.memberUserId,
+      organizationId: input.organizationId,
+      roles: nextRoles,
+    });
+    await this.db.query(
+      "UPDATE athena.member SET role = $1 WHERE id = $2",
+      [compatibilityMemberRole(role.key), input.memberId]
+    );
+    const unchanged =
+      currentRoleIds.length === nextRoleIds.length &&
+      currentRoleIds.every((id) => nextRoleIds.includes(id));
+    if (unchanged) {
+      return;
+    }
+    const removedIds = baseRoleIds.filter((id) => id !== role.id);
+    if (removedIds.length > 0) {
+      await this.db.query(
+        `DELETE FROM athena.authorization_member_roles
+         WHERE member_id = $1 AND role_id = ANY($2::text[])`,
+        [input.memberId, removedIds]
+      );
+    }
+    if (!currentRoleIds.includes(role.id)) {
+      await this.db.query(
+        `INSERT INTO athena.authorization_member_roles (member_id, role_id, assigned_by)
+         VALUES ($1, $2, $3)`,
+        [input.memberId, role.id, input.assignedBy ?? null]
+      );
+    }
+    await this.bumpRevision(input.organizationId);
+    await this.writeAudit({
+      action: "member.legacy_role.replace",
+      actorUserId: input.assignedBy,
+      after: { roleKey },
+      before: { roleKeys: current.rows.map((row) => row.key) },
+      organizationId: input.organizationId,
+      targetId: input.memberId,
       targetKind: "member",
     });
   }
@@ -451,16 +702,16 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   }): Promise<PlatformUserAssignmentSnapshot> {
     const filterIds = input?.userIds;
     const result = await this.db.query<{
-      revision: string;
+      revision: string | null;
       role_id: string | null;
       user_id: string | null;
     }>(
       filterIds && filterIds.length > 0
         ? `WITH rev AS (
-						SELECT COALESCE((
+						SELECT (
 							SELECT revision FROM athena.authorization_revisions
 							WHERE scope_kind = 'platform' AND organization_id IS NULL
-						), 1) AS revision
+						) AS revision
 					),
 					wanted AS (
 						SELECT UNNEST($1::text[]) AS user_id
@@ -471,19 +722,21 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 					LEFT JOIN athena.authorization_user_roles ur
 						ON ur.user_id = wanted.user_id`
         : `WITH rev AS (
-						SELECT COALESCE((
+						SELECT (
 							SELECT revision FROM athena.authorization_revisions
 							WHERE scope_kind = 'platform' AND organization_id IS NULL
-						), 1) AS revision
+						) AS revision
 					)
 					SELECT rev.revision::text AS revision, ur.user_id, ur.role_id
 					FROM rev
 					LEFT JOIN athena.authorization_user_roles ur ON TRUE`,
       filterIds && filterIds.length > 0 ? [filterIds] : []
     );
-    const revision = asPlatformAssignmentRevision(
-      Number(result.rows[0]?.revision ?? 1)
-    );
+    const rawRevision = result.rows[0]?.revision;
+    if (rawRevision == null) {
+      throwAuthorizationRevisionMissing();
+    }
+    const revision = asPlatformAssignmentRevision(Number(rawRevision));
     const rows = result.rows.flatMap((row) =>
       row.user_id && row.role_id
         ? [{ roleId: row.role_id, userId: row.user_id }]
@@ -491,6 +744,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     );
     return {
       assignments: groupPlatformUserAssignments(rows, filterIds),
+      authorityVersion: createAuthorizationAuthorityVersion(revision),
       revision,
     };
   }
@@ -506,15 +760,15 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   }): Promise<OrganizationMemberAssignmentSnapshot> {
     const result = await this.db.query<{
       member_id: string | null;
-      revision: string;
+      revision: string | null;
       role_id: string | null;
       user_id: string | null;
     }>(
       `WITH rev AS (
-					SELECT COALESCE((
+					SELECT (
 						SELECT revision FROM athena.authorization_revisions
 						WHERE organization_id = $1
-					), 1) AS revision
+					) AS revision
 				)
 				SELECT rev.revision::text AS revision, mr.member_id, mr.role_id, m.user_id
 				FROM rev
@@ -522,9 +776,11 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 				LEFT JOIN athena.authorization_member_roles mr ON mr.member_id = m.id`,
       [input.organizationId]
     );
-    const revision = asOrganizationAssignmentRevision(
-      Number(result.rows[0]?.revision ?? 1)
-    );
+    const rawRevision = result.rows[0]?.revision;
+    if (rawRevision == null) {
+      throwAuthorizationRevisionMissing();
+    }
+    const revision = asOrganizationAssignmentRevision(Number(rawRevision));
     const rows = result.rows.flatMap((row) =>
       row.member_id && row.role_id && row.user_id
         ? [
@@ -538,15 +794,398 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     );
     return {
       assignments: groupOrganizationMemberAssignments(rows),
+      authorityVersion: createAuthorizationAuthorityVersion(revision),
       organizationId: input.organizationId,
       revision,
     };
   }
 
-  async listMemberRoleAssignments(input: {
+  async recordMemberRemoval(input: {
+    memberId: string;
     organizationId: string;
-  }): Promise<readonly OrganizationMemberRoleAssignment[]> {
-    return (await this.readMemberRoleAssignmentsSnapshot(input)).assignments;
+    userId: string;
+  }): Promise<void> {
+    await this.bumpRevision(input.organizationId);
+    await this.writeAudit({
+      action: "member.delete",
+      organizationId: input.organizationId,
+      targetId: input.memberId,
+      targetKind: "member",
+      after: { userId: input.userId },
+    });
+  }
+
+  async assertUserDeletionAllowed(input: { userId: string }): Promise<void> {
+    if (!this.db.inTransaction) {
+      return this.db.transaction((tx) =>
+        new PostgresAuthorizationStore(tx).assertUserDeletionAllowed(input)
+      );
+    }
+    await this.db.query<{ user_id: string; role_id: string }>(
+      `SELECT ur.user_id, ur.role_id
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE r.key = $1
+       ORDER BY ur.user_id, ur.role_id
+       FOR UPDATE OF ur`,
+      [PLATFORM_ADMIN_ROLE]
+    );
+    const revision = await this.db.query<{ revision: string }>(
+      `SELECT revision::text AS revision
+       FROM athena.authorization_revisions
+       WHERE scope_kind = 'platform' AND organization_id IS NULL
+       FOR UPDATE`
+    );
+    if (revision.rows[0]?.revision == null) {
+      throwAuthorizationRevisionMissing();
+    }
+    const admins = await this.db.query<{ user_id: string }>(
+      `SELECT ur.user_id
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE r.key = $1
+       ORDER BY ur.user_id`,
+      [PLATFORM_ADMIN_ROLE]
+    );
+    const currentAdminUserIds = admins.rows.map((row) => row.user_id);
+    if (currentAdminUserIds.includes(input.userId)) {
+      assertNotLastPlatformAdmin({
+        currentAdminUserIds,
+        nextHasAdmin: false,
+        targetUserId: input.userId,
+      });
+    }
+  }
+
+  async recordUserDeletion(input: {
+    memberships: readonly { memberId: string; organizationId: string }[];
+    userId: string;
+  }): Promise<void> {
+    await this.bumpRevision(null);
+    for (const organizationId of new Set(
+      input.memberships.map((membership) => membership.organizationId)
+    )) {
+      await this.bumpRevision(organizationId);
+    }
+    await this.writeAudit({
+      action: "user.delete",
+      targetId: input.userId,
+      targetKind: "user",
+    });
+  }
+
+	async listMemberRoleAssignments(input: {
+		organizationId: string;
+	}): Promise<readonly OrganizationMemberRoleAssignment[]> {
+		return (await this.readMemberRoleAssignmentsSnapshot(input)).assignments;
+	}
+
+	async readAuthoritySnapshot(input: {
+		scope: AthenaAuthorizationSnapshotScope;
+	}): Promise<AthenaAuthorizationSnapshotIr> {
+		await this.ensureCatalog();
+		return this.db.transaction(async (tx) => {
+			await tx.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
+			const captured = await tx.query<{ captured_at: Date | string }>(
+				"SELECT transaction_timestamp() AS captured_at"
+			);
+			const capturedAt = captured.rows[0]?.captured_at;
+			if (capturedAt == null) {
+				throw new Error("Authorization snapshot transaction timestamp is unavailable");
+			}
+			const catalogState = await this.readCatalogState(tx);
+			if (catalogState == null || !catalogStateIsCurrent(catalogState)) {
+				throw new Error("Authorization catalog changed during snapshot capture");
+			}
+			const revisionResult =
+				input.scope.kind === "platform"
+					? await tx.query<{ revision: string | null }>(
+							`SELECT revision::text AS revision
+							 FROM athena.authorization_revisions
+							 WHERE scope_kind = 'platform' AND organization_id IS NULL`
+						)
+					: await tx.query<{ revision: string | null }>(
+							`SELECT revision::text AS revision
+							 FROM athena.authorization_revisions
+							 WHERE scope_kind = 'organization' AND organization_id = $1`,
+							[input.scope.organizationId]
+						);
+			const rawRevision = revisionResult.rows[0]?.revision;
+			if (rawRevision == null) {
+				throwAuthorizationRevisionMissing();
+			}
+			const assignmentRevision = Number(rawRevision);
+			if (!Number.isSafeInteger(assignmentRevision) || assignmentRevision < 1) {
+				throw new Error("Authorization assignment revision is invalid");
+			}
+
+			const roleResult =
+				input.scope.kind === "platform"
+					? await tx.query<RoleRow>(
+							`SELECT * FROM athena.authorization_roles
+							 WHERE scope_kind = 'platform' AND organization_id IS NULL`
+						)
+					: await tx.query<RoleRow>(
+							`SELECT * FROM athena.authorization_roles
+							 WHERE scope_kind = 'organization'
+							   AND (organization_id IS NULL OR organization_id = $1)`,
+							[input.scope.organizationId]
+						);
+			const roleIds = roleResult.rows.map((role) => role.id);
+			const rightResult =
+				roleIds.length === 0
+					? { rowCount: 0, rows: [] }
+					: await tx.query<{ role_id: string; right_key: string }>(
+							`SELECT role_id, right_key FROM athena.authorization_role_rights
+							 WHERE role_id = ANY($1::text[]) ORDER BY role_id, right_key`,
+							[roleIds]
+						);
+			const rightsByRole = new Map<string, string[]>();
+			for (const row of rightResult.rows) {
+				const entries = rightsByRole.get(row.role_id) ?? [];
+				entries.push(row.right_key);
+				rightsByRole.set(row.role_id, entries);
+			}
+			const rights = getAthenaAuthorizationRightsIr();
+			const rightsAuthority = createAthenaRightsAuthority(rights);
+			const roles = roleResult.rows.map((row) =>
+				hydrateAthenaRoleDefinition(
+					{ record: mapRoleRow(row), rights: rightsByRole.get(row.id) ?? [] },
+					rightsAuthority
+				)
+			);
+
+			type AssignmentRow = {
+				assigned_by: string | null;
+				created_at: Date | string;
+				member_id?: string;
+				role_id: string;
+				source_id?: string | null;
+				source_kind?: string | null;
+				user_id: string;
+			};
+			const assignmentResult =
+				input.scope.kind === "platform"
+					? await tx.query<AssignmentRow>(
+							`SELECT user_id, role_id, assigned_by, created_at
+							 FROM athena.authorization_user_roles ORDER BY user_id, role_id`
+						)
+					: await tx.query<AssignmentRow>(
+							`SELECT mr.member_id, mr.role_id, mr.assigned_by, mr.created_at,
+							        mr.source_kind, mr.source_id, m.user_id
+							 FROM athena.authorization_member_roles mr
+							 JOIN athena.member m ON m.id = mr.member_id
+							 WHERE m.organization_id = $1
+							 ORDER BY mr.member_id, mr.role_id`,
+							[input.scope.organizationId]
+						);
+			const assignments: AthenaAuthorizationSnapshotIr["assignments"][number][] =
+				assignmentResult.rows.map((row) => {
+					let subject: AthenaAuthorizationSnapshotIr["assignments"][number]["subject"];
+					if (input.scope.kind === "platform") {
+						subject = { kind: "user", userId: row.user_id };
+					} else {
+						if (row.member_id == null) {
+							throw new Error(
+								"Organization assignment member identity is unavailable"
+							);
+						}
+						subject = {
+							kind: "member",
+						memberId: row.member_id,
+						userId: row.user_id,
+						};
+					}
+					const subjectId = subject.kind === "user" ? subject.userId : subject.memberId;
+					const sourceId = row.source_id ?? null;
+					const sourceKind = row.source_kind ?? null;
+					if (
+						(sourceId == null) !== (sourceKind == null) ||
+						(sourceKind != null &&
+							(sourceKind !== "identity_connection" || sourceId?.trim().length === 0))
+					) {
+						throw new Error("ATHENA_AUTHORIZATION_INVENTORY_PROVENANCE_INVALID");
+					}
+					const provenance = {
+						assignedAt: new Date(row.created_at).toISOString(),
+						assignedBy: row.assigned_by,
+						...(sourceId != null && sourceKind != null
+							? { sourceId, sourceKind: "identity_connection" as const }
+							: {}),
+					};
+					const roleId = row.role_id as AthenaAuthorizationSnapshotIr["assignments"][number]["roleId"];
+					return {
+						id: canonicalGrantId({
+							organizationId: input.scope.kind === "organization" ? input.scope.organizationId : null,
+							roleId,
+						scopeKind: input.scope.kind,
+							subjectId,
+						subjectKind: subject.kind,
+						}),
+						provenance,
+						roleId,
+						subject,
+					};
+				});
+			return canonicalizeAthenaAuthorizationSnapshotIr({
+				assignments,
+				irVersion: 1,
+				kind: "athena.authorization.snapshot",
+				metadata: {
+					assignmentRevision,
+					capturedAt: new Date(capturedAt).toISOString(),
+					catalogVersion: catalogState.catalogVersion,
+					rightsFingerprint: catalogState.rightsFingerprint,
+					rolesFingerprint: catalogState.rolesFingerprint,
+					provenance: ["authorization-store"],
+				},
+				rights,
+				roles: canonicalizeAthenaRolesIr(
+					{ irVersion: 1, kind: "athena.roles", metadata: {}, roles },
+					rightsAuthority
+				),
+				scope: input.scope,
+			});
+		});
+	}
+
+  async listAccessGrants(): Promise<readonly AthenaAccessGrant[]> {
+    await this.ensureCatalog();
+    const result = await this.db.query<{
+      assigned_at: Date | string;
+      assigned_by: string | null;
+      assignment_revision: string | null;
+      member_id: string | null;
+      organization_id: string | null;
+      right_key: string | null;
+      role_id: string;
+      role_key: string;
+      scope_kind: "organization" | "platform";
+      source_id: string | null;
+      source_kind: string | null;
+      user_id: string;
+    }>(
+      `SELECT a.scope_kind, a.organization_id, a.member_id, a.user_id,
+              a.role_id, a.role_key, a.assigned_by, a.assigned_at,
+              a.source_kind, a.source_id,
+              revisions.revision::text AS assignment_revision,
+              role_rights.right_key
+       FROM (
+         SELECT 'platform'::text AS scope_kind, NULL::text AS organization_id,
+                NULL::text AS member_id, ur.user_id, ur.role_id, r.key AS role_key,
+                ur.assigned_by, ur.created_at AS assigned_at,
+                NULL::text AS source_kind, NULL::text AS source_id
+         FROM athena.authorization_user_roles ur
+         JOIN athena.authorization_roles r ON r.id = ur.role_id
+         UNION ALL
+         SELECT 'organization'::text AS scope_kind, m.organization_id,
+                mr.member_id, m.user_id, mr.role_id, r.key AS role_key,
+                mr.assigned_by, mr.created_at AS assigned_at,
+                mr.source_kind, mr.source_id
+         FROM athena.authorization_member_roles mr
+         JOIN athena.member m ON m.id = mr.member_id
+         JOIN athena.authorization_roles r ON r.id = mr.role_id
+       ) AS a
+       LEFT JOIN athena.authorization_revisions revisions
+         ON revisions.scope_kind = a.scope_kind
+        AND revisions.organization_id IS NOT DISTINCT FROM a.organization_id
+       LEFT JOIN athena.authorization_role_rights role_rights
+         ON role_rights.role_id = a.role_id
+       ORDER BY a.scope_kind, a.organization_id, a.user_id,
+                a.member_id, a.role_id, role_rights.right_key`
+    );
+    const grouped = new Map<
+      string,
+      {
+        assignmentRevision: number;
+        record: Omit<AthenaAccessGrantRecord, "authorityVersion" | "rightKeys">;
+        rightKeys: Set<string>;
+      }
+    >();
+
+    for (const row of result.rows) {
+      const revision = Number(row.assignment_revision);
+      if (
+        row.assignment_revision == null ||
+        !Number.isSafeInteger(revision) ||
+        revision < 1
+      ) {
+        throwAuthorizationRevisionMissing();
+      }
+      if (row.scope_kind !== "organization" && row.scope_kind !== "platform") {
+        throw new Error("ATHENA_AUTHORIZATION_INVENTORY_IDENTITY_INVALID");
+      }
+      const isOrganization = row.scope_kind === "organization";
+      if (
+        !row.user_id ||
+        !row.role_id ||
+        !row.role_key ||
+        (isOrganization && (!row.member_id || !row.organization_id))
+      ) {
+        throw new Error("ATHENA_AUTHORIZATION_INVENTORY_IDENTITY_INVALID");
+      }
+      const identity = {
+        organizationId: row.organization_id,
+        roleId: row.role_id,
+        scopeKind: row.scope_kind,
+        subjectId: isOrganization ? (row.member_id as string) : row.user_id,
+        subjectKind: isOrganization ? ("member" as const) : ("user" as const),
+      };
+      const id = canonicalGrantId(identity);
+      const assignedAt =
+        row.assigned_at instanceof Date
+          ? row.assigned_at.toISOString()
+          : new Date(row.assigned_at).toISOString();
+      let groupedGrant = grouped.get(id);
+      if (!groupedGrant) {
+        const record: Omit<
+          AthenaAccessGrantRecord,
+          "authorityVersion" | "rightKeys"
+        > = {
+          assignedAt,
+          assignedBy: row.assigned_by,
+          memberId: row.member_id,
+          organizationId: row.organization_id,
+          roleId: row.role_id,
+          roleKey: row.role_key,
+          scopeKind: row.scope_kind,
+          sourceId: row.source_id,
+          sourceKind: row.source_kind,
+          userId: row.user_id,
+        };
+        groupedGrant = {
+          assignmentRevision: revision,
+          record,
+          rightKeys: new Set(),
+        };
+        grouped.set(id, groupedGrant);
+      } else if (
+        groupedGrant.record.memberId !== row.member_id ||
+        groupedGrant.record.organizationId !== row.organization_id ||
+        groupedGrant.record.roleId !== row.role_id ||
+        groupedGrant.record.roleKey !== row.role_key ||
+        groupedGrant.record.scopeKind !== row.scope_kind ||
+        groupedGrant.record.userId !== row.user_id ||
+        groupedGrant.record.assignedAt !== assignedAt ||
+        groupedGrant.record.assignedBy !== row.assigned_by ||
+        groupedGrant.assignmentRevision !== revision ||
+        groupedGrant.record.sourceId !== row.source_id ||
+        groupedGrant.record.sourceKind !== row.source_kind
+      ) {
+        throw new Error("ATHENA_AUTHORIZATION_INVENTORY_ROW_INCONSISTENT");
+      }
+      if (row.right_key != null) {
+        groupedGrant.rightKeys.add(row.right_key);
+      }
+    }
+
+    const records = [...grouped.values()].map(
+      ({ assignmentRevision, record, rightKeys }) => ({
+        assignmentRevision,
+        record: { ...record, rightKeys: [...rightKeys] },
+      })
+    );
+    return projectAthenaAccessGrants(records);
   }
 
   async replaceUserRoleAssignments(input: {
@@ -783,7 +1422,10 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<{ reassignedMemberIds: readonly string[] }> {
+  }): Promise<{
+    reassignedMemberIds: readonly string[];
+    reassignedUserIds: readonly string[];
+  }> {
     return this.db.transaction(async (tx) => {
       const nested = new PostgresAuthorizationStore(tx);
       return nested.deleteRoleInTransaction(input);
@@ -969,12 +1611,16 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<{ reassignedMemberIds: readonly string[] }> {
+  }): Promise<{
+    reassignedMemberIds: readonly string[];
+    reassignedUserIds: readonly string[];
+  }> {
     const role = await this.requireScopedRole(input.id, input.organizationId);
     assertProtectedRoleImmutable(role);
     await this.bumpRoleVersion(role.id, input.expectedVersion);
     const assigned = await this.countAssignments(role);
-    let reassignedMemberIds: string[] = [];
+    const reassignedMemberIds: string[] = [];
+    const reassignedUserIds: string[] = [];
     if (assigned > 0) {
       const replacementId = input.reassignmentRoleId?.trim() ?? "";
       if (!replacementId) {
@@ -992,31 +1638,39 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
         throwReassignmentInvalid();
       }
       if (role.scopeKind === "organization") {
-        const alreadyAssigned = await this.db.query<{ member_id: string }>(
-          `DELETE FROM athena.authorization_member_roles old
-            USING athena.authorization_member_roles replacement
-            WHERE old.role_id = $1
-              AND replacement.role_id = $2
-              AND replacement.member_id = old.member_id
-          RETURNING old.member_id`,
-          [role.id, replacement.id]
-        );
-        const reassigned = await this.db.query<{ member_id: string }>(
-          `UPDATE athena.authorization_member_roles SET role_id = $1, updated_at = NOW()
-					 WHERE role_id = $2
+        const removed = await this.db.query<{ member_id: string }>(
+          `DELETE FROM athena.authorization_member_roles
+           WHERE role_id = $1
            RETURNING member_id`,
-          [replacement.id, role.id]
+          [role.id]
         );
-        reassignedMemberIds = [
-          ...alreadyAssigned.rows.map((row) => row.member_id),
-          ...reassigned.rows.map((row) => row.member_id),
-        ];
+        for (const row of removed.rows) {
+          reassignedMemberIds.push(row.member_id);
+          await this.db.query(
+            `INSERT INTO athena.authorization_member_roles
+             (member_id, role_id, assigned_by, created_at, updated_at)
+             VALUES ($1, $2, $3, NOW(), NOW())
+             ON CONFLICT (member_id, role_id) DO NOTHING`,
+            [row.member_id, replacement.id, input.actorUserId]
+          );
+        }
       } else {
-        await this.db.query(
-          `UPDATE athena.authorization_user_roles SET role_id = $1, updated_at = NOW()
-					 WHERE role_id = $2`,
-          [replacement.id, role.id]
+        const removed = await this.db.query<{ user_id: string }>(
+          `DELETE FROM athena.authorization_user_roles
+           WHERE role_id = $1
+           RETURNING user_id`,
+          [role.id]
         );
+        for (const row of removed.rows) {
+          reassignedUserIds.push(row.user_id);
+          await this.db.query(
+            `INSERT INTO athena.authorization_user_roles
+             (user_id, role_id, assigned_by, created_at, updated_at)
+             VALUES ($1, $2, $3, NOW(), NOW())
+             ON CONFLICT (user_id, role_id) DO NOTHING`,
+            [row.user_id, replacement.id, input.actorUserId]
+          );
+        }
       }
     }
     const before = [...(await this.listRoleRights(role.id))].sort();
@@ -1033,7 +1687,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       targetId: role.id,
       targetKind: "role",
     });
-    return { reassignedMemberIds };
+    return { reassignedMemberIds, reassignedUserIds };
   }
 
   async inspectGraph(): Promise<AthenaAuthorizationInspectGraph> {
@@ -1466,21 +2120,46 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     if (input.expectedVersion !== current) {
       throwAssignmentVersionConflict();
     }
+    const assignments = await this.db.query<{
+      key: string;
+      role_id: string;
+    }>(
+      `SELECT r.key, ur.role_id
+       FROM athena.authorization_user_roles ur
+       JOIN athena.authorization_roles r ON r.id = ur.role_id
+       WHERE ur.user_id = $1
+       FOR UPDATE OF ur`,
+      [input.userId]
+    );
+    const currentRoleIds = assignments.rows.map((row) => row.role_id);
     const uniqueIds = [...new Set(input.roleIds)];
     const roles: AthenaAuthorizationRoleRecord[] = [];
     for (const id of uniqueIds) {
       roles.push(await this.requireScopedRole(id, null));
     }
     assertPlatformAssignmentRoles(roles);
-    const afterRights = (
-      await Promise.all(uniqueIds.map((id) => this.listRoleRights(id)))
-    ).flat();
+    const beforeRights: AthenaRightKey[] = [];
+    for (const id of currentRoleIds) {
+      beforeRights.push(...(await this.listRoleRights(id)));
+    }
+    const afterRights: AthenaRightKey[] = [];
+    for (const id of uniqueIds) {
+      afterRights.push(...(await this.listRoleRights(id)));
+    }
     assertAuthorizationDelegationAllowed({
       actorRights: input.actorRights,
       afterRights,
-      beforeRights: [],
+      beforeRights,
       roleScope: "platform",
     });
+    const currentIds = new Set(currentRoleIds);
+    const nextIds = new Set(uniqueIds);
+    const unchanged =
+      currentIds.size === nextIds.size &&
+      [...currentIds].every((id) => nextIds.has(id));
+    if (unchanged) {
+      return { revision: current };
+    }
     const admins = await this.db.query<{ user_id: string }>(
       `SELECT ur.user_id
 			 FROM athena.authorization_user_roles ur
@@ -1488,31 +2167,43 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 			 WHERE r.key = $1`,
       [PLATFORM_ADMIN_ROLE]
     );
-    assertNotLastPlatformAdmin({
-      currentAdminUserIds: admins.rows.map((row) => row.user_id),
-      nextHasAdmin: roles.some((role) => role.key === PLATFORM_ADMIN_ROLE),
-      targetUserId: input.userId,
-    });
-    await this.db.query(
-      "DELETE FROM athena.authorization_user_roles WHERE user_id = $1",
-      [input.userId]
-    );
+    const currentAdminUserIds = admins.rows.map((row) => row.user_id);
+    const nextHasAdmin = roles.some((role) => role.key === PLATFORM_ADMIN_ROLE);
+    if (currentAdminUserIds.includes(input.userId) || nextHasAdmin) {
+      assertNotLastPlatformAdmin({
+        currentAdminUserIds,
+        nextHasAdmin,
+        targetUserId: input.userId,
+      });
+    }
+    const revision = await this.claimRevision(null, input.expectedVersion);
+    const removedIds = currentRoleIds.filter((id) => !nextIds.has(id));
+    if (removedIds.length > 0) {
+      await this.db.query(
+        `DELETE FROM athena.authorization_user_roles
+         WHERE user_id = $1 AND role_id = ANY($2::text[])`,
+        [input.userId, removedIds]
+      );
+    }
     for (const role of roles) {
+      if (currentIds.has(role.id)) {
+        continue;
+      }
       await this.db.query(
         `INSERT INTO athena.authorization_user_roles (user_id, role_id, assigned_by)
 				 VALUES ($1, $2, $3)`,
         [input.userId, role.id, input.actorUserId]
       );
     }
-    await this.bumpRevision(null);
     await this.writeAudit({
       action: "user.roles.replace",
       actorUserId: input.actorUserId,
       after: { roleIds: uniqueIds },
+      before: { roleIds: currentRoleIds },
       targetId: input.userId,
       targetKind: "user",
     });
-    return { revision: current + 1 };
+    return { revision };
   }
 
   private async replaceMemberRoleAssignmentsInTransaction(input: {
@@ -1529,6 +2220,27 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     if (input.expectedVersion !== current) {
       throwAssignmentVersionConflict();
     }
+    const member = await this.db.query<{ role: string }>(
+      `SELECT role FROM athena.member
+       WHERE id = $1 AND organization_id = $2
+       FOR UPDATE`,
+      [input.memberId, input.organizationId]
+    );
+    if (!member.rows[0]) {
+      throw AthenaAuthRuntimeError.notFound("Member not found");
+    }
+    const assignments = await this.db.query<{
+      key: string;
+      role_id: string;
+    }>(
+      `SELECT r.key, mr.role_id
+       FROM athena.authorization_member_roles mr
+       JOIN athena.authorization_roles r ON r.id = mr.role_id
+       WHERE mr.member_id = $1
+       FOR UPDATE OF mr`,
+      [input.memberId]
+    );
+    const currentRoleIds = assignments.rows.map((row) => row.role_id);
     const uniqueIds = [...new Set(input.roleIds)];
     const roles: AthenaAuthorizationRoleRecord[] = [];
     for (const id of uniqueIds) {
@@ -1540,46 +2252,82 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       organizationId: input.organizationId,
       roles,
     });
-    const afterRights = (
-      await Promise.all(uniqueIds.map((id) => this.listRoleRights(id)))
-    ).flat();
+    const beforeRights: AthenaRightKey[] = [];
+    for (const id of currentRoleIds) {
+      beforeRights.push(...(await this.listRoleRights(id)));
+    }
+    const afterRights: AthenaRightKey[] = [];
+    for (const id of uniqueIds) {
+      afterRights.push(...(await this.listRoleRights(id)));
+    }
     assertAuthorizationDelegationAllowed({
       actorRights: input.actorRights,
       afterRights,
-      beforeRights: [],
+      beforeRights,
       organizationId: input.organizationId,
       roleScope: "organization",
     });
-    await this.db.query(
-      "DELETE FROM athena.authorization_member_roles WHERE member_id = $1",
-      [input.memberId]
+    const currentIds = new Set(currentRoleIds);
+    const nextIds = new Set(uniqueIds);
+    const unchanged =
+      currentIds.size === nextIds.size &&
+      [...currentIds].every((id) => nextIds.has(id));
+    const base = roles.find(
+      (role) => role.protected && role.systemKind != null
     );
+    if (unchanged) {
+      if (base) {
+        const nextLegacyRole = persistedMemberRole(base);
+        if (member.rows[0].role !== nextLegacyRole) {
+          await this.db.query(
+            "UPDATE athena.member SET role = $1 WHERE id = $2",
+            [nextLegacyRole, input.memberId]
+          );
+        }
+      }
+      return { revision: current };
+    }
+    const revision = await this.claimRevision(
+      input.organizationId,
+      input.expectedVersion
+    );
+    if (base) {
+      const nextLegacyRole = persistedMemberRole(base);
+      if (member.rows[0].role !== nextLegacyRole) {
+        await this.db.query(
+          "UPDATE athena.member SET role = $1 WHERE id = $2",
+          [nextLegacyRole, input.memberId]
+        );
+      }
+    }
+    const removedIds = currentRoleIds.filter((id) => !nextIds.has(id));
+    if (removedIds.length > 0) {
+      await this.db.query(
+        `DELETE FROM athena.authorization_member_roles
+         WHERE member_id = $1 AND role_id = ANY($2::text[])`,
+        [input.memberId, removedIds]
+      );
+    }
     for (const role of roles) {
+      if (currentIds.has(role.id)) {
+        continue;
+      }
       await this.db.query(
         `INSERT INTO athena.authorization_member_roles (member_id, role_id, assigned_by)
 				 VALUES ($1, $2, $3)`,
         [input.memberId, role.id, input.actorUserId]
       );
     }
-    const base = roles.find(
-      (role) => role.protected && role.systemKind != null
-    );
-    if (base) {
-      await this.db.query(
-        "UPDATE athena.member SET role = $1 WHERE id = $2",
-        [persistedMemberRole(base), input.memberId]
-      );
-    }
-    await this.bumpRevision(input.organizationId);
     await this.writeAudit({
       action: "member.roles.replace",
       actorUserId: input.actorUserId,
       after: { roleIds: uniqueIds },
+      before: { roleIds: currentRoleIds },
       organizationId: input.organizationId,
       targetId: input.memberId,
       targetKind: "member",
     });
-    return { revision: current + 1 };
+    return { revision };
   }
 
   private async readRevision(organizationId: string | null): Promise<number> {
@@ -1595,7 +2343,39 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 					 FROM athena.authorization_revisions
 					 WHERE scope_kind = 'platform' AND organization_id IS NULL`
         );
-    return Number(result.rows[0]?.revision ?? 1);
+    const revision = result.rows[0]?.revision;
+    if (revision == null) {
+      throwAuthorizationRevisionMissing();
+    }
+    return Number(revision);
+  }
+
+  private async claimRevision(
+    organizationId: string | null,
+    expectedVersion: number
+  ): Promise<number> {
+    const result = organizationId
+      ? await this.db.query<{ revision: string }>(
+          `UPDATE athena.authorization_revisions
+           SET revision = revision + 1, updated_at = NOW()
+           WHERE scope_kind = 'organization'
+             AND organization_id = $1 AND revision = $2
+           RETURNING revision::text AS revision`,
+          [organizationId, expectedVersion]
+        )
+      : await this.db.query<{ revision: string }>(
+          `UPDATE athena.authorization_revisions
+           SET revision = revision + 1, updated_at = NOW()
+           WHERE scope_kind = 'platform' AND organization_id IS NULL
+             AND revision = $1
+           RETURNING revision::text AS revision`,
+          [expectedVersion]
+        );
+    const revision = result.rows[0]?.revision;
+    if (revision == null) {
+      throwAssignmentVersionConflict();
+    }
+    return Number(revision);
   }
 
   private async bumpRoleVersion(
@@ -1618,25 +2398,25 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 
   private async bumpRevision(organizationId: string | null): Promise<void> {
     if (organizationId) {
-      await this.db.query(
-        `WITH updated AS (
-					UPDATE athena.authorization_revisions
-					SET revision = revision + 1, updated_at = NOW()
-					WHERE organization_id = $1
-					RETURNING organization_id
-				)
-				INSERT INTO athena.authorization_revisions (scope_kind, organization_id, revision)
-				SELECT 'organization', $1, 1
-				WHERE NOT EXISTS (SELECT 1 FROM updated)`,
+      const updated = await this.db.query(
+        `UPDATE athena.authorization_revisions
+         SET revision = revision + 1, updated_at = NOW()
+         WHERE scope_kind = 'organization' AND organization_id = $1`,
         [organizationId]
       );
+      if (updated.rowCount !== 1) {
+        throwAuthorizationRevisionMissing();
+      }
       return;
     }
-    await this.db.query(
+    const updated = await this.db.query(
       `UPDATE athena.authorization_revisions
 			 SET revision = revision + 1, updated_at = NOW()
 			 WHERE scope_kind = 'platform' AND organization_id IS NULL`
     );
+    if (updated.rowCount !== 1) {
+      throwAuthorizationRevisionMissing();
+    }
   }
 
   private async writeAudit(input: {

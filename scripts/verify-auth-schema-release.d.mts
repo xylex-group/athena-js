@@ -6,3 +6,4 @@ export function computeAuthSchemaReleaseState(root?: string): {
   authSchemaGeneration: number;
   canonicalMigrationFingerprint: string;
 };
+export function verifyAuthMigrationHistory(options?: { baseRef?: string }): void;

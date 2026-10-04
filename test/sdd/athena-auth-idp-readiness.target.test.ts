@@ -13,8 +13,8 @@ const packageRoot = join(
   ".."
 );
 
-test("Embedded Auth schema generation 48 is allocated", () => {
-  assert.equal(ATHENA_AUTH_SCHEMA_GENERATION, 48);
+test("Embedded Auth schema includes Identity Connection migration 48", () => {
+  assert.ok(ATHENA_AUTH_SCHEMA_GENERATION >= 48);
 });
 
 test("IdP readiness: identity scopes require openid", () => {

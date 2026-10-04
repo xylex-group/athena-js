@@ -164,7 +164,9 @@ A registry token is not sufficient.
 
 ## Auth schema generation lock
 
-Embedded Auth schema generation is runtime compatibility. `release:verify` runs `scripts/verify-auth-schema-release.mjs` first. The lock at `src/auth/schema-release.lock.json` records `packageVersion`, `ATHENA_AUTH_SCHEMA_GENERATION`, and a SHA-256 of the canonical Auth migration files. Changing generation or those files without bumping `@xylex-group/athena` and rewriting the lock fails the gate. `test:finality` and the publish preflight regenerate the lock with `node scripts/verify-auth-schema-release.mjs --write` before running release checks. Direct lock verification remains fail-closed; use that command when updating the lock outside the release workflow.
+Embedded Auth schema generation is runtime compatibility. `release:verify` runs `scripts/verify-auth-schema-release.mjs` first; it also runs `scripts/verify-auth-migration-history.mjs` before reading or writing the schema lock. The lock at `src/auth/schema-release.lock.json` records `packageVersion`, `ATHENA_AUTH_SCHEMA_GENERATION`, and a SHA-256 of the canonical Auth migration files. Changing generation or those files without bumping `@xylex-group/athena` and rewriting the lock fails the gate.
+
+The per-migration manifest is append-only across releases. Verification compares it with the pull request base branch or the preceding Athena JS release tag. Existing migration versions cannot be changed, removed, or renumbered; new versions must be appended. The only historical correction is migration 033's exact 5.7.0 checksum restoration for package version 5.7.1, tracked as issue #1108. `test:finality` and the publish preflight run the same guard through `verify-auth-schema-release.mjs --write` before running release checks. Direct lock verification remains fail-closed; use that command when updating the lock outside the release workflow.
 
 ## CI
 

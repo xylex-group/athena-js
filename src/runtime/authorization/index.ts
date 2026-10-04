@@ -23,9 +23,24 @@ export {
 } from "./templates.ts";
 export type {
   AthenaAuthorizationRightDefinition,
+  AuthorizationAuthorityVersion,
   AuthorizationSnapshot,
   OrganizationMemberAssignmentSnapshot,
   OrganizationMemberRoleAssignment,
   PlatformUserAssignmentSnapshot,
   PlatformUserRoleAssignment,
 } from "./types.ts";
+export {
+  canonicalizeAthenaAuthorizationSnapshotIr,
+  fingerprintAthenaAuthorizationSnapshotIr,
+  projectAthenaAccessGrantsFromAuthorizationSnapshot,
+  validateAthenaAuthorizationSnapshotIr,
+} from "./snapshot-ir/index.ts";
+export type {
+  AthenaAuthorizationAssignmentProvenance,
+  AthenaAuthorizationSnapshotAssignment,
+  AthenaAuthorizationSnapshotIr,
+  AthenaAuthorizationSnapshotMetadata,
+  AthenaAuthorizationSnapshotScope,
+  AthenaAuthorizationSnapshotSubject,
+} from "./snapshot-ir/index.ts";

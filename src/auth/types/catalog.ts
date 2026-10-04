@@ -1,4 +1,5 @@
 import type { AthenaRightKey } from "../../rights/key.ts";
+import type { AthenaAuthorizationSnapshotIr } from "../../runtime/authorization/snapshot-ir/types.ts";
 import type { AuthorizationSnapshot } from "../../runtime/authorization/types.ts";
 import type {
   AthenaAuthCapabilitiesFeatures,
@@ -150,6 +151,7 @@ export type AthenaAuthEndpointPath =
   | "/organization/leave"
   | "/organization/has-permission"
   | "/authorization/snapshot"
+  | "/authorization/authority-snapshot"
   | "/authorization/rights"
   | "/authorization/roles"
   | "/authorization/roles/clone"
@@ -1975,6 +1977,15 @@ export interface AthenaAuthorizationAssignmentMutationResponse {
   revision: number;
 }
 
+export interface AthenaAuthorizationAuthoritySnapshotResponse {
+  readonly fingerprint: string;
+  readonly snapshot: AthenaAuthorizationSnapshotIr;
+}
+
+export type AthenaAuthorizationAuthoritySnapshotInput =
+  | { readonly scope: "platform" }
+  | { readonly scope: "organization"; readonly organizationId: string };
+
 export interface ReplaceUserRoleAssignmentsInput {
   expectedVersion: number;
   roleIds: readonly string[];
@@ -1989,6 +2000,10 @@ export interface ReplaceMemberRoleAssignmentsInput {
 }
 
 export interface AthenaAuthAuthorizationBindings {
+  getAuthoritySnapshot: (
+    input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput,
+    options?: AthenaAuthCallOptions
+  ) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>;
   cloneRole: (
     input: AthenaAuthCloneRoleRequest & AthenaAuthFetchCompatibleInput,
     options?: AthenaAuthCallOptions

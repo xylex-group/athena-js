@@ -1,12 +1,18 @@
 import type { AuthMemberRow } from "../../auth/local/models.ts";
 import type { AthenaRightKey } from "../../rights/key.ts";
+import type { AthenaAccessGrant } from "./access-grants.ts";
 import type {
+  AthenaAuthorizationAssignmentSource,
   OrganizationMemberAssignmentSnapshot,
   OrganizationMemberRoleAssignment,
   PlatformUserAssignmentSnapshot,
   PlatformUserRoleAssignment,
 } from "./assignment-snapshot.ts";
 import type { AthenaAuthorizationInspectGraph } from "./inspect.ts";
+import type {
+	AthenaAuthorizationSnapshotIr,
+	AthenaAuthorizationSnapshotScope,
+} from "./snapshot-ir/types.ts";
 import type {
   AthenaAuthorizationRoleDetail,
   AthenaAuthorizationRoleRecord,
@@ -32,7 +38,9 @@ export interface AthenaAuthorizationStore {
     memberId: string,
     roleKey: string,
     assignedBy?: string,
-    organizationId?: string | null
+    organizationId?: string | null,
+    memberUserId?: string,
+    source?: AthenaAuthorizationAssignmentSource
   ): Promise<void>;
   assignUserRole(
     userId: string,
@@ -62,8 +70,12 @@ export interface AthenaAuthorizationStore {
     id: string;
     organizationId?: string | null;
     reassignmentRoleId?: string | null;
-  }): Promise<{ reassignedMemberIds: readonly string[] }>;
+  }): Promise<{
+    reassignedMemberIds: readonly string[];
+    reassignedUserIds: readonly string[];
+  }>;
   ensureCatalog(): Promise<void>;
+  listAccessGrants(): Promise<readonly AthenaAccessGrant[]>;
   getRole(
     id: string,
     organizationId?: string | null
@@ -89,10 +101,23 @@ export interface AthenaAuthorizationStore {
     organizationId: string,
     roleRef: string
   ): Promise<AthenaAuthorizationRoleRecord | undefined>;
-  materialize(): Promise<void>;
-  readMemberRoleAssignmentsSnapshot(input: {
+	materialize(): Promise<void>;
+	readAuthoritySnapshot(input: {
+		scope: AthenaAuthorizationSnapshotScope;
+	}): Promise<AthenaAuthorizationSnapshotIr>;
+	readMemberRoleAssignmentsSnapshot(input: {
     organizationId: string;
   }): Promise<OrganizationMemberAssignmentSnapshot>;
+  recordMemberRemoval(input: {
+    memberId: string;
+    organizationId: string;
+    userId: string;
+  }): Promise<void>;
+  assertUserDeletionAllowed(input: { userId: string }): Promise<void>;
+  recordUserDeletion(input: {
+    memberships: readonly { memberId: string; organizationId: string }[];
+    userId: string;
+  }): Promise<void>;
   readSnapshot(input: {
     activeOrganizationId?: string | null;
     foundingOwnerUserId?: string | null;
@@ -103,6 +128,19 @@ export interface AthenaAuthorizationStore {
     listMembers: (organizationId: string) => Promise<AuthMemberRow[]>;
     userId: string;
   }): Promise<AuthorizationSnapshot>;
+  replaceLegacyPlatformRole(input: {
+    assignedBy?: string;
+    role: string | null | undefined;
+    userId: string;
+  }): Promise<void>;
+  replaceOrganizationBaseRole(input: {
+    assignedBy?: string;
+    foundingOwnerUserId?: string | null;
+    memberId: string;
+    memberUserId: string;
+    organizationId: string;
+    role: string;
+  }): Promise<void>;
   readUserRoleAssignmentsSnapshot(input?: {
     userIds?: readonly string[];
   }): Promise<PlatformUserAssignmentSnapshot>;

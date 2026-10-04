@@ -125,7 +125,13 @@ test("P?: memory store create/rename/replace/OCC/delete-reassign/audit", async (
     "organization.members.invite",
     "organization.members.read",
   ]);
-  await store.assignMemberRole("member-1", created.key, "actor", "org-1");
+  await store.assignMemberRole(
+    "member-1",
+    created.key,
+    "actor",
+    "org-1",
+    "user-1"
+  );
   await assert.rejects(
     () =>
       store.deleteRole({
@@ -322,21 +328,6 @@ test("P?: HTTP custom role manager cannot self-elevate via rights replace or clo
   assert.equal(added.status, 200);
   const addedBody = await jsonBody(added);
   const memberId = (addedBody.member as { id: string }).id;
-  const assigned = await runtime.handle(
-    new Request("http://app.local/api/auth/organization/update-member-role", {
-      body: JSON.stringify({
-        memberId,
-        organizationId: owner.organizationId,
-        role: role.key,
-      }),
-      headers: {
-        "content-type": "application/json",
-        cookie: owner.cookie,
-      },
-      method: "POST",
-    })
-  );
-  assert.equal(assigned.status, 200);
   const setActive = await runtime.handle(
     new Request("http://app.local/api/auth/organization/set-active", {
       body: JSON.stringify({ organizationId: owner.organizationId }),
@@ -348,6 +339,35 @@ test("P?: HTTP custom role manager cannot self-elevate via rights replace or clo
     })
   );
   assert.equal(setActive.status, 200);
+  const assignments = await jsonBody(
+    await runtime.handle(
+      new Request(
+        `http://app.local/api/auth/authorization/assignments/members?organizationId=${encodeURIComponent(owner.organizationId)}`,
+        { headers: { cookie: owner.cookie } }
+      )
+    )
+  );
+  const assignment = (
+    assignments.assignments as Array<{ memberId: string; roleIds: string[] }>
+  ).find((entry) => entry.memberId === memberId);
+  assert.ok(assignment);
+  const assigned = await runtime.handle(
+    new Request(
+      `http://app.local/api/auth/authorization/assignments/members/${memberId}`,
+      {
+        body: JSON.stringify({
+          expectedVersion: assignments.revision,
+          roleIds: [...assignment.roleIds, role.id],
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: owner.cookie,
+        },
+        method: "PUT",
+      }
+    )
+  );
+  assert.equal(assigned.status, 200);
   const elevate = await runtime.handle(
     new Request(
       `http://app.local/api/auth/authorization/roles/${role.id}/rights`,

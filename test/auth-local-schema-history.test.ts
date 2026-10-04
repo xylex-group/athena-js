@@ -9,11 +9,19 @@ import type { AthenaAuthDatabase } from "../src/auth/local/database.ts";
 import { AthenaAuthRuntimeError } from "../src/auth/local/errors.ts";
 import {
   assertAthenaAuthSchemaCompatible,
+  compareAthenaAuthLedgers,
   getAthenaAuthExpectedLedger,
   getAthenaAuthSchemaManifest,
   readAthenaAuthSchemaStatus,
 } from "../src/auth/local/schema.ts";
+import { ATHENA_AUTH_CANONICAL_MIGRATIONS } from "../src/auth/schema/migrations.ts";
+import { checksumMigrationSql } from "../src/migrations/checksum.ts";
 import { ATHENA_NPX_MIGRATE_COMMAND } from "../src/migrations/commands.ts";
+
+const CANONICAL_033_CHECKSUM =
+  "483af951e47a72cdffb6b8a21f5878a1e9c2ce250079e7535bad35a47d5a1418";
+const ATHENA_570_033_CHECKSUM =
+  "044557ff8b79810d05e43f4fb9f0203e42b68ad0ea9c62c4e1c1970440a6b764";
 
 function createLedgerDatabase(
   rows: Array<{ checksum?: string | null; name?: string; version: number }>
@@ -150,6 +158,85 @@ test("T-schema-history: exact checksummed ledger is compatible", async () => {
   assert.deepEqual(status.missing, []);
   assert.deepEqual(status.checksumMismatch, []);
   await assertAthenaAuthSchemaCompatible(database);
+});
+
+test("T-schema-history: canonical migration 033 remains issuer-only and 047 transitions to composite", () => {
+  const migration033 = ATHENA_AUTH_CANONICAL_MIGRATIONS.find(
+    (entry) => entry.version === 33
+  );
+  const migration047 = ATHENA_AUTH_CANONICAL_MIGRATIONS.find(
+    (entry) => entry.version === 47
+  );
+  assert.ok(migration033);
+  assert.ok(migration047);
+  assert.equal(checksumMigrationSql(migration033.sql), CANONICAL_033_CHECKSUM);
+  assert.match(migration033.sql, /ON athena\.auth_signing_keys\s+\(issuer\)/);
+  assert.doesNotMatch(
+    migration033.sql,
+    /ON athena\.auth_signing_keys\s+\(issuer\s*,\s*algorithm\)/
+  );
+  assert.match(
+    migration047.sql,
+    /ON athena\.auth_signing_keys\s+\(issuer, algorithm\)/
+  );
+
+  const expected = getAthenaAuthSchemaManifest();
+  assert.equal(expected["033"], CANONICAL_033_CHECKSUM);
+});
+
+test("T-schema-history: accepts only the exact Athena 5.7.0 migration 033 checksum alias", () => {
+  const expected = [
+    {
+      checksum: CANONICAL_033_CHECKSUM,
+      name: "033_auth_signing_keys",
+      version: 33,
+    },
+  ];
+  const compatible = compareAthenaAuthLedgers(
+    [{ checksum: ATHENA_570_033_CHECKSUM, version: 33 }],
+    expected
+  );
+  assert.equal(compatible.compatible, true);
+  assert.deepEqual(compatible.checksumMismatch, []);
+
+  const corrupt = compareAthenaAuthLedgers(
+    [{ checksum: "deadbeef", version: 33 }],
+    expected
+  );
+  assert.equal(corrupt.compatible, false);
+  assert.equal(corrupt.direction, "history-diverged");
+  assert.deepEqual(corrupt.checksumMismatch, [33]);
+
+  const wrongVersion = compareAthenaAuthLedgers(
+    [{ checksum: ATHENA_570_033_CHECKSUM, version: 34 }],
+    [
+      {
+        checksum:
+          "c1a4b64c48205a33c3a51e5c036655ff527e084072e75fce525a8760b31366a4",
+        name: "034_email_failure_provenance",
+        version: 34,
+      },
+    ]
+  );
+  assert.equal(wrongVersion.compatible, false);
+  assert.equal(wrongVersion.direction, "history-diverged");
+  assert.deepEqual(wrongVersion.checksumMismatch, [34]);
+});
+
+test("T-schema-history: arbitrary migration 033 checksum is reported as schema drift", async () => {
+  const database = createLedgerDatabase([
+    { checksum: "deadbeef", name: "033_auth_signing_keys", version: 33 },
+  ]);
+  const status = await readAthenaAuthSchemaStatus(database);
+  assert.equal(status.compatible, false);
+  assert.equal(status.direction, "history-diverged");
+  assert.deepEqual(status.checksumMismatch, [33]);
+  await assert.rejects(
+    () => assertAthenaAuthSchemaCompatible(database),
+    (error: unknown) =>
+      error instanceof AthenaAuthRuntimeError &&
+      error.code === "ATHENA_AUTH_SCHEMA_DRIFT"
+  );
 });
 
 test("T-schema-history: committed manifest matches expected ledger checksums", () => {

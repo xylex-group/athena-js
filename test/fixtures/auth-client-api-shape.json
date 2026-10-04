@@ -736,6 +736,7 @@
           "cloneRole",
           "createRole",
           "deleteRole",
+          "getAuthoritySnapshot",
           "getRole",
           "getSnapshot",
           "listAudit",
@@ -764,6 +765,11 @@
             "arity": 2,
             "kind": "fn",
             "name": "deleteRole"
+          },
+          "getAuthoritySnapshot": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getAuthoritySnapshot"
           },
           "getRole": {
             "arity": 2,
@@ -2210,6 +2216,7 @@
               "cloneRole",
               "createRole",
               "deleteRole",
+              "getAuthoritySnapshot",
               "getRole",
               "getSnapshot",
               "listAudit",
@@ -2238,6 +2245,11 @@
                 "arity": 2,
                 "kind": "fn",
                 "name": "deleteRole"
+              },
+              "getAuthoritySnapshot": {
+                "arity": 2,
+                "kind": "fn",
+                "name": "getAuthoritySnapshot"
               },
               "getRole": {
                 "arity": 2,
@@ -2995,6 +3007,7 @@
           "cloneRole",
           "createRole",
           "deleteRole",
+          "getAuthoritySnapshot",
           "getRole",
           "getSnapshot",
           "listAudit",
@@ -3023,6 +3036,11 @@
             "arity": 2,
             "kind": "fn",
             "name": "deleteRole"
+          },
+          "getAuthoritySnapshot": {
+            "arity": 2,
+            "kind": "fn",
+            "name": "getAuthoritySnapshot"
           },
           "getRole": {
             "arity": 2,
@@ -3604,6 +3622,8 @@
     "AthenaAuthUpstreamError",
     "AthenaAuthUser",
     "AthenaAuthorizationAssignmentConflictError",
+    "AthenaAuthorizationAuthoritySnapshotInput",
+    "AthenaAuthorizationAuthoritySnapshotResponse",
     "AthenaAuthorizationRightDefinition",
     "AthenaAuthorizationRoleDetail",
     "AthenaAuthorizationServerClient",

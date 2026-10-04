@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { verifyAuthMigrationHistory } from "./verify-auth-migration-history.mjs";
 
 const pkgRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = dirname(dirname(pkgRoot));
@@ -143,6 +144,7 @@ function verifyAgainstGit(state) {
 }
 
 function main() {
+	verifyAuthMigrationHistory();
 	const write = process.argv.includes("--write");
 	const state = computeAuthSchemaReleaseState();
 	if (write) {

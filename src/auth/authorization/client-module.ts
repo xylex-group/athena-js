@@ -60,6 +60,21 @@ export function createAuthorizationModule(
         },
         options
       ),
+    getAuthoritySnapshot: (input, options) =>
+      request(
+        {
+          endpoint: "/authorization/authority-snapshot",
+          fetchOptions: input.fetchOptions,
+          method: "GET",
+          query: {
+            scope: input.scope,
+            ...(input.scope === "organization"
+              ? { organizationId: input.organizationId }
+              : {}),
+          },
+        },
+        options
+      ),
     getRole: (input, options) =>
       request(
         {

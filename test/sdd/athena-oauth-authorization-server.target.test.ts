@@ -16,10 +16,10 @@ const packageRoot = join(
 const source = (relativePath: string): string =>
   readFileSync(join(packageRoot, relativePath), "utf8");
 
-test("OAuth finality: Embedded Auth schema is allocated through migration 48", () => {
-  assert.equal(ATHENA_AUTH_SCHEMA_GENERATION, 48);
+test("OAuth finality: Embedded Auth schema includes migration 50", () => {
+  assert.equal(ATHENA_AUTH_SCHEMA_GENERATION, 50);
   const manifest = source("src/auth/local/schema-manifest.ts");
-  for (const version of [39, 40, 41, 42, 43, 44, 45, 46, 47, 48]) {
+  for (const version of [39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]) {
     assert.match(manifest, new RegExp(`\\b${version}\\s*:`));
   }
 });

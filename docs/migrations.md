@@ -248,6 +248,19 @@ transaction lock inside `migrateAthenaAuthSchema` / `repairAthenaAuthSchema`).
 Do not consolidate those ledgers: application SQL is project-owned; Auth
 generations are package-owned.
 
+Auth migration history is append-only across package releases. Release
+verification compares each released migration checksum with the previous
+release or base branch; new versions may be appended, while changing or
+removing an existing version fails the release gate. Athena JS 5.7.0 has one
+historical exception: migration 033 was accidentally released with checksum
+`044557ff8b79810d05e43f4fb9f0203e42b68ad0ea9c62c4e1c1970440a6b764`. The
+canonical migration is restored to the pre-5.7.0 issuer-only index and has
+checksum `483af951e47a72cdffb6b8a21f5878a1e9c2ce250079e7535bad35a47d5a1418`;
+runtime accepts the exact 5.7.0 checksum only for version 033. Existing
+database ledger rows are never rewritten. All other checksum mismatches remain
+schema drift, and users should run `athena-js migrate` without editing or
+repairing the Auth ledger.
+
 ```text
 athena-js migrate
        │

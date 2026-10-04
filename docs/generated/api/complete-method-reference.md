@@ -2,9 +2,9 @@
 
 Generated from Docs API IR (`docs/generated/api.v2.json`). Do not edit by hand.
 
-Package: `@xylex-group/athena@5.7.0`
+Package: `@xylex-group/athena@5.7.2`
 
-Total documented symbols: **5782**
+Total documented symbols: **5803**
 
 Regenerate with: `pnpm docs:generate`
 
@@ -31,7 +31,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `ATHENA_ADMIN_QUERY_MULTI_STATEMENT` | `"ATHENA_ADMIN_QUERY_MULTI_STATEMENT"` | — | — |
 | `ATHENA_AUTH_ADMIN_LIMITS` | `{ readonly maxAdminJsonBytes: number; readonly maxAdminJsonDepth: 8; readonly maxTemplateVariableLength: 128; readonly maxTemplateVariables: 64; }` | — | — |
 | `ATHENA_AUTH_BASE_ERROR_CODES` | `{ readonly HANDLER_NOT_CONFIGURED: "HANDLER_NOT_CONFIGURED"; readonly INVALID_BASE_URL: "INVALID_BASE_URL"; readonly UNTRUSTED_HOST: "UNTRUSTED_HOST"; }` | — | — |
-| `ATHENA_AUTH_DOMAIN_EVENTS` | `{ readonly "account.link": { readonly status: "implemented"; }; readonly "account.unlink": { readonly status: "implemented"; }; readonly "apiKey.create": { readonly status: "implemented"; }; readonly "apiKey.delete": { readonly status: "implemented"; }; readonly "apiKey.update": { readonly status: "implemented"; }; readonly "authorization.member.roles.replace": { readonly status: "implemented"; }; readonly "authorization.role.delete": { readonly status: "implemented"; }; readonly "organization.create": { readonly status: "implemented"; }; readonly "organization.delete": { readonly status: "implemented"; }; readonly "organization.invitation.accept": { readonly status: "implemented"; }; readonly "organization.invitation.cancel": { readonly status: "implemented"; }; readonly "organization.invitation.create": { readonly status: "implemented"; }; readonly "organization.invitation.reject": { readonly status: "implemented"; }; readonly "organization.member.add": { readonly status: "implemented"; }; readonly "organization.member.invite.reminder": { readonly status: "implemented"; }; readonly "organization.member.remove": { readonly status: "implemented"; }; readonly "organization.member.role.update": { readonly status: "implemented"; }; readonly "organization.update": { readonly status: "implemented"; }; readonly "oauth.authorization.denied": { readonly status: "implemented"; }; readonly "oauth.client.disabled": { readonly status: "implemented"; }; readonly "oauth.grant.authorized": { readonly status: "implemented"; }; readonly "oauth.grant.revoked": { readonly status: "implemented"; }; readonly "oauth.refresh.reuse_detected": { readonly status: "implemented"; }; readonly "oauth.refresh.rotated": { readonly status: "implemented"; }; readonly "passkey.delete": { readonly status: "implemented"; }; readonly "passkey.register": { readonly status: "implemented"; }; readonly "passkey.update": { readonly status: "implemented"; }; readonly "session.activeOrganization.update": { readonly status: "implemented"; }; readonly "session.impersonation.end": { readonly status: "implemented"; }; readonly "session.impersonation.start": { readonly status: "implemented"; }; readonly "session.issue": { readonly status: "implemented"; }; readonly "session.revoke": { readonly status: "implemented"; }; readonly "twoFactor.disable": { readonly status: "implemented"; }; readonly "twoFactor.enable": { readonly status: "implemented"; }; readonly "user.ban": { readonly status: "implemented"; }; readonly "user.create": { readonly status: "implemented"; }; readonly "user.delete": { readonly status: "implemented"; }; readonly "user.email.update": { readonly status: "implemented"; }; readonly "user.email.verify": { readonly status: "implemented"; }; readonly "user.password.change": { readonly status: "implemented"; }; readonly "user.password.reset": { readonly status: "implemented"; }; readonly "user.role.update": { readonly status: "implemented"; }; readonly "user.security.alert": { readonly status: "implemented"; }; readonly "user.sign-in.email": { readonly status: "implemented"; }; readonly "user.sign-in.social": { readonly status: "implemented"; }; readonly "user.unban": { readonly status: "implemented"; }; readonly "user.update": { readonly status: "implemented"; }; readonly "identity.connection.create": { readonly status: "implemented"; }; readonly "identity.connection.update": { readonly status: "implemented"; }; readonly "identity.connection.disable": { readonly status: "implemented"; }; }` | — | Domain lifecycle events for embedded Auth. Status is mechanical: only `implemented` keys are hookable. Flip status in the same change that migrates the handler through `executeAuthMutation`. |
+| `ATHENA_AUTH_DOMAIN_EVENTS` | `{ readonly "account.link": { readonly status: "implemented"; }; readonly "account.unlink": { readonly status: "implemented"; }; readonly "apiKey.create": { readonly status: "implemented"; }; readonly "apiKey.delete": { readonly status: "implemented"; }; readonly "apiKey.update": { readonly status: "implemented"; }; readonly "authorization.member.roles.replace": { readonly status: "implemented"; }; readonly "authorization.user.roles.replace": { readonly status: "implemented"; }; readonly "authorization.role.create": { readonly status: "implemented"; }; readonly "authorization.role.update": { readonly status: "implemented"; }; readonly "authorization.role.rights.replace": { readonly status: "implemented"; }; readonly "authorization.role.delete": { readonly status: "implemented"; }; readonly "organization.create": { readonly status: "implemented"; }; readonly "organization.delete": { readonly status: "implemented"; }; readonly "organization.invitation.accept": { readonly status: "implemented"; }; readonly "organization.invitation.cancel": { readonly status: "implemented"; }; readonly "organization.invitation.create": { readonly status: "implemented"; }; readonly "organization.invitation.reject": { readonly status: "implemented"; }; readonly "organization.member.add": { readonly status: "implemented"; }; readonly "organization.member.invite.reminder": { readonly status: "implemented"; }; readonly "organization.member.remove": { readonly status: "implemented"; }; readonly "organization.member.role.update": { readonly status: "implemented"; }; readonly "organization.update": { readonly status: "implemented"; }; readonly "oauth.authorization.denied": { readonly status: "implemented"; }; readonly "oauth.client.disabled": { readonly status: "implemented"; }; readonly "oauth.grant.authorized": { readonly status: "implemented"; }; readonly "oauth.grant.revoked": { readonly status: "implemented"; }; readonly "oauth.refresh.reuse_detected": { readonly status: "implemented"; }; readonly "oauth.refresh.rotated": { readonly status: "implemented"; }; readonly "passkey.delete": { readonly status: "implemented"; }; readonly "passkey.register": { readonly status: "implemented"; }; readonly "passkey.update": { readonly status: "implemented"; }; readonly "session.activeOrganization.update": { readonly status: "implemented"; }; readonly "session.impersonation.end": { readonly status: "implemented"; }; readonly "session.impersonation.start": { readonly status: "implemented"; }; readonly "session.issue": { readonly status: "implemented"; }; readonly "session.revoke": { readonly status: "implemented"; }; readonly "twoFactor.disable": { readonly status: "implemented"; }; readonly "twoFactor.enable": { readonly status: "implemented"; }; readonly "user.ban": { readonly status: "implemented"; }; readonly "user.create": { readonly status: "implemented"; }; readonly "user.delete": { readonly status: "implemented"; }; readonly "user.email.update": { readonly status: "implemented"; }; readonly "user.email.verify": { readonly status: "implemented"; }; readonly "user.password.change": { readonly status: "implemented"; }; readonly "user.password.reset": { readonly status: "implemented"; }; readonly "user.role.update": { readonly status: "implemented"; }; readonly "user.security.alert": { readonly status: "implemented"; }; readonly "user.sign-in.email": { readonly status: "implemented"; }; readonly "user.sign-in.social": { readonly status: "implemented"; }; readonly "user.unban": { readonly status: "implemented"; }; readonly "user.update": { readonly status: "implemented"; }; readonly "identity.connection.create": { readonly status: "implemented"; }; readonly "identity.connection.update": { readonly status: "implemented"; }; readonly "identity.connection.disable": { readonly status: "implemented"; }; }` | — | Domain lifecycle events for embedded Auth. Status is mechanical: only `implemented` keys are hookable. Flip status in the same change that migrates the handler through `executeAuthMutation`. |
 | `ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT` | `AthenaAuthCapabilitiesResult` | — | Default advertisement: implementation support, operator passkeys off. |
 | `ATHENA_AUTH_IMPLEMENTED_DOMAIN_EVENTS` | `AthenaAuthImplementedDomainEvent[]` | — | — |
 | `ATHENA_AUTH_MAX_ADMIN_JSON_BYTES` | `number` | — | — |
@@ -40,6 +40,8 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `ATHENA_AUTH_MAX_TEMPLATE_VARIABLES` | `64` | — | — |
 | `ATHENA_AUTH_RESERVED_DOMAIN_EVENTS` | `never[]` | — | — |
 | `ATHENA_AUTHORIZATION_SNAPSHOT_INVALID` | `"ATHENA_AUTHORIZATION_SNAPSHOT_INVALID"` | — | — |
+| `ATHENA_AUTHORIZATION_SNAPSHOT_IR_KIND` | `"athena.authorization.snapshot"` | — | — |
+| `ATHENA_AUTHORIZATION_SNAPSHOT_IR_VERSION` | `1` | — | — |
 | `ATHENA_EMAIL_DELIVERY_FAILED` | `"ATHENA_EMAIL_DELIVERY_FAILED"` | — | — |
 | `ATHENA_EMAIL_MESSAGE_INVALID` | `"ATHENA_EMAIL_MESSAGE_INVALID"` | — | — |
 | `ATHENA_EMAIL_PROVIDER_INVALID` | `"ATHENA_EMAIL_PROVIDER_INVALID"` | — | — |
@@ -59,6 +61,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `ATHENA_ROUTE_MANIFEST` | `readonly AthenaRouteDescriptor[]` | — | Inventory sourced from docs/release/athena-5-route-manifest.json (gateway + health). Keep in sync when the monorepo manifest changes. |
 | `ATHENA_SCHEMA_SNAPSHOT_VERSION` | `1` | — | Snapshot IR version. Bump only on breaking shape changes. |
 | `ATHENA_TABLE_SCHEMA_ROUTE` | `"/api/tables/schema"` | — | Default path for the table schema catalog App Router route. |
+| `AthenaAccessGrant` | `any` | — | — |
 | `AthenaAdminEmailCreateRequest` | `any` | — | — |
 | `AthenaAdminEmailDeleteRequest` | `any` | — | — |
 | `AthenaAdminEmailEventTypeListResponse` | `any` | — | — |
@@ -147,6 +150,9 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `AthenaAuthOrganizationBindings` | `any` | — | — |
 | `AthenaAuthOrganizationInvitation` | `any` | — | — |
 | `AthenaAuthOrganizationMember` | `any` | — | — |
+| `AthenaAuthorizationAssignmentProvenance` | `any` | — | — |
+| `AthenaAuthorizationAuthoritySnapshotInput` | `any` | — | — |
+| `AthenaAuthorizationAuthoritySnapshotResponse` | `any` | — | — |
 | `AthenaAuthorizationRightDefinition` | `any` | — | — |
 | `AthenaAuthorizationRoleDetail` | `any` | — | — |
 | `AthenaAuthorizationServerClient` | `any` | — | — |
@@ -163,6 +169,12 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `AthenaAuthorizationServerGrantListResponse` | `any` | — | — |
 | `AthenaAuthorizationServerGrantRevokeRequest` | `any` | — | — |
 | `AthenaAuthorizationServerGrantRevokeResponse` | `any` | — | — |
+| `AthenaAuthorizationSnapshotAssignment` | `any` | — | — |
+| `AthenaAuthorizationSnapshotIr` | `any` | — | — |
+| `AthenaAuthorizationSnapshotIrValidationError` | `typeof AthenaAuthorizationSnapshotIrValidationError` | — | — |
+| `AthenaAuthorizationSnapshotMetadata` | `any` | — | — |
+| `AthenaAuthorizationSnapshotScope` | `any` | — | — |
+| `AthenaAuthorizationSnapshotSubject` | `any` | — | — |
 | `AthenaAuthPlugin` | `any` | — | — |
 | `AthenaAuthPluginContext` | `any` | — | — |
 | `AthenaAuthPluginHandlerContext` | `any` | — | — |
@@ -587,6 +599,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `AuthBindings` | `any` | — | Bindings surface of `createClient().auth`. |
 | `authEmailEvents` | `{ readonly organization: { readonly created: "organization.create"; readonly member: { readonly added: "organization.member.added"; readonly invite: "organization.member.invite"; readonly inviteReminder: "organization.member.invite.reminder"; readonly inviteRevoked: "organization.member.invite.revoked"; readonly removed: "organization.member.removed"; readonly roleUpdated: "organization.member.role.updated"; }; }; readonly user: { readonly account: { readonly deletionConfirmation: "user.account.delete.confirmation"; }; readonly email: { readonly changeConfirmation: "user.email.change.confirmation"; readonly verify: "user.email.verify"; }; readonly password: { readonly changed: "user.password.changed"; readonly reset: "user.password.reset"; }; readonly security: { readonly alert: "user.security.alert"; }; readonly signIn: { readonly email: "user.sign-in.email"; readonly otp: "user.sign-in.otp"; }; readonly signUp: { readonly welcome: "user.sign-up.welcome"; }; }; }` | — | — |
 | `AuthOAuthProvider` | `any` | — | OAuth-only provider id (excludes SAML SSO). Use for pure OAuth link/token flows where SAML is not valid. |
+| `AuthorizationAuthorityVersion` | `any` | — | — |
 | `AuthorizationCapabilities` | `any` | — | — |
 | `AuthorizationSnapshot` | `any` | — | — |
 | `AuthorizationSnapshotInvalidError` | `typeof AuthorizationSnapshotInvalidError` | — | — |
@@ -620,6 +633,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `buildAthenaTableSelectString` | `(columns: readonly AthenaReadQueryColumn[]) => string` | — | Deprecated: Prefer {@link buildAthenaReadQuerySelectString }. |
 | `buildCompatibilityReportFromHealth` | `(healthBody: unknown, options?: { discovered?: boolean; }) => AthenaCompatibilityReport` | — | Build a report from a health payload without network I/O. |
 | `buildUndiscoveredCompatibilityReport` | `() => AthenaCompatibilityReport` | — | Conservative offline report when health discovery fails or is skipped. |
+| `canonicalizeAthenaAuthorizationSnapshotIr` | `(value: unknown) => AthenaAuthorizationSnapshotIr` | — | — |
 | `canonicalizeAthenaValue` | `(value: unknown, seen?: WeakSet<object>) => string` | — | — |
 | `capabilitiesFromRights` | `(rights: readonly AthenaRightKey[]) => AuthorizationCapabilities` | — | Deprecated: Use authorizationAffordancesFromRights for new code. |
 | `chatSdkManifest` | `{ readonly basePath: "/chat"; readonly methods: readonly [{ readonly method: "GET"; readonly name: "listRooms"; readonly path: "/chat/rooms"; }, { readonly method: "POST"; readonly name: "createRoom"; readonly path: "/chat/rooms"; }, { readonly method: "POST"; readonly name: "resolveDirectRoom"; readonly path: "/chat/rooms/direct/resolve"; }, { readonly method: "GET"; readonly name: "getRoom"; readonly path: "/chat/rooms/{room_id}"; }, { readonly method: "PATCH"; readonly name: "updateRoom"; readonly path: "/chat/rooms/{room_id}"; }, { readonly method: "POST"; readonly name: "archiveRoom"; readonly path: "/chat/rooms/{room_id}/archive"; }, { readonly method: "GET"; readonly name: "listRoomMessages"; readonly path: "/chat/rooms/{room_id}/messages"; }, { readonly method: "POST"; readonly name: "sendRoomMessage"; readonly path: "/chat/rooms/{room_id}/messages"; }, { readonly method: "PATCH"; readonly name: "updateRoomMessage"; readonly path: "/chat/rooms/{room_id}/messages/{message_id}"; }, { readonly method: "DELETE"; readonly name: "deleteRoomMessage"; readonly path: "/chat/rooms/{room_id}/messages/{message_id}"; }, { readonly method: "POST"; readonly name: "advanceReadCursor"; readonly path: "/chat/rooms/{room_id}/read-cursor"; }, { readonly method: "GET"; readonly name: "listRoomMembers"; readonly path: "/chat/rooms/{room_id}/members"; }, { readonly method: "POST"; readonly name: "addRoomMembers"; readonly path: "/chat/rooms/{room_id}/members"; }, { readonly method: "DELETE"; readonly name: "removeRoomMember"; readonly path: "/chat/rooms/{room_id}/members/{user_id}"; }, { readonly method: "PATCH"; readonly name: "updateRoomMemberRole"; readonly path: "/chat/rooms/{room_id}/members/{user_id}"; }, { readonly method: "POST"; readonly name: "addReaction"; readonly path: "/chat/messages/{message_id}/reactions"; }, { readonly method: "DELETE"; readonly name: "removeReaction"; readonly path: "/chat/messages/{message_id}/reactions/{emoji}"; }, { readonly method: "POST"; readonly name: "searchMessages"; readonly path: "/chat/messages/search"; }, { readonly method: "GET"; readonly name: "getRealtimeInfo"; readonly path: "/wss/info"; }, { readonly method: "GET"; readonly name: "connectRealtime"; readonly path: "/wss/gateway"; }]; readonly namespace: "chat"; }` | — | — |
@@ -710,6 +724,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `FileVisibility` | `any` | — | — |
 | `filterIntrospectionSnapshot` | `(snapshot: IntrospectionSnapshot, filter: NormalizedGeneratorFilterConfig) => IntrospectionSnapshot` | — | — |
 | `findGeneratorConfigPath` | `(cwd?: string) => string \| undefined` | — | Finds a supported generator config filename in the provided directory. |
+| `fingerprintAthenaAuthorizationSnapshotIr` | `(value: unknown) => string` | — | — |
 | `flattenAthenaReadQueryRows` | `(rows: readonly unknown[], columns: readonly AthenaReadQueryColumn[], preferredKey: string \| undefined) => AthenaReadQueryFlatRow[]` | — | — |
 | `flattenAthenaRows` | `(rows: readonly unknown[], columns: readonly AthenaReadQueryColumn[], preferredKey: string \| undefined) => AthenaReadQueryFlatRow[]` | — | Deprecated: Prefer {@link flattenAthenaReadQueryRows }. |
 | `flattenAuthEmailEvents` | `(tree: unknown, acc?: string[]) => string[]` | — | — |
@@ -869,6 +884,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `PostgresIntrospectionProviderOptions` | `any` | — | Constructor options for the PostgreSQL introspection provider. |
 | `PresignedFileUrlResponse` | `any` | — | — |
 | `primaryKeysEqual` | `(a: SchemaPrimaryKey \| null, b: SchemaPrimaryKey \| null) => boolean` | — | — |
+| `projectAthenaAccessGrantsFromAuthorizationSnapshot` | `(value: AthenaAuthorizationSnapshotIr) => readonly AthenaAccessGrant[]` | — | — |
 | `PublicStorageConnectionConfig` | `any` | — | — |
 | `readQueryDefinitionFromDescriptor` | `(descriptor: AthenaQueryDescriptor) => AthenaReadQueryDefinition` | — | — |
 | `RegistryDef` | `any` | — | Top-level registry keyed by logical database names. |
@@ -1065,6 +1081,7 @@ Runtime: node, browser. Source: `src/index.ts`.
 | `UpdateStorageCatalogRequest` | `any` | — | — |
 | `UpdateStorageFileRequest` | `any` | — | — |
 | `UploadManagedFileInput` | `any` | — | — |
+| `validateAthenaAuthorizationSnapshotIr` | `(value: unknown) => AthenaAuthorizationSnapshotIr` | — | — |
 | `validateSchemaSnapshot` | `(snapshot: AthenaSchemaSnapshot) => void` | — | Fail-closed validation of snapshot invariants before diffing. Does not require FK targets to exist (cross-boundary / unmanaged targets allowed). |
 | `verifyAthenaGatewayUrl` | `(baseUrl: string, options?: AthenaGatewayConnectionOptions) => Promise<AthenaGatewayConnectionResult>` | — | — |
 | `withGeneratedFileBanner` | `(content: string, options?: RenderGeneratedFileHeaderOptions) => string` | — | Ensure content starts with exactly one canonical Athena generated header. Idempotent across legacy and current wording (never stacks duplicates). |
@@ -1081,7 +1098,7 @@ Runtime: node. Source: `src/auth/server-entry.ts`.
 | `ATHENA_AUTH_DEFAULT_ARGON2` | `AthenaAuthArgon2Params` | — | Rust `Argon2Config::default()` — 1 MiB, 2 iterations, 1 lane, Argon2id v19. |
 | `ATHENA_AUTH_LATEST_MIGRATION` | `AthenaAuthCanonicalMigration` | — | — |
 | `ATHENA_AUTH_OPERATIONS` | `AthenaAuthGeneratedOperationDefinition[]` | — | — |
-| `ATHENA_AUTH_SCHEMA_GENERATION` | `48` | — | Browser-safe Embedded Auth schema generation. SQL catalog stays in `migrations.ts` (Node / CLI). This number must equal the maximum `version` in that catalog; `migrations.ts` fail-closes on mismatch. |
+| `ATHENA_AUTH_SCHEMA_GENERATION` | `50` | — | Browser-safe Embedded Auth schema generation. SQL catalog stays in `migrations.ts` (Node / CLI). This number must equal the maximum `version` in that catalog; `migrations.ts` fail-closes on mismatch. |
 | `ATHENA_AUTH_SESSION_COOKIE_NAME` | `"athena-auth.session-token"` | — | Rust default session cookie name (`AuthConfig.session.cookie_name`). |
 | `AthenaAuthGeneratedOperationDefinition` | `any` | — | — |
 | `AthenaAuthHttpHandlers` | `any` | — | — |
@@ -1391,6 +1408,7 @@ Runtime: browser. Source: `src/browser.ts`.
 | `athena.auth.authorization.cloneRole` | `(input: AthenaAuthCloneRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.createRole` | `(input: AthenaAuthCreateRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.deleteRole` | `(input: AthenaAuthDeleteRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
+| `athena.auth.authorization.getAuthoritySnapshot` | `(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>` | — | — |
 | `athena.auth.authorization.getRole` | `(input: AthenaAuthGetRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.getSnapshot` | `(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.listAudit` | `(input?: { query?: Record<string, AthenaAuthQueryValue>; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
@@ -3116,6 +3134,7 @@ Runtime: browser. Source: `src/next/client.ts`.
 | `athena.auth.authorization.cloneRole` | `(input: AthenaAuthCloneRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.createRole` | `(input: AthenaAuthCreateRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.deleteRole` | `(input: AthenaAuthDeleteRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
+| `athena.auth.authorization.getAuthoritySnapshot` | `(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>` | — | — |
 | `athena.auth.authorization.getRole` | `(input: AthenaAuthGetRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.getSnapshot` | `(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.listAudit` | `(input?: { query?: Record<string, AthenaAuthQueryValue>; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
@@ -4312,6 +4331,7 @@ Runtime: node. Source: `src/server.ts`.
 | `athena.auth.authorization.cloneRole` | `(input: AthenaAuthCloneRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.createRole` | `(input: AthenaAuthCreateRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.deleteRole` | `(input: AthenaAuthDeleteRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
+| `athena.auth.authorization.getAuthoritySnapshot` | `(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>` | — | — |
 | `athena.auth.authorization.getRole` | `(input: AthenaAuthGetRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.getSnapshot` | `(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.listAudit` | `(input?: { query?: Record<string, AthenaAuthQueryValue>; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
@@ -5091,6 +5111,7 @@ Runtime: react-native. Source: `src/react-native/index.ts`.
 | `athena.auth.authorization.cloneRole` | `(input: AthenaAuthCloneRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.createRole` | `(input: AthenaAuthCreateRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.deleteRole` | `(input: AthenaAuthDeleteRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
+| `athena.auth.authorization.getAuthoritySnapshot` | `(input: AthenaAuthorizationAuthoritySnapshotInput & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthorizationAuthoritySnapshotResponse>>` | — | — |
 | `athena.auth.authorization.getRole` | `(input: AthenaAuthGetRoleRequest & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.getSnapshot` | `(input?: AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |
 | `athena.auth.authorization.listAudit` | `(input?: { query?: Record<string, AthenaAuthQueryValue>; } & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<unknown>>` | — | — |

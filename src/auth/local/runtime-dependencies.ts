@@ -127,6 +127,7 @@ export type AuthRuntimeEmitMail = (
 ) => ReturnType<typeof emitAuthEmail>;
 
 export interface AuthRuntimeDependencies {
+  authorizationAssignmentsSupported: boolean;
   bridgeCodeStore: AuthBridgeCodeStore;
   close(): Promise<void>;
   config: NormalizedAthenaAuthConfig;
@@ -286,6 +287,8 @@ export function createRuntimeDependencies(
   const hasExternalDatabase = Boolean(options.database);
   const rawMemoryStores =
     options.stores ?? (options.database ? undefined : new MemoryAuthStores());
+  const authorizationAssignmentsSupported =
+    !(rawMemoryStores instanceof SqliteAuthStores);
   const memoryStores =
     rawMemoryStores && !hasExternalDatabase
       ? instrumentAuthStoreMethods(rawMemoryStores)
@@ -926,6 +929,7 @@ export function createRuntimeDependencies(
   };
 
   return {
+    authorizationAssignmentsSupported,
     bridgeCodeStore,
     close: async () => {
       if (ownsDatabase) {

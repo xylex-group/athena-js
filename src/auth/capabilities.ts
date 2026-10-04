@@ -27,6 +27,7 @@ export interface AthenaAuthPasskeyCapabilityDetail {
 }
 
 export interface AthenaAuthCapabilitiesFeatures {
+  authorizationAssignments?: boolean | null;
   emailAndPassword?: boolean | null;
   organizations?: boolean | null;
   passkey?: AthenaAuthPasskeyCapabilityDetail | null;
@@ -82,6 +83,8 @@ const EMPTY_UNKNOWN: AthenaAuthCapabilitiesResult = {
 };
 
 export interface CreateEmbeddedCapabilitySnapshotOptions {
+  /** Canonical role assignment persistence is not available on SQLite Auth. */
+  authorizationAssignments?: boolean;
   /**
    * Operator intent (`auth.passkey.enabled`). Implementation support is
    * derived from the operation catalog; this flag is runtime enablement.
@@ -112,6 +115,7 @@ export function createEmbeddedCapabilitySnapshot(
   );
   const enabled = implementation.passkeys && options.passkeyEnabled === true;
   return {
+    authorizationAssignments: options.authorizationAssignments !== false,
     emailAndPassword: true,
     organizations: true,
     passkey: {

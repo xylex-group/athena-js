@@ -1,3 +1,5 @@
+import { mapLegacyUserRole } from "../../runtime/authorization/templates.ts";
+import type { AthenaAuthorizationAssignmentSource } from "../../runtime/authorization/assignment-snapshot.ts";
 import type { AthenaAuthDatabase } from "./database.ts";
 import { MemoryAuthStores } from "./memory-stores.ts";
 import { ATHENA_AUTH_SQLITE_SCHEMA } from "./sqlite-schema.ts";
@@ -26,11 +28,42 @@ function flag(value: boolean | number | null | undefined): number {
   return value ? 1 : 0;
 }
 
+function memberRoleSource(input: {
+  sourceId: string | null;
+  sourceKind: string | null;
+}): AthenaAuthorizationAssignmentSource | undefined {
+  if (input.sourceId == null && input.sourceKind == null) {
+    return;
+  }
+  if (
+    input.sourceKind !== "identity_connection" ||
+    input.sourceId == null ||
+    input.sourceId.trim().length === 0
+  ) {
+    throw new Error("ATHENA_AUTH_INVALID_MEMBER_ROLE_SOURCE");
+  }
+  return { sourceId: input.sourceId, sourceKind: input.sourceKind };
+}
+
 export async function applyAthenaAuthSqliteSchema(
   database: AthenaAuthDatabase,
 ): Promise<void> {
   for (const sql of ATHENA_AUTH_SQLITE_SCHEMA) {
     await database.query(sql);
+  }
+  const memberRoleColumns = await database.query<{ name: string }>(
+    "PRAGMA table_info(athena_auth_member_role)",
+  );
+  const existingColumns = new Set(memberRoleColumns.rows.map(({ name }) => name));
+  for (const [column, definition] of [
+    ["source_kind", "TEXT"],
+    ["source_id", "TEXT"],
+  ] as const) {
+    if (!existingColumns.has(column)) {
+      await database.query(
+        `ALTER TABLE athena_auth_member_role ADD COLUMN ${column} ${definition}`,
+      );
+    }
   }
 }
 
@@ -41,6 +74,20 @@ export async function applyAthenaAuthSqliteSchema(
 export class SqliteAuthStores extends MemoryAuthStores {
   constructor(private readonly database: AthenaAuthDatabase) {
     super();
+  }
+
+  async transaction<T>(
+    fn: (stores: SqliteAuthStores) => Promise<T>
+  ): Promise<T> {
+    return this.database.transaction((database) =>
+      fn(this.withDatabase(database))
+    );
+  }
+
+  private withDatabase(database: AthenaAuthDatabase): SqliteAuthStores {
+    const stores = Object.create(this) as SqliteAuthStores;
+    Object.defineProperty(stores, "database", { value: database });
+    return stores;
   }
 
   static async connect(database: AthenaAuthDatabase): Promise<SqliteAuthStores> {
@@ -126,15 +173,26 @@ export class SqliteAuthStores extends MemoryAuthStores {
     const memberRoles = await this.database.query<{
       member_id: string;
       role_key: string;
-    }>("SELECT member_id, role_key FROM athena_auth_member_role");
+      source_id: string | null;
+      source_kind: AthenaAuthorizationAssignmentSource["sourceKind"] | null;
+    }>(
+      `SELECT member_id, role_key, source_kind, source_id
+       FROM athena_auth_member_role`,
+    );
     for (const row of memberRoles.rows) {
       const member = this.members.get(row.member_id);
+      const source = memberRoleSource({
+        sourceId: row.source_id,
+        sourceKind: row.source_kind,
+      });
       try {
         await this.authorization.assignMemberRole(
           row.member_id,
           row.role_key,
           undefined,
           member?.organization_id,
+          member?.user_id,
+          source,
         );
       } catch {
         // Same catalog boundary as user roles.
@@ -161,6 +219,10 @@ export class SqliteAuthStores extends MemoryAuthStores {
         iso(row.created_at),
         iso(row.updated_at),
       ],
+    );
+    await this.database.query(
+      `INSERT INTO athena_auth_user_role (user_id, role_key) VALUES (?, ?)`,
+      [row.id, mapLegacyUserRole(row.role)]
     );
     return row;
   }
@@ -269,6 +331,7 @@ export class SqliteAuthStores extends MemoryAuthStores {
     assignedBy?: string;
     id: string;
     organizationId: string;
+    provisioningSource?: AthenaAuthorizationAssignmentSource;
     role: string;
     userId: string;
   }): Promise<AuthMemberRow> {
@@ -280,8 +343,15 @@ export class SqliteAuthStores extends MemoryAuthStores {
       [row.id, row.organization_id, row.user_id, row.role, iso(row.created_at)],
     );
     await this.database.query(
-      `INSERT INTO athena_auth_member_role (member_id, role_key) VALUES (?, ?)`,
-      [row.id, row.role],
+      `INSERT INTO athena_auth_member_role (
+        member_id, role_key, source_kind, source_id
+      ) VALUES (?, ?, ?, ?)`,
+      [
+        row.id,
+        row.role,
+        input.provisioningSource?.sourceKind ?? null,
+        input.provisioningSource?.sourceId ?? null,
+      ],
     );
     return row;
   }

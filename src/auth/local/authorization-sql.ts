@@ -175,3 +175,40 @@ ALTER TABLE athena.authorization_member_roles
 CREATE INDEX IF NOT EXISTS idx_authorization_member_roles_member
     ON athena.authorization_member_roles (member_id);
 `;
+
+/** Embedded Auth generation 49 — initialize every organization revision. */
+export const ATHENA_AUTHORIZATION_REVISION_BACKFILL_SQL = `
+INSERT INTO athena.authorization_revisions (scope_kind, organization_id, revision)
+SELECT 'organization', organization.id, 1
+FROM athena.organization AS organization
+ON CONFLICT (organization_id) WHERE organization_id IS NOT NULL DO NOTHING;
+`;
+
+/** Embedded Auth generation 50 — member assignment provisioning provenance. */
+export const ATHENA_AUTHORIZATION_ASSIGNMENT_PROVENANCE_SQL = `
+ALTER TABLE athena.authorization_member_roles
+    ADD COLUMN IF NOT EXISTS source_kind TEXT;
+ALTER TABLE athena.authorization_member_roles
+    ADD COLUMN IF NOT EXISTS source_id TEXT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'athena.authorization_member_roles'::regclass
+          AND conname = 'authorization_member_roles_source_check'
+    ) THEN
+        ALTER TABLE athena.authorization_member_roles
+            ADD CONSTRAINT authorization_member_roles_source_check CHECK (
+                (source_kind IS NULL AND source_id IS NULL)
+                OR (
+                    source_kind IS NOT NULL
+                    AND source_kind = 'identity_connection'
+                    AND source_id IS NOT NULL
+                    AND btrim(source_id) <> ''
+                )
+            );
+    END IF;
+END;
+$$;
+`;

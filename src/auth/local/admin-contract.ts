@@ -71,7 +71,8 @@ export interface AthenaAuthAdminStore {
     input: AthenaAuthAdminCreateUserInput & {
       id: string;
       metadata?: Record<string, unknown>;
-    }
+    },
+    assignedBy?: string
   ): Promise<AuthUserRow>;
   deleteSession(token: string): Promise<boolean>;
   deleteUser(userId: string): Promise<boolean>;
@@ -81,7 +82,10 @@ export interface AthenaAuthAdminStore {
   listUsers(
     input: AthenaAuthAdminListUsersInput
   ): Promise<AthenaAuthAdminListUsersResult>;
-  updateUser(input: AthenaAuthAdminUpdateUserInput): Promise<AuthUserRow>;
+  updateUser(
+    input: AthenaAuthAdminUpdateUserInput,
+    assignedBy?: string
+  ): Promise<AuthUserRow>;
 }
 
 export const ATHENA_AUTH_ADMIN_ROLES = [

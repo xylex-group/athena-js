@@ -1,3 +1,9 @@
+import {
+  AUTHORIZATION_CATALOG_VERSION,
+  authorizationRightsFingerprint,
+  authorizationRolesFingerprint,
+} from "./catalog-state.ts";
+
 declare const platformAssignmentRevisionBrand: unique symbol;
 declare const organizationAssignmentRevisionBrand: unique symbol;
 
@@ -9,6 +15,18 @@ export type OrganizationAssignmentRevision = number & {
   readonly [organizationAssignmentRevisionBrand]: true;
 };
 
+export interface AuthorizationAuthorityVersion {
+  readonly assignmentRevision: number;
+  readonly catalogVersion: number;
+  readonly rightsFingerprint: string;
+  readonly rolesFingerprint: string;
+}
+
+export interface AthenaAuthorizationAssignmentSource {
+  readonly sourceId: string;
+  readonly sourceKind: "identity_connection";
+}
+
 export interface PlatformUserRoleAssignment {
   readonly roleIds: readonly string[];
   readonly userId: string;
@@ -16,6 +34,7 @@ export interface PlatformUserRoleAssignment {
 
 export interface PlatformUserAssignmentSnapshot {
   readonly assignments: readonly PlatformUserRoleAssignment[];
+  readonly authorityVersion: AuthorizationAuthorityVersion;
   readonly revision: PlatformAssignmentRevision;
 }
 
@@ -27,8 +46,20 @@ export interface OrganizationMemberRoleAssignment {
 
 export interface OrganizationMemberAssignmentSnapshot {
   readonly assignments: readonly OrganizationMemberRoleAssignment[];
+  readonly authorityVersion: AuthorizationAuthorityVersion;
   readonly organizationId: string;
   readonly revision: OrganizationAssignmentRevision;
+}
+
+export function createAuthorizationAuthorityVersion(
+  assignmentRevision: number
+): AuthorizationAuthorityVersion {
+  return Object.freeze({
+    assignmentRevision,
+    catalogVersion: AUTHORIZATION_CATALOG_VERSION,
+    rightsFingerprint: authorizationRightsFingerprint(),
+    rolesFingerprint: authorizationRolesFingerprint(),
+  });
 }
 
 export function asPlatformAssignmentRevision(

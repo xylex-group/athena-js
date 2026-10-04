@@ -10,6 +10,7 @@
     "GET /authorization/assignments/members",
     "GET /authorization/assignments/users",
     "GET /authorization/audit",
+    "GET /authorization/authority-snapshot",
     "GET /authorization/grants",
     "GET /authorization/rights",
     "GET /authorization/roles",
@@ -47,7 +48,7 @@
     "PUT /authorization/assignments/users/{userId}",
     "PUT /authorization/roles/{id}/rights"
   ],
-  "generatedAt": "2026-10-02T14:02:43.958Z",
+  "generatedAt": "2026-10-04T10:01:19.792Z",
   "local": [
     "DELETE /authorization/roles/{id}",
     "GET /.well-known/jwks.json",
@@ -71,6 +72,7 @@
     "GET /authorization/assignments/members",
     "GET /authorization/assignments/users",
     "GET /authorization/audit",
+    "GET /authorization/authority-snapshot",
     "GET /authorization/grants",
     "GET /authorization/rights",
     "GET /authorization/roles",
@@ -191,7 +193,7 @@
     "PUT /authorization/assignments/users/{userId}",
     "PUT /authorization/roles/{id}/rights"
   ],
-  "localCount": 141,
+  "localCount": 142,
   "missingInLocal": [
     "DELETE /delete-user",
     "GET /delete-user/callback"
@@ -208,7 +210,7 @@
     "GET /schema-debug",
     "GET /schema-debug.html"
   ],
-  "operationCount": 186,
+  "operationCount": 187,
   "operations": [
     {
       "auth": "session",
@@ -871,6 +873,25 @@
       "mutation": false,
       "operation": "authorization.audit",
       "path": "/authorization/audit",
+      "rust": "unsupported",
+      "runtimes": {
+        "dedicated": "unsupported",
+        "embedded": "supported"
+      },
+      "sdkEndpoint": "known",
+      "sdkBindingRequired": true
+    },
+    {
+      "auth": "session",
+      "capability": "sessions",
+      "availability": "embedded-only",
+      "embedded": "supported",
+      "id": "authorization.authoritySnapshot",
+      "lifecycle": "canonical",
+      "method": "GET",
+      "mutation": false,
+      "operation": "authorization.authoritySnapshot",
+      "path": "/authorization/authority-snapshot",
       "rust": "unsupported",
       "runtimes": {
         "dedicated": "unsupported",
@@ -4034,5 +4055,5 @@
     "/admin/rights/sync-billing",
     "/admin/rights/sync-source"
   ],
-  "sdkPathCount": 136
+  "sdkPathCount": 137
 }
