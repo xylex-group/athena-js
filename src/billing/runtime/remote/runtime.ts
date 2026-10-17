@@ -1,4 +1,4 @@
-import { AthenaBillingCapabilityError } from "../../errors.ts";
+import { AthenaBillingCapabilityError, AthenaBillingError } from "../../errors.ts";
 import { prepareBillingCommand } from "../../safety/prepare.ts"; // src/billing/safety
 import type {
   BillingCancelPaymentInput,
@@ -50,6 +50,8 @@ import type {
   BillingWebhook,
 } from "../../types.ts";
 import { createUnavailableBillingAdminPort } from "../admin/unavailable.ts";
+import type { BillingInventoryPage } from "../admin/inventory-query.ts";
+import type { BillingInventoryPresetId } from "../admin/inventory-presets.ts";
 import type { BillingCapabilities } from "../capabilities.ts";
 import type { AthenaBillingRuntimeDispatch } from "../dispatch.ts";
 import { invokeBillingRuntimePort } from "../dispatch.ts";
@@ -184,9 +186,53 @@ export function createRemoteBillingRuntime(
   config: AthenaBillingClientConfig,
 ): AthenaBillingRuntimeDispatch {
   const { call } = createBillingHttpTransport(config);
+  const admin = {
+    ...createUnavailableBillingAdminPort(),
+    inventory: {
+    async list(input: {
+      page?: number;
+      pageSize?: number;
+      presetId: BillingInventoryPresetId;
+    }): Promise<BillingInventoryPage> {
+      const endpoint = new URL(config.baseUrl, globalThis.location?.origin);
+      if (!endpoint.pathname.endsWith("/api/athena/billing")) {
+        throw new AthenaBillingCapabilityError({
+          operation: "admin.inventory.list",
+          reason: "runtime_unavailable",
+        });
+      }
+      const response = await (config.fetchImpl ?? globalThis.fetch)(endpoint, {
+        body: JSON.stringify({ operation: "admin.inventory.list", payload: input }),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const body: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new AthenaBillingError({
+          body,
+          endpoint: endpoint.pathname,
+          message: `Billing inventory request failed (${response.status})`,
+          method: "POST",
+          status: response.status,
+        });
+      }
+      if (!body || typeof body !== "object" || !("data" in body)) {
+        throw new AthenaBillingError({
+          body,
+          endpoint: endpoint.pathname,
+          message: "Billing inventory response is invalid.",
+          method: "POST",
+          status: response.status,
+        });
+      }
+      return (body as { data: BillingInventoryPage }).data;
+    },
+    },
+  };
 
   return {
-    admin: createUnavailableBillingAdminPort(),
+    admin,
     checkout: {
       create(input: BillingCreateCheckoutInput): Promise<BillingCheckout> {
         const prepared = prepareBillingCommand({

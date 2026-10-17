@@ -1,9 +1,10 @@
 import { AthenaAuthRuntimeError } from "../../auth/runtime-error.ts";
+import type { AthenaRightsAuthority } from "../../rights/authority.ts";
 import { tryParseAthenaRightKey } from "../../rights/key.ts";
 import {
   AUTHORIZATION_PLATFORM_DELEGATE,
   AUTHORIZATION_ROLES_DELEGATE,
-  getAthenaAuthorizationRight,
+  getAthenaAuthorizationRightsAuthority,
 } from "./catalog.ts";
 import type {
   AthenaAuthorizationRoleRecord,
@@ -152,6 +153,7 @@ function rightAllowedOnRoleScope(
 export function assertRoleRightAssignmentAllowed(input: {
   organizationId?: string | null;
   right: string;
+  rightsAuthority?: AthenaRightsAuthority;
   roleScope: AthenaAuthorizationRoleScope;
 }): void {
   void input.organizationId;
@@ -163,7 +165,7 @@ export function assertRoleRightAssignmentAllowed(input: {
       "Unknown authorization right"
     );
   }
-  const definition = getAthenaAuthorizationRight(parsed);
+  const definition = (input.rightsAuthority ?? getAthenaAuthorizationRightsAuthority()).byKey.get(parsed);
   if (!definition) {
     throw authorizationError(
       400,
@@ -190,12 +192,14 @@ export function assertRoleRightAssignmentAllowed(input: {
 export function assertRightsReplaceAllowed(input: {
   organizationId?: string | null;
   rights: readonly string[];
+  rightsAuthority?: AthenaRightsAuthority;
   roleScope: AthenaAuthorizationRoleScope;
 }): void {
   for (const right of input.rights) {
     assertRoleRightAssignmentAllowed({
       organizationId: input.organizationId,
       right,
+      rightsAuthority: input.rightsAuthority,
       roleScope: input.roleScope,
     });
   }
@@ -212,6 +216,7 @@ export function addedAuthorizationRights(
 export function actorMayDelegateRight(input: {
   actorRights: readonly string[];
   right: string;
+  rightsAuthority?: AthenaRightsAuthority;
   unrestrictedGrant: boolean;
 }): boolean {
   if (input.unrestrictedGrant) {
@@ -225,7 +230,7 @@ export function actorMayDelegateRight(input: {
   if (!parsed) {
     return false;
   }
-  const definition = getAthenaAuthorizationRight(parsed);
+  const definition = (input.rightsAuthority ?? getAthenaAuthorizationRightsAuthority()).byKey.get(parsed);
   if (!definition) {
     return false;
   }
@@ -250,12 +255,14 @@ export function assertAuthorizationDelegationAllowed(input: {
   afterRights: readonly string[];
   beforeRights: readonly string[];
   organizationId?: string | null;
+  rightsAuthority?: AthenaRightsAuthority;
   roleScope: AthenaAuthorizationRoleScope;
   unrestrictedGrant?: boolean;
 }): void {
   assertRightsReplaceAllowed({
     organizationId: input.organizationId,
     rights: input.afterRights,
+    rightsAuthority: input.rightsAuthority,
     roleScope: input.roleScope,
   });
   const unrestrictedGrant = input.unrestrictedGrant === true;
@@ -267,6 +274,7 @@ export function assertAuthorizationDelegationAllowed(input: {
       actorMayDelegateRight({
         actorRights: input.actorRights,
         right,
+        rightsAuthority: input.rightsAuthority,
         unrestrictedGrant,
       })
     ) {

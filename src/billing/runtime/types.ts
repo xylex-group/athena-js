@@ -271,6 +271,8 @@ export type BillingSelfSubscriptionChangeStatus =
  * with `"operationId" in result`. Public `status` is `processing`,
  * `completed`, `failed`, or `attention_required`. `state` is recovery
  * detail, not the app-facing contract.
+ * @docsCanonical
+ * @docsRole billing-change-operation
  */
 export interface BillingSelfSubscriptionChangeOperation {
   error?: string | null;

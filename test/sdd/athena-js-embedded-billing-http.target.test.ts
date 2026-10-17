@@ -224,6 +224,92 @@ test("T-BIL-HTTP-PRINCIPAL: P?: Billing HTTP uses canonical request principal", 
   assert.equal(denied.status, 403);
 });
 
+test("T-BIL-INVENTORY-HTTP: inventory is allowlisted but requires its dedicated Right", async () => {
+  const client = createServerClient();
+  const handlers = createAthenaNextHandlers({
+    auth: {
+      lookupSession: async (token) =>
+        token === "sess_bill"
+          ? {
+              session: { id: "session-bill", userId: "user_bill" },
+              user: { id: "user_bill", rights: ["billing.payments.read"] },
+            }
+          : null,
+      mode: "athena-session",
+    },
+    client,
+    security: { mode: "trusted" },
+    unsafeAllowUnauthenticated: true,
+  });
+  const post = (token: string) =>
+    handlers.billing.POST(
+      new Request("http://localhost/api/athena/billing", {
+        body: JSON.stringify({
+          operation: "admin.inventory.list",
+          payload: { presetId: "invoices", page: 1, pageSize: 10 },
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ATHENA_AUTH_SESSION_COOKIE_NAME}=${token}`,
+          origin: "http://localhost",
+        },
+        method: "POST",
+      }),
+    );
+  const denied = await post("sess_bill");
+  const deniedBody = (await denied.json()) as {
+    error?: { code?: string; missing?: string[] };
+  };
+  assert.equal(denied.status, 403);
+  assert.equal(deniedBody.error?.code, ATHENA_BILLING_AUTHORIZATION_DENIED);
+  assert.deepEqual(deniedBody.error?.missing, ["billing.admin.inventory.read"]);
+
+  const unauthenticated = await post("unknown");
+  assert.equal(unauthenticated.status, 401);
+});
+
+test("T-BIL-INVENTORY-HTTP: invalid preset and pagination are client errors", async () => {
+  const handlers = createAthenaNextHandlers({
+    auth: {
+      lookupSession: async () => ({
+        session: {
+          activeOrganizationId: "org_bill",
+          expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+          id: "session-bill",
+          revoked: false,
+          userId: "user_bill",
+        },
+        user: { id: "user_bill", rights: ["billing.admin.inventory.read"] },
+      }),
+      mode: "athena-session",
+    },
+    client: createServerClient(),
+    security: { mode: "trusted" },
+    unsafeAllowUnauthenticated: true,
+  });
+  const post = (payload: Record<string, unknown>) =>
+    handlers.billing.POST(
+      new Request("http://localhost/api/athena/billing", {
+        body: JSON.stringify({ operation: "admin.inventory.list", payload }),
+        headers: {
+          "content-type": "application/json",
+          cookie: `${ATHENA_AUTH_SESSION_COOKIE_NAME}=sess_bill`,
+          origin: "http://localhost",
+        },
+        method: "POST",
+      }),
+    );
+
+  for (const payload of [
+    { presetId: "billing.billing_invoices" },
+    { pageSize: 101, presetId: "invoices" },
+  ]) {
+    const response = await post(payload);
+    assert.equal(response.status, 400, JSON.stringify(await response.clone().json()));
+    assert.equal((await response.json()).ok, false);
+  }
+});
+
 test("T-BIL-HTTP-BROWSER: P?: browser createClient billing uses same-origin /api/athena/billing", async () => {
   assert.equal(
     readSrc("v3-client-assembly.ts").includes("createBrowserBillingTransport"),

@@ -38,6 +38,8 @@ export function createAthenaAuthRuntime(
     PUT: handle,
   };
   return {
+    applicationAuthorizationApplication:
+      deps.applicationAuthorizationApplication,
     close: deps.close,
     config: deps.config,
     getStores: deps.ensureReady,

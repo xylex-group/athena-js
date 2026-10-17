@@ -936,7 +936,10 @@ export interface StorageProviderConnectionField {
   valueType: string;
 }
 
-/** Public provider metadata normalized from Athena's provider descriptor. */
+/** Public provider metadata normalized from Athena's provider descriptor.
+ * @docsCanonical
+ * @docsRole storage-provider
+ */
 export interface StorageProviderDescriptor {
   connectionSchema: { fields: StorageProviderConnectionField[] };
   defaultEndpointTemplate?: string;
@@ -1742,6 +1745,8 @@ export interface AthenaStorageClientConfig extends AthenaStorageFileConfig {
  * Credentials for signing the direct upload PUT in the client.
  * The Athena API still creates managed-file metadata so the public upload
  * result remains unchanged; file bytes go directly to this S3-compatible endpoint.
+ * @docsCanonical
+ * @docsRole storage-direct-upload
  */
 export interface AthenaStorageDirectUploadConfig {
   accessKeyId: string;
@@ -1941,6 +1946,11 @@ export interface StorageBatchUploadUrlResponseWithPut {
   files: StorageUploadUrlResponseWithPut[];
 }
 
+/**
+ * Canonical public Athena API.
+ * @docsCanonical
+ * @docsRole storage-file-upload
+ */
 export interface AthenaStorageFileUploadRequest
   extends StorageServerSideEncryptionOptions {
   bucket?: string;

@@ -462,6 +462,45 @@ test("local runtime lock recovers after its owner subprocess exits", async () =>
   }
 });
 
+test("local runtime lock preserves operation errors when lock cleanup fails", async () => {
+  const root = mkdtempSync(join(tmpdir(), "athena-local-lock-cleanup-error-"));
+  try {
+    const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "--eval",
+        [
+          'import fs from "node:fs";',
+          'import { syncBuiltinESMExports } from "node:module";',
+          'import { withLocalRuntimeLock } from "./src/local/lock.ts";',
+          'const cleanupError = new Error("cleanup failed");',
+          'const originalUnlinkSync = fs.unlinkSync;',
+          'fs.unlinkSync = () => { throw cleanupError; };',
+          "syncBuiltinESMExports();",
+          "try {",
+          '  await withLocalRuntimeLock(process.env.ATHENA_LOCK_ROOT, async () => { throw new Error("operation failed"); });',
+          "} catch (error) {",
+          '  if (error.message !== "operation failed") process.exit(42);',
+          "}",
+          "fs.unlinkSync = originalUnlinkSync;",
+          "syncBuiltinESMExports();",
+        ].join("\n"),
+      ],
+      {
+        cwd: packageRoot,
+        encoding: "utf8",
+        env: { ...process.env, ATHENA_LOCK_ROOT: root },
+      }
+    );
+    assert.equal(child.status, 0, child.stderr);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("local runtime lock does not enter the critical section concurrently during stale recovery", async () => {
   const root = mkdtempSync(join(tmpdir(), "athena-local-lock-race-"));
   try {

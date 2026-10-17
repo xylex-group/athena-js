@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "customConditions": ["browser"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022"
+  },
+  "include": [
+    "browser-types.mts",
+    "browser-types.cts",
+    "model.ts",
+    "root-browser-types.mts",
+    "root-browser-types.cts"
+  ]
+}

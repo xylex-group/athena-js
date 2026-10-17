@@ -140,6 +140,7 @@ function resolveAuthRouteDomain(path: string): AuthRouteDomain | undefined {
   }
   if (
     path === "/oauth/authorize" ||
+    path === "/oauth/interaction" ||
     path === "/oauth/token" ||
     path === "/userinfo" ||
     path === "/oauth/revoke" ||
@@ -2045,7 +2046,8 @@ export function createAuthRouter(deps: AuthRuntimeDependencies) {
       requireSession,
       config.security.bodyLimitBytes,
       resolveApiKeyUser,
-      mutate
+      mutate,
+      deps.authorizationRightsIr
     );
     if (authorizationResponse) {
       return authorizationResponse;

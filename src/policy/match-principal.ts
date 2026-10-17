@@ -60,6 +60,11 @@ export function matchPolicyPrincipal(
   }
 }
 
+/**
+ * Canonical public Athena API.
+ * @docsCanonical
+ * @docsRole policy-principal-match
+ */
 export function policyAppliesToPrincipal(
   principals: readonly PolicyPrincipal[],
   principal: AthenaPrincipal

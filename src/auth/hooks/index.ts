@@ -9,6 +9,7 @@ export {
   type AthenaAuthReservedDomainEvent,
 } from "./events.ts";
 export type {
+  AthenaAuthApplicationRoleDefinition,
   AthenaAuthAfterHookPayload,
   AthenaAuthBeforeHookPayload,
   AthenaAuthHookActor,
@@ -18,4 +19,5 @@ export type {
   AthenaAuthHookHandler,
   AthenaAuthHookRequest,
   AthenaAuthHooks,
+  AthenaAuthLifecycleAuthorization,
 } from "./types.ts";

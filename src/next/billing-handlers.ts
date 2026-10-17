@@ -112,6 +112,7 @@ const BILLING_OPERATIONS = new Set<BillingRuntimeDispatchOperation>([
   "admin.ingestion.health",
   "admin.conflicts.resolve",
   "admin.conflicts.list",
+  "admin.inventory.list",
 ]);
 
 function extraAllowedBillingOrigins(

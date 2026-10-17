@@ -19,6 +19,8 @@ function scopedAllow(column: string, subject: unknown) {
 /**
  * Row scoped by Athena Organizations (`organizationId` subject slot).
  * Distinct from {@link tenantScoped}.
+ * @docsCanonical
+ * @docsRole policy-organization-scoped
  */
 export function organizationScoped(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
@@ -45,6 +47,8 @@ export function organizationScoped(model: AnyModelDef): AuthoredPolicy {
 /**
  * Row scoped by a tenant identifier that is not Athena Organizations.
  * Binds `tenantId` to the trusted claim path `tenantId`.
+ * @docsCanonical
+ * @docsRole policy-tenant-scoped
  */
 export function tenantScoped(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
@@ -68,7 +72,10 @@ export function tenantScoped(model: AnyModelDef): AuthoredPolicy {
   });
 }
 
-/** Row owned by `userId` vs the owner column. */
+/** Row owned by `userId` vs the owner column.
+ * @docsCanonical
+ * @docsRole policy-user-owned
+ */
 export function userOwned(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
     delete: {
@@ -91,7 +98,10 @@ export function userOwned(model: AnyModelDef): AuthoredPolicy {
   });
 }
 
-/** Public SELECT permissive. */
+/** Public SELECT permissive.
+ * @docsCanonical
+ * @docsRole policy-public-read
+ */
 export function publicRead(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
     id: `${resourceQual(model)}:public-read`,
@@ -99,7 +109,10 @@ export function publicRead(model: AnyModelDef): AuthoredPolicy {
   });
 }
 
-/** Authenticated principals only (all modeled actions). */
+/** Authenticated principals only (all modeled actions).
+ * @docsCanonical
+ * @docsRole policy-authenticated-only
+ */
 export function authenticatedOnly(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
     delete: { to: ["authenticated"] },
@@ -110,7 +123,10 @@ export function authenticatedOnly(model: AnyModelDef): AuthoredPolicy {
   });
 }
 
-/** Role principal (default `admin` when called with only the model). */
+/** Role principal (default `admin` when called with only the model).
+ * @docsCanonical
+ * @docsRole policy-role-restricted
+ */
 export function roleRestricted(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
     delete: { to: ["role:admin"] },
@@ -121,7 +137,10 @@ export function roleRestricted(model: AnyModelDef): AuthoredPolicy {
   });
 }
 
-/** Service principal only. */
+/** Service principal only.
+ * @docsCanonical
+ * @docsRole policy-service-only
+ */
 export function serviceOnly(model: AnyModelDef): AuthoredPolicy {
   return policy(model, {
     delete: { to: ["service:service"] },
@@ -132,7 +151,10 @@ export function serviceOnly(model: AnyModelDef): AuthoredPolicy {
   });
 }
 
-/** Owner **or** role — two ordinary authored definitions, no IR sugar. */
+/** Owner **or** role — two ordinary authored definitions, no IR sugar.
+ * @docsCanonical
+ * @docsRole policy-owner-or-role
+ */
 export function ownerOrRole(model: AnyModelDef): AuthoredPolicy {
   const owner = userOwned(model);
   const role = roleRestricted(model);

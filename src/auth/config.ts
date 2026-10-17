@@ -196,6 +196,8 @@ export interface AthenaAuthLocalConfig {
    */
   autoMigrate?: boolean;
   authorizationServer?: AthenaAuthorizationServerOptions;
+  /** Application namespace bound to privileged lifecycle role operations. */
+  applicationAuthorization?: { application: string };
   basePath?: string;
   bridge?: AthenaAuthBridgeOptions;
   emailAndPassword?: AthenaAuthEmailAndPasswordOptions;

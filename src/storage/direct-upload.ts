@@ -1,8 +1,12 @@
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import type {
   AthenaStorageDirectUploadConfig,
   AthenaStoragePutBody,
 } from "./module.ts";
 import { canUseStorageXhrPut, putStorageBodyWithXhr } from "./xhr-put.ts";
+
+const DIRECT_UPLOAD_HASH_CHUNK_BYTES = 4 * 1024 * 1024;
 
 interface DirectUploadProgress {
   loaded: number;
@@ -26,8 +30,7 @@ export async function putDirectStorageUploadBody(
     );
   }
   const target = createDirectUploadTarget(config, bucket, storageKey);
-  const bytes = await bodyToArrayBuffer(body);
-  const payloadHash = await sha256Hex(bytes);
+  const payloadHash = await hashUploadBody(body, signal);
   const headers = new Headers(uploadHeaders);
   if (isBlobBody(body) && body.type && !headers.has("Content-Type")) {
     headers.set("Content-Type", body.type);
@@ -63,7 +66,7 @@ export async function putDirectStorageUploadBody(
       `athena.storage.file.upload failed with status ${response.status}`
     );
   }
-  onProgress({ loaded: bytes.byteLength });
+  onProgress({ loaded: bodySize(body) });
   return response;
 }
 
@@ -180,20 +183,33 @@ function isBlobBody(body: AthenaStoragePutBody): body is Blob {
   return typeof Blob !== "undefined" && body instanceof Blob;
 }
 
-async function bodyToArrayBuffer(
-  body: AthenaStoragePutBody
-): Promise<ArrayBuffer> {
+async function hashUploadBody(
+  body: AthenaStoragePutBody,
+  signal?: AbortSignal
+): Promise<string> {
+  signal?.throwIfAborted();
+  const hash = sha256.create();
   if (isBlobBody(body)) {
-    return body.arrayBuffer();
+    for (
+      let offset = 0;
+      offset < body.size;
+      offset += DIRECT_UPLOAD_HASH_CHUNK_BYTES
+    ) {
+      const end = Math.min(offset + DIRECT_UPLOAD_HASH_CHUNK_BYTES, body.size);
+      signal?.throwIfAborted();
+      const chunk = await body.slice(offset, end).arrayBuffer();
+      signal?.throwIfAborted();
+      hash.update(new Uint8Array(chunk));
+    }
+    return bytesToHex(hash.digest());
   }
   if (body instanceof ArrayBuffer) {
-    return body;
+    hash.update(new Uint8Array(body));
+    return bytesToHex(hash.digest());
   }
   if (ArrayBuffer.isView(body)) {
-    return body.buffer.slice(
-      body.byteOffset,
-      body.byteOffset + body.byteLength
-    ) as ArrayBuffer;
+    hash.update(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
+    return bytesToHex(hash.digest());
   }
   throw new Error(
     "athena.storage.file.upload direct mode does not support ReadableStream bodies"

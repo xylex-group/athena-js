@@ -5,6 +5,7 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import * as esbuild from "esbuild";
 import {
 	existsSync,
 	mkdirSync,
@@ -30,10 +31,6 @@ function run(bin, args, options) {
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-	restorePackManifest,
-	stripPackSelfLink,
-} from "./pack-self-link-manifest.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -84,6 +81,18 @@ const PLACEHOLDER_ALLOW = [
 
 const SERVER_ONLY_POISON =
 	/Client Component|server-only|should only be used from a Server Component/i;
+const COLUMN_BUILDERS = [
+	"bigint",
+	"boolean",
+	"decimal",
+	"enumeration",
+	"integer",
+	"json",
+	"number",
+	"numeric",
+	"smallint",
+	"string",
+];
 
 function fail(message) {
 	console.error(`check-release-tarball: ${message}`);
@@ -133,7 +142,6 @@ function packEnv() {
 
 let report;
 try {
-	stripPackSelfLink();
 	const packedOut = run("pnpm", ["pack", "--pack-destination", packDir], {
 		cwd: root,
 		encoding: "utf8",
@@ -199,6 +207,12 @@ try {
 		"package/LICENSE",
 		"package/dist/index.js",
 		"package/dist/index.cjs",
+		"package/dist/index.d.ts",
+		"package/dist/index.d.cts",
+		"package/dist/browser.js",
+		"package/dist/browser.cjs",
+		"package/dist/browser.d.ts",
+		"package/dist/browser.d.cts",
 		"package/dist/server.js",
 		"package/dist/server.cjs",
 		"package/dist/server.d.ts",
@@ -222,6 +236,25 @@ try {
 			fail(`packed root declarations missing Auth DTO: ${dto}`);
 		}
 	}
+	for (const [artifact, expected] of [
+		["browser.js", COLUMN_BUILDERS],
+		["browser.cjs", COLUMN_BUILDERS],
+		["browser.d.ts", COLUMN_BUILDERS],
+		["browser.d.cts", COLUMN_BUILDERS],
+		["index.js", COLUMN_BUILDERS],
+		["index.cjs", COLUMN_BUILDERS],
+		["index.d.ts", COLUMN_BUILDERS],
+		["index.d.cts", COLUMN_BUILDERS],
+	]) {
+		const artifactPath = join(extractDir, "package", "dist", artifact);
+		const text = readFileSync(artifactPath, "utf8");
+		for (const name of expected) {
+			const exported = new RegExp(`\\bas ${name}\\b|\\b${name}\\s*\\(`);
+			if (!exported.test(text)) {
+				fail(`packed dist/${artifact} missing column builder ${name}`);
+			}
+		}
+	}
 
 	const packedPkg = JSON.parse(
 		readFileSync(join(extractDir, "package", "package.json"), "utf8"),
@@ -232,13 +265,18 @@ try {
 	if (!packedPkg.exports || typeof packedPkg.exports !== "object") {
 		fail("packed package.json missing exports");
 	}
-	if (
-		packedPkg.dependencies != null &&
-		Object.hasOwn(packedPkg.dependencies, "@xylex-group/athena")
-	) {
-		fail(
-			"packed package.json must not declare a self-dependency on @xylex-group/athena",
-		);
+	for (const field of [
+		"dependencies",
+		"optionalDependencies",
+		"peerDependencies",
+	]) {
+		for (const [name, specifier] of Object.entries(packedPkg[field] ?? {})) {
+			if (/^(?:link|workspace|file|portal):/.test(specifier)) {
+				fail(
+					`packed package.json has a local ${field} reference: ${name}=${specifier}`,
+				);
+			}
+		}
 	}
 	const serverExport = packedPkg.exports["./server"];
 	if (serverExport?.import?.default !== "./dist/server.js") {
@@ -357,12 +395,15 @@ try {
 		stdio: ["ignore", "pipe", "pipe"],
 	});
 
+	const namesLiteral = JSON.stringify(COLUMN_BUILDERS);
 	const esmProbe = join(consumer, "esm-probe.mjs");
 	writeFileSync(
 		esmProbe,
 		`import { createClient } from "${pkg.name}";
+import * as sdk from "${pkg.name}";
 const client = createClient({ url: "https://athena.example.com", key: "publishable", auth: false });
 if (typeof client.from !== "function") throw new Error("ESM createClient missing from()");
+for (const name of ${namesLiteral}) if (typeof sdk[name] !== "function") throw new Error("ESM root missing " + name);
 console.log("packed-esm:ok");
 `,
 	);
@@ -396,12 +437,54 @@ console.log("packed-esm:ok");
 	writeFileSync(
 		cjsProbe,
 		`const { createClient } = require("${pkg.name}");
+const sdk = require("${pkg.name}");
 const client = createClient({ url: "https://athena.example.com", key: "publishable", auth: false });
 if (typeof client.from !== "function") throw new Error("CJS createClient missing from()");
+for (const name of ${namesLiteral}) if (typeof sdk[name] !== "function") throw new Error("CJS root missing " + name);
 console.log("packed-cjs:ok");
 `,
 	);
 	execFileSync(process.execPath, [cjsProbe], {
+		cwd: cjsDir,
+		env: plainEnv(),
+		stdio: "inherit",
+	});
+	const esmSurfaceProbe = join(consumer, "browser-esm-probe.mjs");
+	writeFileSync(
+		esmSurfaceProbe,
+		`const names = ${namesLiteral};
+for (const [label, sdk] of [
+  ["explicit browser", await import("${pkg.name}/browser")],
+  ["root browser condition", await import("${pkg.name}")],
+]) {
+  for (const name of names) {
+    if (typeof sdk[name] !== "function") throw new Error(label + " missing " + name);
+  }
+}
+console.log("packed-browser-esm:ok");
+`,
+	);
+	execFileSync(process.execPath, ["--conditions=browser", esmSurfaceProbe], {
+		cwd: consumer,
+		env: plainEnv(),
+		stdio: "inherit",
+	});
+	const cjsSurfaceProbe = join(cjsDir, "browser-cjs-probe.cjs");
+	writeFileSync(
+		cjsSurfaceProbe,
+		`const names = ${namesLiteral};
+for (const [label, sdk] of [
+  ["explicit browser", require("${pkg.name}/browser")],
+  ["root browser condition", require("${pkg.name}")],
+]) {
+  for (const name of names) {
+    if (typeof sdk[name] !== "function") throw new Error(label + " missing " + name);
+  }
+}
+console.log("packed-browser-cjs:ok");
+`,
+	);
+	execFileSync(process.execPath, ["--conditions=browser", cjsSurfaceProbe], {
 		cwd: cjsDir,
 		env: plainEnv(),
 		stdio: "inherit",
@@ -482,6 +565,89 @@ console.log("packed-server:ok");
 		cwd: consumer,
 		stdio: "inherit",
 	});
+	const browserFixtureRoot = join(root, "test", "fixtures", "browser-integer-builders");
+	const browserConsumerDir = join(consumer, "browser-integer-builders");
+	mkdirSync(browserConsumerDir);
+	for (const file of [
+		"browser-types.cts",
+		"browser-types.mts",
+		"generate-model.mjs",
+		"introspection.json",
+		"model.ts",
+		"root-browser-types.cts",
+		"root-browser-types.mts",
+		"types.cts",
+		"types.mts",
+		"tsconfig-browser.json",
+		"tsconfig-main.json",
+	]) {
+		writeFileSync(
+			join(browserConsumerDir, file),
+			readFileSync(join(browserFixtureRoot, file)),
+		);
+	}
+	const generatedModelPath = join(browserConsumerDir, "generated-model.ts");
+	execFileSync(
+		process.execPath,
+		[
+		join(browserConsumerDir, "generate-model.mjs"),
+			generatedModelPath,
+		],
+		{ cwd: browserConsumerDir, env: plainEnv(), stdio: "inherit" },
+	);
+	const generatedModel = readFileSync(generatedModelPath, "utf8");
+	const generatedRowType = generatedModel.match(
+		/export type (\w+Row) = RowOf<typeof /,
+	)?.[1];
+	if (!generatedRowType) {
+		fail("introspection generated model is missing its RowOf type");
+	}
+	writeFileSync(
+		join(browserConsumerDir, "generated-model-types.ts"),
+		`import { example, type ${generatedRowType} } from "./generated-model.js";
+const row: ${generatedRowType} = { count: 4, id: "9223372036854775807", priority: 2 };
+void example;
+void row;
+`,
+	);
+	const browserTsconfigPath = join(browserConsumerDir, "tsconfig-browser.json");
+	const browserTsconfig = JSON.parse(readFileSync(browserTsconfigPath, "utf8"));
+	browserTsconfig.include.push("generated-model.ts", "generated-model-types.ts");
+	writeFileSync(browserTsconfigPath, JSON.stringify(browserTsconfig, null, 2));
+	for (const config of ["tsconfig-main.json", "tsconfig-browser.json"]) {
+		execFileSync(
+			process.execPath,
+			[tscJs, "--noEmit", "-p", join(browserConsumerDir, config)],
+			{ cwd: consumer, stdio: "inherit" },
+		);
+	}
+	const bundleDir = join(browserConsumerDir, "bundle");
+	await esbuild.build({
+		bundle: true,
+		conditions: ["browser"],
+		entryPoints: [
+			join(browserConsumerDir, "model.ts"),
+			generatedModelPath,
+		],
+		external: ["crypto", "node:crypto"],
+		format: "esm",
+		outdir: bundleDir,
+		platform: "browser",
+	});
+	for (const name of ["model.js", "generated-model.js"]) {
+		const loaded = await import(pathToFileURL(join(bundleDir, name)).href);
+		const columns = loaded.example?.meta?.columns;
+		for (const [column, kind] of Object.entries({
+			count: "integer",
+			id: "bigint",
+			priority: "smallint",
+		})) {
+			if (columns?.[column]?.kind !== kind) {
+				fail(`${name} runtime mapping for ${column} was ${columns?.[column]?.kind}`);
+			}
+		}
+	}
+	console.log("packed-browser-integer-model:ok");
 	const packedServerDts = join(extractDir, "package", "dist", "server.d.ts");
 	if (!existsSync(packedServerDts)) {
 		fail("packed dist/server.d.ts missing");
@@ -754,6 +920,5 @@ export default defineAthenaConfig({
 		`check-release-tarball: ok files=${metadata.fileCount} bytes=${metadata.tarballBytes} sha256=${sha256}`,
 	);
 } finally {
-	restorePackManifest();
 	rmSync(work, { force: true, recursive: true });
 }

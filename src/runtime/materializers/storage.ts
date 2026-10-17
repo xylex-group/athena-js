@@ -33,6 +33,7 @@ function bindingFor(
   const runtime =
     resources.existingRuntime ??
     createStorageRuntime({
+      keyScope: resources.keyScope,
       lifecycle: resources.lifecycle,
       provider,
     });

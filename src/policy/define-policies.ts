@@ -61,7 +61,10 @@ export function definePolicies(input: PolicyRegistryInput): PolicyIrDocument {
   };
 }
 
-/** Serialize a Policy IR document to stable JSON text. */
+/** Serialize a Policy IR document to stable JSON text.
+ * @docsCanonical
+ * @docsRole policy-ir-serialize
+ */
 export function serializePolicyIr(doc: PolicyIrDocument): string {
   return `${JSON.stringify(doc, null, 2)}\n`;
 }

@@ -214,14 +214,11 @@ function tagText(symbol: ts.Symbol, name: string): string {
     return "";
   }
   const text = tag.text;
-  if (typeof text === "string") {
-    return text.trim();
-  }
   if (!Array.isArray(text)) {
     return "";
   }
   return text
-    .map((part) => (typeof part === "string" ? part : (part.text ?? "")))
+    .map((part) => part.text ?? "")
     .join("")
     .replace(/\s+/g, " ")
     .trim();
@@ -245,7 +242,10 @@ function sanitizeSignature(signature: string): string {
     .trim();
 }
 
-function isLocalDeclaration(packageRoot: string, decl: ts.Declaration | undefined): boolean {
+function isLocalDeclaration(
+  packageRoot: string,
+  decl: ts.Declaration | undefined
+): decl is ts.Declaration {
   if (!decl) {
     return false;
   }
@@ -329,15 +329,11 @@ function listTagValues(symbol: ts.Symbol, name: string): string[] {
     .filter((item) => item.name === name)
     .map((item) => {
       const text = item.text;
-      if (typeof text === "string") {
-        return text.trim();
-      }
-
       if (!Array.isArray(text)) {
         return "";
       }
       return text
-        .map((part) => (typeof part === "string" ? part : (part.text ?? "")))
+        .map((part) => part.text ?? "")
         .join(" ")
         .trim();
     })

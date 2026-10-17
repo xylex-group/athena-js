@@ -90,6 +90,8 @@ function decision(
  * Visibility/check remain PolicyExpr IR. Subject slots are not substituted (R4).
  * Composition follows Rust: `(OR permissives) AND (AND restrictives)`.
  * Empty applicable permissive set is deny (Postgres RLS).
+ * @docsCanonical
+ * @docsRole policy-decision
  */
 export function decideAthenaPolicy(
   registry: AthenaPolicyRegistry,

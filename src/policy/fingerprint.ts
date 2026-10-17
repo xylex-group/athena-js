@@ -112,6 +112,8 @@ function sortValue(value: unknown): unknown {
 /**
  * SHA-256 hex fingerprint of the semantic canonical form.
  * Matches Rust `fingerprint_document` (sorted-key compact JSON + SHA-256).
+ * @docsCanonical
+ * @docsRole policy-document-fingerprint
  */
 export function fingerprintDocument(doc: PolicyIrDocument): string {
   const canonical = sortValue(canonicalizeDocument(doc));

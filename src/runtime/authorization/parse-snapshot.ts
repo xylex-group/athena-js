@@ -172,6 +172,8 @@ function capabilitiesMatch(
 /**
  * Fail-closed wire parser for GET /authorization/snapshot.
  * Browser-safe: rights + capability projection only (no Postgres / Node stores).
+ * @docsCanonical
+ * @docsRole authorization-snapshot
  */
 export function parseAuthorizationSnapshot(
   value: unknown

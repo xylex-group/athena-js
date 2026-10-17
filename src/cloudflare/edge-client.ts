@@ -94,6 +94,8 @@ export type CloudflareAthenaClientWithR2<
  * ```
  *
  * To switch between edge and gateway at runtime, prefer {@link createAthenaRuntime}.
+ * @docsCanonical
+ * @docsRole cloudflare-client
  */
 export function createCloudflareClient<
   const TModels extends AthenaClientModelsInput | undefined = undefined,

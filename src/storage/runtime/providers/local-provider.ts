@@ -18,6 +18,7 @@ export function createLocalStorageProvider(
       try {
         switch (op.op) {
           case "put": {
+            op.signal?.throwIfAborted();
             if (!op.key?.trim()) {
               return storageErrorResult({
                 message: "put requires key",
@@ -30,6 +31,8 @@ export function createLocalStorageProvider(
               name: op.key,
               source: op.body ?? new Uint8Array(),
               storage_key: op.key,
+              ...(op.ifAbsent ? { ifAbsent: true } : {}),
+              signal: op.signal,
             } as never);
             return storageOkResult(data);
           }
@@ -88,6 +91,20 @@ export function createLocalStorageProvider(
             });
         }
       } catch (error) {
+        if (
+          op.ifAbsent &&
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          (error as { code?: unknown }).code === "EEXIST"
+        ) {
+          return storageErrorResult(
+            3006,
+            "storage_conflict",
+            "Storage destination already exists",
+            409
+          );
+        }
         return mapProviderFailure(error);
       }
     },

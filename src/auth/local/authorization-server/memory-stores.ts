@@ -509,7 +509,7 @@ export function createMemoryOAuthAuthorizationServerStores(
           isActive: true,
           metadata: { ...(input.metadata ?? {}) },
           redirectUris: input.redirectUris.map(normalizeRegisteredRedirectUri),
-          registrationKind: "pre-registered",
+          registrationKind: input.registrationKind ?? "pre-registered",
           resourceUris: normalizeResourceUris(input.resourceUris),
           responseType: "code",
           scopes: normalizeScopes(input.scopes),
@@ -575,6 +575,37 @@ export function createMemoryOAuthAuthorizationServerStores(
             ...(input.scopes ? { scopes: normalizeScopes(input.scopes) } : {}),
             updatedAt: new Date(),
           });
+          return cloneClient(row);
+        });
+      },
+      async upsertClientIdMetadata(input) {
+        return serialize(async () => {
+          const existing = clients.get(input.id);
+          if (existing?.registrationKind === "pre-registered") {
+            throw new OAuthProtocolError(
+              "invalid_client",
+              "A pre-registered client already occupies this client_id."
+            );
+          }
+          const now = new Date();
+          const row: OAuthClient = {
+            clientName: input.clientName,
+            clientType: "public",
+            clientUrl: input.clientUrl ?? null,
+            createdAt: existing?.createdAt ?? now,
+            grantType: "authorization_code",
+            id: input.id,
+            isActive: true,
+            metadata: { ...(input.metadata ?? {}) },
+            redirectUris: input.redirectUris.map(normalizeRegisteredRedirectUri),
+            registrationKind: "client-id-metadata",
+            resourceUris: normalizeResourceUris(input.resourceUris),
+            responseType: "code",
+            scopes: normalizeScopes(input.scopes),
+            tokenEndpointAuthMethod: "none",
+            updatedAt: now,
+          };
+          clients.set(row.id, row);
           return cloneClient(row);
         });
       },

@@ -325,7 +325,14 @@ test("P?: browser transport exposes self not raw invoices.list", () => {
   assert.doesNotMatch(src, /call\("customers\.list"/);
   assert.doesNotMatch(src, /call\("payments\./);
   assert.doesNotMatch(src, /call\("webhooks\./);
-  assert.doesNotMatch(src, /call\("admin\./);
+  assert.deepEqual(
+    Array.from(src.matchAll(/call\("(admin\.[^"]+)"/g), (match) => match[1]).sort(),
+    [
+      "admin.ingestion.health",
+      "admin.inventory.list",
+      "admin.webhooks.status",
+    ],
+  );
   assert.doesNotMatch(src, /call\("checkout\.create"/);
 });
 

@@ -38,13 +38,18 @@ export interface AthenaS3ObjectClient {
     IsTruncated?: boolean;
     NextContinuationToken?: string;
   }>;
-  putObject(input: {
-    Body?: Uint8Array;
-    Bucket: string;
-    ContentType?: string;
-    Key: string;
-    Metadata?: Record<string, string>;
-  }): Promise<unknown>;
+  putObject(
+    input: {
+      Body?: Uint8Array;
+      Bucket: string;
+      ContentType?: string;
+      IfNoneMatch?: string;
+      Key: string;
+      Metadata?: Record<string, string>;
+    },
+    /** Forward this to the AWS SDK request context when available. */
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<unknown>;
 }
 
 export function isAthenaS3ObjectClient(
@@ -76,6 +81,7 @@ export function createS3StorageProvider(options: {
       try {
         switch (op.op) {
           case "put": {
+            op.signal?.throwIfAborted();
             if (!op.key?.trim()) {
               return storageErrorResult({
                 message: "put requires key",
@@ -84,13 +90,17 @@ export function createS3StorageProvider(options: {
               });
             }
             const key = toPhysicalKey(prefix, op.key);
-            await s3.putObject({
-              Body: op.body ?? new Uint8Array(),
-              Bucket: bucket,
-              ContentType: op.contentType,
-              Key: key,
-              Metadata: op.metadata,
-            });
+            await s3.putObject(
+              {
+                Body: op.body ?? new Uint8Array(),
+                Bucket: bucket,
+                ContentType: op.contentType,
+                ...(op.ifAbsent ? { IfNoneMatch: "*" } : {}),
+                Key: key,
+                Metadata: op.metadata,
+              },
+              { abortSignal: op.signal }
+            );
             return storageOkResult({ key: toLogicalKey(prefix, key) });
           }
           case "get": {
@@ -227,7 +237,7 @@ function joinPrefix(base: string, extra?: string): string {
 
 async function readS3Body(body: unknown): Promise<Uint8Array> {
   if (body == null) {
-    return new Uint8Array();
+    throw new Error("S3 object response did not include a body");
   }
   if (body instanceof Uint8Array) {
     return body;
@@ -251,12 +261,25 @@ async function readS3Body(body: unknown): Promise<Uint8Array> {
       return new TextEncoder().encode(await record.transformToString());
     }
   }
-  return new Uint8Array();
+  throw new Error("S3 object response did not expose a readable body");
 }
 
 function mapS3Failure(error: unknown): ReturnType<typeof storageErrorResult> {
   const code = s3ErrorCode(error).toLowerCase();
   const status = s3HttpStatus(error);
+  if (
+    status === 409 ||
+    status === 412 ||
+    code === "preconditionfailed" ||
+    code === "conditionalrequestconflict"
+  ) {
+    return storageErrorResult(
+      3006,
+      "storage_conflict",
+      "Storage destination already exists",
+      409
+    );
+  }
   if (
     status === 404 ||
     code === "nosuchkey" ||

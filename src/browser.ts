@@ -388,12 +388,15 @@ export {
 } from "./schema/model-sql.ts";
 export { table } from "./schema/table-builder.ts";
 export {
+  bigint,
   boolean,
   decimal,
   enumeration,
+  integer,
   json,
   number,
   numeric,
+  smallint,
   string,
 } from "./schema/table-columns.ts";
 export { identifier } from "./sql-identifiers.ts";

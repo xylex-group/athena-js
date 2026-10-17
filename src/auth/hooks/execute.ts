@@ -23,7 +23,11 @@ import type {
   AthenaAuthMutationScope,
   AuthMutationTransaction,
 } from "./scope.ts";
-import type { AthenaAuthHookEventPayloads, AthenaAuthHooks } from "./types.ts";
+import type {
+  AthenaAuthHookEventPayloads,
+  AthenaAuthHooks,
+  AthenaAuthLifecycleAuthorization,
+} from "./types.ts";
 
 export type AuthDomainMutate = <
   E extends AthenaAuthImplementedDomainEvent,
@@ -73,6 +77,13 @@ export type ExecuteAuthMutationOptions<
   context: AthenaAuthMutationContext;
   event: E;
   execute: (scope: AthenaAuthMutationScope) => Promise<TResult>;
+  lifecycleAuthorization?: (
+    scope: AthenaAuthMutationScope,
+    actor: AthenaAuthActor,
+    event: E,
+    result: AthenaAuthHookEventPayloads[E]["result"],
+    isActive: () => boolean,
+  ) => AthenaAuthLifecycleAuthorization;
   hooks?: AthenaAuthHooks;
   input: AthenaAuthHookEventPayloads[E]["input"];
   previousOf?: (
@@ -263,6 +274,37 @@ export async function executeAuthMutation<
               await persistRow(extraEntry);
             }
           }
+        }
+      }
+      const lifecycleHandler = options.hooks?.lifecycle?.[options.event] as
+        | ((payload: unknown) => void | Promise<void>)
+        | undefined;
+      if (lifecycleHandler) {
+        if (!options.lifecycleAuthorization) {
+          throw new Error("Athena authorization lifecycle is not configured.");
+        }
+        let active = true;
+        try {
+          const lifecycleResult = options.resultOf(executed);
+          await lifecycleHandler({
+            actor: envelope.actor,
+            authorization: options.lifecycleAuthorization(
+              scope,
+              envelope.actor,
+              options.event,
+              lifecycleResult,
+              () => active,
+            ),
+            event: options.event,
+            eventId: envelope.eventId,
+            input: options.input,
+            previous: options.previousOf?.(executed) ?? previous,
+            request: envelope.request,
+            result: lifecycleResult,
+            traceId: envelope.traceId,
+          });
+        } finally {
+          active = false;
         }
       }
       return executed;

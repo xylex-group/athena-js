@@ -32,6 +32,45 @@ test("P1: Auth expected ledger is sorted by numeric version", () => {
   assert.ok(index9 < index21);
 });
 
+test("P1: migration planning accepts the released v5.7.0 checksum alias only", async () => {
+  const database: AthenaAuthDatabase = {
+    async close() {},
+    inTransaction: false,
+    async query() {
+      throw new Error("explicit ledger rows should avoid database reads");
+    },
+    async transaction(fn) {
+      return fn(this);
+    },
+  };
+  const alias = "044557ff8b79810d05e43f4fb9f0203e42b68ad0ea9c62c4e1c1970440a6b764";
+  const plan = await planAthenaAuthSchema(database, {
+    inspectSchema: false,
+    ledgerRows: [
+      { checksum: alias, name: "033_auth_signing_keys", version: 33 },
+    ],
+  });
+  const migration = plan.entries.find((entry) => entry.version === 33);
+  assert.equal(migration?.ledgerState, "applied");
+  assert.equal(migration?.action, "none");
+
+  const mismatchedPlan = await planAthenaAuthSchema(database, {
+    inspectSchema: false,
+    ledgerRows: [
+      {
+        checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        name: "033_auth_signing_keys",
+        version: 33,
+      },
+    ],
+  });
+  const mismatchedMigration = mismatchedPlan.entries.find(
+    (entry) => entry.version === 33,
+  );
+  assert.equal(mismatchedMigration?.ledgerState, "checksum-mismatch");
+  assert.equal(mismatchedMigration?.action, "blocked");
+});
+
 test("P1: auth database query works when passed as an unbound callback", async () => {
   const pool = {
     async connect() {

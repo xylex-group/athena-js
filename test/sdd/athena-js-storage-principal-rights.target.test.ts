@@ -252,9 +252,13 @@ function handlersWithAuth(
       userId: string;
     }) => boolean | Promise<boolean>;
   },
-  security: "trusted" | "authenticated" = "authenticated"
+  security: "trusted" | "authenticated" = "authenticated",
+  keyScope?: (principal: ReturnType<typeof principalWithRights>) => string
 ) {
-  const runtime = createStorageRuntime({ provider });
+  const runtime = createStorageRuntime({
+    ...(keyScope ? { keyScope } : {}),
+    provider,
+  });
   const client = createClient({
     auth: false,
     databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_storage_sdd",
@@ -352,6 +356,30 @@ test("T-STO-ANONYMOUS: P?: anonymous storage HTTP is denied", async () => {
   assert.equal(json.error?.missing, undefined);
   assert.equal(json.error?.operation, undefined);
   assert.equal(provider.calls.length, 0);
+});
+
+test("T-STO-SCOPED-GET: HTTP GET preserves scoped binary bytes", async () => {
+  const expected = new Uint8Array([0, 255, 1, 128]);
+  const provider: StorageObjectProvider = {
+    async execute(op) {
+      assert.equal(op.key, "organizations/user-a/image.bin");
+      return { data: expected, ok: true, status: 200 };
+    },
+  };
+  const { handlers } = handlersWithAuth(
+    provider,
+    { lookupSession: async () => sessionFor(["storage.get"]) },
+    "authenticated",
+    (principal) => `organizations/${principal.userId}/`
+  );
+
+  const response = await handlers.GET(
+    new Request("http://localhost/api/athena/storage?key=image.bin", {
+      headers: { cookie: cookie("sess_scoped_get") },
+    })
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), expected);
 });
 
 test("T-STO-REVOKED: P?: revoked session is denied before Storage execute", async () => {

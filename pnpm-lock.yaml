@@ -14,7 +14,6 @@ overrides:
   ajv@6: 6.14.0
   esbuild@0.27: 0.28.1
   esbuild@0.28.0: 0.28.1
-  '@xylex-group/athena': 'link:'
 
 importers:
 
@@ -29,9 +28,6 @@ importers:
       '@simplewebauthn/server':
         specifier: ^13.3.2
         version: 13.3.2
-      '@xylex-group/athena':
-        specifier: 'link:'
-        version: 'link:'
       blessed:
         specifier: ^0.1.81
         version: 0.1.81

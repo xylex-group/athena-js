@@ -479,6 +479,40 @@ export type AthenaAuthHookHandlerList<
   Phase extends "after" | "before",
 > = AthenaAuthHookHandler<E, Phase> | AthenaAuthHookHandler<E, Phase>[];
 
+export interface AthenaAuthApplicationRoleDefinition {
+  key: string;
+  name: string;
+  rights: readonly string[];
+}
+
+/** Privileged role operations available only to configured local lifecycle handlers. */
+export interface AthenaAuthLifecycleAuthorization {
+  reconcileOrganizationRoles(input: {
+    application: string;
+    organizationId: string;
+    roles: readonly AthenaAuthApplicationRoleDefinition[];
+  }): Promise<void>;
+  replaceMemberApplicationRole(input: {
+    application: string;
+    organizationId: string;
+    preserveRoleKeys?: readonly string[];
+    roleKey: string;
+    userId: string;
+  }): Promise<{ changed: boolean }>;
+}
+
+type AthenaAuthLifecycleEvent =
+  | "organization.create"
+  | "organization.invitation.accept"
+  | "organization.member.add"
+  | "organization.member.role.update";
+
+type AthenaAuthLifecycleHandler<E extends AthenaAuthLifecycleEvent> = (
+  payload: AthenaAuthAfterHookPayload<E> & {
+    authorization: AthenaAuthLifecycleAuthorization;
+  }
+) => void | Promise<void>;
+
 export interface AthenaAuthHooks {
   after?: {
     [K in AthenaAuthImplementedDomainEvent]?: AthenaAuthHookHandlerList<
@@ -492,6 +526,10 @@ export interface AthenaAuthHooks {
       "before"
     >;
   };
+  /** Fail-closed lifecycle work with narrowly scoped authorization APIs. */
+  lifecycle?: Partial<{
+    [E in AthenaAuthLifecycleEvent]: AthenaAuthLifecycleHandler<E>;
+  }>;
   onError?: (input: AthenaAuthHookErrorInput) => void;
 }
 

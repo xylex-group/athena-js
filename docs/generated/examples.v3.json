@@ -1,0 +1,787 @@
+{
+  "examples": [
+    {
+      "entrypoint": "@xylex-group/athena/next/client",
+      "file": "apps/docs-athena-js/examples/api/create-client/next-client.ts",
+      "id": "api.create-client.next-client",
+      "operationIds": [],
+      "path": "next-browser",
+      "symbolIds": [
+        "@xylex-group/athena/next/client#createClient"
+      ],
+      "title": "lib/athena/browser.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/api/create-client/root.ts",
+      "id": "api.create-client.root",
+      "operationIds": [],
+      "path": "root",
+      "symbolIds": [
+        "@xylex-group/athena#createClient"
+      ],
+      "title": "lib/athena.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/server",
+      "file": "apps/docs-athena-js/examples/api/create-client/server.ts",
+      "id": "api.create-client.server",
+      "operationIds": [],
+      "path": "next-local-root",
+      "symbolIds": [
+        "@xylex-group/athena/server#createClient"
+      ],
+      "title": "lib/athena/root.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/next/server",
+      "file": "apps/docs-athena-js/examples/api/next/handlers.ts",
+      "id": "api.next.handlers",
+      "operationIds": [],
+      "path": "next-handlers",
+      "symbolIds": [
+        "@xylex-group/athena/next/server#createAthenaNextHandlers"
+      ],
+      "title": "app/api/athena/[...all]/route.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/billing",
+      "file": "apps/docs-athena-js/examples/billing/capabilities/02.ts",
+      "id": "billing.capabilities.02",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingOperationCapability"
+      ],
+      "title": "lib/billing/capabilities/02.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/billing",
+      "file": "apps/docs-athena-js/examples/billing/capabilities/03.ts",
+      "id": "billing.capabilities.03",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingCapabilities"
+      ],
+      "title": "lib/billing/capabilities/03.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/billing",
+      "file": "apps/docs-athena-js/examples/billing/capabilities/04.ts",
+      "id": "billing.capabilities.04",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingOperationCapability"
+      ],
+      "title": "lib/billing/capabilities/04.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/billing",
+      "file": "apps/docs-athena-js/examples/billing/self/05.ts",
+      "id": "billing.self.05",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingSelfSubscriptionChangeOperation"
+      ],
+      "title": "lib/billing/poll-plan-change.ts"
+    },
+    {
+      "file": "apps/docs-athena-js/examples/capabilities/01.ts",
+      "id": "capabilities.01",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/capabilities#parseAthenaCapabilityKey"
+      ],
+      "title": "lib/capabilities/01.ts"
+    },
+    {
+      "file": "apps/docs-athena-js/examples/capabilities/02.ts",
+      "id": "capabilities.02",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/capabilities#fingerprintAthenaCapabilitiesIr"
+      ],
+      "title": "lib/capabilities/02.ts"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/active-organization.ts",
+      "id": "docs-ir.active-organization",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#ensureActiveOrganization"
+      ],
+      "title": "ensureActiveOrganization"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-domain-events.ts",
+      "id": "docs-ir.auth-domain-events",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#ATHENA_AUTH_DOMAIN_EVENTS"
+      ],
+      "title": "ATHENA_AUTH_DOMAIN_EVENTS"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-embedded-capabilities.ts",
+      "id": "docs-ir.auth-embedded-capabilities",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+      ],
+      "title": "ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-error-codes.ts",
+      "id": "docs-ir.auth-error-codes",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AthenaAuthErrorCode"
+      ],
+      "title": "AthenaAuthErrorCode"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-hooks.ts",
+      "id": "docs-ir.auth-hooks",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#defineAthenaAuthHooks"
+      ],
+      "title": "defineAthenaAuthHooks"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-oauth-provider.ts",
+      "id": "docs-ir.auth-oauth-provider",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AuthOAuthProvider"
+      ],
+      "title": "AuthOAuthProvider"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-social-provider.ts",
+      "id": "docs-ir.auth-social-provider",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AuthSocialProvider"
+      ],
+      "title": "AuthSocialProvider"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/authorization-snapshot.ts",
+      "id": "docs-ir.authorization-snapshot",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#parseAuthorizationSnapshot"
+      ],
+      "title": "parseAuthorizationSnapshot"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/billing",
+      "file": "apps/docs-athena-js/examples/docs-ir/billing-capabilities.ts",
+      "id": "docs-ir.billing-capabilities",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingCapabilities"
+      ],
+      "title": "BillingCapabilities"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/billing",
+      "file": "apps/docs-athena-js/examples/docs-ir/billing-change-operation.ts",
+      "id": "docs-ir.billing-change-operation",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingSelfSubscriptionChangeOperation"
+      ],
+      "title": "BillingSelfSubscriptionChangeOperation"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-embedded-capability-snapshot-athena.ts",
+      "id": "docs-ir.canonical-athena-auth-embedded-capability-snapshot-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+      ],
+      "title": "ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-embedded-capability-snapshot-browser.ts",
+      "id": "docs-ir.canonical-athena-auth-embedded-capability-snapshot-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+      ],
+      "title": "athena-auth-embedded-capability-snapshot-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-error-code-athena.ts",
+      "id": "docs-ir.canonical-athena-auth-error-code-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AthenaAuthErrorCode"
+      ],
+      "title": "AthenaAuthErrorCode"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-error-code-browser.ts",
+      "id": "docs-ir.canonical-athena-auth-error-code-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#AthenaAuthErrorCode"
+      ],
+      "title": "athena-auth-error-code-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-browser.ts",
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#athena.auth.organization.authenticationPosture.list"
+      ],
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/next/client",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-client.ts",
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-client",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/next/client#athena.auth.organization.authenticationPosture.list"
+      ],
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/react-native",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-react-native.ts",
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-react-native",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/react-native#athena.auth.organization.authenticationPosture.list"
+      ],
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/server",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-server.ts",
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-server",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/server#athena.auth.organization.authenticationPosture.list"
+      ],
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-direct-upload-config-athena.ts",
+      "id": "docs-ir.canonical-athena-storage-direct-upload-config-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageDirectUploadConfig"
+      ],
+      "title": "AthenaStorageDirectUploadConfig"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-direct-upload-config-browser.ts",
+      "id": "docs-ir.canonical-athena-storage-direct-upload-config-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#AthenaStorageDirectUploadConfig"
+      ],
+      "title": "athena-storage-direct-upload-config-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-file-upload-request-athena.ts",
+      "id": "docs-ir.canonical-athena-storage-file-upload-request-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageFileUploadRequest"
+      ],
+      "title": "AthenaStorageFileUploadRequest"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-file-upload-request-browser.ts",
+      "id": "docs-ir.canonical-athena-storage-file-upload-request-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#AthenaStorageFileUploadRequest"
+      ],
+      "title": "athena-storage-file-upload-request-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-oauth-provider-athena.ts",
+      "id": "docs-ir.canonical-auth-oauth-provider-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AuthOAuthProvider"
+      ],
+      "title": "AuthOAuthProvider"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/social-providers",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-oauth-provider-social-providers.ts",
+      "id": "docs-ir.canonical-auth-oauth-provider-social-providers",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/social-providers#AuthOAuthProvider"
+      ],
+      "title": "auth-oauth-provider-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-social-provider-athena.ts",
+      "id": "docs-ir.canonical-auth-social-provider-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AuthSocialProvider"
+      ],
+      "title": "AuthSocialProvider"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/social-providers",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-social-provider-social-providers.ts",
+      "id": "docs-ir.canonical-auth-social-provider-social-providers",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/social-providers#AuthSocialProvider"
+      ],
+      "title": "auth-social-provider-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-define-athena-auth-hooks-athena.ts",
+      "id": "docs-ir.canonical-define-athena-auth-hooks-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#defineAthenaAuthHooks"
+      ],
+      "title": "defineAthenaAuthHooks"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-define-athena-auth-hooks-browser.ts",
+      "id": "docs-ir.canonical-define-athena-auth-hooks-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#defineAthenaAuthHooks"
+      ],
+      "title": "define-athena-auth-hooks-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-ensure-active-organization-athena.ts",
+      "id": "docs-ir.canonical-ensure-active-organization-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#ensureActiveOrganization"
+      ],
+      "title": "ensureActiveOrganization"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/organization",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-ensure-active-organization-organization.ts",
+      "id": "docs-ir.canonical-ensure-active-organization-organization",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/organization#ensureActiveOrganization"
+      ],
+      "title": "ensure-active-organization-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/next/server",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-ensure-active-organization-server.ts",
+      "id": "docs-ir.canonical-ensure-active-organization-server",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/next/server#ensureActiveOrganization"
+      ],
+      "title": "ensureActiveOrganization"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-parse-authorization-snapshot-athena.ts",
+      "id": "docs-ir.canonical-parse-authorization-snapshot-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#parseAuthorizationSnapshot"
+      ],
+      "title": "parseAuthorizationSnapshot"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-parse-authorization-snapshot-browser.ts",
+      "id": "docs-ir.canonical-parse-authorization-snapshot-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#parseAuthorizationSnapshot"
+      ],
+      "title": "parse-authorization-snapshot-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-resolve-athena-execution-mode-athena.ts",
+      "id": "docs-ir.canonical-resolve-athena-execution-mode-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#resolveAthenaExecutionMode"
+      ],
+      "title": "resolveAthenaExecutionMode"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-resolve-athena-execution-mode-cloudflare.ts",
+      "id": "docs-ir.canonical-resolve-athena-execution-mode-cloudflare",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#resolveAthenaExecutionMode"
+      ],
+      "title": "resolve-athena-execution-mode-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-storage-provider-descriptor-athena.ts",
+      "id": "docs-ir.canonical-storage-provider-descriptor-athena",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#StorageProviderDescriptor"
+      ],
+      "title": "StorageProviderDescriptor"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-storage-provider-descriptor-browser.ts",
+      "id": "docs-ir.canonical-storage-provider-descriptor-browser",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/browser#StorageProviderDescriptor"
+      ],
+      "title": "storage-provider-descriptor-athena"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-client.ts",
+      "id": "docs-ir.cloudflare-client",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareClient"
+      ],
+      "title": "createCloudflareClient"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-compose-storage.ts",
+      "id": "docs-ir.cloudflare-compose-storage",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#composeHttpAndR2Storage"
+      ],
+      "title": "composeHttpAndR2Storage"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-d1-transport.ts",
+      "id": "docs-ir.cloudflare-d1-transport",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareD1GatewayTransport"
+      ],
+      "title": "createCloudflareD1GatewayTransport"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-execution-mode.ts",
+      "id": "docs-ir.cloudflare-execution-mode",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#resolveAthenaExecutionMode"
+      ],
+      "title": "resolveAthenaExecutionMode"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-r2-object-storage.ts",
+      "id": "docs-ir.cloudflare-r2-object-storage",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareR2ObjectStorage"
+      ],
+      "title": "createCloudflareR2ObjectStorage"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-r2-storage-module.ts",
+      "id": "docs-ir.cloudflare-r2-storage-module",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareR2StorageModule"
+      ],
+      "title": "createCloudflareR2StorageModule"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-runtime.ts",
+      "id": "docs-ir.cloudflare-runtime",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createAthenaRuntime"
+      ],
+      "title": "createAthenaRuntime"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-worker-env.ts",
+      "id": "docs-ir.cloudflare-worker-env",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createAthenaFromWorkerEnv"
+      ],
+      "title": "createAthenaFromWorkerEnv"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-authenticated-only.ts",
+      "id": "docs-ir.policy-authenticated-only",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#authenticatedOnly"
+      ],
+      "title": "authenticatedOnly"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-authoring.ts",
+      "id": "docs-ir.policy-authoring",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#policy"
+      ],
+      "title": "policy"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-coverage.ts",
+      "id": "docs-ir.policy-coverage",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#coverageAthenaPolicy"
+      ],
+      "title": "coverageAthenaPolicy"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-decision.ts",
+      "id": "docs-ir.policy-decision",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#decideAthenaPolicy"
+      ],
+      "title": "decideAthenaPolicy"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-document-fingerprint.ts",
+      "id": "docs-ir.policy-document-fingerprint",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#fingerprintDocument"
+      ],
+      "title": "fingerprintDocument"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-explain.ts",
+      "id": "docs-ir.policy-explain",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#explainAthenaPolicy"
+      ],
+      "title": "explainAthenaPolicy"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-ir-serialize.ts",
+      "id": "docs-ir.policy-ir-serialize",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#serializePolicyIr"
+      ],
+      "title": "serializePolicyIr"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-lint.ts",
+      "id": "docs-ir.policy-lint",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#lintAthenaPolicy"
+      ],
+      "title": "lintAthenaPolicy"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-organization-scoped.ts",
+      "id": "docs-ir.policy-organization-scoped",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#organizationScoped"
+      ],
+      "title": "organizationScoped"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-owner-or-role.ts",
+      "id": "docs-ir.policy-owner-or-role",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#ownerOrRole"
+      ],
+      "title": "ownerOrRole"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-principal-match.ts",
+      "id": "docs-ir.policy-principal-match",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#policyAppliesToPrincipal"
+      ],
+      "title": "policyAppliesToPrincipal"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-public-read.ts",
+      "id": "docs-ir.policy-public-read",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#publicRead"
+      ],
+      "title": "publicRead"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-role-restricted.ts",
+      "id": "docs-ir.policy-role-restricted",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#roleRestricted"
+      ],
+      "title": "roleRestricted"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-schema-impact.ts",
+      "id": "docs-ir.policy-schema-impact",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#reportAthenaPolicySchemaImpact"
+      ],
+      "title": "reportAthenaPolicySchemaImpact"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-service-only.ts",
+      "id": "docs-ir.policy-service-only",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#serviceOnly"
+      ],
+      "title": "serviceOnly"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-simulate.ts",
+      "id": "docs-ir.policy-simulate",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#simulateAthenaPolicy"
+      ],
+      "title": "simulateAthenaPolicy"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-tenant-scoped.ts",
+      "id": "docs-ir.policy-tenant-scoped",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#tenantScoped"
+      ],
+      "title": "tenantScoped"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/policy",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-user-owned.ts",
+      "id": "docs-ir.policy-user-owned",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/policy#userOwned"
+      ],
+      "title": "userOwned"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/rights",
+      "file": "apps/docs-athena-js/examples/docs-ir/right-key-parse.ts",
+      "id": "docs-ir.right-key-parse",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/rights#parseAthenaRightKey"
+      ],
+      "title": "parseAthenaRightKey"
+    },
+    {
+      "entrypoint": "@xylex-group/athena/rights",
+      "file": "apps/docs-athena-js/examples/docs-ir/right-match.ts",
+      "id": "docs-ir.right-match",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena/rights#rightMatches"
+      ],
+      "title": "rightMatches"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/storage-direct-upload.ts",
+      "id": "docs-ir.storage-direct-upload",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageDirectUploadConfig"
+      ],
+      "title": "AthenaStorageDirectUploadConfig"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/storage-file-upload.ts",
+      "id": "docs-ir.storage-file-upload",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageFileUploadRequest"
+      ],
+      "title": "AthenaStorageFileUploadRequest"
+    },
+    {
+      "entrypoint": "@xylex-group/athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/storage-provider.ts",
+      "id": "docs-ir.storage-provider",
+      "operationIds": [],
+      "symbolIds": [
+        "@xylex-group/athena#StorageProviderDescriptor"
+      ],
+      "title": "StorageProviderDescriptor"
+    }
+  ],
+  "schema": "athena/docs-api/v3/examples"
+}

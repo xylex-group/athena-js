@@ -3,6 +3,7 @@ import {
   authorizationRightsFingerprint,
   authorizationRolesFingerprint,
 } from "./catalog-state.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 
 declare const platformAssignmentRevisionBrand: unique symbol;
 declare const organizationAssignmentRevisionBrand: unique symbol;
@@ -52,13 +53,14 @@ export interface OrganizationMemberAssignmentSnapshot {
 }
 
 export function createAuthorizationAuthorityVersion(
-  assignmentRevision: number
+  assignmentRevision: number,
+  rightsIr?: AthenaRightsIr
 ): AuthorizationAuthorityVersion {
   return Object.freeze({
     assignmentRevision,
     catalogVersion: AUTHORIZATION_CATALOG_VERSION,
-    rightsFingerprint: authorizationRightsFingerprint(),
-    rolesFingerprint: authorizationRolesFingerprint(),
+    rightsFingerprint: authorizationRightsFingerprint(rightsIr),
+    rolesFingerprint: authorizationRolesFingerprint(rightsIr),
   });
 }
 

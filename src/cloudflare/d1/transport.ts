@@ -929,6 +929,8 @@ function compileErrorResponse<T>(
 
 /**
  * Gateway-shaped transport that executes against a Worker D1 binding.
+ * @docsCanonical
+ * @docsRole cloudflare-d1-transport
  */
 export function createCloudflareD1GatewayTransport(
   options: CloudflareD1TransportOptions

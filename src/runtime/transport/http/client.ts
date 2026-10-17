@@ -9,6 +9,7 @@ export async function executeAthenaHttpTransport<T>(input: {
   headers?: Record<string, string>;
   invocation: AthenaTransportInvocationIR;
   root?: string;
+  signal?: AbortSignal;
   transport: AthenaHttpTransportIR;
 }): Promise<AthenaTransportResult<T>> {
   const fetchImpl = input.fetch ?? fetch;
@@ -23,6 +24,7 @@ export async function executeAthenaHttpTransport<T>(input: {
     credentials: request.credentials,
     headers: request.headers,
     method: request.method,
+    signal: input.signal,
   });
   const json = await response.json().catch(() => undefined);
   return parseAthenaHttpTransportResponse<T>({

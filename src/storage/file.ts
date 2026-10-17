@@ -258,6 +258,17 @@ export interface AthenaStorageMultipartClient {
   ) => Promise<Record<string, unknown>>;
 }
 
+function withoutAbortSignal(
+  options?: AthenaStorageCallOptions
+): AthenaStorageCallOptions | undefined {
+  if (!options) {
+    return undefined;
+  }
+  const cleanupOptions = { ...options };
+  delete cleanupOptions.signal;
+  return cleanupOptions;
+}
+
 interface NormalizedUploadSource {
   contentType?: string;
   fileName: string;
@@ -265,9 +276,20 @@ interface NormalizedUploadSource {
   source: AthenaStorageUploadSource;
 }
 
+interface ResolvedUploadSource extends NormalizedUploadSource {
+  fileIndex: number;
+  storageKey: string;
+}
+
 interface ResolvedUploadRequest {
-  source: NormalizedUploadSource;
+  source: ResolvedUploadSource;
   uploadRequest: CreateStorageUploadUrlRequest;
+}
+
+interface UploadProgressContext {
+  aggregateLoaded: number[];
+  preparingReported: boolean;
+  sources: NormalizedUploadSource[];
 }
 
 function mergeUploadHeaders(
@@ -286,23 +308,233 @@ export function createStorageFileModule(
   config: AthenaStorageFileConfig = {},
   multipart?: AthenaStorageMultipartClient
 ): AthenaStorageFileModule {
+  const recoverUploadError = (
+    error: unknown,
+    uploaded: readonly AthenaStorageUploadedFile[],
+    cleanupErrors: readonly unknown[]
+  ) => {
+    const failure = error instanceof Error ? error : new Error(String(error));
+    const recovery = {
+      cleanupErrors: [...cleanupErrors],
+      completedFiles: [...uploaded],
+      uploaded: uploaded.map((file) => file.storage_key),
+    };
+    try {
+      Object.assign(failure, recovery);
+      return failure;
+    } catch {
+      return Object.assign(new Error(failure.message), recovery);
+    }
+  };
+
+  const uploadIndexes = new WeakMap<AthenaStorageUploadedFile, number>();
+  const orderUploadedFiles = (files: readonly AthenaStorageUploadedFile[]) =>
+    [...files].sort(
+      (left, right) =>
+        (uploadIndexes.get(left) ?? 0) - (uploadIndexes.get(right) ?? 0)
+    );
+  const createProgressContext = (
+    sources: NormalizedUploadSource[]
+  ): UploadProgressContext => ({
+    aggregateLoaded: new Array(sources.length).fill(0) as number[],
+    preparingReported: false,
+    sources,
+  });
+  const reportPreparing = (
+    input: AthenaStorageFileUploadInput,
+    progress: UploadProgressContext
+  ) => {
+    if (progress.preparingReported) {
+      return;
+    }
+    progress.preparingReported = true;
+    input.onProgress?.(
+      createProgressSnapshot(
+        "preparing",
+        progress.sources,
+        0,
+        0,
+        sum(progress.aggregateLoaded)
+      )
+    );
+  };
+  const reportProgress = (
+    input: AthenaStorageFileUploadInput,
+    progress: UploadProgressContext,
+    phase: AthenaStorageUploadProgress["phase"],
+    fileIndex: number,
+    loaded: number,
+    multipartInfo?: AthenaStorageUploadProgress["multipart"]
+  ) => {
+    progress.aggregateLoaded[fileIndex] = loaded;
+    input.onProgress?.(
+      createProgressSnapshot(
+        phase,
+        progress.sources,
+        fileIndex,
+        loaded,
+        sum(progress.aggregateLoaded),
+        multipartInfo
+      )
+    );
+  };
+
   const uploadSinglePut = async (
     input: AthenaStorageFileUploadInput,
-    sources: NormalizedUploadSource[],
-    options?: AthenaStorageCallOptions
+    sources: ResolvedUploadSource[],
+    options: AthenaStorageCallOptions | undefined,
+    progress: UploadProgressContext
   ): Promise<AthenaStorageFileUploadResult> => {
+    const cleanupOptions = withoutAbortSignal(options);
     const uploadRequests = sources.map(
-      (source, index): ResolvedUploadRequest => {
-        const storageKey = resolveUploadStorageKey(
-          input,
-          source,
-          index,
-          options,
-          config
+      (source): ResolvedUploadRequest => ({
+        source,
+        uploadRequest: {
+          bucket: input.bucket,
+          bucket_key_enabled: input.bucket_key_enabled,
+          content_type: input.content_type ?? source.contentType,
+          kms_key_id: input.kms_key_id,
+          metadata: input.metadata,
+          mime_type: input.mime_type ?? source.contentType,
+          name: input.name ?? source.fileName,
+          original_name: input.original_name ?? source.fileName,
+          public: input.public,
+          resource_id: input.resource_id ?? input.resourceId,
+          s3_id: input.s3_id ?? "",
+          server_side_encryption: input.server_side_encryption,
+          size_bytes: source.sizeBytes,
+          sse: input.sse,
+          ssekms_key_id: input.ssekms_key_id,
+          storage_key: source.storageKey,
+        },
+      })
+    );
+
+    reportPreparing(input, progress);
+
+    const uploadUrls =
+      uploadRequests.length === 1
+        ? [
+            await base.createStorageUploadUrl(
+              uploadRequests[0].uploadRequest,
+              options
+            ),
+          ]
+        : (
+            await base.createStorageUploadUrls(
+              { files: uploadRequests.map((request) => request.uploadRequest) },
+              options
+            )
+          ).files;
+
+    const uploaded: AthenaStorageUploadedFile[] = [];
+    try {
+      if (uploadUrls.length !== uploadRequests.length) {
+        throw new Error(
+          "Storage upload URL batch did not match the requested files"
         );
-        return {
-          source,
-          uploadRequest: {
+      }
+      for (let index = 0; index < uploadRequests.length; index += 1) {
+        const request = uploadRequests[index];
+        const uploadUrl = uploadUrls[index];
+        if (!(request && uploadUrl)) {
+          throw new Error(`Storage upload URL missing for file ${index + 1}`);
+        }
+        const aggregateProgress = (uploadProgress: { loaded: number }) => {
+          reportProgress(
+            input,
+            progress,
+            "uploading",
+            request.source.fileIndex,
+            uploadProgress.loaded
+          );
+        };
+        const response = config.directUpload
+          ? await putDirectStorageUploadBody(
+              config.directUpload,
+              uploadUrl.upload.bucket,
+              uploadUrl.upload.storage_key,
+              request.source.source,
+              mergeUploadHeaders(
+                uploadUrl.upload.headers ?? {},
+                input.uploadHeaders
+              ),
+              options?.signal,
+              aggregateProgress
+            )
+          : await putUploadBody(
+              uploadUrl.upload.url,
+              uploadUrl.upload.headers ?? {},
+              request.source,
+              input,
+              options,
+              aggregateProgress
+            );
+        const completedFile: AthenaStorageUploadedFile = {
+          file: uploadUrl.file,
+          fileName: request.source.fileName,
+          response,
+          source: request.source.source,
+          storage_key: request.uploadRequest.storage_key,
+          upload: uploadUrl.upload,
+        };
+        uploadIndexes.set(completedFile, request.source.fileIndex);
+        uploaded.push(completedFile);
+        reportProgress(
+          input,
+          progress,
+          "complete",
+          request.source.fileIndex,
+          request.source.sizeBytes
+        );
+      }
+    } catch (error) {
+      const cleanupErrors: unknown[] = [];
+      for (const pending of uploadUrls.slice(uploaded.length)) {
+        try {
+          await base.deleteStorageFile(pending.file.id, cleanupOptions);
+        } catch (cleanupError) {
+          cleanupErrors.push(cleanupError);
+        }
+      }
+      throw recoverUploadError(error, uploaded, cleanupErrors);
+    }
+
+    return {
+      count: uploaded.length,
+      files: uploaded,
+    };
+  };
+
+  const uploadMultipartResolved = async (
+    input: AthenaStorageFileUploadInput,
+    sources: ResolvedUploadSource[],
+    options: AthenaStorageCallOptions | undefined,
+    progressContext: UploadProgressContext
+  ) => {
+    if (!multipart) {
+      throw new Error(
+        "athena.storage.file.uploadMultipart requires the multipart namespace"
+      );
+    }
+    const cleanupOptions = withoutAbortSignal(options);
+    const partSize = Math.max(
+      input.multipartPartSizeBytes ?? DEFAULT_MULTIPART_PART_SIZE_BYTES,
+      MIN_MULTIPART_PART_SIZE_BYTES
+    );
+
+    reportPreparing(input, progressContext);
+
+    const uploaded: AthenaStorageUploadedFile[] = [];
+
+    for (const source of sources) {
+      const storageKey = source.storageKey;
+      let pendingFileId: string | undefined;
+      let uploadId = "";
+      let completed = false;
+      try {
+        const uploadUrl = await base.createStorageUploadUrl(
+          {
             bucket: input.bucket,
             bucket_key_enabled: input.bucket_key_enabled,
             content_type: input.content_type ?? source.contentType,
@@ -320,149 +552,10 @@ export function createStorageFileModule(
             ssekms_key_id: input.ssekms_key_id,
             storage_key: storageKey,
           },
-        };
-      }
-    );
-
-    input.onProgress?.(createProgressSnapshot("preparing", sources, 0, 0, 0));
-
-    const uploadUrls =
-      uploadRequests.length === 1
-        ? [
-            await base.createStorageUploadUrl(
-              uploadRequests[0].uploadRequest,
-              options
-            ),
-          ]
-        : (
-            await base.createStorageUploadUrls(
-              { files: uploadRequests.map((request) => request.uploadRequest) },
-              options
-            )
-          ).files;
-
-    const aggregateLoaded = new Array(uploadRequests.length).fill(
-      0
-    ) as number[];
-    const uploaded: AthenaStorageUploadedFile[] = [];
-
-    for (let index = 0; index < uploadRequests.length; index += 1) {
-      const request = uploadRequests[index];
-      const uploadUrl = uploadUrls[index];
-      const aggregateProgress = (progress: { loaded: number }) => {
-        aggregateLoaded[index] = progress.loaded;
-        input.onProgress?.(
-          createProgressSnapshot(
-            "uploading",
-            sources,
-            index,
-            progress.loaded,
-            sum(aggregateLoaded)
-          )
+          options
         );
-      };
-      const response = config.directUpload
-        ? await putDirectStorageUploadBody(
-            config.directUpload,
-            uploadUrl.upload.bucket,
-            uploadUrl.upload.storage_key,
-            request.source.source,
-            mergeUploadHeaders(
-              uploadUrl.upload.headers ?? {},
-              input.uploadHeaders
-            ),
-            options?.signal,
-            aggregateProgress
-          )
-        : await putUploadBody(
-            uploadUrl.upload.url,
-            uploadUrl.upload.headers ?? {},
-            request.source,
-            input,
-            options,
-            aggregateProgress
-          );
-      uploaded.push({
-        file: uploadUrl.file,
-        fileName: request.source.fileName,
-        response,
-        source: request.source.source,
-        storage_key: request.uploadRequest.storage_key,
-        upload: uploadUrl.upload,
-      });
-      aggregateLoaded[index] = request.source.sizeBytes;
-      input.onProgress?.(
-        createProgressSnapshot(
-          "complete",
-          sources,
-          index,
-          request.source.sizeBytes,
-          sum(aggregateLoaded)
-        )
-      );
-    }
-
-    return {
-      count: uploaded.length,
-      files: uploaded,
-    };
-  };
-
-  const uploadMultipart: AthenaStorageFileModule["uploadMultipart"] = async (
-    input,
-    options
-  ) => {
-    if (!multipart) {
-      throw new Error(
-        "athena.storage.file.uploadMultipart requires the multipart namespace"
-      );
-    }
-    const sources = normalizeUploadSources(input);
-    validateUploadConstraints(sources, input);
-    const partSize = Math.max(
-      input.multipartPartSizeBytes ?? DEFAULT_MULTIPART_PART_SIZE_BYTES,
-      MIN_MULTIPART_PART_SIZE_BYTES
-    );
-
-    input.onProgress?.(createProgressSnapshot("preparing", sources, 0, 0, 0));
-
-    const aggregateLoaded = new Array(sources.length).fill(0) as number[];
-    const uploaded: AthenaStorageUploadedFile[] = [];
-
-    for (let index = 0; index < sources.length; index += 1) {
-      const source = sources[index];
-      const storageKey = resolveUploadStorageKey(
-        input,
-        source,
-        index,
-        options,
-        config
-      );
-      const uploadUrl = await base.createStorageUploadUrl(
-        {
-          bucket: input.bucket,
-          bucket_key_enabled: input.bucket_key_enabled,
-          content_type: input.content_type ?? source.contentType,
-          kms_key_id: input.kms_key_id,
-          metadata: input.metadata,
-          mime_type: input.mime_type ?? source.contentType,
-          name: input.name ?? source.fileName,
-          original_name: input.original_name ?? source.fileName,
-          public: input.public,
-          resource_id: input.resource_id ?? input.resourceId,
-          s3_id: input.s3_id ?? "",
-          server_side_encryption: input.server_side_encryption,
-          size_bytes: source.sizeBytes,
-          sse: input.sse,
-          ssekms_key_id: input.ssekms_key_id,
-          storage_key: storageKey,
-        },
-        options
-      );
-
-      const fileId = uploadUrl.file.id;
-      let uploadId = "";
-      try {
+        const fileId = uploadUrl.file.id;
+        pendingFileId = fileId;
         const created = await multipart.create(
           {
             bucket_key_enabled: input.bucket_key_enabled,
@@ -516,22 +609,18 @@ export function createStorageFileModule(
             },
             input,
             options,
-            (progress) => {
-              const loaded = fileLoaded + progress.loaded;
-              aggregateLoaded[index] = loaded;
-              input.onProgress?.(
-                createProgressSnapshot(
-                  "uploading",
-                  sources,
-                  index,
-                  loaded,
-                  sum(aggregateLoaded),
-                  {
-                    partCount,
-                    partNumber,
-                    uploadId,
-                  }
-                )
+            (partProgress) => {
+              reportProgress(
+                input,
+                progressContext,
+                "uploading",
+                source.fileIndex,
+                fileLoaded + partProgress.loaded,
+                {
+                  partCount,
+                  partNumber,
+                  uploadId,
+                }
               );
             }
           );
@@ -543,24 +632,21 @@ export function createStorageFileModule(
           }
           completedParts.push({ etag, part_number: partNumber });
           fileLoaded = end;
-          aggregateLoaded[index] = fileLoaded;
-          input.onProgress?.(
-            createProgressSnapshot(
-              "uploading",
-              sources,
-              index,
-              fileLoaded,
-              sum(aggregateLoaded),
-              {
-                partCount,
-                partNumber,
-                uploadId,
-              }
-            )
+          reportProgress(
+            input,
+            progressContext,
+            "uploading",
+            source.fileIndex,
+            fileLoaded,
+            {
+              partCount,
+              partNumber,
+              uploadId,
+            }
           );
         }
 
-        const completed = await multipart.complete(
+        const completion = await multipart.complete(
           {
             file_id: fileId,
             parts: completedParts,
@@ -568,42 +654,51 @@ export function createStorageFileModule(
           },
           options
         );
+        completed = true;
 
-        uploaded.push({
-          file: completed.file ?? uploadUrl.file,
+        const completedFile: AthenaStorageUploadedFile = {
+          file: completion.file ?? uploadUrl.file,
           fileName: source.fileName,
           response: new Response(null, { status: 200 }),
           source: source.source,
           storage_key: storageKey,
           upload: uploadUrl.upload,
-        });
-        aggregateLoaded[index] = source.sizeBytes;
-        input.onProgress?.(
-          createProgressSnapshot(
-            "complete",
-            sources,
-            index,
-            source.sizeBytes,
-            sum(aggregateLoaded),
-            {
-              partCount,
-              partNumber: partCount,
-              uploadId,
-            }
-          )
+        };
+        uploadIndexes.set(completedFile, source.fileIndex);
+        uploaded.push(completedFile);
+        reportProgress(
+          input,
+          progressContext,
+          "complete",
+          source.fileIndex,
+          source.sizeBytes,
+          {
+            partCount,
+            partNumber: partCount,
+            uploadId,
+          }
         );
       } catch (error) {
-        if (uploadId) {
+        const cleanupErrors: unknown[] = [];
+        if (!completed && pendingFileId && uploadId) {
           try {
             await multipart.abort(
-              { file_id: fileId, upload_id: uploadId },
-              options
+              { file_id: pendingFileId, upload_id: uploadId },
+              cleanupOptions
             );
-          } catch {
+          } catch (cleanupError) {
+            cleanupErrors.push(cleanupError);
             // Best-effort abort; surface the original upload error.
           }
         }
-        throw error;
+        if (!completed && pendingFileId) {
+          try {
+            await base.deleteStorageFile(pendingFileId, cleanupOptions);
+          } catch (cleanupError) {
+            cleanupErrors.push(cleanupError);
+          }
+        }
+        throw recoverUploadError(error, uploaded, cleanupErrors);
       }
     }
 
@@ -613,60 +708,121 @@ export function createStorageFileModule(
     };
   };
 
+  const uploadMultipart: AthenaStorageFileModule["uploadMultipart"] = async (
+    input,
+    options
+  ) => {
+    if (!multipart) {
+      throw new Error(
+        "athena.storage.file.uploadMultipart requires the multipart namespace"
+      );
+    }
+    const sources = normalizeUploadSources(input);
+    validateUploadConstraints(sources, input);
+    return uploadMultipartResolved(
+      input,
+      resolveUploadSources(input, sources, options, config),
+      options,
+      createProgressContext(sources)
+    );
+  };
+
   const upload: AthenaStorageFileModule["upload"] = async (input, options) => {
     const sources = normalizeUploadSources(input);
     validateUploadConstraints(sources, input);
+    const resolvedSources = resolveUploadSources(
+      input,
+      sources,
+      options,
+      config
+    );
+    const progress = createProgressContext(sources);
 
     const threshold =
       input.multipartThresholdBytes ?? DEFAULT_MULTIPART_THRESHOLD_BYTES;
     const useMultipart =
       Boolean(multipart) &&
       !input.forceSinglePut &&
-      !config.directUpload &&
       (input.forceMultipart ||
         sources.some((source) => source.sizeBytes >= threshold));
 
     if (useMultipart) {
-      const multipartSources = sources.filter(
+      const multipartSources = resolvedSources.filter(
         (source) => input.forceMultipart || source.sizeBytes >= threshold
       );
-      const singleSources = sources.filter(
+      const singleSources = resolvedSources.filter(
         (source) => !(input.forceMultipart || source.sizeBytes >= threshold)
       );
 
-      if (multipartSources.length === sources.length) {
-        return uploadMultipart(input, options);
+      if (multipartSources.length === resolvedSources.length) {
+        return uploadMultipartResolved(
+          input,
+          multipartSources,
+          options,
+          progress
+        );
       }
 
       // Mixed batch: upload large files via multipart, small via single PUT.
-      const multipartResult =
-        multipartSources.length > 0
-          ? await uploadMultipart(
-              {
-                ...input,
-                files: multipartSources.map((source) => source.source),
-                maxFiles: multipartSources.length,
-              },
-              options
-            )
-          : { count: 0, files: [] };
-      const singleResult =
-        singleSources.length > 0
-          ? await uploadSinglePut(
-              {
-                ...input,
-                files: singleSources.map((source) => source.source),
-                maxFiles: singleSources.length,
-              },
-              singleSources,
-              options
-            )
-          : { count: 0, files: [] };
-      const files = [...multipartResult.files, ...singleResult.files];
+      let multipartResult: AthenaStorageFileUploadResult = {
+        count: 0,
+        files: [],
+      };
+      if (multipartSources.length > 0) {
+        try {
+          multipartResult = await uploadMultipartResolved(
+            input,
+            multipartSources,
+            options,
+            progress
+          );
+        } catch (error) {
+          const failure = error as Error & {
+            cleanupErrors?: unknown[];
+            completedFiles?: AthenaStorageUploadedFile[];
+          };
+          throw recoverUploadError(
+            error,
+            orderUploadedFiles(failure.completedFiles ?? []),
+            failure.cleanupErrors ?? []
+          );
+        }
+      }
+      let singleResult: AthenaStorageFileUploadResult = {
+        count: 0,
+        files: [],
+      };
+      if (singleSources.length > 0) {
+        try {
+          singleResult = await uploadSinglePut(
+            input,
+            singleSources,
+            options,
+            progress
+          );
+        } catch (error) {
+          const failure = error as Error & {
+            cleanupErrors?: unknown[];
+            completedFiles?: AthenaStorageUploadedFile[];
+          };
+          throw recoverUploadError(
+            error,
+            orderUploadedFiles([
+              ...multipartResult.files,
+              ...(failure.completedFiles ?? []),
+            ]),
+            failure.cleanupErrors ?? []
+          );
+        }
+      }
+      const files = orderUploadedFiles([
+        ...multipartResult.files,
+        ...singleResult.files,
+      ]);
       return { count: files.length, files };
     }
 
-    return uploadSinglePut(input, sources, options);
+    return uploadSinglePut(input, resolvedSources, options, progress);
   };
 
   const download = ((
@@ -787,6 +943,25 @@ function resolveUploadStorageKey(
       })
     : (explicitKey ?? fallbackName);
   return resolveStoragePath(key, input, options, config);
+}
+
+function resolveUploadSources(
+  input: AthenaStorageFileUploadInput,
+  sources: readonly NormalizedUploadSource[],
+  options: AthenaStorageCallOptions | undefined,
+  config: AthenaStorageFileConfig
+): ResolvedUploadSource[] {
+  return sources.map((source, fileIndex) => ({
+    ...source,
+    fileIndex,
+    storageKey: resolveUploadStorageKey(
+      input,
+      source,
+      fileIndex,
+      options,
+      config
+    ),
+  }));
 }
 
 function normalizeUploadSources(

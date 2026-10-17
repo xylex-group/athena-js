@@ -2,6 +2,15 @@
   "authority": "crates/athena-rights",
   "descriptors": [
     {
+      "action": "read",
+      "description": "Read the scoped billing operator inventory.",
+      "isPattern": false,
+      "key": "billing.admin.inventory.read",
+      "kind": "capability",
+      "resource": "billing.admin.inventory",
+      "source": "billing"
+    },
+    {
       "action": "manage",
       "description": "Manage billing customer bindings and customer lifecycle state.",
       "isPattern": false,

@@ -612,7 +612,11 @@ export async function planAthenaAuthSchema(
     let ledgerState: AthenaAuthLedgerState = "absent";
     if (applied) {
       const checksum = applied.checksum?.trim() ?? "";
-      if (entry.checksum && checksum && checksum !== entry.checksum) {
+      if (
+        entry.checksum &&
+        checksum &&
+        !isAcceptedAuthMigrationChecksum(entry.version, checksum, entry.checksum)
+      ) {
         ledgerState = "checksum-mismatch";
       } else {
         ledgerState = "applied";

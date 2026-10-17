@@ -169,6 +169,112 @@ test("OAuth Memory service completes authorization code and refresh rotation", a
   );
 });
 
+test("OAuth refresh accepts echoed token-response scope including identity scopes", async () => {
+  const stores = createMemoryOAuthAuthorizationServerStores();
+  await stores.clients.create({
+    clientName: "OIDC + resource client",
+    id: "client-refresh-identity-scope",
+    redirectUris: ["https://client.example/callback"],
+    resourceUris: ["https://resource.example"],
+    scopes: [
+      "email",
+      "invoice:read",
+      "offline_access",
+      "openid",
+      "profile",
+    ],
+  });
+  const verifier = "w".repeat(43);
+  const keyStore = new MemoryTokenKeyStore();
+  const service = new OAuthAuthorizationServerService({
+    config: {
+      ...config,
+      resources: {
+        "https://resource.example": {
+          scopes: {
+            "invoice:read": {},
+            offline_access: {},
+          },
+        },
+      },
+    },
+    getUser: async (userId) => ({
+      ban_expires: null,
+      ban_reason: null,
+      banned: false,
+      created_at: new Date("2026-01-01T00:00:00.000Z"),
+      display_username: null,
+      email: "refresh-identity@example.com",
+      email_verified: true,
+      id: userId,
+      image: null,
+      last_sign_in_at: null,
+      metadata: {},
+      name: "Refresh Identity",
+      role: null,
+      two_factor_enabled: false,
+      updated_at: new Date("2026-01-01T00:00:00.000Z"),
+      username: null,
+    }),
+    issuer: config.issuer as string,
+    keyStore,
+    signing: createTestOAuthSigning(config, keyStore),
+    stateSecret: "oauth-test-secret",
+    stores,
+    userIsEligible: () => true,
+  });
+  const request = await service.createAuthorizationRequest({
+    clientId: "client-refresh-identity-scope",
+    codeChallenge: await generateCodeChallenge(verifier),
+    codeChallengeMethod: "S256",
+    redirectUri: "https://client.example/callback",
+    resource: "https://resource.example",
+    scope: "openid profile email invoice:read offline_access",
+    state: "state-refresh-identity",
+  });
+  const approved = await service.approveAuthorizationRequest({
+    authenticatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    authenticationMethods: ["password"],
+    id: request.id,
+    organizationId: null,
+    userId: "user-refresh-identity",
+  });
+  const tokens = await service.exchangeAuthorizationCode({
+    clientId: "client-refresh-identity-scope",
+    code: approved.code,
+    codeVerifier: verifier,
+    redirectUri: "https://client.example/callback",
+  });
+  assert.ok(tokens.refreshToken);
+  assert.deepEqual(tokens.scopes, ["invoice:read", "offline_access"]);
+  assert.deepEqual(tokens.identityScopes, ["email", "openid", "profile"]);
+
+  // Mimic clients that echo projectOAuthTokenEndpointResponse().scope.
+  const echoedScope = [...tokens.scopes, ...(tokens.identityScopes ?? [])]
+    .sort()
+    .join(" ");
+  const rotated = await service.refresh({
+    clientId: "client-refresh-identity-scope",
+    refreshToken: tokens.refreshToken,
+    resource: "https://resource.example",
+    scope: echoedScope,
+  });
+  assert.ok(rotated.refreshToken);
+  assert.deepEqual(rotated.scopes, ["invoice:read", "offline_access"]);
+  assert.deepEqual(rotated.identityScopes, ["email", "openid", "profile"]);
+
+  await assert.rejects(
+    service.refresh({
+      clientId: "client-refresh-identity-scope",
+      refreshToken: rotated.refreshToken as string,
+      resource: "https://resource.example",
+      scope: "openid invoice:read invoice:write offline_access",
+    }),
+    (error: unknown) =>
+      error instanceof OAuthProtocolError && error.code === "invalid_scope"
+  );
+});
+
 test("OAuth admin stores filter and page clients and grants", async () => {
   const stores = createMemoryOAuthAuthorizationServerStores();
   await stores.clients.create({

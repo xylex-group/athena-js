@@ -3,6 +3,7 @@ import type {
   AthenaAuthAfterHookPayload,
   AthenaAuthBeforeHookPayload,
   AthenaAuthHookErrorInput,
+  AthenaAuthHooks,
 } from "./types.ts";
 
 interface AthenaAuthHooksInput {
@@ -16,6 +17,7 @@ interface AthenaAuthHooksInput {
       payload: AthenaAuthBeforeHookPayload<K>
     ) => void;
   };
+  lifecycle?: AthenaAuthHooks["lifecycle"];
   onError?: (input: AthenaAuthHookErrorInput) => void;
 }
 
@@ -23,6 +25,8 @@ interface AthenaAuthHooksInput {
  * Identity helper so hook callbacks are contextually typed per event.
  * Returning `AthenaAuthHooks` would contextual-type arguments as
  * `handler | handler[]` and make destructured params implicit `any`.
+ * @docsCanonical
+ * @docsRole auth-hooks
  */
 export function defineAthenaAuthHooks<T extends AthenaAuthHooksInput>(
   hooks: T

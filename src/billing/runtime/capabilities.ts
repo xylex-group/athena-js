@@ -25,7 +25,8 @@ export type BillingAdminOperation =
   | "admin.webhooks.status"
   | "admin.ingestion.health"
   | "admin.conflicts.resolve"
-  | "admin.conflicts.list";
+  | "admin.conflicts.list"
+  | "admin.inventory.list";
 
 export type BillingOperation =
   | "payments.list"
@@ -141,6 +142,8 @@ export interface BillingCapabilityTarget {
 /**
  * Snapshot from `billing.getCapabilities`. Operation rows may include
  * optional `safety` (`stable` / `preview` / `disabled`).
+ * @docsCanonical
+ * @docsRole billing-capabilities
  */
 export interface BillingCapabilities {
   authority?: {

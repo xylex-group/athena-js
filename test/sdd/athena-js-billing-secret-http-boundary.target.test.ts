@@ -203,6 +203,31 @@ test("HTTP authenticated Data API cannot read billing registration metadata", as
   assert.equal(transport.calls.length, 1);
 });
 
+test("HTTP authenticated Data API keeps canonical billing invoices unexposed", async () => {
+  const transport = createRecordingTransport();
+  const handlers = createAthenaDataHandlers({
+    auth: { lookupSession, mode: "athena-session" },
+    security: { mode: "authenticated" },
+    transport,
+  });
+  const denied = await handlers.POST(
+    new Request("https://app.example/api/athena/gateway/fetch", {
+      body: JSON.stringify({ table_name: "billing.billing_invoices" }),
+      headers: {
+        "content-type": "application/json",
+        cookie: `${ATHENA_AUTH_SESSION_COOKIE_NAME}=sess_a`,
+      },
+      method: "POST",
+    })
+  );
+  assert.equal(denied.status, 403);
+  assert.equal(
+    (await denied.json() as { error?: { code?: string } }).error?.code,
+    "ATHENA_MODEL_NOT_EXPOSED"
+  );
+  assert.equal(transport.calls.length, 0);
+});
+
 test("HTTP authenticated Data API denies unqualified billing_ tables", async () => {
   const transport = createRecordingTransport();
   const handlers = createAthenaDataHandlers({

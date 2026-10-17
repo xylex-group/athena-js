@@ -222,7 +222,10 @@ export type AthenaAuthTransportErrorCode =
   | "ATHENA_AUTH_CAPABILITY_DISABLED"
   | "UNKNOWN_ERROR";
 
-/** Transport codes plus Athena envelope codes from non-2xx JSON bodies. */
+/** Transport codes plus Athena envelope codes from non-2xx JSON bodies.
+ * @docsCanonical
+ * @docsRole auth-error-codes
+ */
 export type AthenaAuthErrorCode = AthenaAuthTransportErrorCode | (string & {});
 
 export interface AthenaAuthErrorDetails {
@@ -440,6 +443,8 @@ export type AuthSocialProviderBuiltin =
  *
  * const provider: AuthSocialProvider = 'google'
  * ```
+ * @docsCanonical
+ * @docsRole auth-social-provider
  */
 export type AuthSocialProvider =
   | AuthSocialProviderBuiltin
@@ -448,6 +453,8 @@ export type AuthSocialProvider =
 /**
  * OAuth-only provider id (excludes SAML SSO).
  * Use for pure OAuth link/token flows where SAML is not valid.
+ * @docsCanonical
+ * @docsRole auth-oauth-provider
  */
 export type AuthOAuthProvider = Exclude<AuthSocialProvider, "saml">;
 
@@ -1739,6 +1746,14 @@ export type AthenaAuthAdminUserSessionRevokeBinding = (
 export interface AthenaAuthOrganizationBindings {
   /** List safe authentication posture facts for organization members. Route: `GET /organization/list-authentication-posture`. */
   authenticationPosture: {
+    /**
+     * Read safe member authentication posture for the active organization.
+     * @docsCanonical
+     * @docsRole authentication-posture-list
+     * @docsCapability organizations
+     * @docsRequiredRight organization.authentication.read
+     * @docsScope organization
+     */
     list: (
       input?: AthenaAuthOrganizationAuthenticationPostureListQuery &
         AthenaAuthFetchCompatibleInput,
@@ -2098,7 +2113,7 @@ export interface AthenaAuthorizationServerClient {
   isActive: boolean;
   metadata: Readonly<Record<string, unknown>>;
   redirectUris: readonly string[];
-  registrationKind: "pre-registered";
+  registrationKind: "pre-registered" | "client-id-metadata";
   resourceUris: readonly string[];
   responseType: "code";
   scopes: readonly string[];

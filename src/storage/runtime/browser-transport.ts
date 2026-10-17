@@ -293,6 +293,7 @@ export function createBrowserStorageTransport(options?: {
             body: op.body ? encodeAthenaStorageBytes(op.body) : undefined,
             contentType: op.contentType,
             cursor: op.cursor,
+            ifAbsent: op.ifAbsent,
             key: op.key,
             limit: op.limit,
             metadata: op.metadata,
@@ -300,6 +301,7 @@ export function createBrowserStorageTransport(options?: {
           }),
         },
         root: options?.baseUrl,
+        signal: op.signal,
         transport,
       });
       if (!result.ok) {

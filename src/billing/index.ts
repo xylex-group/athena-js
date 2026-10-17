@@ -81,6 +81,8 @@ export type {
   BillingSubscriptionPort,
   BillingWebhookPort,
 } from "./runtime/types.ts";
+export type { BillingInventoryPage } from "./runtime/admin/inventory-query.ts";
+export type { BillingInventoryPresetId } from "./runtime/admin/inventory-presets.ts";
 export type {
   AthenaBillingCatalogConfig,
   AthenaBillingCatalogPriceInput,

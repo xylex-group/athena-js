@@ -13,7 +13,10 @@ import {
   readAuthRightsProjection,
 } from "../runtime/data/athena-session.ts";
 import { isAllowedRequestOrigin } from "../runtime/data/origin.ts";
-import type { AthenaRuntimeAuthConfig } from "../runtime/data/principal.ts";
+import type {
+  AthenaPrincipal,
+  AthenaRuntimeAuthConfig,
+} from "../runtime/data/principal.ts";
 import {
   extraAllowedAppHttpOrigins,
   requestCarriesSessionCookie,
@@ -47,11 +50,20 @@ export interface CreateAthenaStorageHandlersOptions {
   auth?: AthenaRuntimeAuthConfig;
   client: object;
   discoveryDocument: AthenaRuntimeDiscoveryDocument;
+  /** Maximum JSON storage request body size. Omit to preserve existing limits. */
+  maxBodyBytes?: number;
   security?: {
     http?: AthenaRuntimeHttpSecurity;
     mode?: AthenaRuntimeSecurityMode;
   };
 }
+
+interface PreparedStorageRequest {
+  principal: AthenaPrincipal;
+  runtime: StorageRuntime;
+}
+
+class StorageRequestBodyTooLargeError extends Error {}
 
 function extraAllowedStorageOrigins(
   clientConfig: { app?: { url?: string | null } },
@@ -82,6 +94,12 @@ function shouldEnforceStorageRequestOrigin(
 export function createAthenaStorageHandlers(
   options: CreateAthenaStorageHandlersOptions
 ): AthenaStorageHandlers {
+  if (
+    options.maxBodyBytes !== undefined &&
+    (!Number.isSafeInteger(options.maxBodyBytes) || options.maxBodyBytes <= 0)
+  ) {
+    throw new Error("storage.maxBodyBytes must be a positive safe integer");
+  }
   const internals = requireAthenaRootClientInternals(
     options.client,
     "createAthenaStorageHandlers({ client })"
@@ -129,11 +147,9 @@ export function createAthenaStorageHandlers(
     });
   };
 
-  async function executeAndRespond(
-    request: Request,
-    storageRequest: StorageObjectRequest,
-    successFormat: "json" | "bytes"
-  ): Promise<Response> {
+  async function prepareRequest(
+    request: Request
+  ): Promise<PreparedStorageRequest | Response> {
     if (
       shouldEnforceStorageRequestOrigin(
         request,
@@ -182,9 +198,23 @@ export function createAthenaStorageHandlers(
       return jsonResult(storageResultFromPrincipalFailure(resolution.failure));
     }
 
-    const result = await runtime.execute(
-      storageRequest,
-      resolution.resolved.principal
+    return { principal: resolution.resolved.principal, runtime };
+  }
+
+  async function executeAndRespond(
+    request: Request,
+    storageRequest: StorageObjectRequest,
+    successFormat: "json" | "bytes",
+    prepared?: PreparedStorageRequest
+  ): Promise<Response> {
+    const context = prepared ?? (await prepareRequest(request));
+    if (context instanceof Response) {
+      return context;
+    }
+
+    const result = await context.runtime.execute(
+      { ...storageRequest, signal: request.signal },
+      context.principal
     );
     if (successFormat === "bytes" && result.ok) {
       const bytes = decodeAthenaStorageBytes(result.data);
@@ -209,10 +239,68 @@ export function createAthenaStorageHandlers(
       return executeAndRespond(request, { key, op: "get" }, "bytes");
     },
     async POST(request: Request) {
+      const context = await prepareRequest(request);
+      if (context instanceof Response) {
+        return context;
+      }
       let body: unknown;
       try {
-        body = await request.json();
-      } catch {
+        body = await readStorageRequestJson(request, options.maxBodyBytes);
+
+        const envelope = asRecord(body);
+        const payload = asRecord(envelope.payload);
+        const op = envelope.operation;
+        if (
+          op !== "get" &&
+          op !== "put" &&
+          op !== "delete" &&
+          op !== "list" &&
+          op !== "head"
+        ) {
+          return jsonResult(
+            storageErrorResult(
+              3000,
+              "storage_invalid_request",
+              "operation is required",
+              400
+            )
+          );
+        }
+
+        return executeAndRespond(
+          request,
+          {
+            body: decodeAthenaStorageRequestBody(payload.body),
+            contentType:
+              typeof payload.contentType === "string"
+                ? payload.contentType
+                : undefined,
+            cursor:
+              typeof payload.cursor === "string" ? payload.cursor : undefined,
+            key: typeof payload.key === "string" ? payload.key : undefined,
+            limit:
+              typeof payload.limit === "number" ? payload.limit : undefined,
+            metadata: asStringMap(payload.metadata),
+            op: op as StorageObjectOp,
+            prefix:
+              typeof payload.prefix === "string" ? payload.prefix : undefined,
+            ...(payload.ifAbsent === true ? { ifAbsent: true } : {}),
+          },
+          "json",
+          context
+        );
+      } catch (error) {
+        if (error instanceof StorageRequestBodyTooLargeError) {
+          return jsonResult(
+            storageErrorResult(
+              3000,
+              "storage_invalid_request",
+              error.message,
+              413
+            ),
+            413
+          );
+        }
         return jsonResult(
           storageErrorResult(
             3000,
@@ -222,48 +310,51 @@ export function createAthenaStorageHandlers(
           )
         );
       }
-
-      const envelope = asRecord(body);
-      const payload = asRecord(envelope.payload);
-      const op = envelope.operation;
-      if (
-        op !== "get" &&
-        op !== "put" &&
-        op !== "delete" &&
-        op !== "list" &&
-        op !== "head"
-      ) {
-        return jsonResult(
-          storageErrorResult(
-            3000,
-            "storage_invalid_request",
-            "operation is required",
-            400
-          )
-        );
-      }
-
-      return executeAndRespond(
-        request,
-        {
-          body: decodeAthenaStorageRequestBody(payload.body),
-          contentType:
-            typeof payload.contentType === "string"
-              ? payload.contentType
-              : undefined,
-          cursor:
-            typeof payload.cursor === "string" ? payload.cursor : undefined,
-          key: typeof payload.key === "string" ? payload.key : undefined,
-          limit: typeof payload.limit === "number" ? payload.limit : undefined,
-          metadata: asStringMap(payload.metadata),
-          op: op as StorageObjectOp,
-          prefix:
-            typeof payload.prefix === "string" ? payload.prefix : undefined,
-        },
-        "json"
-      );
     },
   };
+}
+
+async function readStorageRequestJson(
+  request: Request,
+  maxBodyBytes?: number
+): Promise<unknown> {
+  const contentLength = Number(request.headers.get("content-length"));
+  if (
+    maxBodyBytes !== undefined &&
+    Number.isFinite(contentLength) &&
+    contentLength > maxBodyBytes
+  ) {
+    throw new StorageRequestBodyTooLargeError(
+      `storage request body exceeds ${maxBodyBytes} bytes`
+    );
+  }
+  if (!request.body) {
+    throw new Error("invalid JSON body");
+  }
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (maxBodyBytes !== undefined && size > maxBodyBytes) {
+      await reader.cancel();
+      throw new StorageRequestBodyTooLargeError(
+        `storage request body exceeds ${maxBodyBytes} bytes`
+      );
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 function storageResultFromPrincipalFailure(
@@ -304,14 +395,17 @@ function asStringMap(value: unknown): Record<string, string> | undefined {
   return out;
 }
 
-function jsonResult(result: StorageObjectResult): Response {
+function jsonResult(
+  result: StorageObjectResult,
+  status = result.status
+): Response {
   return Response.json(
     {
       data: serializeAthenaStorageData(result.data),
       error: result.error,
       ok: result.ok,
-      status: result.status,
+      status,
     },
-    { status: result.status }
+    { status }
   );
 }

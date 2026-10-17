@@ -41,6 +41,24 @@ export type {
 } from "./devtools/server-ir.ts";
 export { defineAthenaRights } from "./runtime/data/rights-resolution.ts";
 export type {
+  AthenaAuthorizationServerOptions,
+  AthenaAuthorizationServerResourceOptions,
+} from "./auth/config.ts";
+export {
+  AthenaOAuthAuthorizationServerRequiredError,
+  createAthenaOAuthPrincipalResolver,
+  resolveAthenaOAuthPrincipal,
+} from "./auth/oauth-principal-resolver.ts";
+export type {
+  CreateAthenaOAuthPrincipalResolverOptions,
+} from "./auth/oauth-principal-resolver.ts";
+export type {
+  AthenaOAuthPrincipalContext,
+  AthenaPrincipal,
+  AthenaResolvedPrincipal,
+  AthenaRuntimeJwtVerifier,
+} from "./runtime/data/principal.ts";
+export type {
   AthenaClient,
   AthenaClientConfig,
   AthenaClientConfigWithR2,

@@ -32,6 +32,7 @@ type LegacyStorageConfig = {
   lifecycle?: { storage?: AthenaStorageRuntimeResources["lifecycle"] };
   storage?: {
     bucket?: string | null;
+    keyScope?: AthenaStorageRuntimeResources["keyScope"];
     prefix?: string | null;
     provider?: string | null;
     r2?: AthenaStorageRuntimeResources["r2"];
@@ -49,6 +50,7 @@ function materializeLegacyStorage(
     existingLocalStore: getLocalObjectStoreMarker(storage),
     existingProvider: getStorageProvider(storage),
     existingRuntime: getStorageRuntime(storage),
+    keyScope: storage?.keyScope,
     lifecycle: config.lifecycle?.storage,
     r2: storage?.r2,
     s3:

@@ -1,5 +1,6 @@
 import type { AuthMemberRow } from "../../auth/local/models.ts";
 import type { AthenaRightKey } from "../../rights/key.ts";
+import type { createApplicationLifecycleCapability } from "./application-lifecycle-capability.ts";
 import type { AthenaAccessGrant } from "./access-grants.ts";
 import type {
   AthenaAuthorizationAssignmentSource,
@@ -57,7 +58,10 @@ export interface AthenaAuthorizationStore {
   }): Promise<AthenaAuthorizationRoleRecord>;
   createRole(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
+    applicationManaged?: boolean;
+    applicationKey?: string;
+    lifecycleCapability?: ReturnType<typeof createApplicationLifecycleCapability>;
     name: string;
     organizationId?: string | null;
     rights?: readonly string[];
@@ -146,17 +150,19 @@ export interface AthenaAuthorizationStore {
   }): Promise<PlatformUserAssignmentSnapshot>;
   replaceMemberRoleAssignments(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     foundingOwnerUserId?: string | null;
     memberId: string;
     memberUserId: string;
+    lifecycleCapability?: ReturnType<typeof createApplicationLifecycleCapability>;
     organizationId: string;
     roleIds: readonly string[];
+    unrestrictedGrant?: boolean;
   }): Promise<{ revision: number }>;
   replaceRoleRights(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     id: string;
     organizationId?: string | null;
@@ -179,10 +185,12 @@ export interface AthenaAuthorizationStore {
     userId: string;
   }): Promise<readonly AthenaRightKey[]>;
   updateRole(input: {
+    applicationManaged?: boolean;
     actorRights?: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     id: string;
+    lifecycleCapability?: ReturnType<typeof createApplicationLifecycleCapability>;
     name: string;
     organizationId?: string | null;
     rights?: readonly string[];

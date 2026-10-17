@@ -149,7 +149,7 @@ async function allocateFreshDatabase(url) {
     await client.end();
   }
   const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}options=${encodeURIComponent(`-csearch_path=${schema}`)}`;
+  return `${url}${separator}options=${encodeURIComponent(`-csearch_path=${schema},public`)}`;
 }
 
 async function autoLaunch() {

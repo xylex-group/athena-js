@@ -7,12 +7,14 @@ import { fileURLToPath } from "node:url";
 import {
   type BillingConnectionAffinity,
   configuredProvidersForBillingConnection,
+  inspectBillingConnectionAffinity,
   resolveBillingConnectionAffinity,
 } from "../src/billing/subject/connection-affinity.ts";
 import {
   createVerifiedBillingContact,
   type VerifiedBillingContact,
 } from "../src/billing/subject/contact.ts";
+import type { BillingSqlExecutor } from "../src/billing/subject/repository.ts";
 import { FetchMollieSdk } from "./helpers/fetch-mollie-sdk.ts";
 
 const BASE_INPUT = {
@@ -22,10 +24,12 @@ const BASE_INPUT = {
   ownerKind: "tenant" as const,
   provider: "mollie",
   subjectId: "user-1",
-  subjectKind: "user",
+  subjectKind: "user" as const,
 };
 
-function sqlFor(rowsByQuery: Record<string, Record<string, unknown>[][]>) {
+function sqlFor(
+  rowsByQuery: Record<string, Record<string, unknown>[]>,
+): BillingSqlExecutor {
   return {
     async query(text: string) {
       for (const [marker, rows] of Object.entries(rowsByQuery)) {
@@ -167,6 +171,47 @@ test("connection affinity rejects multiple eligible connections instead of choos
   );
 });
 
+test("connection affinity checks organization ownership before the configured tenant fallback", async () => {
+  const ownerIds: unknown[] = [];
+  const inspection = await inspectBillingConnectionAffinity({
+    ...BASE_INPUT,
+    configuredProviders: {
+      mollie: { sdk: FetchMollieSdk, testKey: "test_aff" },
+    },
+    ownerScopes: [
+      { ownerId: "org-1", ownerKind: "organization" },
+      { ownerId: "app-a", ownerKind: "tenant" },
+    ],
+    sql: {
+      async query(text: string, params?: readonly unknown[]) {
+        if (text.includes("billing_subject_bindings")) return { rows: [] };
+        ownerIds.push(params?.[2]);
+        return params?.[2] === "app-a"
+          ? {
+              rows: [
+                {
+                  credential_reference: "providers.mollie",
+                  environment: "test",
+                  id: "tenant-connection",
+                  owner_id: "app-a",
+                  owner_kind: "tenant",
+                  provider: "mollie",
+                  status: "active",
+                },
+              ],
+            }
+          : { rows: [] };
+      },
+    },
+  });
+
+  assert.deepEqual(ownerIds, ["org-1", "app-a"]);
+  assert.equal(inspection.state, "resolved");
+  if (inspection.state === "resolved") {
+    assert.equal(inspection.connection.connectionId, "tenant-connection");
+  }
+});
+
 test("connection affinity honors an explicit configured connection after subject lookup", async () => {
   const result = await resolveBillingConnectionAffinity({
     ...BASE_INPUT,
@@ -246,7 +291,10 @@ test("connection affinity scopes provider credentials to the selected account", 
     configuredProviders: configured,
     operation: "self.subscription.enroll",
   });
-  assert.equal(scoped.mollie?.testKey, "bound-key");
+  assert.ok(scoped.mollie && "testKey" in scoped.mollie);
+  if (scoped.mollie && "testKey" in scoped.mollie) {
+    assert.equal(scoped.mollie.testKey, "bound-key");
+  }
   assert.equal(scoped.mollieAccounts, undefined);
 });
 

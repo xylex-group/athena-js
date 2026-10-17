@@ -112,6 +112,8 @@ export type {
   AthenaAuthHookContext,
   AthenaAuthHookErrorInput,
   AthenaAuthHooks,
+  AthenaAuthApplicationRoleDefinition,
+  AthenaAuthLifecycleAuthorization,
   AthenaAuthHttpHandlers,
   AthenaAuthImplementedDomainEvent,
   AthenaAuthLinkedAccount,

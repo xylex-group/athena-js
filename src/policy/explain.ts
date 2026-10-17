@@ -112,6 +112,8 @@ function principalFromInput(input: unknown): AthenaPrincipal {
 /**
  * Structural interrogation of compiled IR. Does not bind row operands.
  * Passing `row` is ignored so this never claims bound evaluation.
+ * @docsCanonical
+ * @docsRole policy-explain
  */
 export function explainAthenaPolicy(
   input: AthenaPolicyExplainInput
@@ -151,6 +153,8 @@ export function explainAthenaPolicy(
 
 /**
  * Concrete evaluator: binds subject slots and evaluates against `--row`.
+ * @docsCanonical
+ * @docsRole policy-simulate
  */
 export function simulateAthenaPolicy(
   input: AthenaPolicySimulateInput

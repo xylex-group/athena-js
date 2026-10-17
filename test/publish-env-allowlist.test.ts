@@ -34,12 +34,16 @@ test("publish.js allowlists NPM_TOKEN / NODE_AUTH_TOKEN only", () => {
   );
 });
 
-test("development manifest keeps the pnpm pack-safe self link", () => {
+test("package manifest has no local self-dependency", () => {
   const packageJson = JSON.parse(
     readFileSync(join(process.cwd(), "package.json"), "utf8"),
-  ) as { dependencies?: Record<string, string> };
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
 
-  assert.equal(packageJson.dependencies?.["@xylex-group/athena"], "link:");
+  assert.equal(packageJson.dependencies?.["@xylex-group/athena"], undefined);
+  assert.equal(packageJson.devDependencies?.["@xylex-group/athena"], undefined);
 });
 
 test("publish env loader ignores DATABASE_URL in .env.local", async () => {

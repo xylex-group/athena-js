@@ -1,5 +1,6 @@
 import type { AthenaAuthorizationAssignmentSource } from "../../runtime/authorization/assignment-snapshot.ts";
 import { MemoryAuthorizationStore } from "../../runtime/authorization/memory.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 import {
   compatibilityMemberRole,
   mapLegacyMemberRole,
@@ -53,7 +54,7 @@ export interface OrganizationAuthenticationPosturePage {
 }
 
 export class MemoryAuthStores {
-  readonly authorization = new MemoryAuthorizationStore();
+  readonly authorization: MemoryAuthorizationStore;
   readonly accounts = new Map<string, AuthAccountRow>();
   readonly invitations = new Map<string, AuthInvitationRow>();
   readonly identityConnections = new Map<string, AuthIdentityConnectionRow>();
@@ -65,6 +66,10 @@ export class MemoryAuthStores {
   readonly verifications = new Map<string, AuthVerificationRow>();
   readonly apiKeys = new Map<string, AuthApiKeyRow>();
   readonly twoFactors = new Map<string, AuthTwoFactorRow>();
+
+  constructor(options: { rightsIr?: AthenaRightsIr } = {}) {
+    this.authorization = new MemoryAuthorizationStore(options);
+  }
 
   async lockIdentityConnectionDomainRouting(): Promise<void> {}
   readonly rateLimits = new Map<string, { count: number; resetAt: number }>();

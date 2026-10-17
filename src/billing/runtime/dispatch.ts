@@ -39,6 +39,8 @@ const BILLING_RUNTIME_DISPATCH = {
   "admin.bootstrap.retry": (runtime) => runtime.admin.bootstrap.retry(),
   "admin.ingestion.health": (runtime, payload) =>
     runtime.admin.ingestion.health(body(payload)),
+  "admin.inventory.list": (runtime, payload) =>
+    runtime.admin.inventory.list(body(payload) as never),
   "admin.reconciliation.retry": (runtime, payload) =>
     runtime.admin.reconciliation.retry(body(payload)),
   "admin.reconciliation.run": (runtime, payload) =>

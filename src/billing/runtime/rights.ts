@@ -55,6 +55,9 @@ const ADMIN_INGESTION_READ = parseAthenaRightKey(
 const ADMIN_CONFLICTS_WRITE = parseAthenaRightKey(
   "billing.admin.conflicts.write"
 );
+const ADMIN_INVENTORY_READ = parseAthenaRightKey(
+  "billing.admin.inventory.read"
+);
 
 /** Process-owned overlay Rights — dialect execute keys, not grant-catalog. */
 export const BILLING_DIALECT_RIGHTS: readonly AthenaRightKey[] = Object.freeze([
@@ -82,6 +85,7 @@ export const BILLING_DIALECT_RIGHTS: readonly AthenaRightKey[] = Object.freeze([
   ADMIN_WEBHOOKS_WRITE,
   ADMIN_INGESTION_READ,
   ADMIN_CONFLICTS_WRITE,
+  ADMIN_INVENTORY_READ,
 ]);
 
 /** In-process dialect Rights bag. Not an HTTP identity and not detected by userId. */
@@ -171,6 +175,7 @@ export function authorizeBillingSubjectBinding(
 function sessionMerchantWrite(operation: BillingOperation): boolean {
   const policy = billingOperationPolicy(operation);
   return (
+    policy.executionAuthority !== "session" &&
     policy.subjectScope !== "self" &&
     policy.requiredRights.some((right) => !right.endsWith(".read"))
   );

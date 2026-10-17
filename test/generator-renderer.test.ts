@@ -628,6 +628,10 @@ test("generateArtifactsFromSnapshot preserves integer widths for identity column
   const modelFile = artifacts.files.find((file) => file.kind === "model");
 
   assert.ok(modelFile);
+  assert.match(
+    modelFile.content,
+    /^import \{ bigint, integer, smallint, table \} from '@xylex-group\/athena'$/m
+  );
   assert.match(modelFile.content, /big_id: bigint\(\)\.identity\("always"\)/);
   assert.match(
     modelFile.content,

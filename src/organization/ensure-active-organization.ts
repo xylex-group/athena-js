@@ -68,6 +68,8 @@ function defaultSelectOrganizationId<TOrganization extends OrganizationLike>(
  * - Else list organizations; if empty → `{ activeOrganizationId: null, didSetActiveOrganization: false }`.
  * - Else select an id (custom or first) and call `setActiveOrganization`.
  * - List/set failures invoke `onError` and return unset (never throw).
+ * @docsCanonical
+ * @docsRole active-organization
  */
 export async function ensureActiveOrganization<
   TOrganization extends OrganizationLike,

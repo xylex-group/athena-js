@@ -1,5 +1,6 @@
 import { PostgresAuthorizationStore } from "../../runtime/authorization/postgres.ts";
 import type { AthenaAuthorizationAssignmentSource } from "../../runtime/authorization/assignment-snapshot.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 import {
   compatibilityMemberRole,
   mapLegacyMemberRole,
@@ -103,9 +104,14 @@ export interface CreateSessionInput {
 
 export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
   readonly authorization: PostgresAuthorizationStore;
+  private readonly authorizationOptions: { rightsIr?: AthenaRightsIr };
 
-  constructor(private readonly db: AthenaAuthDatabase) {
-    this.authorization = new PostgresAuthorizationStore(db);
+  constructor(
+    private readonly db: AthenaAuthDatabase,
+    options: { rightsIr?: AthenaRightsIr } = {}
+  ) {
+    this.authorizationOptions = options;
+    this.authorization = new PostgresAuthorizationStore(db, options);
   }
 
   async lockIdentityConnectionDomainRouting(): Promise<void> {
@@ -407,7 +413,10 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
       if (!user.rows[0]) {
         return;
       }
-      const authorization = new PostgresAuthorizationStore(tx);
+      const authorization = new PostgresAuthorizationStore(
+        tx,
+        this.authorizationOptions
+      );
       await authorization.assertUserDeletionAllowed({ userId: id });
       const memberships = await tx.query<{
         id: string;
@@ -1011,7 +1020,10 @@ export class PostgresAuthStores implements AthenaRuntimeAuthSessionStore {
       if (!memberId) {
         return false;
       }
-      await new PostgresAuthorizationStore(tx).recordMemberRemoval({
+      await new PostgresAuthorizationStore(
+        tx,
+        this.authorizationOptions
+      ).recordMemberRemoval({
         memberId,
         organizationId,
         userId,

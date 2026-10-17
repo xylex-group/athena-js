@@ -169,6 +169,7 @@ export function resolveAthenaConstruction<
       existingLocalStore: getLocalObjectStoreMarker(storage),
       existingProvider: getStorageProvider(storage),
       existingRuntime: getStorageRuntime(storage),
+      keyScope: storage?.keyScope,
       lifecycle: config.lifecycle?.storage,
       r2: storage?.r2,
       s3:

@@ -4,9 +4,12 @@ import type { AthenaHttpTransportIR } from "../../runtime/transport/http/ir.ts";
 import { createAthenaHttpTransportIR } from "../../runtime/transport/http.ts";
 import type { AthenaRuntimeTopologyIR } from "../../runtime/transport/topology.ts";
 import { AthenaBillingError } from "../errors.ts";
+import type { BillingInventoryPage } from "./admin/inventory-query.ts";
+import type { BillingInventoryPresetId } from "./admin/inventory-presets.ts";
 import type { BillingExecutionTarget } from "../types.ts";
 import type { BillingCapabilities } from "./capabilities.ts";
 import { billingErrorFromTransport } from "./http-error.ts";
+import type { BillingAdminPort } from "./admin/types.ts";
 import type {
   BillingCatalogPort,
   BillingPricePort,
@@ -121,8 +124,19 @@ async function resolveBillingTransport(
   );
 }
 
-/** Browser billing client: catalog, subject-self, and capability probe only. */
+/** Browser billing client: catalog, subject-self, capability, and read-only inventory. */
 export interface AthenaBrowserBillingTransport {
+  admin: {
+    ingestion: Pick<BillingAdminPort["ingestion"], "health">;
+    inventory: {
+      list(input: {
+        page?: number;
+        pageSize?: number;
+        presetId: BillingInventoryPresetId;
+      }): Promise<BillingInventoryPage>;
+    };
+    webhooks: Pick<BillingAdminPort["webhooks"], "status">;
+  };
   catalog: BillingCatalogPort;
   getCapabilities: (
     input: BillingExecutionTarget
@@ -271,8 +285,27 @@ export function createBrowserBillingTransport(options?: {
   const relations: BillingRelationPort = {
     list: (input) => call("relations.list", input) as never,
   };
+  const admin: AthenaBrowserBillingTransport["admin"] = {
+    ingestion: {
+      health: (input) =>
+        call("admin.ingestion.health", input) as Promise<
+          Awaited<ReturnType<BillingAdminPort["ingestion"]["health"]>>
+        >,
+    },
+    inventory: {
+      list: (input) =>
+        call("admin.inventory.list", input) as Promise<BillingInventoryPage>,
+    },
+    webhooks: {
+      status: (input) =>
+        call("admin.webhooks.status", input) as Promise<
+          Awaited<ReturnType<BillingAdminPort["webhooks"]["status"]>>
+        >,
+    },
+  };
 
   return {
+    admin,
     catalog: { prices, products, relations },
     getCapabilities: (input) =>
       call("getCapabilities", input) as Promise<BillingCapabilities>,

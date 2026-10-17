@@ -17,6 +17,7 @@
     "GET /authorization/roles/{id}",
     "GET /authorization/snapshot",
     "GET /oauth/authorize",
+    "GET /oauth/interaction",
     "GET /organization/list-authentication-posture",
     "GET /organization/list-lifecycle-events",
     "GET /userinfo",
@@ -48,7 +49,7 @@
     "PUT /authorization/assignments/users/{userId}",
     "PUT /authorization/roles/{id}/rights"
   ],
-  "generatedAt": "2026-10-04T10:01:19.792Z",
+  "generatedAt": "2026-10-05T12:30:29.260Z",
   "local": [
     "DELETE /authorization/roles/{id}",
     "GET /.well-known/jwks.json",
@@ -87,6 +88,7 @@
     "GET /list-accounts",
     "GET /list-sessions",
     "GET /oauth/authorize",
+    "GET /oauth/interaction",
     "GET /ok",
     "GET /organization/get-active-member",
     "GET /organization/get-full-organization",
@@ -193,7 +195,7 @@
     "PUT /authorization/assignments/users/{userId}",
     "PUT /authorization/roles/{id}/rights"
   ],
-  "localCount": 142,
+  "localCount": 143,
   "missingInLocal": [
     "DELETE /delete-user",
     "GET /delete-user/callback"
@@ -210,7 +212,7 @@
     "GET /schema-debug",
     "GET /schema-debug.html"
   ],
-  "operationCount": 187,
+  "operationCount": 188,
   "operations": [
     {
       "auth": "session",
@@ -1237,6 +1239,25 @@
       "mutation": false,
       "operation": "oauth.authorization.request",
       "path": "/oauth/authorize",
+      "rust": "unsupported",
+      "runtimes": {
+        "dedicated": "unsupported",
+        "embedded": "supported"
+      },
+      "sdkEndpoint": "missing",
+      "sdkBindingRequired": true
+    },
+    {
+      "auth": "protocol",
+      "capability": "oauthAuthorizationServer",
+      "availability": "embedded-only",
+      "embedded": "supported",
+      "id": "oauth.interaction",
+      "lifecycle": "canonical",
+      "method": "GET",
+      "mutation": false,
+      "operation": "oauth.interaction",
+      "path": "/oauth/interaction",
       "rust": "unsupported",
       "runtimes": {
         "dedicated": "unsupported",

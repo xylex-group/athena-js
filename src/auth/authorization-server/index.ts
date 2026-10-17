@@ -5,6 +5,16 @@ export {
   oauthJsonResponse,
   OAuthProtocolError,
 } from "./errors.ts";
+export {
+  fetchClientIdMetadataDocument,
+  isClientIdMetadataDocumentUrl,
+  materializeClientIdMetadataClient,
+  parseClientIdMetadataDocument,
+} from "./client-id-metadata.ts";
+export type {
+  ClientIdMetadataDocument,
+  FetchClientIdMetadataOptions,
+} from "./client-id-metadata.ts";
 export { buildAuthorizationServerMetadata } from "./metadata.ts";
 export {
   assertCodeVerifier,

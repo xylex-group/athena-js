@@ -208,6 +208,12 @@ export function normalizeAthenaAuthorizationConfig(
 ): NormalizedAthenaAuthorizationConfig {
 	const authorization = normalizeAuthorizationBag(input.authorization);
 	const rightsInputs = normalizeRightsInput(authorization.rights);
+	const applicationRightKeys = toAthenaApplicationRightContributions(
+		rightsInputs,
+		"authorization.rights",
+	)
+		.map(({ definition }) => String(definition.key))
+		.sort();
 	const bindingInputs = normalizeBindingInput(authorization.data);
 	const unmatchedResources = normalizeUnmatchedResources(
 		authorization.unmatchedResources,
@@ -246,6 +252,7 @@ export function normalizeAthenaAuthorizationConfig(
 			: undefined;
 
 	return Object.freeze({
+		applicationRightKeys: Object.freeze(applicationRightKeys),
 		...(bindingRegistry
 			? {
 					bindingRegistry,

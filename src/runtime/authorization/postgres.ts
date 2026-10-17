@@ -9,6 +9,7 @@ import {
 	FOUNDING_OWNER_ROLE_LOCKED,
 } from "../../auth/local/organization-invariants.ts";
 import { createAthenaRightsAuthority } from "../../rights/authority.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 import {
   type AthenaRightKey,
   parseAthenaRightKey,
@@ -68,6 +69,7 @@ import {
   throwRoleNotFound,
   throwRoleVersionConflict,
 } from "./role-invariants.ts";
+import { isApplicationLifecycleCapabilityFor } from "./application-lifecycle-capability.ts";
 import { projectAssignableRoles } from "./snapshot-catalog.ts";
 import { canonicalizeAthenaAuthorizationSnapshotIr } from "./snapshot-ir/canonicalize.ts";
 import type {
@@ -133,7 +135,16 @@ function mapRoleRow(row: RoleRow): AthenaAuthorizationRoleRecord {
 }
 
 export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
-  constructor(private readonly db: AthenaAuthDatabase) {}
+  private readonly rightsIr: AthenaRightsIr;
+  private readonly rightsAuthority: ReturnType<typeof createAthenaRightsAuthority>;
+
+  constructor(
+    private readonly db: AthenaAuthDatabase,
+    options: { rightsIr?: AthenaRightsIr } = {}
+  ) {
+    this.rightsIr = options.rightsIr ?? getAthenaAuthorizationRightsIr();
+    this.rightsAuthority = createAthenaRightsAuthority(this.rightsIr);
+  }
 
   async ensureCatalog(): Promise<void> {
     // Reads only. Catalog writes go through materialize()'s locked transaction.
@@ -141,7 +152,12 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       await this.materialize();
       return;
     }
-    if (catalogStateIsCurrent(await this.readCatalogState(this.db))) {
+    if (
+      catalogStateIsCurrent(
+        await this.readCatalogState(this.db),
+        this.rightsIr
+      )
+    ) {
       return;
     }
     await this.materialize();
@@ -155,15 +171,54 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       ]);
       // CREATE TABLE IF NOT EXISTS before the first fingerprint read.
       await tx.query(AUTHORIZATION_CATALOG_STATE_SQL);
-      if (catalogStateIsCurrent(await this.readCatalogState(tx))) {
+      await this.ensureOrganizationRevisions(tx);
+      if (catalogStateIsCurrent(await this.readCatalogState(tx), this.rightsIr)) {
         return;
       }
       await this.writeCatalog(tx);
     });
   }
 
+  private async ensureOrganizationRevisions(
+    db: AthenaAuthDatabase,
+  ): Promise<void> {
+    // A missing revision is repairable only before canonical grants exist.
+    await db.query(
+      `INSERT INTO athena.authorization_revisions
+        (scope_kind, organization_id, revision)
+       SELECT 'organization', organizations.id, 1
+       FROM athena.organization organizations
+       WHERE NOT EXISTS (
+         SELECT 1 FROM athena.authorization_revisions revisions
+         WHERE revisions.scope_kind = 'organization'
+           AND revisions.organization_id = organizations.id
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM athena.authorization_member_roles assignments
+         JOIN athena.member members ON members.id = assignments.member_id
+         WHERE members.organization_id = organizations.id
+       )
+       ON CONFLICT (organization_id) WHERE organization_id IS NOT NULL
+       DO NOTHING`,
+    );
+    const unversionedAssignments = await db.query(
+      `SELECT 1
+       FROM athena.authorization_member_roles assignments
+       JOIN athena.member members ON members.id = assignments.member_id
+       LEFT JOIN athena.authorization_revisions revisions
+         ON revisions.scope_kind = 'organization'
+        AND revisions.organization_id = members.organization_id
+       WHERE revisions.organization_id IS NULL
+       LIMIT 1`,
+    );
+    if (unversionedAssignments.rowCount > 0) {
+      throwAuthorizationRevisionMissing();
+    }
+  }
+
   private async writeCatalog(db: AthenaAuthDatabase): Promise<void> {
-    for (const right of getAthenaAuthorizationRightsIr().rights) {
+    for (const right of this.rightsIr.rights) {
       await db.query(
         `INSERT INTO athena.authorization_rights (
 					key, domain, display_name, description, scope_kind, risk_level,
@@ -336,8 +391,8 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 				roles_fingerprint = EXCLUDED.roles_fingerprint`,
       [
         AUTHORIZATION_CATALOG_VERSION,
-        authorizationRightsFingerprint(),
-        authorizationRolesFingerprint(),
+        authorizationRightsFingerprint(this.rightsIr),
+        authorizationRolesFingerprint(this.rightsIr),
       ]
     );
   }
@@ -357,7 +412,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   ): Promise<void> {
     if (!this.db.inTransaction) {
       return this.db.transaction((tx) =>
-        new PostgresAuthorizationStore(tx).assignUserRole(
+        new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr }).assignUserRole(
           userId,
           roleKey,
           assignedBy
@@ -418,7 +473,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   ): Promise<void> {
     if (!this.db.inTransaction) {
       return this.db.transaction((tx) =>
-        new PostgresAuthorizationStore(tx).assignMemberRole(
+        new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr }).assignMemberRole(
           memberId,
           roleKey,
           assignedBy,
@@ -485,7 +540,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   }): Promise<void> {
     if (!this.db.inTransaction) {
       return this.db.transaction((tx) =>
-        new PostgresAuthorizationStore(tx).replaceLegacyPlatformRole(input)
+        new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr }).replaceLegacyPlatformRole(input)
       );
     }
     const user = await this.db.query<{ id: string }>(
@@ -579,7 +634,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   }): Promise<void> {
     if (!this.db.inTransaction) {
       return this.db.transaction((tx) =>
-        new PostgresAuthorizationStore(tx).replaceOrganizationBaseRole(input)
+        new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr }).replaceOrganizationBaseRole(input)
       );
     }
     const roleKey = mapLegacyMemberRole(input.role);
@@ -744,7 +799,10 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     );
     return {
       assignments: groupPlatformUserAssignments(rows, filterIds),
-      authorityVersion: createAuthorizationAuthorityVersion(revision),
+      authorityVersion: createAuthorizationAuthorityVersion(
+        revision,
+        this.rightsIr
+      ),
       revision,
     };
   }
@@ -794,7 +852,10 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     );
     return {
       assignments: groupOrganizationMemberAssignments(rows),
-      authorityVersion: createAuthorizationAuthorityVersion(revision),
+      authorityVersion: createAuthorizationAuthorityVersion(
+        revision,
+        this.rightsIr
+      ),
       organizationId: input.organizationId,
       revision,
     };
@@ -818,7 +879,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   async assertUserDeletionAllowed(input: { userId: string }): Promise<void> {
     if (!this.db.inTransaction) {
       return this.db.transaction((tx) =>
-        new PostgresAuthorizationStore(tx).assertUserDeletionAllowed(input)
+        new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr }).assertUserDeletionAllowed(input)
       );
     }
     await this.db.query<{ user_id: string; role_id: string }>(
@@ -894,7 +955,10 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 				throw new Error("Authorization snapshot transaction timestamp is unavailable");
 			}
 			const catalogState = await this.readCatalogState(tx);
-			if (catalogState == null || !catalogStateIsCurrent(catalogState)) {
+			if (
+				catalogState == null ||
+				!catalogStateIsCurrent(catalogState, this.rightsIr)
+			) {
 				throw new Error("Authorization catalog changed during snapshot capture");
 			}
 			const revisionResult =
@@ -946,12 +1010,11 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 				entries.push(row.right_key);
 				rightsByRole.set(row.role_id, entries);
 			}
-			const rights = getAthenaAuthorizationRightsIr();
-			const rightsAuthority = createAthenaRightsAuthority(rights);
+			const rights = this.rightsIr;
 			const roles = roleResult.rows.map((row) =>
 				hydrateAthenaRoleDefinition(
 					{ record: mapRoleRow(row), rights: rightsByRole.get(row.id) ?? [] },
-					rightsAuthority
+					this.rightsAuthority
 				)
 			);
 
@@ -1042,7 +1105,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 				rights,
 				roles: canonicalizeAthenaRolesIr(
 					{ irVersion: 1, kind: "athena.roles", metadata: {}, roles },
-					rightsAuthority
+					this.rightsAuthority
 				),
 				scope: input.scope,
 			});
@@ -1196,23 +1259,25 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     userId: string;
   }): Promise<{ revision: number }> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       return nested.replaceUserRoleAssignmentsInTransaction(input);
     });
   }
 
   async replaceMemberRoleAssignments(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     foundingOwnerUserId?: string | null;
     memberId: string;
     memberUserId: string;
+    lifecycleCapability?: object;
     organizationId: string;
     roleIds: readonly string[];
+    unrestrictedGrant?: boolean;
   }): Promise<{ revision: number }> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       return nested.replaceMemberRoleAssignmentsInTransaction(input);
     });
   }
@@ -1226,7 +1291,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     unrestrictedGrant?: boolean;
   }): Promise<AthenaAuthorizationRoleRecord> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       return nested.cloneRoleInTransaction(input);
     });
   }
@@ -1260,6 +1325,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       afterRights: sourceRights,
       beforeRights: [],
       organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: row.scope_kind,
       unrestrictedGrant: input.unrestrictedGrant,
     });
@@ -1302,7 +1368,10 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 
   async createRole(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
+    applicationManaged?: boolean;
+    applicationKey?: string;
+    lifecycleCapability?: object;
     name: string;
     organizationId?: string | null;
     rights?: readonly string[];
@@ -1310,7 +1379,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     unrestrictedGrant?: boolean;
   }): Promise<AthenaAuthorizationRoleRecord> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       return nested.createRoleInTransaction(input);
     });
   }
@@ -1374,7 +1443,9 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   }
 
   async updateRole(input: {
-    actorUserId: string;
+    applicationManaged?: boolean;
+    actorUserId?: string;
+    lifecycleCapability?: object;
     expectedVersion: number;
     id: string;
     name: string;
@@ -1384,11 +1455,13 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     unrestrictedGrant?: boolean;
   }): Promise<AthenaAuthorizationRoleRecord> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       if (input.rights) {
         return nested.replaceRoleDefinitionInTransaction({
           actorRights: input.actorRights ?? [],
           actorUserId: input.actorUserId,
+          applicationManaged: input.applicationManaged,
+          lifecycleCapability: input.lifecycleCapability,
           expectedVersion: input.expectedVersion,
           id: input.id,
           name: input.name,
@@ -1403,7 +1476,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 
   async replaceRoleRights(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     id: string;
     organizationId?: string | null;
@@ -1411,7 +1484,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     unrestrictedGrant?: boolean;
   }): Promise<AthenaAuthorizationRoleRecord> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       return nested.replaceRoleRightsInTransaction(input);
     });
   }
@@ -1427,14 +1500,17 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     reassignedUserIds: readonly string[];
   }> {
     return this.db.transaction(async (tx) => {
-      const nested = new PostgresAuthorizationStore(tx);
+      const nested = new PostgresAuthorizationStore(tx, { rightsIr: this.rightsIr });
       return nested.deleteRoleInTransaction(input);
     });
   }
 
   private async createRoleInTransaction(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
+    applicationManaged?: boolean;
+    applicationKey?: string;
+    lifecycleCapability?: object;
     name: string;
     organizationId?: string | null;
     rights?: readonly string[];
@@ -1448,17 +1524,32 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     if (input.scopeKind === "organization" && !input.organizationId) {
       throw AthenaAuthRuntimeError.badRequest("organizationId is required");
     }
+    if (input.applicationKey && !/^application_[a-z0-9_-]+$/.test(input.applicationKey)) {
+      throw AthenaAuthRuntimeError.badRequest("applicationKey is invalid");
+    }
+    const lifecycleAuthorized =
+      Boolean(input.applicationManaged) === Boolean(input.applicationKey) &&
+      Boolean(input.applicationManaged) &&
+      isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+          applicationKey: input.applicationKey,
+          actorUserId: input.actorUserId,
+          organizationId: input.organizationId,
+        });
+    if (Boolean(input.applicationManaged) !== Boolean(input.applicationKey) || (input.applicationManaged && !lifecycleAuthorized)) {
+      throw AthenaAuthRuntimeError.forbidden("Application managed roles require lifecycle authorization");
+    }
     const rights = input.rights ?? [];
     assertAuthorizationDelegationAllowed({
       actorRights: input.actorRights,
       afterRights: rights,
       beforeRights: [],
       organizationId: input.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: input.scopeKind,
-      unrestrictedGrant: input.unrestrictedGrant,
+      unrestrictedGrant: input.unrestrictedGrant || lifecycleAuthorized,
     });
     const id = crypto.randomUUID();
-    const key = `custom_${id.slice(0, 8)}`;
+    const key = input.applicationKey ?? `custom_${id.slice(0, 8)}`;
     const organizationId =
       input.scopeKind === "organization"
         ? (input.organizationId ?? null)
@@ -1467,8 +1558,16 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       `INSERT INTO athena.authorization_roles (
 				id, key, name, scope_kind, organization_id, system_kind,
 				protected, assignable, version
-			) VALUES ($1, $2, $3, $4, $5, NULL, FALSE, TRUE, 1)`,
-      [id, key, name, input.scopeKind, organizationId]
+      ) VALUES ($1, $2, $3, $4, $5, NULL, $6, $7, 1)`,
+      [
+        id,
+        key,
+        name,
+        input.scopeKind,
+        organizationId,
+        Boolean(input.applicationManaged),
+        !input.applicationManaged,
+      ]
     );
     await this.replaceMapping(id, rights);
     await this.bumpRevision(organizationId);
@@ -1481,12 +1580,12 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       targetKind: "role",
     });
     return {
-      assignable: true,
+      assignable: !input.applicationManaged,
       id,
       key,
       name,
       organizationId,
-      protected: false,
+      protected: Boolean(input.applicationManaged),
       scopeKind: input.scopeKind,
       systemKind: null,
       version: 1,
@@ -1494,22 +1593,42 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
   }
 
   private async updateRoleInTransaction(input: {
-    actorUserId: string;
+    applicationManaged?: boolean;
+    actorUserId?: string;
+    lifecycleCapability?: object;
     expectedVersion: number;
     id: string;
     name: string;
     organizationId?: string | null;
   }): Promise<AthenaAuthorizationRoleRecord> {
     const role = await this.requireScopedRole(input.id, input.organizationId);
-    assertProtectedRoleImmutable(role);
+    const lifecycleMayManageRole =
+      role.protected &&
+      !role.assignable &&
+      role.systemKind === null &&
+      input.applicationManaged === true &&
+      isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+        applicationKey: role.key,
+        actorUserId: input.actorUserId,
+        organizationId: role.organizationId,
+      });
+    if (role.protected && !lifecycleMayManageRole) assertProtectedRoleImmutable(role);
+    if (input.applicationManaged && !lifecycleMayManageRole) {
+      throw AthenaAuthRuntimeError.forbidden("Application managed roles require lifecycle authorization");
+    }
     const name = input.name.trim();
     if (!name) {
       throw AthenaAuthRuntimeError.badRequest("name is required");
     }
     const updated = await this.bumpRoleVersion(role.id, input.expectedVersion);
     await this.db.query(
-      "UPDATE athena.authorization_roles SET name = $1, updated_at = NOW() WHERE id = $2",
-      [name, role.id]
+      `UPDATE athena.authorization_roles
+       SET name = $1,
+           protected = protected OR $2,
+           assignable = CASE WHEN $2 THEN FALSE ELSE assignable END,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [name, Boolean(input.applicationManaged), role.id]
     );
     await this.bumpRevision(role.organizationId);
     await this.writeAudit({
@@ -1521,12 +1640,20 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       targetId: role.id,
       targetKind: "role",
     });
-    return { ...updated, name };
+    return {
+      ...updated,
+      ...(input.applicationManaged
+        ? { assignable: false, protected: true }
+        : {}),
+      name,
+    };
   }
 
   private async replaceRoleDefinitionInTransaction(input: {
+    applicationManaged?: boolean;
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
+    lifecycleCapability?: object;
     expectedVersion: number;
     id: string;
     name: string;
@@ -1535,7 +1662,20 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     unrestrictedGrant?: boolean;
   }): Promise<AthenaAuthorizationRoleRecord> {
     const role = await this.requireScopedRole(input.id, input.organizationId);
-    assertProtectedRoleImmutable(role);
+    const lifecycleMayManageRole =
+      role.protected &&
+      !role.assignable &&
+      role.systemKind === null &&
+      input.applicationManaged === true &&
+      isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+        applicationKey: role.key,
+        actorUserId: input.actorUserId,
+        organizationId: role.organizationId,
+      });
+    if (role.protected && !lifecycleMayManageRole) assertProtectedRoleImmutable(role);
+    if (input.applicationManaged && !lifecycleMayManageRole) {
+      throw AthenaAuthRuntimeError.forbidden("Application managed roles require lifecycle authorization");
+    }
     const name = input.name.trim();
     if (!name) {
       throw AthenaAuthRuntimeError.badRequest("name is required");
@@ -1546,14 +1686,20 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       afterRights: input.rights,
       beforeRights,
       organizationId: role.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: role.scopeKind,
       unrestrictedGrant: input.unrestrictedGrant,
     });
     const after = [...new Set(input.rights)].sort();
     const updated = await this.bumpRoleVersion(role.id, input.expectedVersion);
     await this.db.query(
-      "UPDATE athena.authorization_roles SET name = $1, updated_at = NOW() WHERE id = $2",
-      [name, role.id]
+      `UPDATE athena.authorization_roles
+       SET name = $1,
+           protected = protected OR $2,
+           assignable = CASE WHEN $2 THEN FALSE ELSE assignable END,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [name, Boolean(input.applicationManaged), role.id]
     );
     await this.replaceMapping(role.id, after);
     await this.bumpRevision(role.organizationId);
@@ -1566,12 +1712,18 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       targetId: role.id,
       targetKind: "role",
     });
-    return { ...updated, name };
+    return {
+      ...updated,
+      ...(input.applicationManaged
+        ? { assignable: false, protected: true }
+        : {}),
+      name,
+    };
   }
 
   private async replaceRoleRightsInTransaction(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     id: string;
     organizationId?: string | null;
@@ -1586,6 +1738,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       afterRights: input.rights,
       beforeRights: before,
       organizationId: role.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: role.scopeKind,
       unrestrictedGrant: input.unrestrictedGrant,
     });
@@ -1950,7 +2103,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
         const definition = tryHydrateAthenaRoleDefinition({
           record,
           rights,
-        });
+        }, this.rightsAuthority);
         if (!definition) {
           return;
         }
@@ -2150,6 +2303,7 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       actorRights: input.actorRights,
       afterRights,
       beforeRights,
+      rightsAuthority: this.rightsAuthority,
       roleScope: "platform",
     });
     const currentIds = new Set(currentRoleIds);
@@ -2208,13 +2362,15 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
 
   private async replaceMemberRoleAssignmentsInTransaction(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     foundingOwnerUserId?: string | null;
     memberId: string;
     memberUserId: string;
+    lifecycleCapability?: object;
     organizationId: string;
     roleIds: readonly string[];
+    unrestrictedGrant?: boolean;
   }): Promise<{ revision: number }> {
     const current = await this.readRevision(input.organizationId);
     if (input.expectedVersion !== current) {
@@ -2246,6 +2402,31 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
     for (const id of uniqueIds) {
       roles.push(await this.requireScopedRole(id, input.organizationId));
     }
+    const currentRoles = await Promise.all(
+      currentRoleIds
+        .filter((id) => !uniqueIds.includes(id))
+        .map((id) => this.requireScopedRole(id, input.organizationId)),
+    );
+    const protectedChanges = [
+      ...roles.filter((role) => !role.assignable && !currentRoleIds.includes(role.id)),
+      ...currentRoles.filter((role) => !role.assignable),
+    ];
+    const lifecycleMayChangeProtected =
+      protectedChanges.length > 0 &&
+      protectedChanges.every((role) =>
+        role.protected &&
+        !role.assignable &&
+        role.systemKind === null &&
+        isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+          actorUserId: input.actorUserId,
+          applicationKey: role.key,
+          memberUserId: input.memberUserId,
+          organizationId: input.organizationId,
+        }),
+      );
+    if (protectedChanges.length > 0 && !lifecycleMayChangeProtected) {
+      throw AthenaAuthRuntimeError.badRequest("Role is not assignable");
+    }
     assertOrganizationAssignmentRoles({
       foundingOwnerUserId: input.foundingOwnerUserId,
       memberUserId: input.memberUserId,
@@ -2265,7 +2446,9 @@ export class PostgresAuthorizationStore implements AthenaAuthorizationStore {
       afterRights,
       beforeRights,
       organizationId: input.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: "organization",
+      unrestrictedGrant: input.unrestrictedGrant || lifecycleMayChangeProtected,
     });
     const currentIds = new Set(currentRoleIds);
     const nextIds = new Set(uniqueIds);

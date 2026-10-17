@@ -158,6 +158,8 @@ function resolvePrefer(
  * 2. Only gateway URL → `gateway`
  * 3. Both → `prefer` (default `edge`, or env `ATHENA_EXECUTION_PREFER`)
  * 4. Neither → throw {@link AthenaConfigurationError}
+ * @docsCanonical
+ * @docsRole cloudflare-execution-mode
  */
 export function resolveAthenaExecutionMode(
   input: ResolveAthenaExecutionModeInput = {}

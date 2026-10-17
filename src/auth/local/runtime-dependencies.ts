@@ -1,5 +1,7 @@
 import type { AthenaEmailDeliveryPort } from "../../email/types.ts";
 import { tryParseAthenaRightKey } from "../../rights/key.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
+import { getAthenaAuthorizationRightsIr } from "../../runtime/authorization/catalog.ts";
 import { createOAuthRuntimeJwtVerifier } from "../../runtime/authority/oauth-verifier.ts";
 import { PostgresAuthorizationStore } from "../../runtime/authorization/postgres.ts";
 import type { AthenaRuntimeJwtVerifier } from "../../runtime/data/principal.ts";
@@ -65,6 +67,7 @@ import {
   MemoryAuthEmailStore,
 } from "./email/store.ts";
 import { AthenaAuthRuntimeError } from "./errors.ts";
+import { createApplicationAuthorizationLifecycle } from "./application-authorization-lifecycle.ts";
 import { resolveRuntimeKey } from "./keyring.ts";
 import { MemoryAuthStores } from "./memory-stores.ts";
 import type { AuthSessionRow, AuthUserRow } from "./models.ts";
@@ -127,7 +130,9 @@ export type AuthRuntimeEmitMail = (
 ) => ReturnType<typeof emitAuthEmail>;
 
 export interface AuthRuntimeDependencies {
+  applicationAuthorizationApplication?: string;
   authorizationAssignmentsSupported: boolean;
+  authorizationRightsIr: AthenaRightsIr;
   bridgeCodeStore: AuthBridgeCodeStore;
   close(): Promise<void>;
   config: NormalizedAthenaAuthConfig;
@@ -217,6 +222,8 @@ export interface AuthRuntimeDependencies {
 export function createRuntimeDependencies(
   options: CreateAthenaAuthRuntimeOptions = {}
 ): AuthRuntimeDependencies {
+  const authorizationRightsIr =
+    options.authorizationRightsIr ?? getAthenaAuthorizationRightsIr();
   const config =
     options.config ??
     normalizeAthenaAuthConfig(
@@ -286,7 +293,10 @@ export function createRuntimeDependencies(
   const rateLimiter = new MemoryRateLimiter(20, 60_000);
   const hasExternalDatabase = Boolean(options.database);
   const rawMemoryStores =
-    options.stores ?? (options.database ? undefined : new MemoryAuthStores());
+    options.stores ??
+    (options.database
+      ? undefined
+      : new MemoryAuthStores({ rightsIr: authorizationRightsIr }));
   const authorizationAssignmentsSupported =
     !(rawMemoryStores instanceof SqliteAuthStores);
   const memoryStores =
@@ -368,13 +378,17 @@ export function createRuntimeDependencies(
               inspectSchema: true,
             });
           }
-          await new PostgresAuthorizationStore(database).ensureCatalog();
+          await new PostgresAuthorizationStore(database, {
+            rightsIr: authorizationRightsIr,
+          }).ensureCatalog();
           const resolvedKey = await resolveRuntimeKey(
             database,
             options.secret ?? config.secret
           );
           runtimeKeyMaterial = resolvedKey.material;
-          stores = new PostgresAuthStores(database);
+          stores = new PostgresAuthStores(database, {
+            rightsIr: authorizationRightsIr,
+          });
           emailStore = new PostgresAuthEmailStore(database);
           postgresBridgeCodeStore = createPostgresAuthBridgeCodeStore(database);
         }
@@ -424,6 +438,7 @@ export function createRuntimeDependencies(
       oauthState: oauthMemoryState,
       persistAudit: observability.auditLog,
       stores: currentStores,
+      rightsIr: authorizationRightsIr,
       tokenKeyOptions: () => {
         const identity = protocolIdentity;
         if (!(identity && runtimeKeyMaterial)) {
@@ -477,6 +492,38 @@ export function createRuntimeDependencies(
       ...input,
       auditWriter: resolveAuditWriter(),
       hooks: options.hooks,
+      lifecycleAuthorization: (scope, actor, event, result, isActive) => {
+        const application = options.applicationAuthorization?.application;
+        if (!application) {
+          throw new Error("Athena lifecycle authorization application is not configured.");
+        }
+        const lifecycleResult = result as {
+          invitation?: { organizationId: string };
+          member?: { organizationId: string; userId: string };
+          organization?: { id: string };
+        };
+        const organizationId =
+          event === "organization.create"
+            ? lifecycleResult.organization?.id
+            : event === "organization.invitation.accept"
+              ? lifecycleResult.invitation?.organizationId
+              : lifecycleResult.member?.organizationId;
+        const userId =
+          event === "organization.create" ||
+          event === "organization.member.add" ||
+          event === "organization.member.role.update"
+            ? lifecycleResult.member?.userId
+            : actor.userId;
+        if (!organizationId || !userId) {
+          throw new Error("Athena lifecycle authorization target is unavailable.");
+        }
+        return createApplicationAuthorizationLifecycle(
+          scope.stores,
+          options.applicationRightKeys ?? [],
+          actor,
+          { actorUserId: actor.userId, application, isActive, organizationId, userId },
+        );
+      },
       transaction: await ensureTransaction(),
     } as ExecuteAuthMutationOptions<E, TResult>);
 
@@ -929,7 +976,10 @@ export function createRuntimeDependencies(
   };
 
   return {
+    applicationAuthorizationApplication:
+      options.applicationAuthorization?.application,
     authorizationAssignmentsSupported,
+    authorizationRightsIr,
     bridgeCodeStore,
     close: async () => {
       if (ownsDatabase) {
@@ -973,6 +1023,9 @@ export function createRuntimeDependencies(
         database = await createPostgresAuthDatabase(connectionString);
       }
       await migrateAthenaAuthSchema(database);
+      await new PostgresAuthorizationStore(database, {
+        rightsIr: authorizationRightsIr,
+      }).ensureCatalog();
     },
     mutate,
     oauthRateLimiter,

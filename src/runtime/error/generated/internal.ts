@@ -254,5 +254,14 @@ export const ATHENA_INTERNAL_ERROR_DESCRIPTORS: readonly AthenaErrorIR<string, "
 	    "kind": "internal",
 	    "retry": "never",
 	    "status": 502
+	  },
+	  {
+	    "code": "request_deadline_exceeded",
+	    "description": "The database request exceeded its execution deadline.",
+	    "domain": "internal",
+	    "errorNumber": 1028,
+	    "kind": "unavailable",
+	    "retry": "never",
+	    "status": 504
 	  }
 	]);

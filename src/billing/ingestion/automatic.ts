@@ -38,6 +38,7 @@ export async function runAutomaticBillingWebhookReconcileIfEnabled(input: {
   applicationId: string;
   appUrl?: string | null;
   configuredProviders?: BillingProviderConfigMap;
+  connectionIds?: readonly string[];
   observability?: NormalizedAthenaBillingObservability;
   registry?: BillingProviderRegistry;
   sql: BillingSqlExecutor;
@@ -53,10 +54,15 @@ export async function runAutomaticBillingWebhookReconcileIfEnabled(input: {
   if (!input.webhooks.enabled) {
     return;
   }
-  const connections = await listActiveBillingImportConnections(
+  const activeConnections = await listActiveBillingImportConnections(
     input.sql,
     "mollie"
   );
+  const connections = input.connectionIds == null
+    ? activeConnections
+    : activeConnections.filter((connection) =>
+        input.connectionIds?.includes(connection.id),
+      );
   const observability =
     input.observability ?? normalizeAthenaBillingObservability();
   const traces = observability.traces.enabled

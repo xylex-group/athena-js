@@ -20,6 +20,18 @@ const BILLING_RIGHT_META: Record<
     riskLevel: "elevated",
     scopeKind: "platform",
   },
+  "billing.admin.inventory.read": {
+    description: "Read the scoped billing operator inventory",
+    displayName: "View billing inventory",
+    riskLevel: "elevated",
+    scopeKind: "platform",
+  },
+  "billing.admin.inventory.shared.read": {
+    description: "Read application-wide billing operations records",
+    displayName: "View shared billing operations",
+    riskLevel: "critical",
+    scopeKind: "platform",
+  },
   "billing.admin.reconciliation.write": {
     description: "Run billing reconciliation",
     displayName: "Run billing reconciliation",

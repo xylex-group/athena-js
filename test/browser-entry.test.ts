@@ -2,8 +2,62 @@ import { strict as assert } from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import * as browserEntry from "../src/browser.ts";
+import * as mainEntry from "../src/index.ts";
+import { getColumnConfig } from "../src/schema/table-columns.ts";
 
 const NODE_ONLY_ERROR_FRAGMENT = "is not available in browser bundles";
+const BROWSER_SAFE_COLUMN_BUILDERS = [
+  "bigint",
+  "boolean",
+  "decimal",
+  "enumeration",
+  "integer",
+  "json",
+  "number",
+  "numeric",
+  "smallint",
+  "string",
+] as const;
+const PUBLIC_COLUMN_BUILDERS = {
+  bigint: [mainEntry.bigint, browserEntry.bigint],
+  boolean: [mainEntry.boolean, browserEntry.boolean],
+  decimal: [mainEntry.decimal, browserEntry.decimal],
+  enumeration: [mainEntry.enumeration, browserEntry.enumeration],
+  integer: [mainEntry.integer, browserEntry.integer],
+  json: [mainEntry.json, browserEntry.json],
+  number: [mainEntry.number, browserEntry.number],
+  numeric: [mainEntry.numeric, browserEntry.numeric],
+  smallint: [mainEntry.smallint, browserEntry.smallint],
+  string: [mainEntry.string, browserEntry.string],
+} as const;
+
+test("browser schema builders match the canonical public builder set", () => {
+  for (const name of BROWSER_SAFE_COLUMN_BUILDERS) {
+    const [mainBuilder, browserBuilder] = PUBLIC_COLUMN_BUILDERS[name];
+    assert.equal(typeof mainBuilder, "function", `root export missing ${name}`);
+    assert.equal(
+      typeof browserBuilder,
+      "function",
+      `browser export missing ${name}`
+    );
+  }
+});
+
+test("browser integer builders retain width and identity metadata", () => {
+  const example = browserEntry
+    .table("example")
+    .columns({
+      count: browserEntry.integer(),
+      id: browserEntry.bigint().identity("always"),
+      priority: browserEntry.smallint(),
+    })
+    .primaryKey("id");
+
+  assert.equal(getColumnConfig(example.columns.id).kind, "bigint");
+  assert.equal(getColumnConfig(example.columns.id).identity, "always");
+  assert.equal(getColumnConfig(example.columns.count).kind, "integer");
+  assert.equal(getColumnConfig(example.columns.priority).kind, "smallint");
+});
 
 test("browser entry does not export createBillingModule", () => {
   assert.equal("createBillingModule" in browserEntry, false);
@@ -141,8 +195,14 @@ test("package root export maps browser condition to browser bundle", async () =>
 
   assert.equal(pkg.exports["."].browser?.import?.types, "./dist/browser.d.ts");
   assert.equal(pkg.exports["."].browser?.import?.default, "./dist/browser.js");
-  assert.equal(pkg.exports["."].browser?.require?.types, "./dist/browser.d.cts");
-  assert.equal(pkg.exports["."].browser?.require?.default, "./dist/browser.cjs");
+  assert.equal(
+    pkg.exports["."].browser?.require?.types,
+    "./dist/browser.d.cts"
+  );
+  assert.equal(
+    pkg.exports["."].browser?.require?.default,
+    "./dist/browser.cjs"
+  );
   assert.equal(pkg.exports["."].browser?.default, "./dist/browser.js");
 });
 

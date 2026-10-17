@@ -105,6 +105,7 @@ export interface R2BucketLike {
     options?: {
       httpMetadata?: { contentType?: string; [key: string]: unknown };
       customMetadata?: Record<string, string>;
+      onlyIf?: { etagDoesNotMatch?: string };
     }
   ) => Promise<unknown>;
 }

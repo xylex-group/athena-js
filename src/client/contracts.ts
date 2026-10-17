@@ -12,6 +12,7 @@ import type {
   AthenaAuthSessionOptions,
   AthenaAuthSocialOptions,
   AthenaAuthSocialProviderOptions,
+  AthenaAuthorizationServerOptions,
 } from "../auth/config.ts";
 import type { AthenaAuthHooks } from "../auth/hooks/types.ts";
 import type { AthenaAuthObservabilityConfig } from "../auth/observability/types.ts";
@@ -71,7 +72,10 @@ import type { AthenaExecutable } from "../query/descriptor.ts";
 import type { AthenaQueryClient } from "../react/query-client.ts";
 import type { AthenaDataLifecycleConfig } from "../runtime/data/lifecycle/types.ts";
 import type { AthenaClientAuthorizationConfigInput } from "../runtime/authorization/config.ts";
-import type { AthenaPrincipalRightsProjection } from "../runtime/data/principal.ts";
+import type {
+  AthenaPrincipal,
+  AthenaPrincipalRightsProjection,
+} from "../runtime/data/principal.ts";
 import type {
   AthenaClientModelForTableName,
   AthenaClientModelsInput,
@@ -171,6 +175,12 @@ export interface AthenaAuthConfig
    * this is `true`. Runtime default remains `false` when omitted.
    */
   autoMigrate?: boolean;
+  /**
+   * Embedded OAuth/OIDC authorization server (`auth.mode: "local"` only).
+   * Disabled by default. When enabled, mounts discovery, authorize, token,
+   * revoke, and userinfo under the Auth base path.
+   */
+  authorizationServer?: AthenaAuthorizationServerOptions;
   /** Local handler base path. Defaults to `/api/auth`. */
   basePath?: string;
   /**
@@ -280,6 +290,14 @@ export interface AthenaStorageConfig
    * when this is omitted.
    */
   endpoint?: string | null;
+  /**
+   * Optional server-side prefix resolver for embedded object operations.
+   * Existing keys stay unchanged when omitted. When enabled, return a distinct
+   * non-empty prefix for every authenticated principal.
+   */
+  keyScope?: (
+    principal: AthenaPrincipal
+  ) => string;
   /** Key prefix for R2 object ops (trailing slash normalized). */
   prefix?: string | null;
   /**

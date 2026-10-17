@@ -11,8 +11,11 @@ import type {
 import { AthenaAuthRuntimeError } from "../src/auth/local/errors.ts";
 import {
   AUTHORIZATION_CATALOG_VERSION,
+  defineAthenaRight,
   listAthenaAuthorizationRights,
 } from "../src/runtime/authorization/catalog.ts";
+import { normalizeAthenaAuthorizationConfig } from "../src/runtime/authorization/normalize-config.ts";
+import { tryHydrateAthenaRoleDefinition } from "../src/roles/index.ts";
 import {
   AUTHORIZATION_CATALOG_LOCK,
   authorizationRightsFingerprint,
@@ -91,7 +94,7 @@ test("authorization catalog materialization uses a transaction-owned xact lock",
   );
   assert.match(writeCatalog, /UNNEST\(\$2::text\[\]\)/);
   assert.doesNotMatch(writeCatalog, /VALUES \(\$1, \$2\)/);
-  assert.match(writeCatalog, /getAthenaAuthorizationRightsIr\(\)\.rights/);
+  assert.match(writeCatalog, /this\.rightsIr\.rights/);
   assert.match(
     writeCatalog,
     /WHERE authorization_roles\.key = EXCLUDED\.key/
@@ -111,12 +114,14 @@ function createCatalogDatabase(
 ): {
   database: AthenaAuthDatabase;
   events: string[];
+  rightKeys: string[];
   rightUpserts: { count: number };
   roleRightReplaces: { count: number };
 } {
   let state = initial;
   let tableExists = initial !== undefined;
   const events: string[] = [];
+  const rightKeys: string[] = [];
   const rightUpserts = { count: 0 };
   const roleRightReplaces = { count: 0 };
   let txChain: Promise<void> = Promise.resolve();
@@ -138,6 +143,12 @@ function createCatalogDatabase(
         rows: [{ oid: tableExists ? "authorization_catalog_state" : null }],
       };
     }
+    if (/INSERT INTO athena\.authorization_revisions/.test(text)) {
+      return { rowCount: 0, rows: [] };
+    }
+    if (/SELECT 1\s+FROM athena\.authorization_member_roles/.test(text)) {
+      return { rowCount: 0, rows: [] };
+    }
     if (/CREATE TABLE IF NOT EXISTS athena\.authorization_catalog_state/.test(text)) {
       tableExists = true;
       return { rowCount: 0, rows: [] };
@@ -153,6 +164,7 @@ function createCatalogDatabase(
     }
     if (/INSERT INTO athena\.authorization_rights/.test(text)) {
       rightUpserts.count += 1;
+      rightKeys.push(String(values?.[0]));
       return { rowCount: 1, rows: [] };
     }
     if (/INSERT INTO athena\.authorization_roles/.test(text)) {
@@ -206,7 +218,7 @@ function createCatalogDatabase(
     },
   };
 
-  return { database, events, rightUpserts, roleRightReplaces };
+  return { database, events, rightKeys, rightUpserts, roleRightReplaces };
 }
 
 test("ensureCatalog skips work when the fingerprint is already current", async () => {
@@ -251,6 +263,58 @@ test("materialize writes the catalog on the locked transaction client", async ()
   );
 });
 
+test("materialize persists application-contributed root Authorization Rights", async () => {
+  const appRight = defineAthenaRight({
+    key: "wa.assurance.read",
+    domain: "wa",
+    displayName: "Read assurance",
+    description: "Read Weeping Angel assurance records",
+    scope: "organization",
+    risk: "low",
+    assignable: true,
+  });
+  const authorization = normalizeAthenaAuthorizationConfig({
+    authorization: {
+      rights: [{ definition: appRight, source: "app:weeping-angel" }],
+    },
+  });
+  const harness = createCatalogDatabase();
+
+  await new PostgresAuthorizationStore(harness.database, {
+    rightsIr: authorization.rightsState.rightsIr,
+  }).materialize();
+
+  assert.ok(harness.rightKeys.includes("wa.assurance.read"));
+  assert.equal(
+    listAthenaAuthorizationRights().some((right) => right.key === appRight.key),
+    false
+  );
+  const role = {
+    record: {
+      assignable: true,
+      id: "00000000-0000-4000-8000-000000000001",
+      key: "custom_wa_reader",
+      name: "WA reader",
+      organizationId: "org:suitsfinance",
+      protected: false,
+      scopeKind: "organization" as const,
+      systemKind: null,
+    },
+    rights: ["wa.assurance.read"],
+  };
+  assert.equal(tryHydrateAthenaRoleDefinition(role), undefined);
+  assert.ok(
+    tryHydrateAthenaRoleDefinition(
+      role,
+      authorization.rightsState.rightsAuthority
+    )
+  );
+  assert.match(
+    postgresSrc,
+    /tryHydrateAthenaRoleDefinition\(\{[\s\S]*?this\.rightsAuthority/
+  );
+});
+
 test("materialize fails closed when a built-in role key is immutable but mismatched", async () => {
   const harness = createCatalogDatabase(undefined, { roleUpsertRowCount: 0 });
   await assert.rejects(
@@ -282,6 +346,12 @@ test("missing catalog state table is probed with to_regclass so the transaction 
           rowCount: 1,
           rows: [{ oid: tableExists ? "authorization_catalog_state" : null }],
         };
+      }
+      if (/INSERT INTO athena\.authorization_revisions/.test(text)) {
+        return { rowCount: 0, rows: [] };
+      }
+      if (/SELECT 1\s+FROM athena\.authorization_member_roles/.test(text)) {
+        return { rowCount: 0, rows: [] };
       }
       if (/CREATE TABLE IF NOT EXISTS athena\.authorization_catalog_state/.test(text)) {
         tableExists = true;

@@ -47,6 +47,7 @@ export interface AthenaAuthorizationRuntimeConfigInput {
 }
 
 export interface NormalizedAthenaAuthorizationConfig {
+  readonly applicationRightKeys: readonly string[];
 	readonly bindingRegistry?: AthenaModelAuthorizationBindingRegistry;
 	readonly hasDataBindings: boolean;
 	readonly irVersion: typeof ATHENA_AUTHORIZATION_CLIENT_CONFIG_IR_VERSION;

@@ -2,6 +2,7 @@ import type { AthenaPrincipal } from "../../../runtime/data/principal.ts";
 // Preflight lives in execute/invoke.ts: prepareBillingCommand (src/billing/safety).
 import {
   AthenaBillingCapabilityError,
+  isAthenaBillingAuthorizationError,
   isAthenaBillingCredentialError,
 } from "../../errors.ts";
 import { billingWebhookUrlTemplate } from "../../ingestion/urls.ts";
@@ -51,7 +52,9 @@ import {
   createBillingAdminPort,
   executeAdminBillingOperation,
 } from "../admin/execute.ts";
+import { inspectBillingAdminConnectionAffinity } from "../admin/connection-affinity.ts";
 import type { BillingAdminBootstrapRetryResult } from "../admin/types.ts";
+import { listBillingInventory } from "../admin/inventory-query.ts";
 import { isAdminBillingOperation } from "../admin/operations.ts";
 import {
   type BillingCredentialAuthority,
@@ -64,6 +67,7 @@ import type {
   BillingOperationSafety,
   BillingPortName,
 } from "../capabilities.ts";
+import { billingOperationPolicy } from "../operation-policy.ts";
 import {
   availableBillingCredentialEnvironments,
   type BillingCredentialKind,
@@ -208,7 +212,16 @@ const BILLING_OPERATIONS: BillingOperation[] = [
   "admin.ingestion.health",
   "admin.conflicts.resolve",
   "admin.conflicts.list",
+  "admin.inventory.list",
 ];
+
+const CONNECTION_REQUIRED_ADMIN_OPERATIONS = new Set<BillingOperation>([
+  "admin.inventory.list",
+  "admin.ingestion.health",
+  "admin.webhooks.reconcile",
+  "admin.webhooks.status",
+  "admin.webhooks.verify",
+]);
 
 function sanitizeBillingInitializationMessage(error: unknown): string {
   const raw =
@@ -359,6 +372,7 @@ function operationsFromProviderCapabilities(input: {
   sqlPresent?: boolean;
   sqlTransactional?: boolean;
   connectionAffinityReason?: BillingOperationCapability["reason"];
+  adminConnectionAffinityReason?: BillingOperationCapability["reason"];
 }): BillingCapabilities["operations"] {
   const operations: BillingCapabilities["operations"] = {};
   const selectedModeAllowed = selectedModeAllowedForCapability({
@@ -392,9 +406,18 @@ function operationsFromProviderCapabilities(input: {
       continue;
     }
     if (isAdminBillingOperation(operation)) {
-      operations[operation] = athenaInfrastructureOperationCapability(
+      const infrastructure = athenaInfrastructureOperationCapability(
         input.sqlPresent === true,
       );
+      operations[operation] =
+        CONNECTION_REQUIRED_ADMIN_OPERATIONS.has(operation) &&
+        input.adminConnectionAffinityReason != null
+          ? {
+              ...infrastructure,
+              available: false,
+              reason: input.adminConnectionAffinityReason,
+            }
+          : infrastructure;
       continue;
     }
     if (isSelfBillingOperation(operation)) {
@@ -1023,10 +1046,29 @@ export function createLocalBillingRuntime(
           }),
         );
       }
+      if (operation === "admin.inventory.list") {
+        if (!input.sql) {
+          throw new AthenaBillingCapabilityError({
+            operation,
+            reason: "runtime_unavailable",
+          });
+        }
+        return listBillingInventory({
+          applicationId: input.applicationId,
+          configuredProviders: input.configuredProviders,
+          ...((payload ?? {}) as { page?: unknown; pageSize?: unknown; presetId: unknown }),
+          principal: requestPrincipal,
+          sql: input.sql,
+          testMode: input.testMode,
+        });
+      }
       if (isAdminBillingOperation(operation)) {
         return omitUndefinedKeys(
           await executeAdminBillingOperation({
-            authority: PROCESS_BILLING_INVOCATION,
+            authority:
+              billingOperationPolicy(operation).executionAuthority === "session"
+                ? SESSION_BILLING_INVOCATION
+                : PROCESS_BILLING_INVOCATION,
             operation,
             options: adminOptions,
             payload,
@@ -1131,37 +1173,52 @@ export function createLocalBillingRuntime(
         testMode: input.testMode,
       });
       const inspectPrincipal = requestPrincipal ?? principal;
-      const sessionSubject = isProcessOwnedBillingPrincipal(inspectPrincipal)
-        ? undefined
-        : (() => {
-          const subjectId = inspectPrincipal.userId?.trim();
-          return subjectId
-            ? { subjectId, subjectKind: "user" as const }
-            : undefined;
-        })();
       let connectionInspection: Awaited<
         ReturnType<typeof inspectBillingConnectionAffinity>
       > | undefined;
+      let adminConnectionInspection: Awaited<
+        ReturnType<typeof inspectBillingAdminConnectionAffinity>
+      > | undefined;
+      const sessionSubject = isProcessOwnedBillingPrincipal(inspectPrincipal)
+        ? undefined
+        : (() => {
+            const subjectId = inspectPrincipal.userId?.trim();
+            return subjectId
+              ? { subjectId, subjectKind: "user" as const }
+              : undefined;
+          })();
       if (input.sql != null) {
         try {
           connectionInspection = await inspectBillingConnectionAffinity({
             configuredProviders: input.configuredProviders,
-            environment: environment.name,
+            ...billingConfiguredConnectionOwner(input.applicationId),
+            provider: resolved.provider === "stripe" ? "stripe" : "mollie",
+            sql: input.sql,
+            ...sessionSubject,
+            testMode: input.testMode,
+          });
+          adminConnectionInspection = await inspectBillingAdminConnectionAffinity({
+            applicationId: input.applicationId,
+            configuredProviders: input.configuredProviders,
+            operation: "admin.ingestion.health",
+            principal: inspectPrincipal,
             provider: resolved.provider === "stripe" ? "stripe" : "mollie",
             sql: input.sql,
             testMode: input.testMode,
-            ...(billingConfiguredConnectionOwner(input.applicationId) ?? {}),
-            ...(sessionSubject ?? {}),
           });
         } catch (error) {
-          return bootstrapFailedBillingCapabilities({
-            error,
-            bootstrapRetryAvailable:
-              input.connectionState?.bootstrapRetry != null &&
-              input.sql != null,
-            sqlPresent: input.sql != null,
-            target,
-          });
+          if (isAthenaBillingAuthorizationError(error)) {
+            adminConnectionInspection = { state: "missing" };
+          } else {
+            return bootstrapFailedBillingCapabilities({
+              error,
+              bootstrapRetryAvailable:
+                input.connectionState?.bootstrapRetry != null &&
+                input.sql != null,
+              sqlPresent: input.sql != null,
+              target,
+            });
+          }
         }
       }
       const configuredForCapabilities =
@@ -1231,8 +1288,14 @@ export function createLocalBillingRuntime(
         ...(connectionInspection == null
           ? {}
           : {
-            connectionAffinityReason:
-              connectionAffinityCapabilityReason(connectionInspection),
+              connectionAffinityReason:
+                connectionAffinityCapabilityReason(connectionInspection),
+            }),
+        ...(adminConnectionInspection == null
+          ? {}
+          : {
+              adminConnectionAffinityReason:
+                connectionAffinityCapabilityReason(adminConnectionInspection),
           }),
         ports,
         provider: resolved.provider,

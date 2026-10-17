@@ -10,6 +10,8 @@ export type AthenaAuthDomainEventStatus =
  * Domain lifecycle events for embedded Auth. Status is mechanical: only
  * `implemented` keys are hookable. Flip status in the same change that
  * migrates the handler through `executeAuthMutation`.
+ * @docsCanonical
+ * @docsRole auth-domain-events
  */
 export const ATHENA_AUTH_DOMAIN_EVENTS = {
   "account.link": { status: "implemented" },

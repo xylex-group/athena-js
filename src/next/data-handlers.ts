@@ -49,6 +49,7 @@ import { buildAthenaRuntimeDiscoveryDiagnostics } from "./runtime-discovery-diag
 import { projectCapabilitiesToDiscovery } from "../runtime/data/capabilities-projection.ts";
 import {
   type AthenaStorageHandlers,
+  type CreateAthenaStorageHandlersOptions,
   createAthenaStorageHandlers,
 } from "./storage-handlers.ts";
 /**
@@ -80,6 +81,7 @@ export interface CreateAthenaDataHandlersFromClient {
     http?: AthenaRuntimeHttpSecurity;
     mode?: AthenaRuntimeSecurityMode;
   };
+  storage?: Pick<CreateAthenaStorageHandlersOptions, "maxBodyBytes">;
   unsafeAllowUnauthenticated?: boolean;
 }
 
@@ -533,6 +535,7 @@ function createAthenaNextHandlersForMount(
       ...(config.auth === undefined ? {} : { auth: config.auth }),
       client: config.client,
       discoveryDocument,
+      maxBodyBytes: config.storage?.maxBodyBytes,
       security: config.security,
     }),
   };

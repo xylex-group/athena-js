@@ -97,6 +97,12 @@ test("P?: billing_admin is a protected platform role with Billing rights only", 
     role?.rights.includes(parseAthenaRightKey("billing.admin.ingestion.read"))
   );
   assert.equal(
+    role?.rights.includes(
+      parseAthenaRightKey("billing.admin.inventory.shared.read")
+    ),
+    false
+  );
+  assert.equal(
     role?.rights.includes(parseAthenaRightKey("billing.self.checkout.write")),
     false
   );

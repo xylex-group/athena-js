@@ -2,10 +2,10 @@
   "schema": "athena/docs-api/v2",
   "package": {
     "name": "@xylex-group/athena",
-    "version": "5.7.3"
+    "version": "5.7.9"
   },
   "source": {
-    "packageJsonDigest": "418edac711618e2ca67a6151735f643b215e550e8c722715dd3d45bc66eba846"
+    "packageJsonDigest": "c593508f49e2e77b2541a2caa63d495f578e0401fed6b11e8397894292d4b6d7"
   },
   "entrypoints": [
     {
@@ -1858,11 +1858,17 @@
           "summary": "Transport codes plus Athena envelope codes from non-2xx JSON bodies.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.auth-error-codes",
+            "docs-ir.canonical-athena-auth-error-code-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-error-codes"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -2150,6 +2156,48 @@
           "classification": "public-unlisted",
           "signature": "any",
           "summary": "",
+          "deprecated": false,
+          "source": "src/auth/hooks/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthApplicationRoleDefinition",
+          "name": "AthenaAuthApplicationRoleDefinition",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/hooks/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena#AthenaAuthLifecycleAuthorization",
+          "name": "AthenaAuthLifecycleAuthorization",
+          "kind": "interface",
+          "classification": "documented",
+          "signature": "any",
+          "summary": "Privileged role operations available only to configured local lifecycle handlers.",
           "deprecated": false,
           "source": "src/auth/hooks/types.ts",
           "examples": [],
@@ -3727,11 +3775,17 @@
           "summary": "OAuth-only provider id (excludes SAML SSO). Use for pure OAuth link/token flows where SAML is not valid.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.auth-oauth-provider",
+            "docs-ir.canonical-auth-oauth-provider-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-oauth-provider"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -3811,11 +3865,17 @@
           "summary": "Social / identity provider id for auth API calls (`signIn.social`, link, etc.). Defaults to {@link AuthSocialProviderBuiltin}; extend via {@link AthenaAuthSocialProviderExtensions}.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.auth-social-provider",
+            "docs-ir.canonical-auth-social-provider-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-social-provider"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -3916,11 +3976,16 @@
           "summary": "Domain lifecycle events for embedded Auth. Status is mechanical: only `implemented` keys are hookable. Flip status in the same change that migrates the handler through `executeAuthMutation`.",
           "deprecated": false,
           "source": "src/auth/hooks/events.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.auth-domain-events"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-domain-events"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -3937,11 +4002,17 @@
           "summary": "Default advertisement: implementation support, operator passkeys off.",
           "deprecated": false,
           "source": "src/auth/capabilities.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.auth-embedded-capabilities",
+            "docs-ir.canonical-athena-auth-embedded-capability-snapshot-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-embedded-capabilities"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -4421,11 +4492,17 @@
           "summary": "Identity helper so hook callbacks are contextually typed per event. Returning `AthenaAuthHooks` would contextual-type arguments as `handler | handler[]` and make destructured params implicit `any`.",
           "deprecated": false,
           "source": "src/auth/hooks/define.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.auth-hooks",
+            "docs-ir.canonical-define-athena-auth-hooks-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-hooks"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -4568,11 +4645,17 @@
           "summary": "Fail-closed wire parser for GET /authorization/snapshot. Browser-safe: rights + capability projection only (no Postgres / Node stores).",
           "deprecated": false,
           "source": "src/runtime/authorization/parse-snapshot.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.authorization-snapshot",
+            "docs-ir.canonical-parse-authorization-snapshot-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "authorization-snapshot"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -6111,11 +6194,17 @@
           "summary": "Resolve whether to use gateway HTTP or edge D1/R2 bindings. Auto rules (after env override): 1. Only D1 → `edge` 2. Only gateway URL → `gateway` 3. Both → `prefer` (default `edge`, or env `ATHENA_EXECUTION_PREFER`) 4. Neither → throw {@link AthenaConfigurationError}",
           "deprecated": false,
           "source": "src/cloudflare/execution-mode.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-resolve-athena-execution-mode-athena",
+            "docs-ir.cloudflare-execution-mode"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-execution-mode"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -10502,11 +10591,17 @@
           "summary": "Ensure the session has an active organization when memberships exist. - If `session.session.activeOrganizationId` is already set → return it (no network). - Else list organizations; if empty → `{ activeOrganizationId: null, didSetActiveOrganization: false }`. - Else select an id (custom or first) and call `setActiveOrganization`. - List/set failures invoke `onError` and return unset (never throw).",
           "deprecated": false,
           "source": "src/organization/ensure-active-organization.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.active-organization",
+            "docs-ir.canonical-ensure-active-organization-athena"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "active-organization"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -20568,11 +20663,17 @@
           "summary": "Public provider metadata normalized from Athena's provider descriptor.",
           "deprecated": false,
           "source": "src/storage/module.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-storage-provider-descriptor-athena",
+            "docs-ir.storage-provider"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "storage-provider"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -22143,11 +22244,17 @@
           "summary": "Credentials for signing the direct upload PUT in the client. The Athena API still creates managed-file metadata so the public upload result remains unchanged; file bytes go directly to this S3-compatible endpoint.",
           "deprecated": false,
           "source": "src/storage/module.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-storage-direct-upload-config-athena",
+            "docs-ir.storage-direct-upload"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "storage-direct-upload"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -22369,16 +22476,22 @@
           "id": "@xylex-group/athena#AthenaStorageFileUploadRequest",
           "name": "AthenaStorageFileUploadRequest",
           "kind": "interface",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "any",
-          "summary": "",
+          "summary": "Canonical public Athena API.",
           "deprecated": false,
           "source": "src/storage/module.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-storage-file-upload-request-athena",
+            "docs-ir.storage-file-upload"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "storage-file-upload"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -24825,12 +24938,16 @@
           "deprecated": false,
           "source": "src/billing/runtime/capabilities.ts",
           "examples": [
-            "billing.capabilities.03"
+            "billing.capabilities.03",
+            "docs-ir.billing-capabilities"
           ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "billing-capabilities"
+          },
           "runtime": {
             "node": "supported",
             "browser": "unsupported",
@@ -25439,12 +25556,16 @@
           "deprecated": false,
           "source": "src/billing/runtime/types.ts",
           "examples": [
-            "billing.self.05"
+            "billing.self.05",
+            "docs-ir.billing-change-operation"
           ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "billing-change-operation"
+          },
           "runtime": {
             "node": "supported",
             "browser": "unsupported",
@@ -25566,6 +25687,48 @@
           "summary": "",
           "deprecated": false,
           "source": "src/billing/runtime/types.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/billing#BillingInventoryPage",
+          "name": "BillingInventoryPage",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/billing/runtime/admin/inventory-query.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/billing#BillingInventoryPresetId",
+          "name": "BillingInventoryPresetId",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/billing/runtime/admin/inventory-presets.ts",
           "examples": [],
           "related": [],
           "requires": [],
@@ -28732,16 +28895,33 @@
           "id": "@xylex-group/athena/browser#athena.auth.organization.authenticationPosture.list",
           "name": "athena.auth.organization.authenticationPosture.list",
           "kind": "member",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
-          "summary": "",
+          "summary": "Read safe member authentication posture for the active organization.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-auth-organization-authentication-posture-list-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "authentication-posture-list"
+          },
+          "semantic": {
+            "authorization": {
+              "requiredRights": [
+                "organization.authentication.read"
+              ],
+              "forbiddenRights": [],
+              "scope": "organization"
+            },
+            "capabilities": [
+              "organizations"
+            ]
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -38722,11 +38902,16 @@
           "summary": "Default advertisement: implementation support, operator passkeys off.",
           "deprecated": false,
           "source": "src/auth/capabilities.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-auth-embedded-capability-snapshot-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-embedded-capabilities"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -39080,11 +39265,16 @@
           "summary": "Identity helper so hook callbacks are contextually typed per event. Returning `AthenaAuthHooks` would contextual-type arguments as `handler | handler[]` and make destructured params implicit `any`.",
           "deprecated": false,
           "source": "src/auth/hooks/define.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-define-athena-auth-hooks-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-hooks"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -39227,11 +39417,16 @@
           "summary": "Fail-closed wire parser for GET /authorization/snapshot. Browser-safe: rights + capability projection only (no Postgres / Node stores).",
           "deprecated": false,
           "source": "src/runtime/authorization/parse-snapshot.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-parse-authorization-snapshot-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "authorization-snapshot"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -44873,6 +45068,27 @@
           }
         },
         {
+          "id": "@xylex-group/athena/browser#bigint",
+          "name": "bigint",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "() => AthenaIdentityColumnBuilder<string, false, false, false, undefined, \"bigint\">",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/schema/table-columns.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/browser#boolean",
           "name": "boolean",
           "kind": "function",
@@ -44920,6 +45136,27 @@
           "kind": "function",
           "classification": "public-unlisted",
           "signature": "<const TValues extends readonly [string, ...string[]]>(values: TValues) => AthenaColumnBuilder<TValues[number], false, false, false, undefined, \"enumeration\">",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/schema/table-columns.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#integer",
+          "name": "integer",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "() => AthenaIdentityColumnBuilder<number, false, false, false, undefined, \"integer\">",
           "summary": "",
           "deprecated": false,
           "source": "src/schema/table-columns.ts",
@@ -44984,6 +45221,27 @@
           "classification": "documented",
           "signature": "(options?: DecimalColumnOptions) => AthenaColumnBuilder<string, false, false, false, undefined, \"decimal\">",
           "summary": "Alias of {@link decimal} for PostgreSQL `NUMERIC` naming.",
+          "deprecated": false,
+          "source": "src/schema/table-columns.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "unsupported",
+            "browser": "supported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/browser#smallint",
+          "name": "smallint",
+          "kind": "function",
+          "classification": "public-unlisted",
+          "signature": "() => AthenaIdentityColumnBuilder<number, false, false, false, undefined, \"smallint\">",
+          "summary": "",
           "deprecated": false,
           "source": "src/schema/table-columns.ts",
           "examples": [],
@@ -46561,11 +46819,16 @@
           "summary": "Transport codes plus Athena envelope codes from non-2xx JSON bodies.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-auth-error-code-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-error-codes"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -54913,11 +55176,16 @@
           "summary": "Public provider metadata normalized from Athena's provider descriptor.",
           "deprecated": false,
           "source": "src/storage/module.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-storage-provider-descriptor-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "storage-provider"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -56488,11 +56756,16 @@
           "summary": "Credentials for signing the direct upload PUT in the client. The Athena API still creates managed-file metadata so the public upload result remains unchanged; file bytes go directly to this S3-compatible endpoint.",
           "deprecated": false,
           "source": "src/storage/module.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-storage-direct-upload-config-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "storage-direct-upload"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -56714,16 +56987,21 @@
           "id": "@xylex-group/athena/browser#AthenaStorageFileUploadRequest",
           "name": "AthenaStorageFileUploadRequest",
           "kind": "interface",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "any",
-          "summary": "",
+          "summary": "Canonical public Athena API.",
           "deprecated": false,
           "source": "src/storage/module.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-storage-file-upload-request-browser"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "storage-file-upload"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -57386,11 +57664,16 @@
           "summary": "Gateway-shaped transport that executes against a Worker D1 binding.",
           "deprecated": false,
           "source": "src/cloudflare/d1/transport.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-d1-transport"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-d1-transport"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -57512,11 +57795,16 @@
           "summary": "Create an Athena client that executes DB operations against a D1 binding (and optional R2 for object storage) inside a Cloudflare Worker. Thin façade over {@link createClient }: ```ts createClient({ db: { d1: env.DB, sessionMode }, storage: { r2: env.FILES, prefix: storagePrefix }, url, key, ... }) ``` To switch between edge and gateway at runtime, prefer {@link createAthenaRuntime }.",
           "deprecated": false,
           "source": "src/cloudflare/edge-client.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-client"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-client"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -57701,11 +57989,16 @@
           "summary": "Resolve whether to use gateway HTTP or edge D1/R2 bindings. Auto rules (after env override): 1. Only D1 → `edge` 2. Only gateway URL → `gateway` 3. Both → `prefer` (default `edge`, or env `ATHENA_EXECUTION_PREFER`) 4. Neither → throw {@link AthenaConfigurationError}",
           "deprecated": false,
           "source": "src/cloudflare/execution-mode.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-resolve-athena-execution-mode-cloudflare"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-execution-mode"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -57869,11 +58162,16 @@
           "summary": "Same-namespace hybrid: HTTP storage.* ports (file/catalog/multipart/backup/…) plus L3a R2 putObject/getObject/deleteObject/listObjects on the same module. R2 L3a wins on the four object helper names if ever present on HTTP.",
           "deprecated": false,
           "source": "src/cloudflare/r2/storage.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-compose-storage"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-compose-storage"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -57890,11 +58188,16 @@
           "summary": "L3a object helpers only (no HTTP surface, no unsupported proxy).",
           "deprecated": false,
           "source": "src/cloudflare/r2/storage.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-r2-object-storage"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-r2-object-storage"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -57911,11 +58214,16 @@
           "summary": "Minimal storage surface backed by an R2 binding only. Full AthenaStorageModule methods that need catalogs throw clearly.",
           "deprecated": false,
           "source": "src/cloudflare/r2/storage.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-r2-storage-module"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-r2-storage-module"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -58058,11 +58366,16 @@
           "summary": "One-call Worker setup: map standard `env` bindings, then {@link createClient }.",
           "deprecated": false,
           "source": "src/cloudflare/runtime.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-worker-env"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-worker-env"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -58079,11 +58392,16 @@
           "summary": "Create an Athena client for either gateway or edge execution. Thin façade: always materializes via {@link createClient }.",
           "deprecated": false,
           "source": "src/cloudflare/runtime.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.cloudflare-runtime"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "cloudflare-runtime"
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -64092,16 +64410,33 @@
           "id": "@xylex-group/athena/next/client#athena.auth.organization.authenticationPosture.list",
           "name": "athena.auth.organization.authenticationPosture.list",
           "kind": "member",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
-          "summary": "",
+          "summary": "Read safe member authentication posture for the active organization.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-auth-organization-authentication-posture-list-client"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "authentication-posture-list"
+          },
+          "semantic": {
+            "authorization": {
+              "requiredRights": [
+                "organization.authentication.read"
+              ],
+              "forbiddenRights": [],
+              "scope": "organization"
+            },
+            "capabilities": [
+              "organizations"
+            ]
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "supported",
@@ -75814,11 +76149,16 @@
           "summary": "Ensure the session has an active organization when memberships exist. - If `session.session.activeOrganizationId` is already set → return it (no network). - Else list organizations; if empty → `{ activeOrganizationId: null, didSetActiveOrganization: false }`. - Else select an id (custom or first) and call `setActiveOrganization`. - List/set failures invoke `onError` and return unset (never throw).",
           "deprecated": false,
           "source": "src/organization/ensure-active-organization.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-ensure-active-organization-server"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "active-organization"
+          },
           "runtime": {
             "node": "supported",
             "browser": "unsupported",
@@ -80187,11 +80527,16 @@
           "summary": "Ensure the session has an active organization when memberships exist. - If `session.session.activeOrganizationId` is already set → return it (no network). - Else list organizations; if empty → `{ activeOrganizationId: null, didSetActiveOrganization: false }`. - Else select an id (custom or first) and call `setActiveOrganization`. - List/set failures invoke `onError` and return unset (never throw).",
           "deprecated": false,
           "source": "src/organization/ensure-active-organization.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-ensure-active-organization-organization"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "active-organization"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -80455,11 +80800,16 @@
           "summary": "Coverage **cells** per resource × action — not a binary covered flag.",
           "deprecated": false,
           "source": "src/policy/coverage.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-coverage"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-coverage"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -80476,11 +80826,16 @@
           "summary": "Produce a structured Policy decision. Visibility/check remain PolicyExpr IR. Subject slots are not substituted (R4). Composition follows Rust: `(OR permissives) AND (AND restrictives)`. Empty applicable permissive set is deny (Postgres RLS).",
           "deprecated": false,
           "source": "src/policy/decide.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-decision"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-decision"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -80602,11 +80957,16 @@
           "summary": "Serialize a Policy IR document to stable JSON text.",
           "deprecated": false,
           "source": "src/policy/define-policies.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-ir-serialize"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-ir-serialize"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -80728,11 +81088,16 @@
           "summary": "Structural interrogation of compiled IR. Does not bind row operands. Passing `row` is ignored so this never claims bound evaluation.",
           "deprecated": false,
           "source": "src/policy/explain.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-explain"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-explain"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -80749,11 +81114,16 @@
           "summary": "Concrete evaluator: binds subject slots and evaluates against `--row`.",
           "deprecated": false,
           "source": "src/policy/explain.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-simulate"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-simulate"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -80938,11 +81308,16 @@
           "summary": "SHA-256 hex fingerprint of the semantic canonical form. Matches Rust `fingerprint_document` (sorted-key compact JSON + SHA-256).",
           "deprecated": false,
           "source": "src/policy/fingerprint.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-document-fingerprint"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-document-fingerprint"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81043,11 +81418,16 @@
           "summary": "Lint authored Policy IR by inspecting expressions (and optional column hints from config). Does not read IR authoring sugar.",
           "deprecated": false,
           "source": "src/policy/lint.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-lint"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-lint"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81080,16 +81460,21 @@
           "id": "@xylex-group/athena/policy#policyAppliesToPrincipal",
           "name": "policyAppliesToPrincipal",
           "kind": "function",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(principals: readonly PolicyPrincipal[], principal: AthenaPrincipal) => boolean",
-          "summary": "",
+          "summary": "Canonical public Athena API.",
           "deprecated": false,
           "source": "src/policy/match-principal.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-principal-match"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-principal-match"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81190,11 +81575,16 @@
           "summary": "Author one or more action policies against an AthenaModels table definition. Option A (frozen for Phase 1): ```ts policy(invoices, { select: { to: [\"authenticated\"], allow: ({ row, auth }) => row.userId.eq(auth.userId), }, }) ```",
           "deprecated": false,
           "source": "src/policy/policy.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-authoring"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-authoring"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81211,11 +81601,16 @@
           "summary": "Authenticated principals only (all modeled actions).",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-authenticated-only"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-authenticated-only"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81232,11 +81627,16 @@
           "summary": "Row scoped by Athena Organizations (`organizationId` subject slot). Distinct from {@link tenantScoped}.",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-organization-scoped"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-organization-scoped"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81253,11 +81653,16 @@
           "summary": "Owner **or** role — two ordinary authored definitions, no IR sugar.",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-owner-or-role"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-owner-or-role"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81274,11 +81679,16 @@
           "summary": "Public SELECT permissive.",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-public-read"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-public-read"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81295,11 +81705,16 @@
           "summary": "Role principal (default `admin` when called with only the model).",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-role-restricted"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-role-restricted"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81316,11 +81731,16 @@
           "summary": "Service principal only.",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-service-only"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-service-only"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81337,11 +81757,16 @@
           "summary": "Row scoped by a tenant identifier that is not Athena Organizations. Binds `tenantId` to the trusted claim path `tenantId`.",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-tenant-scoped"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-tenant-scoped"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81358,11 +81783,16 @@
           "summary": "Row owned by `userId` vs the owner column.",
           "deprecated": false,
           "source": "src/policy/presets.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-user-owned"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-user-owned"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81505,11 +81935,16 @@
           "summary": "Report authored policies impacted by dropped/renamed tables/columns referenced in policy expressions. Analysis only — not a schema engine.",
           "deprecated": false,
           "source": "src/policy/schema-impact.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.policy-schema-impact"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "policy-schema-impact"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -81962,11 +82397,16 @@
           "summary": "Parse and canonicalize a right key. Trims edges; rejects interior whitespace. Exact parity with `crates/athena-rights/src/key.rs`.",
           "deprecated": false,
           "source": "src/rights/key.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.right-key-parse"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "right-key-parse"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -82025,11 +82465,16 @@
           "summary": "Exact parity with `crates/athena-rights/src/matching.rs` `right_matches`. Adapters must parse before calling; unparsed strings are not accepted.",
           "deprecated": false,
           "source": "src/rights/matching.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.right-match"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "right-match"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -86645,6 +87090,216 @@
           }
         },
         {
+          "id": "@xylex-group/athena/server#AthenaAuthorizationServerOptions",
+          "name": "AthenaAuthorizationServerOptions",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/config.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#AthenaAuthorizationServerResourceOptions",
+          "name": "AthenaAuthorizationServerResourceOptions",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/config.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#AthenaOAuthAuthorizationServerRequiredError",
+          "name": "AthenaOAuthAuthorizationServerRequiredError",
+          "kind": "class",
+          "classification": "public-unlisted",
+          "signature": "typeof AthenaOAuthAuthorizationServerRequiredError",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/oauth-principal-resolver.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#createAthenaOAuthPrincipalResolver",
+          "name": "createAthenaOAuthPrincipalResolver",
+          "kind": "function",
+          "classification": "documented",
+          "signature": "(options: CreateAthenaOAuthPrincipalResolverOptions) => Promise<AthenaRuntimeJwtVerifier>",
+          "summary": "Build a verifier that maps `Authorization: Bearer <access_token>` into a canonical {@link AthenaResolvedPrincipal} with `authority: \"jwt\"`.",
+          "deprecated": false,
+          "source": "src/auth/oauth-principal-resolver.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#resolveAthenaOAuthPrincipal",
+          "name": "resolveAthenaOAuthPrincipal",
+          "kind": "function",
+          "classification": "documented",
+          "signature": "(input: { headers: Headers; resolver: AthenaRuntimeJwtVerifier; }) => Promise<AthenaResolvedPrincipal | null>",
+          "summary": "Resolve an OAuth bearer from request headers into an Athena principal. Returns `null` when no bearer is present. Throws on invalid/revoked tokens.",
+          "deprecated": false,
+          "source": "src/auth/oauth-principal-resolver.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#CreateAthenaOAuthPrincipalResolverOptions",
+          "name": "CreateAthenaOAuthPrincipalResolverOptions",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/auth/oauth-principal-resolver.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#AthenaOAuthPrincipalContext",
+          "name": "AthenaOAuthPrincipalContext",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/data/principal.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#AthenaPrincipal",
+          "name": "AthenaPrincipal",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/data/principal.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#AthenaResolvedPrincipal",
+          "name": "AthenaResolvedPrincipal",
+          "kind": "interface",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/data/principal.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
+          "id": "@xylex-group/athena/server#AthenaRuntimeJwtVerifier",
+          "name": "AthenaRuntimeJwtVerifier",
+          "kind": "type",
+          "classification": "public-unlisted",
+          "signature": "any",
+          "summary": "",
+          "deprecated": false,
+          "source": "src/runtime/data/principal.ts",
+          "examples": [],
+          "related": [],
+          "requires": [],
+          "forbids": [],
+          "tags": {},
+          "runtime": {
+            "node": "supported",
+            "browser": "unsupported",
+            "workerd": "unsupported",
+            "reactNative": "unsupported"
+          }
+        },
+        {
           "id": "@xylex-group/athena/server#AthenaClient",
           "name": "AthenaClient",
           "kind": "interface",
@@ -89122,16 +89777,33 @@
           "id": "@xylex-group/athena/server#athena.auth.organization.authenticationPosture.list",
           "name": "athena.auth.organization.authenticationPosture.list",
           "kind": "member",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
-          "summary": "",
+          "summary": "Read safe member authentication posture for the active organization.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-auth-organization-authentication-posture-list-server"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "authentication-posture-list"
+          },
+          "semantic": {
+            "authorization": {
+              "requiredRights": [
+                "organization.authentication.read"
+              ],
+              "forbiddenRights": [],
+              "scope": "organization"
+            },
+            "capabilities": [
+              "organizations"
+            ]
+          },
           "runtime": {
             "node": "supported",
             "browser": "unsupported",
@@ -104919,16 +105591,33 @@
           "id": "@xylex-group/athena/react-native#athena.auth.organization.authenticationPosture.list",
           "name": "athena.auth.organization.authenticationPosture.list",
           "kind": "member",
-          "classification": "public-unlisted",
+          "classification": "documented",
           "signature": "(input?: AthenaAuthOrganizationAuthenticationPostureListQuery & AthenaAuthFetchCompatibleInput, options?: AthenaAuthCallOptions) => Promise<AthenaAuthResult<AthenaAuthOrganizationAuthenticationPostureListResponse>>",
-          "summary": "",
+          "summary": "Read safe member authentication posture for the active organization.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-athena-auth-organization-authentication-posture-list-react-native"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "authentication-posture-list"
+          },
+          "semantic": {
+            "authorization": {
+              "requiredRights": [
+                "organization.authentication.read"
+              ],
+              "forbiddenRights": [],
+              "scope": "organization"
+            },
+            "capabilities": [
+              "organizations"
+            ]
+          },
           "runtime": {
             "node": "unsupported",
             "browser": "unsupported",
@@ -114630,11 +115319,16 @@
           "summary": "OAuth-only provider id (excludes SAML SSO). Use for pure OAuth link/token flows where SAML is not valid.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-auth-oauth-provider-social-providers"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-oauth-provider"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -114651,11 +115345,16 @@
           "summary": "Social / identity provider id for auth API calls (`signIn.social`, link, etc.). Defaults to {@link AuthSocialProviderBuiltin}; extend via {@link AthenaAuthSocialProviderExtensions}.",
           "deprecated": false,
           "source": "src/auth/types/catalog.ts",
-          "examples": [],
+          "examples": [
+            "docs-ir.canonical-auth-social-provider-social-providers"
+          ],
           "related": [],
           "requires": [],
           "forbids": [],
-          "tags": {},
+          "tags": {
+            "canonical": true,
+            "role": "auth-social-provider"
+          },
           "runtime": {
             "node": "supported",
             "browser": "supported",
@@ -122819,6 +123518,618 @@
         "fingerprintAthenaCapabilitiesIr"
       ],
       "title": "lib/capabilities/02.ts"
+    },
+    {
+      "id": "docs-ir.active-organization",
+      "file": "apps/docs-athena-js/examples/docs-ir/active-organization.ts",
+      "symbolIds": [
+        "@xylex-group/athena#ensureActiveOrganization"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "ensureActiveOrganization"
+    },
+    {
+      "id": "docs-ir.auth-domain-events",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-domain-events.ts",
+      "symbolIds": [
+        "@xylex-group/athena#ATHENA_AUTH_DOMAIN_EVENTS"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "ATHENA_AUTH_DOMAIN_EVENTS"
+    },
+    {
+      "id": "docs-ir.auth-embedded-capabilities",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-embedded-capabilities.ts",
+      "symbolIds": [
+        "@xylex-group/athena#ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+    },
+    {
+      "id": "docs-ir.auth-error-codes",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-error-codes.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AthenaAuthErrorCode"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AthenaAuthErrorCode"
+    },
+    {
+      "id": "docs-ir.auth-hooks",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-hooks.ts",
+      "symbolIds": [
+        "@xylex-group/athena#defineAthenaAuthHooks"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "defineAthenaAuthHooks"
+    },
+    {
+      "id": "docs-ir.auth-oauth-provider",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-oauth-provider.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AuthOAuthProvider"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AuthOAuthProvider"
+    },
+    {
+      "id": "docs-ir.auth-social-provider",
+      "file": "apps/docs-athena-js/examples/docs-ir/auth-social-provider.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AuthSocialProvider"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AuthSocialProvider"
+    },
+    {
+      "id": "docs-ir.authorization-snapshot",
+      "file": "apps/docs-athena-js/examples/docs-ir/authorization-snapshot.ts",
+      "symbolIds": [
+        "@xylex-group/athena#parseAuthorizationSnapshot"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "parseAuthorizationSnapshot"
+    },
+    {
+      "id": "docs-ir.billing-capabilities",
+      "file": "apps/docs-athena-js/examples/docs-ir/billing-capabilities.ts",
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingCapabilities"
+      ],
+      "entrypoint": "@xylex-group/athena/billing",
+      "title": "BillingCapabilities"
+    },
+    {
+      "id": "docs-ir.billing-change-operation",
+      "file": "apps/docs-athena-js/examples/docs-ir/billing-change-operation.ts",
+      "symbolIds": [
+        "@xylex-group/athena/billing#BillingSelfSubscriptionChangeOperation"
+      ],
+      "entrypoint": "@xylex-group/athena/billing",
+      "title": "BillingSelfSubscriptionChangeOperation"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-embedded-capability-snapshot-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-embedded-capability-snapshot-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-embedded-capability-snapshot-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-embedded-capability-snapshot-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "athena-auth-embedded-capability-snapshot-athena"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-error-code-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-error-code-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AthenaAuthErrorCode"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AthenaAuthErrorCode"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-error-code-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-error-code-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#AthenaAuthErrorCode"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "athena-auth-error-code-athena"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#athena.auth.organization.authenticationPosture.list"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-client",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-client.ts",
+      "symbolIds": [
+        "@xylex-group/athena/next/client#athena.auth.organization.authenticationPosture.list"
+      ],
+      "entrypoint": "@xylex-group/athena/next/client",
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-react-native",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-react-native.ts",
+      "symbolIds": [
+        "@xylex-group/athena/react-native#athena.auth.organization.authenticationPosture.list"
+      ],
+      "entrypoint": "@xylex-group/athena/react-native",
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "id": "docs-ir.canonical-athena-auth-organization-authentication-posture-list-server",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-auth-organization-authentication-posture-list-server.ts",
+      "symbolIds": [
+        "@xylex-group/athena/server#athena.auth.organization.authenticationPosture.list"
+      ],
+      "entrypoint": "@xylex-group/athena/server",
+      "title": "athena.auth.organization.authenticationPosture.list"
+    },
+    {
+      "id": "docs-ir.canonical-athena-storage-direct-upload-config-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-direct-upload-config-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageDirectUploadConfig"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AthenaStorageDirectUploadConfig"
+    },
+    {
+      "id": "docs-ir.canonical-athena-storage-direct-upload-config-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-direct-upload-config-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#AthenaStorageDirectUploadConfig"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "athena-storage-direct-upload-config-athena"
+    },
+    {
+      "id": "docs-ir.canonical-athena-storage-file-upload-request-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-file-upload-request-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageFileUploadRequest"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AthenaStorageFileUploadRequest"
+    },
+    {
+      "id": "docs-ir.canonical-athena-storage-file-upload-request-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-athena-storage-file-upload-request-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#AthenaStorageFileUploadRequest"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "athena-storage-file-upload-request-athena"
+    },
+    {
+      "id": "docs-ir.canonical-auth-oauth-provider-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-oauth-provider-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AuthOAuthProvider"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AuthOAuthProvider"
+    },
+    {
+      "id": "docs-ir.canonical-auth-oauth-provider-social-providers",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-oauth-provider-social-providers.ts",
+      "symbolIds": [
+        "@xylex-group/athena/social-providers#AuthOAuthProvider"
+      ],
+      "entrypoint": "@xylex-group/athena/social-providers",
+      "title": "auth-oauth-provider-athena"
+    },
+    {
+      "id": "docs-ir.canonical-auth-social-provider-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-social-provider-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AuthSocialProvider"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AuthSocialProvider"
+    },
+    {
+      "id": "docs-ir.canonical-auth-social-provider-social-providers",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-auth-social-provider-social-providers.ts",
+      "symbolIds": [
+        "@xylex-group/athena/social-providers#AuthSocialProvider"
+      ],
+      "entrypoint": "@xylex-group/athena/social-providers",
+      "title": "auth-social-provider-athena"
+    },
+    {
+      "id": "docs-ir.canonical-define-athena-auth-hooks-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-define-athena-auth-hooks-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#defineAthenaAuthHooks"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "defineAthenaAuthHooks"
+    },
+    {
+      "id": "docs-ir.canonical-define-athena-auth-hooks-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-define-athena-auth-hooks-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#defineAthenaAuthHooks"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "define-athena-auth-hooks-athena"
+    },
+    {
+      "id": "docs-ir.canonical-ensure-active-organization-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-ensure-active-organization-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#ensureActiveOrganization"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "ensureActiveOrganization"
+    },
+    {
+      "id": "docs-ir.canonical-ensure-active-organization-organization",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-ensure-active-organization-organization.ts",
+      "symbolIds": [
+        "@xylex-group/athena/organization#ensureActiveOrganization"
+      ],
+      "entrypoint": "@xylex-group/athena/organization",
+      "title": "ensure-active-organization-athena"
+    },
+    {
+      "id": "docs-ir.canonical-ensure-active-organization-server",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-ensure-active-organization-server.ts",
+      "symbolIds": [
+        "@xylex-group/athena/next/server#ensureActiveOrganization"
+      ],
+      "entrypoint": "@xylex-group/athena/next/server",
+      "title": "ensureActiveOrganization"
+    },
+    {
+      "id": "docs-ir.canonical-parse-authorization-snapshot-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-parse-authorization-snapshot-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#parseAuthorizationSnapshot"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "parseAuthorizationSnapshot"
+    },
+    {
+      "id": "docs-ir.canonical-parse-authorization-snapshot-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-parse-authorization-snapshot-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#parseAuthorizationSnapshot"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "parse-authorization-snapshot-athena"
+    },
+    {
+      "id": "docs-ir.canonical-resolve-athena-execution-mode-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-resolve-athena-execution-mode-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#resolveAthenaExecutionMode"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "resolveAthenaExecutionMode"
+    },
+    {
+      "id": "docs-ir.canonical-resolve-athena-execution-mode-cloudflare",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-resolve-athena-execution-mode-cloudflare.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#resolveAthenaExecutionMode"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "resolve-athena-execution-mode-athena"
+    },
+    {
+      "id": "docs-ir.canonical-storage-provider-descriptor-athena",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-storage-provider-descriptor-athena.ts",
+      "symbolIds": [
+        "@xylex-group/athena#StorageProviderDescriptor"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "StorageProviderDescriptor"
+    },
+    {
+      "id": "docs-ir.canonical-storage-provider-descriptor-browser",
+      "file": "apps/docs-athena-js/examples/docs-ir/canonical-storage-provider-descriptor-browser.ts",
+      "symbolIds": [
+        "@xylex-group/athena/browser#StorageProviderDescriptor"
+      ],
+      "entrypoint": "@xylex-group/athena/browser",
+      "title": "storage-provider-descriptor-athena"
+    },
+    {
+      "id": "docs-ir.cloudflare-client",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-client.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareClient"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "createCloudflareClient"
+    },
+    {
+      "id": "docs-ir.cloudflare-compose-storage",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-compose-storage.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#composeHttpAndR2Storage"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "composeHttpAndR2Storage"
+    },
+    {
+      "id": "docs-ir.cloudflare-d1-transport",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-d1-transport.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareD1GatewayTransport"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "createCloudflareD1GatewayTransport"
+    },
+    {
+      "id": "docs-ir.cloudflare-execution-mode",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-execution-mode.ts",
+      "symbolIds": [
+        "@xylex-group/athena#resolveAthenaExecutionMode"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "resolveAthenaExecutionMode"
+    },
+    {
+      "id": "docs-ir.cloudflare-r2-object-storage",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-r2-object-storage.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareR2ObjectStorage"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "createCloudflareR2ObjectStorage"
+    },
+    {
+      "id": "docs-ir.cloudflare-r2-storage-module",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-r2-storage-module.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createCloudflareR2StorageModule"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "createCloudflareR2StorageModule"
+    },
+    {
+      "id": "docs-ir.cloudflare-runtime",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-runtime.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createAthenaRuntime"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "createAthenaRuntime"
+    },
+    {
+      "id": "docs-ir.cloudflare-worker-env",
+      "file": "apps/docs-athena-js/examples/docs-ir/cloudflare-worker-env.ts",
+      "symbolIds": [
+        "@xylex-group/athena/cloudflare#createAthenaFromWorkerEnv"
+      ],
+      "entrypoint": "@xylex-group/athena/cloudflare",
+      "title": "createAthenaFromWorkerEnv"
+    },
+    {
+      "id": "docs-ir.policy-authenticated-only",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-authenticated-only.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#authenticatedOnly"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "authenticatedOnly"
+    },
+    {
+      "id": "docs-ir.policy-authoring",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-authoring.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#policy"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "policy"
+    },
+    {
+      "id": "docs-ir.policy-coverage",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-coverage.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#coverageAthenaPolicy"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "coverageAthenaPolicy"
+    },
+    {
+      "id": "docs-ir.policy-decision",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-decision.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#decideAthenaPolicy"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "decideAthenaPolicy"
+    },
+    {
+      "id": "docs-ir.policy-document-fingerprint",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-document-fingerprint.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#fingerprintDocument"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "fingerprintDocument"
+    },
+    {
+      "id": "docs-ir.policy-explain",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-explain.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#explainAthenaPolicy"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "explainAthenaPolicy"
+    },
+    {
+      "id": "docs-ir.policy-ir-serialize",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-ir-serialize.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#serializePolicyIr"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "serializePolicyIr"
+    },
+    {
+      "id": "docs-ir.policy-lint",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-lint.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#lintAthenaPolicy"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "lintAthenaPolicy"
+    },
+    {
+      "id": "docs-ir.policy-organization-scoped",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-organization-scoped.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#organizationScoped"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "organizationScoped"
+    },
+    {
+      "id": "docs-ir.policy-owner-or-role",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-owner-or-role.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#ownerOrRole"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "ownerOrRole"
+    },
+    {
+      "id": "docs-ir.policy-principal-match",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-principal-match.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#policyAppliesToPrincipal"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "policyAppliesToPrincipal"
+    },
+    {
+      "id": "docs-ir.policy-public-read",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-public-read.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#publicRead"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "publicRead"
+    },
+    {
+      "id": "docs-ir.policy-role-restricted",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-role-restricted.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#roleRestricted"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "roleRestricted"
+    },
+    {
+      "id": "docs-ir.policy-schema-impact",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-schema-impact.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#reportAthenaPolicySchemaImpact"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "reportAthenaPolicySchemaImpact"
+    },
+    {
+      "id": "docs-ir.policy-service-only",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-service-only.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#serviceOnly"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "serviceOnly"
+    },
+    {
+      "id": "docs-ir.policy-simulate",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-simulate.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#simulateAthenaPolicy"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "simulateAthenaPolicy"
+    },
+    {
+      "id": "docs-ir.policy-tenant-scoped",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-tenant-scoped.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#tenantScoped"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "tenantScoped"
+    },
+    {
+      "id": "docs-ir.policy-user-owned",
+      "file": "apps/docs-athena-js/examples/docs-ir/policy-user-owned.ts",
+      "symbolIds": [
+        "@xylex-group/athena/policy#userOwned"
+      ],
+      "entrypoint": "@xylex-group/athena/policy",
+      "title": "userOwned"
+    },
+    {
+      "id": "docs-ir.right-key-parse",
+      "file": "apps/docs-athena-js/examples/docs-ir/right-key-parse.ts",
+      "symbolIds": [
+        "@xylex-group/athena/rights#parseAthenaRightKey"
+      ],
+      "entrypoint": "@xylex-group/athena/rights",
+      "title": "parseAthenaRightKey"
+    },
+    {
+      "id": "docs-ir.right-match",
+      "file": "apps/docs-athena-js/examples/docs-ir/right-match.ts",
+      "symbolIds": [
+        "@xylex-group/athena/rights#rightMatches"
+      ],
+      "entrypoint": "@xylex-group/athena/rights",
+      "title": "rightMatches"
+    },
+    {
+      "id": "docs-ir.storage-direct-upload",
+      "file": "apps/docs-athena-js/examples/docs-ir/storage-direct-upload.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageDirectUploadConfig"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AthenaStorageDirectUploadConfig"
+    },
+    {
+      "id": "docs-ir.storage-file-upload",
+      "file": "apps/docs-athena-js/examples/docs-ir/storage-file-upload.ts",
+      "symbolIds": [
+        "@xylex-group/athena#AthenaStorageFileUploadRequest"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "AthenaStorageFileUploadRequest"
+    },
+    {
+      "id": "docs-ir.storage-provider",
+      "file": "apps/docs-athena-js/examples/docs-ir/storage-provider.ts",
+      "symbolIds": [
+        "@xylex-group/athena#StorageProviderDescriptor"
+      ],
+      "entrypoint": "@xylex-group/athena",
+      "title": "StorageProviderDescriptor"
     }
   ],
   "errors": [
@@ -123044,6 +124355,14 @@
       "subsystem": "internal",
       "retry": "never",
       "description": "The PostgreSQL driver failed before completion.",
+      "docsUrl": null
+    },
+    {
+      "code": "ATHENA_INTERNAL_REQUEST_DEADLINE_EXCEEDED",
+      "errorNumber": 1028,
+      "subsystem": "internal",
+      "retry": "never",
+      "description": "The database request exceeded its execution deadline.",
       "docsUrl": null
     },
     {

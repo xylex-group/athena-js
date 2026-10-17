@@ -5,17 +5,20 @@ import {
   assertRedirectUri,
   assertS256CodeChallenge,
   createAccessTokenClaims,
+  fetchClientIdMetadataDocument,
   generateOpaqueSecret,
   hashOAuthSecret,
   intersectScopes,
+  isClientIdMetadataDocumentUrl,
   isScopeSubset,
+  materializeClientIdMetadataClient,
   OAuthProtocolError,
   openOAuthState,
   parseProtocolScopes,
-  parseScopes,
   sealOAuthState,
   verifyCodeVerifier,
 } from "../../authorization-server/index.ts";
+import type { FetchClientIdMetadataOptions } from "../../authorization-server/client-id-metadata.ts";
 import { normalizeResourceUri } from "../../authorization-server/resource.ts";
 import type { IssuedOAuthTokenSet } from "../../authorization-server/tokens.ts";
 import type {
@@ -44,6 +47,7 @@ export interface OAuthUserEligibilityInput {
 export interface OAuthAuthorizationServerServiceOptions {
   clock?: AuthClock;
   config: NormalizedAthenaAuthorizationServerConfig;
+  fetchClientMetadata?: FetchClientIdMetadataOptions["fetchImpl"];
   getUser?: (userId: string) => Promise<AuthUserRow | null>;
   issuer: string;
   userInfoEndpoint?: string;
@@ -135,11 +139,69 @@ export class OAuthAuthorizationServerService {
   }
 
   async getClient(clientId: string): Promise<OAuthClient> {
-    const client = await this.options.stores.clients.get(clientId);
-    if (!client?.isActive) {
+    const existing = await this.options.stores.clients.get(clientId);
+    if (existing?.isActive) {
+      if (existing.registrationKind === "client-id-metadata") {
+        return this.options.stores.clients.upsertClientIdMetadata({
+          clientName: existing.clientName,
+          clientUrl: existing.clientUrl,
+          id: existing.id,
+          metadata: { ...existing.metadata },
+          redirectUris: existing.redirectUris,
+          registrationKind: existing.registrationKind,
+          resourceUris: Object.keys(this.options.config.resources).sort(),
+          scopes: this.clientIdMetadataScopes(),
+        });
+      }
+      return existing;
+    }
+    if (existing && !existing.isActive) {
       throw new OAuthProtocolError("invalid_client", "The client is invalid.");
     }
-    return client;
+    if (!isClientIdMetadataDocumentUrl(clientId)) {
+      throw new OAuthProtocolError("invalid_client", "The client is invalid.");
+    }
+
+    const document = await fetchClientIdMetadataDocument(clientId, {
+      fetchImpl: this.options.fetchClientMetadata,
+    });
+    const scopes = this.clientIdMetadataScopes();
+    const resourceUris = Object.keys(this.options.config.resources).sort();
+    if (resourceUris.length === 0) {
+      throw new OAuthProtocolError(
+        "invalid_client",
+        "No OAuth resources are configured for Client ID Metadata Documents."
+      );
+    }
+    const materialized = materializeClientIdMetadataClient({
+      document,
+      resourceUris,
+      scopes,
+    });
+    return this.options.stores.clients.upsertClientIdMetadata({
+      clientName: materialized.clientName,
+      clientUrl: materialized.clientUrl,
+      id: materialized.id,
+      metadata: { ...materialized.metadata },
+      redirectUris: materialized.redirectUris,
+      registrationKind: "client-id-metadata",
+      resourceUris: materialized.resourceUris,
+      scopes: materialized.scopes,
+    });
+  }
+
+  private clientIdMetadataScopes(): string[] {
+    return [
+      ...new Set([
+        "email",
+        "openid",
+        "profile",
+        ...(this.options.config.issueRefreshTokens ? ["offline_access"] : []),
+        ...Object.values(this.options.config.resources).flatMap((resource) =>
+          Object.keys(resource.scopes)
+        ),
+      ]),
+    ].sort();
   }
 
   async disableClient(clientId: string): Promise<void> {
@@ -514,9 +576,20 @@ export class OAuthAuthorizationServerService {
         "The refresh token is invalid."
       );
     }
-    const requestedScopes =
-      input.scope == null ? [...current.scopes] : parseScopes(input.scope);
-    if (!isScopeSubset(requestedScopes, current.scopes)) {
+    // Token responses include identity scopes in `scope` (see
+    // projectOAuthTokenEndpointResponse). Clients often echo that string on
+    // refresh; split identity vs resource the same way authorize does.
+    const requested =
+      input.scope == null
+        ? {
+            identity: [...current.identityScopes],
+            resource: [...current.scopes],
+          }
+        : parseProtocolScopes(input.scope);
+    if (
+      !isScopeSubset(requested.resource, current.scopes) ||
+      !isScopeSubset(requested.identity, current.identityScopes)
+    ) {
       throw new OAuthProtocolError(
         "invalid_scope",
         "The requested scope exceeds the original grant."
@@ -538,9 +611,9 @@ export class OAuthAuthorizationServerService {
         "The authorization grant is no longer active."
       );
     }
-    const scopes = scopesIssuedForGrant(requestedScopes, grant);
+    const scopes = scopesIssuedForGrant(requested.resource, grant);
     const identityScopes = intersectScopes(
-      current.identityScopes,
+      requested.identity,
       grant.identityScopes
     ) as typeof current.identityScopes;
     const replacementToken = generateOpaqueSecret();

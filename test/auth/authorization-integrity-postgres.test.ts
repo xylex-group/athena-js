@@ -747,6 +747,123 @@ maybe("Postgres migration 49 backfills existing organization revisions", async (
   }
 });
 
+maybe(
+  "Postgres catalog materialization seeds revisions for unmaterialized external organizations",
+  async () => {
+    const database = await createPostgresAuthDatabase(url as string);
+    const suffix = crypto.randomUUID();
+    const userId = `authz-external-org-user-${suffix}`;
+    const organizationId = `authz-external-org-${suffix}`;
+    const existingOrganizationId = `authz-existing-revision-org-${suffix}`;
+    try {
+      await migrateAthenaAuthSchema(database);
+      const stores = new PostgresAuthStores(database);
+      await stores.createUser({
+        email: `${userId}@example.com`,
+        id: userId,
+      });
+      await stores.createOrganization({
+        createdByUserId: userId,
+        id: existingOrganizationId,
+        name: "Existing organization revision",
+        slug: existingOrganizationId,
+      });
+      await database.query(
+        "UPDATE athena.authorization_revisions SET revision = 17 WHERE organization_id = $1",
+        [existingOrganizationId],
+      );
+      await database.query(
+        "INSERT INTO athena.organization (id, name, slug) VALUES ($1, $2, $3)",
+        [organizationId, "External organization", organizationId],
+      );
+      await database.query(
+        "INSERT INTO athena.member (id, organization_id, user_id, role) VALUES ($1, $2, $3, 'owner')",
+        [`${organizationId}-member`, organizationId, userId],
+      );
+      await database.query("DELETE FROM athena.authorization_catalog_state");
+
+      await Promise.all([
+        migrateAthenaAuthSchema(database),
+        migrateAthenaAuthSchema(database),
+      ]);
+
+      const revision = await database.query<{ revision: string }>(
+        `SELECT revision::text AS revision
+         FROM athena.authorization_revisions WHERE organization_id = $1`,
+        [organizationId],
+      );
+      const existingRevision = await database.query<{ revision: string }>(
+        `SELECT revision::text AS revision
+         FROM athena.authorization_revisions WHERE organization_id = $1`,
+        [existingOrganizationId],
+      );
+      const assignment = await database.query(
+        `SELECT 1 FROM athena.authorization_member_roles
+         WHERE member_id = $1`,
+        [`${organizationId}-member`],
+      );
+      assert.equal(revision.rows[0]?.revision, "2");
+      assert.equal(existingRevision.rows[0]?.revision, "17");
+      assert.equal(assignment.rowCount, 1);
+    } finally {
+      await database.query(
+        "DELETE FROM athena.organization WHERE id = ANY($1::text[])",
+        [[organizationId, existingOrganizationId]],
+      );
+      await database.query("DELETE FROM athena.users WHERE id = $1", [userId]);
+      await database.close?.();
+    }
+  },
+);
+
+maybe(
+  "Postgres catalog materialization fails closed when an assigned organization revision is missing",
+  async () => {
+    const database = await createPostgresAuthDatabase(url as string);
+    const suffix = crypto.randomUUID();
+    const userId = `authz-missing-revision-user-${suffix}`;
+    const organizationId = `authz-missing-revision-org-${suffix}`;
+    try {
+      await migrateAthenaAuthSchema(database);
+      await new PostgresAuthStores(database).createUser({
+        email: `${userId}@example.com`,
+        id: userId,
+      });
+      const stores = new PostgresAuthStores(database);
+      await stores.createOrganization({
+        createdByUserId: userId,
+        id: organizationId,
+        name: "Missing revision organization",
+        slug: organizationId,
+      });
+      await stores.addMember({
+        id: `${organizationId}-member`,
+        organizationId,
+        role: "owner",
+        userId,
+      });
+      await database.query(
+        "DELETE FROM athena.authorization_revisions WHERE organization_id = $1",
+        [organizationId],
+      );
+      await database.query("DELETE FROM athena.authorization_catalog_state");
+
+      await assert.rejects(
+        migrateAthenaAuthSchema(database),
+        (error: unknown) =>
+          error instanceof Error &&
+          /Authorization revision row is missing/.test(error.message),
+      );
+    } finally {
+      await database.query("DELETE FROM athena.organization WHERE id = $1", [
+        organizationId,
+      ]);
+      await database.query("DELETE FROM athena.users WHERE id = $1", [userId]);
+      await database.close?.();
+    }
+  },
+);
+
 maybe("Postgres catalog materialization versions backfilled assignments", async () => {
   const database = await createPostgresAuthDatabase(url as string);
   const suffix = crypto.randomUUID();

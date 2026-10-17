@@ -7,9 +7,10 @@ import {
 import {
   AUTHORIZATION_CATALOG_VERSION,
   getAthenaAuthorizationRightsIr,
-  getAthenaAuthorizationRightsAuthority,
 } from "./catalog.ts";
 import { fingerprintAthenaRightsIr } from "../../rights/ir/fingerprint.ts";
+import { createAthenaRightsAuthority } from "../../rights/authority.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 
 export { AUTHORIZATION_CATALOG_VERSION };
 
@@ -20,12 +21,16 @@ export { AUTHORIZATION_CATALOG_VERSION };
  */
 export const AUTHORIZATION_CATALOG_LOCK = 872_046_055;
 
-export function authorizationRightsFingerprint(): string {
-  return fingerprintAthenaRightsIr(getAthenaAuthorizationRightsIr());
+export function authorizationRightsFingerprint(
+  rightsIr: AthenaRightsIr = getAthenaAuthorizationRightsIr()
+): string {
+  return fingerprintAthenaRightsIr(rightsIr);
 }
 
-export function authorizationRolesFingerprint(): string {
-  const rightsAuthority = getAthenaAuthorizationRightsAuthority();
+export function authorizationRolesFingerprint(
+  rightsIr: AthenaRightsIr = getAthenaAuthorizationRightsIr()
+): string {
+  const rightsAuthority = createAthenaRightsAuthority(rightsIr);
   return fingerprintAthenaRolesIr({
     irVersion: ATHENA_ROLES_IR_VERSION,
     kind: ATHENA_ROLES_IR_KIND,
@@ -41,13 +46,14 @@ export function catalogStateIsCurrent(
         rightsFingerprint: string;
         rolesFingerprint: string;
       }
-    | undefined
+    | undefined,
+  rightsIr: AthenaRightsIr = getAthenaAuthorizationRightsIr()
 ): boolean {
   return (
     current !== undefined &&
     current.catalogVersion === AUTHORIZATION_CATALOG_VERSION &&
-    current.rightsFingerprint === authorizationRightsFingerprint() &&
-    current.rolesFingerprint === authorizationRolesFingerprint()
+    current.rightsFingerprint === authorizationRightsFingerprint(rightsIr) &&
+    current.rolesFingerprint === authorizationRolesFingerprint(rightsIr)
   );
 }
 

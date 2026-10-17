@@ -187,6 +187,7 @@ function oauthRedirect(
 function isAuthorizationServerPath(path: string): boolean {
   return (
     path === "/oauth/authorize" ||
+    path === "/oauth/interaction" ||
     path === "/oauth/token" ||
     path === "/userinfo" ||
     path === "/oauth/revoke" ||
@@ -585,6 +586,69 @@ export async function handleAuthorizationServerRoutes(
     } catch {
       return oauthJsonResponse(200, {}, context.headers);
     }
+  }
+
+  // Hosted consent UIs inspect the pending interaction here — not via
+  // GET /oauth/authorize, which must keep redirecting to consentUrl.
+  if (path === "/oauth/interaction" && method === "GET") {
+    const url = new URL(request.url);
+    const interactionId = queryValue(url, "interaction_id");
+    if (!interactionId) {
+      return oauthErrorResponse(
+        new OAuthProtocolError(
+          "invalid_request",
+          "interaction_id is required."
+        ),
+        context.headers
+      );
+    }
+    const interaction =
+      await oauthStores.authorizationRequests.get(interactionId);
+    if (!interaction) {
+      return oauthErrorResponse(
+        new OAuthProtocolError(
+          "invalid_request",
+          "The authorization interaction is invalid or expired."
+        ),
+        context.headers
+      );
+    }
+    const session = await context.deps.resolveSession(
+      request,
+      context.stores
+    );
+    if (!session) {
+      return oauthErrorResponse(
+        new OAuthProtocolError(
+          "login_required",
+          "Authentication is required to inspect the authorization interaction.",
+          { status: 401 }
+        ),
+        context.headers
+      );
+    }
+    if (needsReauthentication(session, interaction, new Date())) {
+      return oauthErrorResponse(
+        new OAuthProtocolError(
+          "login_required",
+          "The user must authenticate again before consent.",
+          { status: 401 }
+        ),
+        context.headers
+      );
+    }
+    const client = await service.getClient(interaction.clientId);
+    return oauthJsonResponse(
+      200,
+      {
+        clientId: interaction.clientId,
+        clientName: client.clientName,
+        interactionId: interaction.id,
+        resource: interaction.resource,
+        scopes: interaction.requestedScopes,
+      },
+      context.headers
+    );
   }
 
   if (path !== "/oauth/authorize") {

@@ -238,6 +238,30 @@ test("OIDC-only tokens use the pathful UserInfo resource for GET and POST", asyn
   assert.equal(consentRedirect.status, 302);
   assert.match(consentRedirect.headers.get("location") as string, /consent/);
 
+  const unauthenticatedInspect = await call(
+    new Request(
+      `https://issuer.example/api/auth/oauth/interaction?interaction_id=${interactionId}`,
+    ),
+    "/oauth/interaction",
+  );
+  assert.equal(unauthenticatedInspect.status, 401);
+
+  const inspect = await call(
+    new Request(
+      `https://issuer.example/api/auth/oauth/interaction?interaction_id=${interactionId}`,
+      { headers: { cookie } },
+    ),
+    "/oauth/interaction",
+  );
+  assert.equal(inspect.status, 200);
+  const inspectBody = await json(inspect);
+  assert.equal(inspectBody.clientId, "client-route");
+  assert.equal(inspectBody.clientName, "External client");
+  assert.equal(inspectBody.interactionId, interactionId);
+  assert.equal(inspectBody.resource, "https://resource.example");
+  assert.ok(Array.isArray(inspectBody.scopes));
+  assert.ok((inspectBody.scopes as string[]).includes("invoice:read"));
+
   const approved = await call(
     new Request("https://issuer.example/api/auth/oauth/authorize", {
       body: new URLSearchParams({
@@ -450,6 +474,7 @@ test("OIDC-only tokens use the pathful UserInfo resource for GET and POST", asyn
   const metadataBody = await json(metadata);
   assert.equal(metadataBody.issuer, "https://issuer.example");
   assert.deepEqual(metadataBody.response_types_supported, ["code"]);
+  assert.equal(metadataBody.client_id_metadata_document_supported, true);
 
   const oidcDiscovery = await call(
     new Request("https://issuer.example/api/auth/.well-known/openid-configuration"),

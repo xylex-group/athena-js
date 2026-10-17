@@ -11,6 +11,8 @@ function splitOnce(value: string): [string, string] | undefined {
 /**
  * Exact parity with `crates/athena-rights/src/matching.rs` `right_matches`.
  * Adapters must parse before calling; unparsed strings are not accepted.
+ * @docsCanonical
+ * @docsRole right-match
  */
 export function rightMatches(
   granted: AthenaRightKey,

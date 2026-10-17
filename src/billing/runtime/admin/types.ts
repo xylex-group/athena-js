@@ -4,6 +4,8 @@ import type { BillingWebhookOperationalStatus } from "../../ingestion/observabil
 import type { BillingWebhookReconciliationPlan } from "../../ingestion/reconciliation/types.ts";
 import type { BillingConnectionIngestionHealth } from "../../ingestion/types.ts";
 import type { BillingSubjectRef } from "../../types.ts";
+import type { BillingInventoryPage } from "./inventory-query.ts";
+import type { BillingInventoryPresetId } from "./inventory-presets.ts";
 
 export interface BillingAdminConnectionInput {
   connectionId?: string;
@@ -161,6 +163,13 @@ export interface BillingAdminPort {
     health(
       input?: BillingAdminConnectionInput
     ): Promise<BillingAdminIngestionHealth>;
+  };
+  readonly inventory: {
+    list(input: {
+      page?: number;
+      pageSize?: number;
+      presetId: BillingInventoryPresetId;
+    }): Promise<BillingInventoryPage>;
   };
   readonly reconciliation: {
     retry(

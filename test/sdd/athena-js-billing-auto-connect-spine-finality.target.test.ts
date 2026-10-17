@@ -104,7 +104,7 @@ test("recovery coalesces across runtime bindings sharing an owner key", async ()
   assert.equal(attempts, 1);
 });
 
-test("provider and account slots remain separate namespaces", () => {
+test("provider and account slots remain separate namespaces", async (t) => {
   const intents = configuredBillingConnectionIntents({
     applicationId: "app",
     configuredProviders: {
@@ -117,7 +117,7 @@ test("provider and account slots remain separate namespaces", () => {
     testMode: true,
   });
 
-  test("canonical and legacy declarations cannot silently merge a provider slot", () => {
+  await t.test("canonical and legacy declarations cannot silently merge a provider slot", () => {
     assert.throws(
       () =>
         configuredBillingConnectionIntents({
@@ -139,7 +139,7 @@ test("provider and account slots remain separate namespaces", () => {
     );
   });
 
-  test("trimmed canonical account key duplicates fail closed", () => {
+  await t.test("trimmed canonical account key duplicates fail closed", () => {
     assert.throws(
       () =>
         normalizeBillingProviderConfiguration({
@@ -161,7 +161,7 @@ test("provider and account slots remain separate namespaces", () => {
     );
   });
 
-  test("accounts-only canonical wrappers do not synthesize a default slot", () => {
+  await t.test("accounts-only canonical wrappers do not synthesize a default slot", async (t) => {
     const configured = normalizeBillingProviderConfiguration({
       configuredProviders: {
         mollie: { accounts: { eu: mollieConfig } },
@@ -169,7 +169,7 @@ test("provider and account slots remain separate namespaces", () => {
       environment: "test",
     });
 
-    test("canonical default credential kind reaches the required next-gen ingestion guard", () => {
+    await t.test("canonical default credential kind reaches the required next-gen ingestion guard", () => {
       assert.doesNotThrow(() =>
         createLocalBillingRuntimeBinding({
           appUrl: "https://app.example",
@@ -206,7 +206,7 @@ test("provider and account slots remain separate namespaces", () => {
     assert.equal(provider.slots.get("eu")?.credentialReference, "providers.mollie:eu");
   });
 
-  test("canonical named slots are consumed by credential readers", () => {
+  await t.test("canonical named slots are consumed by credential readers", () => {
     const configured = {
       mollie: { accounts: { eu: mollieConfig } },
     } as never;
@@ -225,7 +225,7 @@ test("provider and account slots remain separate namespaces", () => {
     );
   });
 
-  test("canonical named slots are projected for affinity-selected execution", () => {
+  await t.test("canonical named slots are projected for affinity-selected execution", () => {
     const config = {
       mollie: {
         accounts: { eu: mollieConfig },
@@ -247,7 +247,7 @@ test("provider and account slots remain separate namespaces", () => {
     assert.equal(projected.mollie, mollieConfig);
   });
 
-  test("named-slot-only providers register execution runtimes", () => {
+  await t.test("named-slot-only providers register execution runtimes", () => {
     const registry = createBillingProviderRegistry({
       stripeAccounts: { platform: { testKey: "test_stripe" } },
     });
@@ -255,7 +255,7 @@ test("provider and account slots remain separate namespaces", () => {
     assert.equal(registry.has("stripe"), true);
   });
 
-  test("heterogeneous named Mollie slots route execution to the selected runtime", async () => {
+  await t.test("heterogeneous named Mollie slots route execution to the selected runtime", async () => {
     const observed: Record<string, unknown>[] = [];
     const sdk = (id: string) =>
       class {
@@ -322,7 +322,7 @@ test("provider and account slots remain separate namespaces", () => {
     );
   });
 
-  test("explicit persisted binding to a missing slot fails closed", async () => {
+  await t.test("explicit persisted binding to a missing slot fails closed", async () => {
     const registry = createBillingProviderRegistry({
       mollie: mollieConfig,
     });
@@ -393,7 +393,7 @@ test("connection persistence SQL uses parameters instead of interpolated values"
   assert.match(source, /\$1/);
 });
 
-test("bootstrap retry is a control-plane operation independent of operational readiness", async () => {
+test("bootstrap retry is a control-plane operation independent of operational readiness", async (t) => {
   let retries = 0;
   const admin = createBillingAdminPort({
     authority: PROCESS_BILLING_INVOCATION,
@@ -413,7 +413,7 @@ test("bootstrap retry is a control-plane operation independent of operational re
     principal: PROCESS_OWNED_BILLING_PRINCIPAL,
   });
 
-  test("local runtime exposes bootstrap retry after operational readiness fails", async () => {
+  await t.test("local runtime exposes bootstrap retry after operational readiness fails", async () => {
     const operationalFailure = Promise.reject(new Error("bootstrap failed"));
     operationalFailure.catch(() => undefined);
     const runtime = createLocalBillingRuntime({
@@ -439,7 +439,7 @@ test("bootstrap retry is a control-plane operation independent of operational re
     assert.equal(result.generation, 2);
   });
 
-  test("failed capabilities keep bootstrap retry advertised when recovery is available", async () => {
+  await t.test("failed capabilities keep bootstrap retry advertised when recovery is available", async () => {
     const operationalFailure = Promise.reject(new Error("bootstrap failed"));
     operationalFailure.catch(() => undefined);
     const runtime = createLocalBillingRuntime({
@@ -474,7 +474,7 @@ test("bootstrap retry is a control-plane operation independent of operational re
     );
   });
 
-  test("Billing runtime readiness can reset and recover after a failed generation", async () => {
+  await t.test("Billing runtime readiness can reset and recover after a failed generation", async () => {
     const readiness = createAthenaRuntimeReadiness();
     const initialFailure = new Error("bootstrap failed");
     readiness.fail("billing", initialFailure);

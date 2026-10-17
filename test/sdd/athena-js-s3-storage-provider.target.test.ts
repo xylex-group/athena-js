@@ -141,10 +141,17 @@ function createMemoryS3(options?: { failGet?: Error }) {
       Body?: Uint8Array;
       Bucket: string;
       ContentType?: string;
+      IfNoneMatch?: string;
       Key: string;
       Metadata?: Record<string, string>;
     }) {
       calls.push({ input, method: "putObject" });
+      if (input.IfNoneMatch === "*" && objects.has(input.Key)) {
+        throw Object.assign(new Error("already exists"), {
+          $metadata: { httpStatusCode: 412 },
+          name: "PreconditionFailed",
+        });
+      }
       objects.set(input.Key, {
         body: input.Body ?? new Uint8Array(),
         contentType: input.ContentType,
@@ -205,8 +212,14 @@ function createMemoryR2() {
     async put(
       key: string,
       body: Uint8Array,
-      options?: { httpMetadata?: { contentType?: string } }
+      options?: {
+        httpMetadata?: { contentType?: string };
+        onlyIf?: { etagDoesNotMatch?: string };
+      }
     ) {
+      if (options?.onlyIf?.etagDoesNotMatch === "*" && objects.has(key)) {
+        return null;
+      }
       objects.set(key, { body, httpMetadata: options?.httpMetadata });
       return { key };
     },
@@ -265,6 +278,80 @@ test("T-S3-OPS: P?: S3 provider supports get put head list delete", async () => 
     authorized("delete", { key: "never-existed.bin" })
   );
   assert.equal(gone.ok, true);
+});
+
+test("T-S3-CANCEL: aborting a pending PUT reaches the S3 request", async () => {
+  const controller = new AbortController();
+  let observedSignal: AbortSignal | undefined;
+  let finishPut: (() => void) | undefined;
+  const s3 = {
+    ...createMemoryS3(),
+    async putObject(
+      _input: { Body?: Uint8Array; Bucket: string; Key: string },
+      options?: { abortSignal?: AbortSignal }
+    ) {
+      observedSignal = options?.abortSignal;
+      await new Promise<void>((resolve, reject) => {
+        finishPut = () => resolve();
+        options?.abortSignal?.addEventListener(
+          "abort",
+          () =>
+            reject(
+              Object.assign(new Error("Request aborted"), {
+                name: "AbortError",
+              })
+            ),
+          { once: true }
+        );
+      });
+      return {};
+    },
+  };
+  const provider = createS3StorageProvider({ bucket: "objects", s3 });
+  const pending = provider.execute(
+    authorized("put", {
+      body: new Uint8Array([1]),
+      key: "pending.bin",
+      signal: controller.signal,
+    })
+  );
+  assert.equal(typeof finishPut, "function");
+  controller.abort();
+  finishPut?.();
+  const result = await pending;
+
+  assert.equal(observedSignal, controller.signal);
+  assert.equal(result.ok, false);
+});
+
+test("T-R2-CANCEL-PREFLIGHT: aborted PUT does not reach the R2 bucket", async () => {
+  const base = createMemoryR2();
+  let writes = 0;
+  const r2 = {
+    ...base,
+    async put(
+      key: string,
+      body: Uint8Array,
+      options?: { httpMetadata?: { contentType?: string } }
+    ) {
+      writes += 1;
+      return base.put(key, body, options);
+    },
+  };
+  const controller = new AbortController();
+  controller.abort();
+  const provider = createR2StorageProvider(r2);
+
+  const result = await provider.execute(
+    authorized("put", {
+      body: new Uint8Array([1]),
+      key: "already-canceled.bin",
+      signal: controller.signal,
+    })
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(writes, 0);
 });
 
 test("T-S3-ADAPTER: P?: S3 provider has no Rights Policy HTTP session or browser logic", () => {
@@ -349,6 +436,7 @@ test("T-S3-PREFIX: P?: S3 provider applies bucket prefix contentType metadata an
     authorized("put", {
       body: new TextEncoder().encode("meta"),
       contentType: "application/json",
+      ifAbsent: true,
       key: "one.json",
       metadata: { role: "docs" },
     })
@@ -356,6 +444,7 @@ test("T-S3-PREFIX: P?: S3 provider applies bucket prefix contentType metadata an
   assert.equal(put.ok, true);
   assert.equal(s3.calls.at(-1)?.input.Key, "tenant-a/one.json");
   assert.equal(s3.calls.at(-1)?.input.ContentType, "application/json");
+  assert.equal(s3.calls.at(-1)?.input.IfNoneMatch, "*");
   assert.deepEqual(s3.calls.at(-1)?.input.Metadata, { role: "docs" });
 
   await provider.execute(
@@ -670,6 +759,16 @@ test("T-S3-CONFORM: P?: S3 get put head list delete match R2 overlapping error a
     assert.equal(noKey.error?.errorNumber, 3000);
     const put = await provider.execute(authorized("put", { body, key }));
     assert.equal(put.ok, true);
+    const collision = await provider.execute(
+      authorized("put", {
+        body: new TextEncoder().encode("overwrite"),
+        ifAbsent: true,
+        key,
+      })
+    );
+    assert.equal(collision.ok, false);
+    assert.equal(collision.error?.errorNumber, 3006);
+    assert.equal(collision.status, 409);
     const got = await provider.execute(authorized("get", { key }));
     assert.equal(got.ok, true);
     assert.equal(
@@ -702,4 +801,111 @@ test("T-S3-CONFORM: P?: S3 get put head list delete match R2 overlapping error a
     storage_key: "via-file.txt",
   } as never);
   assert.equal(new TextDecoder().decode(fetched as Uint8Array), "facade");
+});
+
+test("T-R2-CONFORM: pagination metadata and unexpected bodies match S3 behavior", async () => {
+  const calls: Array<{ kind: string; input?: Record<string, unknown> }> = [];
+  const bucket = {
+    async delete(key: string) {
+      calls.push({ input: { key }, kind: "delete" });
+    },
+    async get(key: string) {
+      calls.push({ input: { key }, kind: "get" });
+      return {
+        arrayBuffer: async () => new ArrayBuffer(0),
+        customMetadata: { owner: "tenant-a" },
+        etag: "etag-r2",
+        httpMetadata: { contentType: "text/plain" },
+        key,
+        size: 0,
+      };
+    },
+    async list(input?: Record<string, unknown>) {
+      calls.push({ input, kind: "list" });
+      return {
+        cursor: "next-page",
+        objects: [{ key: "page-2.txt", size: 3 }],
+        truncated: true,
+      };
+    },
+    async put(key: string, _body: unknown, options?: Record<string, unknown>) {
+      calls.push({ input: { key, ...options }, kind: "put" });
+      return { key };
+    },
+  };
+  const provider = createR2StorageProvider(bucket as never);
+  const put = await provider.execute(
+    authorized("put", {
+      body: new Uint8Array([1]),
+      contentType: "text/plain",
+      key: "a.txt",
+      metadata: { owner: "tenant-a" },
+    })
+  );
+  assert.equal(put.ok, true);
+  assert.deepEqual(
+    calls.find((call) => call.kind === "put")?.input?.customMetadata,
+    { owner: "tenant-a" }
+  );
+  const head = await provider.execute(authorized("head", { key: "a.txt" }));
+  assert.deepEqual(head.data, {
+    contentType: "text/plain",
+    etag: "etag-r2",
+    key: "a.txt",
+    metadata: { owner: "tenant-a" },
+    size: 0,
+  });
+  const listed = await provider.execute(
+    authorized("list", { cursor: "page-1", limit: 1, prefix: "docs/" })
+  );
+  assert.deepEqual(calls.find((call) => call.kind === "list")?.input, {
+    cursor: "page-1",
+    limit: 1,
+    prefix: "docs/",
+  });
+  assert.deepEqual(listed.data, {
+    cursor: "next-page",
+    objects: [
+      { etag: undefined, key: "page-2.txt", size: 3, uploaded: undefined },
+    ],
+    truncated: true,
+  });
+
+  const malformedR2 = createR2StorageProvider({
+    ...bucket,
+    async get() {
+      return { body: {}, key: "broken.txt", size: 1 };
+    },
+  } as never);
+  const badR2Read = await malformedR2.execute(
+    authorized("get", { key: "broken.txt" })
+  );
+  assert.equal(badR2Read.ok, false);
+});
+
+test("T-S3-BODY: an unsupported successful response body is a read failure", async () => {
+  const provider = createS3StorageProvider({
+    bucket: "athena-objects",
+    s3: {
+      async deleteObject() {
+        return {};
+      },
+      async getObject() {
+        return { Body: {} };
+      },
+      async headObject() {
+        return {};
+      },
+      async listObjectsV2() {
+        return {};
+      },
+      async putObject() {
+        return {};
+      },
+    },
+  });
+  const result = await provider.execute(
+    authorized("get", { key: "broken.bin" })
+  );
+  assert.equal(result.ok, false);
 });

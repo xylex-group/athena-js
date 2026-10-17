@@ -74,7 +74,10 @@ function client(row: Record<string, unknown>): OAuthClient {
     isActive: row.is_active !== false,
     metadata: metadata(row.metadata),
     redirectUris: stringArray(row.redirect_uris),
-    registrationKind: "pre-registered",
+    registrationKind:
+      row.registration_kind === "client-id-metadata"
+        ? "client-id-metadata"
+        : "pre-registered",
     resourceUris: stringArray(row.resource_uris),
     responseType: "code",
     scopes: stringArray(row.scopes),
@@ -521,17 +524,19 @@ export function createPostgresOAuthAuthorizationServerStores(
     },
     clients: {
       async create(input: CreateOAuthClientInput) {
+        const registrationKind = input.registrationKind ?? "pre-registered";
         const result = await database.query<Record<string, unknown>>(
           `INSERT INTO ${ATHENA_AUTH_TABLES.oauthClients} (
              id, client_name, client_type, registration_kind, response_type,
              grant_type, token_authentication_method, redirect_uris, scopes,
              resource_uris, client_url, metadata
-           ) VALUES ($1, $2, 'public', 'pre-registered', 'code',
-             'authorization_code', 'none', $3, $4, $5, $6, $7)
+           ) VALUES ($1, $2, 'public', $3, 'code',
+             'authorization_code', 'none', $4, $5, $6, $7, $8)
            RETURNING *`,
           [
             input.id,
             input.clientName,
+            registrationKind,
             input.redirectUris.map(normalizeRegisteredRedirectUri),
             normalizeScopes(input.scopes),
             normalizeResourceUris(input.resourceUris),
@@ -611,6 +616,50 @@ export function createPostgresOAuthAuthorizationServerStores(
           ]
         );
         return result.rows[0] ? client(result.rows[0]) : null;
+      },
+      async upsertClientIdMetadata(input: CreateOAuthClientInput) {
+        const existing = await this.get(input.id);
+        if (existing?.registrationKind === "pre-registered") {
+          throw new OAuthProtocolError(
+            "invalid_client",
+            "A pre-registered client already occupies this client_id."
+          );
+        }
+        const result = await database.query<Record<string, unknown>>(
+          `INSERT INTO ${ATHENA_AUTH_TABLES.oauthClients} (
+             id, client_name, client_type, registration_kind, response_type,
+             grant_type, token_authentication_method, redirect_uris, scopes,
+             resource_uris, client_url, metadata, is_active
+           ) VALUES ($1, $2, 'public', 'client-id-metadata', 'code',
+             'authorization_code', 'none', $3, $4, $5, $6, $7, TRUE)
+           ON CONFLICT (id) DO UPDATE SET
+             client_name = EXCLUDED.client_name,
+             client_url = EXCLUDED.client_url,
+             redirect_uris = EXCLUDED.redirect_uris,
+             scopes = EXCLUDED.scopes,
+             resource_uris = EXCLUDED.resource_uris,
+             metadata = EXCLUDED.metadata,
+             is_active = TRUE,
+             updated_at = NOW()
+           WHERE ${ATHENA_AUTH_TABLES.oauthClients}.registration_kind = 'client-id-metadata'
+           RETURNING *`,
+          [
+            input.id,
+            input.clientName,
+            input.redirectUris.map(normalizeRegisteredRedirectUri),
+            normalizeScopes(input.scopes),
+            normalizeResourceUris(input.resourceUris),
+            input.clientUrl ?? null,
+            input.metadata ?? {},
+          ]
+        );
+        if (!result.rows[0]) {
+          throw new OAuthProtocolError(
+            "invalid_client",
+            "A pre-registered client already occupies this client_id."
+          );
+        }
+        return client(result.rows[0] as Record<string, unknown>);
       },
     },
     grants: {

@@ -43,6 +43,9 @@ export interface ResolveConfigInput {
   mode?: string | null;
   storage?: {
     bucket?: string | null;
+    keyScope?: (
+      principal: import("./data/principal.ts").AthenaPrincipal
+    ) => string;
     prefix?: string | null;
     provider?: string | null;
     r2?: unknown;

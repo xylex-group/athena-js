@@ -108,6 +108,8 @@ function defaultPolicyId(model: AnyModelDef, action: PolicyActionName): string {
  *   },
  * })
  * ```
+ * @docsCanonical
+ * @docsRole policy-authoring
  */
 export function policy<TModel extends AnyModelDef>(
   model: TModel,

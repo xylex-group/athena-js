@@ -8,7 +8,6 @@ import { runBillingCustomerImportWithPostgres } from "../../import/assemble.ts";
 import {
   createPostgresBillingImportBindingStore,
   createPostgresBillingImportDocumentStore,
-  listActiveBillingImportConnections,
   resolveBillingImportConnection,
 } from "../../import/postgres.ts";
 import { reconcileBillingDocumentsForBinding } from "../../import/project.ts";
@@ -52,12 +51,16 @@ import { mintManualBillingReconciliationContext } from "../../reconciliation/con
 import { prepareBillingCommand } from "../../safety/prepare.ts";
 import type { BillingSqlExecutor } from "../../subject/repository.ts";
 import type { BillingOperation } from "../capabilities.ts";
-import type { BillingInvocationAuthority } from "../invocation-authority.ts";
+import {
+  isProcessBillingInvocation,
+  type BillingInvocationAuthority,
+} from "../invocation-authority.ts";
 import { materializeConfiguredBillingConnections } from "../local/connections/materialize.ts";
 import { createConnectionProviderExecutionContext } from "../local/providers/connection-binding.ts";
 import { resolveMollieWebhookManagementCapability } from "../local/providers/mollie/webhook-capability.ts";
 import type { BillingProviderRegistry } from "../local/providers/registry.ts";
 import { denyBillingInvocation } from "../rights.ts";
+import { inspectBillingAdminConnectionAffinity } from "./connection-affinity.ts";
 import {
   ADMIN_OP,
   type AdminBillingOperation,
@@ -192,26 +195,39 @@ async function conflictCount(
   return typeof n === "number" ? n : Number(n ?? 0);
 }
 
-async function resolveConnectionId(
-  sql: BillingSqlExecutor,
-  input: BillingAdminConnectionInput | undefined,
-  provider: string
-): Promise<string> {
-  if (
-    typeof input?.connectionId === "string" &&
-    input.connectionId.length > 0
-  ) {
-    return input.connectionId;
-  }
-  const connections = await listActiveBillingImportConnections(sql, provider);
-  const first = connections[0];
-  if (!first) {
+async function resolveAdminConnectionId(input: {
+  options: BillingAdminRuntimeOptions;
+  payload: BillingAdminConnectionInput | undefined;
+  principal: AthenaPrincipal;
+  processAuthorized: boolean;
+  provider: "mollie" | "stripe";
+  sql: BillingSqlExecutor;
+  operation: BillingOperation;
+}): Promise<string> {
+  const inspection = await inspectBillingAdminConnectionAffinity({
+    applicationId: input.options.applicationId,
+    configuredProviders: input.options.configuredProviders,
+    explicitConnectionId: input.payload?.connectionId,
+    operation: input.operation,
+    principal: input.principal,
+    processAuthorized: input.processAuthorized,
+    provider: input.provider,
+    sql: input.sql,
+    testMode: input.options.testMode,
+  });
+  if (inspection.state === "ambiguous") {
     throw new AthenaBillingCapabilityError({
-      operation: "admin.ingestion.health",
+      operation: input.operation,
+      reason: "provider_connection_ambiguous",
+    });
+  }
+  if (inspection.state === "missing") {
+    throw new AthenaBillingCapabilityError({
+      operation: input.operation,
       reason: "missing_connection",
     });
   }
-  return first.id;
+  return inspection.connection.connectionId;
 }
 
 function webhookRejectionCode(error: unknown): string | null {
@@ -716,10 +732,20 @@ export async function executeAdminBillingOperation(input: {
     });
   }
   if (operation === "admin.webhooks.reconcile") {
+    const connectionId = await resolveAdminConnectionId({
+      operation,
+      options: input.options,
+      payload: payload as BillingAdminWebhookReconcileInput,
+      principal: input.principal,
+      processAuthorized: isProcessBillingInvocation(input.authority),
+      provider: "mollie",
+      sql,
+    });
     await runAutomaticBillingWebhookReconcileIfEnabled({
       applicationId,
       appUrl: input.options.appUrl,
       configuredProviders: input.options.configuredProviders,
+      connectionIds: [connectionId],
       observability: normalizeAthenaBillingObservability(
         input.options.observability
       ),
@@ -729,11 +755,6 @@ export async function executeAdminBillingOperation(input: {
       trigger: "manual",
       webhooks: ingestion.webhooks,
     });
-    const connectionId = await resolveConnectionId(
-      sql,
-      payload as BillingAdminWebhookReconcileInput,
-      "mollie"
-    );
     return webhookStatus({
       applicationId,
       appUrl: input.options.appUrl,
@@ -748,11 +769,15 @@ export async function executeAdminBillingOperation(input: {
     operation === "admin.webhooks.status" ||
     operation === "admin.webhooks.verify"
   ) {
-    const connectionId = await resolveConnectionId(
+    const connectionId = await resolveAdminConnectionId({
+      operation,
+      options: input.options,
+      payload: payload as BillingAdminConnectionInput,
+      principal: input.principal,
+      processAuthorized: isProcessBillingInvocation(input.authority),
+      provider: "mollie",
       sql,
-      payload as BillingAdminConnectionInput,
-      "mollie"
-    );
+    });
     if (operation === "admin.webhooks.verify") {
       const store = createPostgresBillingWebhookRegistrationStore(sql);
       const listed = await store.list(connectionId);
@@ -774,12 +799,28 @@ export async function executeAdminBillingOperation(input: {
     });
   }
   if (operation === "admin.ingestion.health") {
-    const connectionId =
-      typeof payload.connectionId === "string"
-        ? payload.connectionId
-        : (await listActiveBillingImportConnections(sql, "mollie"))[0]?.id;
+    const inspection = await inspectBillingAdminConnectionAffinity({
+      applicationId,
+      configuredProviders: input.options.configuredProviders,
+      explicitConnectionId:
+        typeof payload.connectionId === "string"
+          ? payload.connectionId
+          : undefined,
+      operation,
+      principal: input.principal,
+      processAuthorized: isProcessBillingInvocation(input.authority),
+      provider: "mollie",
+      sql,
+      testMode: input.options.testMode,
+    });
+    if (inspection.state === "ambiguous") {
+      throw new AthenaBillingCapabilityError({
+        operation,
+        reason: "provider_connection_ambiguous",
+      });
+    }
     const warnings: string[] = [];
-    if (!connectionId) {
+    if (inspection.state === "missing") {
       return {
         classic: "unsupported",
         conflicts: 0,
@@ -794,6 +835,7 @@ export async function executeAdminBillingOperation(input: {
         webhookIngestion: "unsupported",
       } satisfies BillingAdminIngestionHealth;
     }
+    const connectionId = inspection.connection.connectionId;
     const connection = await resolveBillingImportConnection(sql, {
       connectionId,
     });
@@ -990,6 +1032,14 @@ export function createBillingAdminPort(input: {
       health: bind(
         "ingestionHealth"
       ) as BillingAdminPort["ingestion"]["health"],
+    },
+    inventory: {
+      async list(): Promise<never> {
+        throw new AthenaBillingCapabilityError({
+          operation: "admin.inventory.list",
+          reason: "unsupported_operation",
+        });
+      },
     },
     reconciliation: {
       retry: bind(

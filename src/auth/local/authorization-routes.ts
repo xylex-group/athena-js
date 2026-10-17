@@ -1,11 +1,11 @@
 import type { AthenaRightKey } from "../../rights/key.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 import { missingRequiredRights } from "../../rights/matching.ts";
 import {
   AUTHORIZATION_PLATFORM_READ,
   AUTHORIZATION_PLATFORM_WRITE,
   AUTHORIZATION_ROLES_READ,
   AUTHORIZATION_ROLES_WRITE,
-  getAthenaAuthorizationRightsIr,
   ORGANIZATION_MEMBERS_READ,
   ORGANIZATION_MEMBERS_WRITE,
 } from "../../runtime/authorization/catalog.ts";
@@ -150,7 +150,8 @@ export async function handleAuthorizationRoute(
     request: Request,
     stores: AthenaAuthStores
   ) => Promise<ResolvedApiKeyPrincipal | undefined>,
-  mutate: AuthDomainMutate
+  mutate: AuthDomainMutate,
+  authorizationRightsIr: AthenaRightsIr
 ): Promise<Response | undefined> {
   if (path === "/authorization/snapshot" && method === "GET") {
     const resolved = await requireSession(request, stores);
@@ -251,7 +252,7 @@ export async function handleAuthorizationRoute(
     if (apiKeyRead) {
       return jsonResponse(
         200,
-        { rights: getAthenaAuthorizationRightsIr().rights },
+        { rights: authorizationRightsIr.rights },
         headers
       );
     }
@@ -270,7 +271,7 @@ export async function handleAuthorizationRoute(
     }
     return jsonResponse(
       200,
-      { rights: getAthenaAuthorizationRightsIr().rights },
+      { rights: authorizationRightsIr.rights },
       headers
     );
   }

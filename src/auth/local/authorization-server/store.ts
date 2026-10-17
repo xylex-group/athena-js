@@ -16,6 +16,7 @@ export interface CreateOAuthClientInput {
   id: string;
   metadata?: Record<string, unknown>;
   redirectUris: readonly string[];
+  registrationKind?: "pre-registered" | "client-id-metadata";
   resourceUris: readonly string[];
   scopes: readonly string[];
 }
@@ -168,6 +169,11 @@ export interface OAuthClientStore {
     clientId: string,
     input: UpdateOAuthClientInput
   ): Promise<OAuthClient | null>;
+  /**
+   * Insert or refresh a Client ID Metadata Document client. Never overwrites a
+   * pre-registered client that already occupies the same id.
+   */
+  upsertClientIdMetadata(input: CreateOAuthClientInput): Promise<OAuthClient>;
 }
 
 export interface OAuthGrantStore {

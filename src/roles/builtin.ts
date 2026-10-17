@@ -99,7 +99,12 @@ export function createAthenaBuiltinRoleDefinitions(
       key: "billing_admin",
       rights: platformRights(
         authority,
-        billingRights(authority, (key) => !key.startsWith("billing.self."))
+        billingRights(
+          authority,
+          (key) =>
+            !key.startsWith("billing.self.") &&
+            key !== "billing.admin.inventory.shared.read"
+        )
       ),
       scope: { kind: "platform" },
       systemKind: "admin",

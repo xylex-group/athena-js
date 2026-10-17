@@ -16,6 +16,7 @@ import type { AthenaAuthDatabase } from "./database.ts";
 import type { AthenaAuthEmailStore } from "./email/store.ts";
 import type { AthenaAuthStores } from "./memory-stores.ts";
 import type { AthenaAuthPasswordHasher } from "./password.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 
 export interface AthenaAuthHttpHandlers {
   DELETE: (request: Request) => Promise<Response>;
@@ -39,6 +40,9 @@ export interface CreateAthenaAuthRuntimeOptions {
   basePath?: string;
   clock?: import("./clock.ts").AuthClock;
   config?: NormalizedAthenaAuthConfig;
+  authorizationRightsIr?: AthenaRightsIr;
+  applicationRightKeys?: readonly string[];
+  applicationAuthorization?: { application: string };
   database?: AthenaAuthDatabase | string;
   delivery?: AthenaEmailDeliveryPort;
   emailDefaultsFrom?: string;
@@ -57,6 +61,7 @@ export interface CreateAthenaAuthRuntimeOptions {
 }
 
 export interface AthenaAuthRuntime extends AthenaAuthServerSurface {
+  readonly applicationAuthorizationApplication?: string;
   close(): Promise<void>;
   readonly config: NormalizedAthenaAuthConfig;
   getEmailStore(): AthenaAuthEmailStore;

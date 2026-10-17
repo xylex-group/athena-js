@@ -43,8 +43,8 @@ function extractPathHandler(src: string, routePath: string): string {
   const rest = from.slice(needle.length);
   const nextTwoTab = rest.search(/\n\t\tif \(path ===/);
   const nextOneTab = rest.search(/\n\tif \(/);
-  const nextTwoSpace = rest.search(/\n    if \(path ===/);
-  const nextOneSpace = rest.search(/\n    if \(/);
+  const nextTwoSpace = rest.search(/\n {4}if \(path ===/);
+  const nextOneSpace = rest.search(/\n {4}if \(/);
   const cutCandidates = [
     nextTwoTab,
     nextOneTab,

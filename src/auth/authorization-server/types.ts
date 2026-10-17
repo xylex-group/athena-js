@@ -1,5 +1,5 @@
 export type OAuthClientType = "public";
-export type OAuthRegistrationKind = "pre-registered";
+export type OAuthRegistrationKind = "pre-registered" | "client-id-metadata";
 export type OAuthTokenEndpointAuthMethod = "none";
 export type OAuthAuthorizationRequestStatus =
   | "approved"

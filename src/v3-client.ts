@@ -108,6 +108,7 @@ export type {
 export * from "./v3-client-core.ts";
 
 type EmbeddedAuthRuntimeConfigSlice = {
+  applicationAuthorization?: { application: string };
   hooks?: AthenaAuthHooks;
   passkey?: {
     onboarding?: boolean | AthenaPasskeyOnboardingOptions;
@@ -248,18 +249,24 @@ function attachLocalAuthRuntime<
       (athenaAuthConfig(config.auth) ?? {}) as Record<string, unknown>
     ),
   };
+  const authorizationConfig = normalizeAthenaAuthorizationConfig(config);
   const delivery = createEmailDeliveryPort(client.email);
   const rawAuth = athenaAuthConfig(config.auth) as
     | EmbeddedAuthRuntimeConfigSlice
     | undefined;
   const hooks = rawAuth?.hooks;
+  const applicationAuthorizationApplication =
+    rawAuth?.applicationAuthorization?.application;
   const passkeyOnboarding = rawAuth?.passkey?.onboarding;
   const cachedAuth = authRuntimeCache().get(postgresRuntime);
   if (cachedAuth) {
-    if (cachedAuth.hooksRef !== hooks) {
+    if (
+      cachedAuth.hooksRef !== hooks ||
+      cachedAuth.applicationAuthorizationApplication !== applicationAuthorizationApplication
+    ) {
       throw new AthenaConfigurationError(
-        "ATHENA_AUTH_RUNTIME_CONFIG_CONFLICT",
-        "Embedded Auth runtime is already cached for this PostgreSQL connection with a different auth.hooks object. Reuse the same hooks reference, or use a distinct database runtime.",
+      "ATHENA_AUTH_RUNTIME_CONFIG_CONFLICT",
+      "Embedded Auth runtime is already cached for this PostgreSQL connection with different lifecycle configuration. Reuse the same hooks and applicationAuthorization, or use a distinct database runtime.",
         "auth"
       );
     }
@@ -269,6 +276,9 @@ function attachLocalAuthRuntime<
     cachedAuth ??
     createAthenaAuthRuntime({
       autoMigrate: normalized.autoMigrate,
+      authorizationRightsIr: authorizationConfig.rightsState.rightsIr,
+      applicationRightKeys: authorizationConfig.applicationRightKeys,
+      applicationAuthorization: rawAuth?.applicationAuthorization,
       config: normalized,
       database: createAuthDatabaseFromRuntime(postgresRuntime),
       delivery,
@@ -318,9 +328,9 @@ function attachLocalAuthRuntime<
     client,
     createRootClientInternals({
       authRuntime: runtime,
-      authorizationConfig: normalizeAthenaAuthorizationConfig(config),
+      authorizationConfig,
       authorizationModelIndex: createAthenaAuthorizationModelIndex(
-        normalizeAthenaAuthorizationConfig(config)
+        authorizationConfig
       ),
       config: config as AthenaClientConfig,
       gatewayTransport: config.gatewayTransport,
@@ -484,6 +494,7 @@ function assembleAthenaClient<
     getStorageRuntime(resolved.storage) ??
     (provider
       ? createStorageRuntime({
+          keyScope: resolved.storage?.keyScope,
           lifecycle: resolved.lifecycle?.storage,
           provider,
         })

@@ -113,6 +113,8 @@ function hintedColumns(
 /**
  * Lint authored Policy IR by inspecting expressions (and optional column
  * hints from config). Does not read IR authoring sugar.
+ * @docsCanonical
+ * @docsRole policy-lint
  */
 export function lintAthenaPolicy(
   document: unknown,

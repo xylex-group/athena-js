@@ -102,7 +102,7 @@ async function boundedFlush(session) {
   await Promise.race([
     session.flush(),
     new Promise((resolve) => {
-      const timer = setTimeout(resolve, 250);
+      const timer = setTimeout(resolve, 1000);
       timer.unref?.();
     }),
   ]);

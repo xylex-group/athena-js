@@ -5,6 +5,10 @@ import { ATHENA_AUTH_DEFAULT_ARGON2 } from "../../src/auth/contract/index.ts";
 import { createPostgresAuthDatabase } from "../../src/auth/local/database.ts";
 import { passwordHashNeedsRehash } from "../../src/auth/local/password.ts";
 import { createAthenaAuthRuntime } from "../../src/auth/local/runtime.ts";
+import type { AthenaAuthLifecycleAuthorization } from "../../src/auth/hooks/types.ts";
+import { getAthenaAuthorizationRightsIr } from "../../src/runtime/authorization/catalog.ts";
+import { parseAthenaRightKey } from "../../src/rights/key.ts";
+import { resolveAthenaRightsIr } from "../../src/rights/resolver.ts";
 
 function databaseUrl(): string | undefined {
   const value = (
@@ -61,6 +65,66 @@ async function post(
     })
   );
 }
+
+maybe(
+  "Postgres lifecycle authorization expires when its hook returns",
+  async () => {
+    const builtin = getAthenaAuthorizationRightsIr().rights.map((definition) => ({
+      definition,
+      source: "athena:builtin",
+    }));
+    const right = {
+      assignable: true,
+      description: "Test application right",
+      displayName: "WA test access",
+      domain: "wa",
+      key: parseAthenaRightKey("wa.test.read"),
+      riskLevel: "low" as const,
+      scopeKind: "organization" as const,
+    };
+    let retained: AthenaAuthLifecycleAuthorization | undefined;
+    const database = await createPostgresAuthDatabase(url as string);
+    const runtime = createAthenaAuthRuntime({
+      applicationAuthorization: { application: "wa" },
+      applicationRightKeys: ["wa.test.read"],
+      authorizationRightsIr: resolveAthenaRightsIr([
+        ...builtin,
+        { definition: right, source: "test:wa" },
+      ]),
+      autoMigrate: true,
+      config: normalizeAthenaAuthConfig({ mode: "local" }),
+      database,
+      hasher: testHasher(),
+      hooks: {
+        lifecycle: {
+          "organization.create": async ({ authorization }) => {
+            retained = authorization;
+          },
+        },
+      },
+    });
+    const suffix = crypto.randomUUID();
+    try {
+      const ownerCookie = await signUp(runtime, `lifecycle-lease-${suffix}@example.com`);
+      const created = await post(runtime, "create", ownerCookie, {
+        name: "Lifecycle Lease",
+        slug: `lifecycle-lease-${suffix}`,
+      });
+      assert.equal(created.status, 200);
+      assert.ok(retained);
+      await assert.rejects(
+        retained.reconcileOrganizationRoles({
+          application: "wa",
+          organizationId: "unrelated-organization",
+          roles: [{ key: "owner", name: "WA Owner", rights: ["wa.test.read"] }],
+        }),
+        /lifecycle authorization is no longer active/i,
+      );
+    } finally {
+      await runtime.close();
+    }
+  },
+);
 
 maybe(
   "Postgres organization lifecycle feed filters and pages real audit rows",
@@ -265,6 +329,130 @@ maybe(
         events: [],
         nextCursor: null,
       });
+    } finally {
+      await runtime.close();
+      await database.close?.();
+    }
+  }
+);
+
+maybe(
+  "Postgres organization.member.add lifecycle provisions roles transactionally with actor provenance",
+  async () => {
+    const database = await createPostgresAuthDatabase(url as string);
+    const suffix = crypto.randomUUID();
+    let shouldFail = true;
+    const runtime = createAthenaAuthRuntime({
+      autoMigrate: true,
+      applicationRightKeys: [],
+      config: normalizeAthenaAuthConfig({
+        mode: "local",
+        security: { trustedOrigins: ["http://app.local"] },
+      }),
+      database,
+      hasher: testHasher(),
+      hooks: {
+        lifecycle: {
+          "organization.member.add": async ({ authorization, result }) => {
+            await authorization.reconcileOrganizationRoles({
+              application: "test-app",
+              organizationId: result.member.organizationId,
+              roles: [
+                { key: "member", name: "Test App Member", rights: [] },
+              ],
+            });
+            await authorization.replaceMemberApplicationRole({
+              application: "test-app",
+              organizationId: result.member.organizationId,
+              roleKey: "member",
+              userId: result.member.userId,
+            });
+            if (shouldFail) throw new Error("rollback application lifecycle");
+          },
+        },
+      },
+    });
+    try {
+      const ownerCookie = await signUp(
+        runtime,
+        `lifecycle-rollback-owner-${suffix}@example.com`
+      );
+      await signUp(runtime, `lifecycle-rollback-target-${suffix}@example.com`);
+      const stores = await runtime.getStores();
+      const owner = await stores.getUserByEmail(
+        `lifecycle-rollback-owner-${suffix}@example.com`
+      );
+      const target = await stores.getUserByEmail(
+        `lifecycle-rollback-target-${suffix}@example.com`
+      );
+      assert.ok(owner);
+      assert.ok(target);
+      const organization = await stores.createOrganization({
+        createdByUserId: owner.id,
+        id: `lifecycle-rollback-org-${suffix}`,
+        name: "Lifecycle Rollback",
+        slug: `lifecycle-rollback-${suffix}`,
+      });
+      await stores.addMember({
+        id: `lifecycle-rollback-owner-member-${suffix}`,
+        organizationId: organization.id,
+        role: "owner",
+        userId: owner.id,
+      });
+      const ownerSession = (await stores.listUserSessions(owner.id))[0];
+      assert.ok(ownerSession);
+      await stores.setSessionActiveOrganization(ownerSession.token, organization.id);
+
+      const addMember = () =>
+        post(runtime, "add-member", ownerCookie, {
+          organizationId: organization.id,
+          role: "member",
+          userId: target.id,
+        });
+      const failed = await addMember();
+      assert.equal(failed.status, 500);
+      assert.equal(
+        (await stores.listMembers(organization.id)).some(
+          ({ user_id }) => user_id === target.id
+        ),
+        false,
+      );
+      assert.equal(
+        (await stores.authorization.listRoles({
+          organizationId: organization.id,
+          scopeKind: "organization",
+        })).some(({ key }) => key === "application_test-app_member"),
+        false,
+      );
+
+      shouldFail = false;
+      const added = await addMember();
+      assert.equal(added.status, 200);
+      const member = (await stores.listMembers(organization.id)).find(
+        ({ user_id }) => user_id === target.id
+      );
+      assert.ok(member);
+      const role = (await stores.authorization.listRoles({
+        organizationId: organization.id,
+        scopeKind: "organization",
+      })).find(({ key }) => key === "application_test-app_member");
+      assert.ok(role);
+      assert.equal(role.protected, true);
+      assert.equal(role.assignable, false);
+      const assignment = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+        organizationId: organization.id,
+      });
+      assert.ok(assignment.assignments.find(({ memberId }) => memberId === member.id)?.roleIds.includes(role.id));
+      const provenance = await database.query<{ assigned_by: string | null }>(
+        `SELECT assigned_by FROM athena.authorization_member_roles
+         WHERE member_id = $1 AND role_id = $2`,
+        [member.id, role.id]
+      );
+      assert.equal(provenance.rows[0]?.assigned_by, owner.id);
+      assert.ok(
+        (await stores.authorization.listAudit({ organizationId: organization.id }))
+          .some((entry) => entry.actor_user_id === owner.id),
+      );
     } finally {
       await runtime.close();
       await database.close?.();

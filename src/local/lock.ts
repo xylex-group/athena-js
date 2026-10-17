@@ -48,18 +48,24 @@ export async function withLocalRuntimeLock<T>(
       await new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_MS));
     }
   }
+  let result: T;
+  let cleanupError: unknown;
+  let cleanupFailed = false;
   try {
-    return await operation();
+    result = await operation();
   } finally {
     try {
       unlinkSync(path);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT" && code !== "EPERM" && code !== "EACCES") {
-        throw error;
+        cleanupError = error;
+        cleanupFailed = true;
       }
     }
   }
+  if (cleanupFailed) throw cleanupError;
+  return result;
 }
 
 function isLockContention(error: unknown): boolean {

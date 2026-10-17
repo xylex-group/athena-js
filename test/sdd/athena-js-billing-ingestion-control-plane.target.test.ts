@@ -607,7 +607,7 @@ test("T-ING-OPS-ADMIN: P?: operator billing operations exist and map to dialect 
   );
   assert.match(
     rights,
-    /policy\("admin.webhooks.status", "admin", \[ADMIN_WEBHOOKS_READ\]\)/
+    /policy\("admin.webhooks.status", "admin", \[ADMIN_WEBHOOKS_READ\], "session"\)/
   );
   assert.match(
     rights,
@@ -615,7 +615,7 @@ test("T-ING-OPS-ADMIN: P?: operator billing operations exist and map to dialect 
   );
   assert.match(
     rights,
-    /policy\("admin.ingestion.health", "admin", \[ADMIN_INGESTION_READ\]\)/
+    /policy\("admin.ingestion.health", "admin", \[ADMIN_INGESTION_READ\], "session"\)/
   );
   assert.match(
     rights,
@@ -659,7 +659,7 @@ test("T-ING-OPS-ADMIN: P?: operator billing operations exist and map to dialect 
     ),
     "utf8"
   );
-  assert.match(ui, /admin\?\.reconciliation\.run/);
+  assert.match(ui, /admin\?\.reconciliation\?\.run/);
   assert.doesNotMatch(ui, /UPDATE billing_subject_bindings/);
   assert.doesNotMatch(ui, /role === ["']admin["']/);
 });

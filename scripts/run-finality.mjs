@@ -503,23 +503,7 @@ try {
 
 	// 8. packed-tarball consumer
 	clearPackedTarballs();
-	run(process.execPath, [
-		join(root, "scripts", "pack-self-link-manifest.mjs"),
-		"strip",
-	]);
-	try {
-		run("pnpm", ["pack", "--pack-destination", packDir], {
-			env: {
-				NPM_CONFIG_IGNORE_SCRIPTS: "false",
-				npm_config_ignore_scripts: "false",
-			},
-		});
-	} finally {
-		run(process.execPath, [
-			join(root, "scripts", "pack-self-link-manifest.mjs"),
-			"restore",
-		]);
-	}
+	run("pnpm", ["pack", "--pack-destination", packDir]);
 	const tarball = latestTarball();
 	const authUiRoot = join(root, "..", "athena-auth-ui");
 	runAuthUi(["run", "build"]);

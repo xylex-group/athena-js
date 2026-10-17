@@ -11,6 +11,7 @@ import type { AthenaAuthDatabase } from "./database.ts";
 import { MemoryAuthStores } from "./memory-stores.ts";
 import { SqliteAuthStores } from "./sqlite-stores.ts";
 import { PostgresAuthStores } from "./stores.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 import {
   createMemoryOAuthAuthorizationServerStores,
   restoreMemoryOAuthAuthorizationServerState,
@@ -156,7 +157,8 @@ export function createMemoryAuthMutationTransaction(
 export function createPostgresAuthMutationTransaction(
   database: AthenaAuthDatabase,
   persistAudit = false,
-  tokenKeyOptions?: () => PostgresTokenKeyOptions | undefined
+  tokenKeyOptions?: () => PostgresTokenKeyOptions | undefined,
+  rightsIr?: AthenaRightsIr
 ): AuthMutationTransaction {
   return async <T>(fn: (scope: AthenaAuthMutationScope) => Promise<T>) =>
     database.transaction(async (txDb) =>
@@ -178,7 +180,7 @@ export function createPostgresAuthMutationTransaction(
         persistAudit: persistAudit
           ? (entry) => insertAuditLogAuth(txDb, entry)
           : undefined,
-        stores: new PostgresAuthStores(txDb),
+        stores: new PostgresAuthStores(txDb, { rightsIr }),
       })
     );
 }
@@ -188,6 +190,7 @@ export function createAuthMutationTransaction(input: {
   database?: AthenaAuthDatabase;
   oauthState?: MemoryOAuthAuthorizationServerState;
   persistAudit?: boolean;
+  rightsIr?: AthenaRightsIr;
   tokenKeyOptions?: () => PostgresTokenKeyOptions | undefined;
   tokenKeys?: () => TokenKeyStore | undefined;
   stores: MemoryAuthStores | PostgresAuthStores | SqliteAuthStores;
@@ -216,7 +219,8 @@ export function createAuthMutationTransaction(input: {
     return createPostgresAuthMutationTransaction(
       input.database,
       input.persistAudit === true,
-      input.tokenKeyOptions
+      input.tokenKeyOptions,
+      input.rightsIr
     );
   }
   if (input.stores instanceof MemoryAuthStores && !input.database) {

@@ -139,7 +139,10 @@ export function createEmbeddedCapabilitySnapshot(
   };
 }
 
-/** Default advertisement: implementation support, operator passkeys off. */
+/** Default advertisement: implementation support, operator passkeys off.
+ * @docsCanonical
+ * @docsRole auth-embedded-capabilities
+ */
 export const ATHENA_AUTH_EMBEDDED_CAPABILITY_SNAPSHOT: AthenaAuthCapabilitiesResult =
   createEmbeddedCapabilitySnapshot();
 

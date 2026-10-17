@@ -17,23 +17,29 @@ export interface StorageObjectRequest {
   body?: Uint8Array | string;
   contentType?: string;
   cursor?: string;
+  ifAbsent?: boolean;
   key?: string;
   limit?: number;
   metadata?: Record<string, string>;
   op: StorageObjectOp;
   prefix?: string;
+  /** Local cancellation; S3 can abort an in-flight PUT, but R2 may finish it. */
+  signal?: AbortSignal;
 }
 
 export interface AuthorizedStorageOperation {
   body?: Uint8Array;
   contentType?: string;
   cursor?: string;
+  ifAbsent?: boolean;
   key?: string;
   limit?: number;
   metadata?: Record<string, string>;
   op: StorageObjectOp;
   prefix?: string;
   principal: AthenaPrincipal;
+  /** Local cancellation signal; never serialized into the storage payload. */
+  signal?: AbortSignal;
 }
 
 export interface StorageObjectError {
@@ -61,6 +67,11 @@ export interface AthenaStorageLifecycleHooks {
 }
 
 export interface CreateStorageRuntimeOptions {
+  /**
+   * Opt-in principal-derived key prefix. When configured, every request is
+   * restricted to this prefix; return a non-empty namespace for each principal.
+   */
+  keyScope?: (principal: AthenaPrincipal) => string;
   lifecycle?: AthenaStorageLifecycleHooks;
   policies?: AthenaPolicyRegistry;
   provider: StorageObjectProvider;

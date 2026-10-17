@@ -5,14 +5,19 @@
  * control-plane ops throw `ATHENA_STORAGE_CAPABILITY_UNSUPPORTED`.
  */
 
+import { randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
 import {
+  link,
+  lstat,
   mkdir,
   readdir,
   readFile,
   rename,
   rm,
+  rmdir,
   stat,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import {
@@ -38,6 +43,54 @@ import {
   renameObjectKey,
   validateFolderSegment,
 } from "./object-keys.ts";
+
+const localMutationQueues = new Map<string, Promise<void>>();
+
+interface CopiedLocalFile {
+  destinationPath: string;
+  dev: number;
+  ino: number;
+  sourcePath: string;
+}
+
+function withLocalMutation<T>(
+  root: string,
+  operation: () => Promise<T>
+): Promise<T> {
+  const previous = localMutationQueues.get(root) ?? Promise.resolve();
+  let release = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  localMutationQueues.set(root, current);
+
+  return previous.then(async () => {
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (localMutationQueues.get(root) === current) {
+        localMutationQueues.delete(root);
+      }
+    }
+  });
+}
+
+function hasFsErrorCode(error: unknown, ...codes: string[]): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    codes.includes(String((error as { code: unknown }).code))
+  );
+}
+
+function sameLocalFile(
+  info: Awaited<ReturnType<typeof lstat>>,
+  file: Pick<CopiedLocalFile, "dev" | "ino">
+): boolean {
+  return info.dev === file.dev && info.ino === file.ino;
+}
 
 export interface AthenaLocalStorageOptions {
   prefix?: string | null;
@@ -103,6 +156,15 @@ export function assertSafeObjectKey(key: string): string {
     throw new Error('Object key must not contain ".." path segments');
   }
   return segments.filter((segment) => segment && segment !== ".").join("/");
+}
+
+function assertSafeLocalFileKey(key: string): string {
+  const safeKey = assertSafeObjectKey(key);
+  const fileName = safeKey.slice(safeKey.lastIndexOf("/") + 1);
+  if (fileName.startsWith(".athena-upload-") && fileName.endsWith(".tmp")) {
+    throw new Error("Object key uses a reserved local upload staging filename");
+  }
+  return safeKey;
 }
 
 function resolveUnderRoot(
@@ -314,6 +376,7 @@ async function collectFiles(
   root: string,
   dir: string
 ): Promise<Array<{ abs: string; key: string; size: number }>> {
+  await assertNoSymlinkPath(root, dir);
   const out: Array<{ abs: string; key: string; size: number }> = [];
   let entries: Dirent[];
   try {
@@ -338,14 +401,153 @@ async function collectFiles(
       out.push(...(await collectFiles(root, full)));
       continue;
     }
+    if (
+      entry.isFile() &&
+      entry.name.startsWith(".athena-upload-") &&
+      entry.name.endsWith(".tmp")
+    ) {
+      continue;
+    }
     if (!entry.isFile()) {
       continue;
     }
-    const info = await stat(full);
+    const info = await lstat(full);
+    if (info.isSymbolicLink() || !info.isFile()) {
+      continue;
+    }
     const rel = relative(root, full).split(sep).join("/");
     out.push({ abs: full, key: rel, size: info.size });
   }
   return out;
+}
+
+// shortcut: existing symlink segments are rejected; use fd-relative no-follow traversal if untrusted processes can mutate the root concurrently.
+async function assertNoSymlinkPath(
+  root: string,
+  target: string,
+  includeTarget = true
+): Promise<void> {
+  const segments = relative(root, target).split(sep).filter(Boolean);
+  let current = root;
+  const count = includeTarget
+    ? segments.length
+    : Math.max(segments.length - 1, 0);
+  for (let index = 0; index < count; index += 1) {
+    current = resolve(current, segments[index]!);
+    try {
+      if ((await lstat(current)).isSymbolicLink()) {
+        throw new Error(`Storage path contains a symlink: ${current}`);
+      }
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        (error as { code: unknown }).code === "ENOENT"
+      ) {
+        return;
+      }
+      throw error;
+    }
+  }
+}
+
+async function copyFolderNoReplace(
+  source: string,
+  destination: string,
+  copiedFiles: CopiedLocalFile[],
+  sourceDirectories: string[],
+  destinationDirectories: string[]
+) {
+  sourceDirectories.push(source);
+  for (const entry of await readdir(source, { withFileTypes: true })) {
+    if (
+      entry.isFile() &&
+      entry.name.startsWith(".athena-upload-") &&
+      entry.name.endsWith(".tmp")
+    ) {
+      continue;
+    }
+    const sourcePath = resolve(source, entry.name);
+    const destinationPath = resolve(destination, entry.name);
+    const info = await lstat(sourcePath);
+    if (info.isSymbolicLink()) {
+      throw new Error(`Storage path contains a symlink: ${sourcePath}`);
+    }
+    if (info.isDirectory()) {
+      await mkdir(destinationPath);
+      destinationDirectories.push(destinationPath);
+      await copyFolderNoReplace(
+        sourcePath,
+        destinationPath,
+        copiedFiles,
+        sourceDirectories,
+        destinationDirectories
+      );
+      continue;
+    }
+    if (!info.isFile()) {
+      throw new Error(
+        `Storage move does not support this filesystem entry: ${sourcePath}`
+      );
+    }
+    await link(sourcePath, destinationPath);
+    const linked = await lstat(destinationPath);
+    copiedFiles.push({
+      destinationPath,
+      dev: linked.dev,
+      ino: linked.ino,
+      sourcePath,
+    });
+  }
+}
+
+async function removeEmptyDirectories(paths: readonly string[]): Promise<void> {
+  for (const path of [...paths].reverse()) {
+    try {
+      await rmdir(path);
+    } catch (error) {
+      if (!hasFsErrorCode(error, "ENOENT", "ENOTEMPTY", "EEXIST")) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function rollbackCopiedFolder(
+  copiedFiles: readonly CopiedLocalFile[],
+  destinationDirectories: readonly string[]
+): Promise<void> {
+  for (const file of [...copiedFiles].reverse()) {
+    try {
+      if (sameLocalFile(await lstat(file.destinationPath), file)) {
+        await unlink(file.destinationPath);
+      }
+    } catch (error) {
+      if (!hasFsErrorCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+  }
+  await removeEmptyDirectories(destinationDirectories);
+}
+
+async function removeTransferredSourceFiles(
+  copiedFiles: readonly CopiedLocalFile[],
+  sourceDirectories: readonly string[]
+): Promise<void> {
+  for (const file of copiedFiles) {
+    try {
+      if (sameLocalFile(await lstat(file.sourcePath), file)) {
+        await unlink(file.sourcePath);
+      }
+    } catch (error) {
+      if (!hasFsErrorCode(error, "ENOENT")) {
+        throw error;
+      }
+    }
+  }
+  await removeEmptyDirectories(sourceDirectories);
 }
 
 export function createLocalStorageModule(
@@ -362,22 +564,47 @@ export function createLocalStorageModule(
   const resolvedRoot = resolve(root);
   const prefix = normalizePrefix(options.prefix);
 
-  const putBytes = async (logicalKey: string, body: Uint8Array) => {
-    const prefixed = applyPrefix(prefix, assertSafeObjectKey(logicalKey));
-    const dest = resolveUnderRoot(resolvedRoot, prefixed);
-    await mkdir(dirname(dest.abs), { recursive: true });
-    await writeFile(dest.abs, body);
-    return dest;
-  };
+  const putBytes = async (
+    logicalKey: string,
+    body: Uint8Array,
+    ifAbsent = false,
+    signal?: AbortSignal
+  ) =>
+    withLocalMutation(resolvedRoot, async () => {
+      const prefixed = applyPrefix(prefix, assertSafeLocalFileKey(logicalKey));
+      const dest = resolveUnderRoot(resolvedRoot, prefixed);
+      signal?.throwIfAborted();
+      await assertNoSymlinkPath(resolvedRoot, dest.abs, false);
+      await mkdir(dirname(dest.abs), { recursive: true });
+      await assertNoSymlinkPath(resolvedRoot, dest.abs, false);
+      const temporaryPath = resolve(
+        dirname(dest.abs),
+        `.athena-upload-${randomUUID()}.tmp`
+      );
+      try {
+        await writeFile(temporaryPath, body, { flag: "wx", signal });
+        signal?.throwIfAborted();
+        if (ifAbsent) {
+          await link(temporaryPath, dest.abs);
+        } else {
+          await rename(temporaryPath, dest.abs);
+        }
+      } finally {
+        await rm(temporaryPath, { force: true });
+      }
+      return dest;
+    });
 
   const putOne = async (
     key: string,
     source: unknown,
     fileName: string,
-    contentType?: string
+    contentType?: string,
+    ifAbsent = false,
+    signal?: AbortSignal
   ) => {
     const bytes = await toBytes(source);
-    const dest = await putBytes(key, bytes);
+    const dest = await putBytes(key, bytes, ifAbsent, signal);
     const logical = stripPrefix(prefix, dest.key);
     const now = new Date().toISOString();
     const name = fileName || basename(logical);
@@ -403,6 +630,7 @@ export function createLocalStorageModule(
   const upload = async (input: unknown) => {
     const record = asRecord(input);
     const filesField = record?.files;
+    const signal = record?.signal as AbortSignal | undefined;
     const onProgress = readOnProgress(input);
     if (isFileListLike(filesField) && !isBinarySource(filesField)) {
       const prefixPath = readPrefixPath(input);
@@ -419,6 +647,7 @@ export function createLocalStorageModule(
       const uploaded: Array<Awaited<ReturnType<typeof putOne>>> = [];
       let aggregateLoaded = 0;
       for (let index = 0; index < described.length; index += 1) {
+        signal?.throwIfAborted();
         const item = described[index];
         if (!item) {
           continue;
@@ -431,7 +660,9 @@ export function createLocalStorageModule(
           key,
           item.source,
           item.fileName,
-          readString(record, "contentType", "content_type", "mime_type")
+          readString(record, "contentType", "content_type", "mime_type"),
+          record?.ifAbsent === true,
+          signal
         );
         aggregateLoaded += item.sizeBytes;
         onProgress?.(
@@ -474,7 +705,14 @@ export function createLocalStorageModule(
         0
       )
     );
-    const uploaded = await putOne(key, bytesSource, name, contentType);
+    const uploaded = await putOne(
+      key,
+      bytesSource,
+      name,
+      contentType,
+      record?.ifAbsent === true,
+      signal
+    );
     onProgress?.(
       progressSnapshot(
         "complete",
@@ -494,6 +732,7 @@ export function createLocalStorageModule(
   const head = async (input: unknown) => {
     const logical = assertSafeObjectKey(extractKey(input));
     const dest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, logical));
+    await assertNoSymlinkPath(resolvedRoot, dest.abs);
     try {
       const info = await stat(dest.abs);
       if (!info.isFile()) {
@@ -520,6 +759,7 @@ export function createLocalStorageModule(
   const get = async (input: unknown) => {
     const logical = assertSafeObjectKey(extractKey(input));
     const dest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, logical));
+    await assertNoSymlinkPath(resolvedRoot, dest.abs);
     try {
       return new Uint8Array(await readFile(dest.abs));
     } catch (error) {
@@ -535,27 +775,37 @@ export function createLocalStorageModule(
     }
   };
 
-  const remove = async (input: unknown) => {
-    const logical = assertSafeObjectKey(extractKey(input));
-    const dest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, logical));
-    await rm(dest.abs, { force: true, recursive: true });
-    return { deleted: true, storage_key: logical };
-  };
+  const remove = async (input: unknown) =>
+    withLocalMutation(resolvedRoot, async () => {
+      const logical = assertSafeObjectKey(extractKey(input));
+      const dest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, logical));
+      await assertNoSymlinkPath(resolvedRoot, dest.abs);
+      await rm(dest.abs, { force: true, recursive: true });
+      return { deleted: true, storage_key: logical };
+    });
 
-  const moveFile = async (input: unknown) => {
-    const record = asRecord(input);
-    const from = assertSafeObjectKey(
-      readString(record, "from", "from_key", "source_key", "key") ?? ""
-    );
-    const to = assertSafeObjectKey(
-      readString(record, "to", "to_key", "destination_key") ?? ""
-    );
-    const fromDest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, from));
-    const toDest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, to));
-    await mkdir(dirname(toDest.abs), { recursive: true });
-    await rename(fromDest.abs, toDest.abs);
-    return { from, storage_key: to, to };
-  };
+  const moveFile = async (input: unknown) =>
+    withLocalMutation(resolvedRoot, async () => {
+      const record = asRecord(input);
+      const from = assertSafeObjectKey(
+        readString(record, "from", "from_key", "source_key", "key") ?? ""
+      );
+      const to = assertSafeLocalFileKey(
+        readString(record, "to", "to_key", "destination_key") ?? ""
+      );
+      const fromDest = resolveUnderRoot(
+        resolvedRoot,
+        applyPrefix(prefix, from)
+      );
+      const toDest = resolveUnderRoot(resolvedRoot, applyPrefix(prefix, to));
+      await assertNoSymlinkPath(resolvedRoot, fromDest.abs);
+      await assertNoSymlinkPath(resolvedRoot, toDest.abs, false);
+      await mkdir(dirname(toDest.abs), { recursive: true });
+      await assertNoSymlinkPath(resolvedRoot, toDest.abs, false);
+      await link(fromDest.abs, toDest.abs);
+      await unlink(fromDest.abs);
+      return { from, storage_key: to, to };
+    });
 
   const renameFile = async (input: unknown) => {
     const record = asRecord(input);
@@ -570,61 +820,101 @@ export function createLocalStorageModule(
     return moveFile({ from: key, to });
   };
 
-  const createFolder = async (input: unknown) => {
-    const record = asRecord(input);
-    const name = readString(record, "name");
-    const parent = readPrefixPath(input) || readString(record, "prefix") || "";
-    const rawPrefix = name
-      ? joinObjectKey(parent, validateFolderSegment(name))
-      : (readString(record, "prefix", "key", "path") ?? "");
-    const folderPrefix = normalizeObjectPrefix(rawPrefix);
-    const dest = resolveUnderRoot(
-      resolvedRoot,
-      applyPrefix(prefix, assertSafeObjectKey(folderPrefix.replace(/\/$/, "")))
-    );
-    await mkdir(dest.abs, { recursive: true });
-    return { created: true, prefix: folderPrefix };
-  };
+  const createFolder = async (input: unknown) =>
+    withLocalMutation(resolvedRoot, async () => {
+      const record = asRecord(input);
+      const name = readString(record, "name");
+      const parent =
+        readPrefixPath(input) || readString(record, "prefix") || "";
+      const rawPrefix = name
+        ? joinObjectKey(parent, validateFolderSegment(name))
+        : (readString(record, "prefix", "key", "path") ?? "");
+      const folderPrefix = normalizeObjectPrefix(rawPrefix);
+      const dest = resolveUnderRoot(
+        resolvedRoot,
+        applyPrefix(
+          prefix,
+          assertSafeObjectKey(folderPrefix.replace(/\/$/, ""))
+        )
+      );
+      await assertNoSymlinkPath(resolvedRoot, dest.abs, false);
+      await mkdir(dest.abs, { recursive: true });
+      return { created: true, prefix: folderPrefix };
+    });
 
-  const deleteFolder = async (input: unknown) => {
-    const record = asRecord(input);
-    const folderPrefix = normalizeObjectPrefix(
-      readString(record, "prefix", "key", "from_prefix") ?? ""
-    );
-    const dest = resolveUnderRoot(
-      resolvedRoot,
-      applyPrefix(prefix, assertSafeObjectKey(folderPrefix.replace(/\/$/, "")))
-    );
-    await rm(dest.abs, { force: true, recursive: true });
-    return { deleted: true, prefix: folderPrefix };
-  };
+  const deleteFolder = async (input: unknown) =>
+    withLocalMutation(resolvedRoot, async () => {
+      const record = asRecord(input);
+      const folderPrefix = normalizeObjectPrefix(
+        readString(record, "prefix", "key", "from_prefix") ?? ""
+      );
+      const dest = resolveUnderRoot(
+        resolvedRoot,
+        applyPrefix(
+          prefix,
+          assertSafeObjectKey(folderPrefix.replace(/\/$/, ""))
+        )
+      );
+      await assertNoSymlinkPath(resolvedRoot, dest.abs);
+      await rm(dest.abs, { force: true, recursive: true });
+      return { deleted: true, prefix: folderPrefix };
+    });
 
-  const moveFolder = async (input: unknown) => {
-    const record = asRecord(input);
-    const from = normalizeObjectPrefix(
-      readString(record, "from", "from_prefix", "prefix") ?? ""
-    );
-    const to = normalizeObjectPrefix(
-      readString(record, "to", "to_prefix", "destination") ?? ""
-    );
-    if (!(from && to)) {
-      throw new Error("storage.folder.move requires from and to prefixes");
-    }
-    if (isFolderPrefixInside(from, to)) {
-      throw new Error("Cannot move a folder into itself");
-    }
-    const fromDest = resolveUnderRoot(
-      resolvedRoot,
-      applyPrefix(prefix, assertSafeObjectKey(from.replace(/\/$/, "")))
-    );
-    const toDest = resolveUnderRoot(
-      resolvedRoot,
-      applyPrefix(prefix, assertSafeObjectKey(to.replace(/\/$/, "")))
-    );
-    await mkdir(dirname(toDest.abs), { recursive: true });
-    await rename(fromDest.abs, toDest.abs);
-    return { from, prefix: to, to };
-  };
+  const moveFolder = async (input: unknown) =>
+    withLocalMutation(resolvedRoot, async () => {
+      const record = asRecord(input);
+      const from = normalizeObjectPrefix(
+        readString(record, "from", "from_prefix", "prefix") ?? ""
+      );
+      const to = normalizeObjectPrefix(
+        readString(record, "to", "to_prefix", "destination") ?? ""
+      );
+      if (!(from && to)) {
+        throw new Error("storage.folder.move requires from and to prefixes");
+      }
+      if (isFolderPrefixInside(from, to)) {
+        throw new Error("Cannot move a folder into itself");
+      }
+      const fromDest = resolveUnderRoot(
+        resolvedRoot,
+        applyPrefix(prefix, assertSafeObjectKey(from.replace(/\/$/, "")))
+      );
+      const toDest = resolveUnderRoot(
+        resolvedRoot,
+        applyPrefix(prefix, assertSafeObjectKey(to.replace(/\/$/, "")))
+      );
+      await assertNoSymlinkPath(resolvedRoot, fromDest.abs);
+      await assertNoSymlinkPath(resolvedRoot, toDest.abs, false);
+      await mkdir(dirname(toDest.abs), { recursive: true });
+      await assertNoSymlinkPath(resolvedRoot, toDest.abs, false);
+      await mkdir(toDest.abs);
+
+      const copiedFiles: CopiedLocalFile[] = [];
+      const sourceDirectories: string[] = [];
+      const destinationDirectories = [toDest.abs];
+      try {
+        await copyFolderNoReplace(
+          fromDest.abs,
+          toDest.abs,
+          copiedFiles,
+          sourceDirectories,
+          destinationDirectories
+        );
+      } catch (error) {
+        try {
+          await rollbackCopiedFolder(copiedFiles, destinationDirectories);
+        } catch (cleanupError) {
+          throw new AggregateError(
+            [error, cleanupError],
+            "Storage folder move failed and its partial destination could not be cleaned"
+          );
+        }
+        throw error;
+      }
+
+      await removeTransferredSourceFiles(copiedFiles, sourceDirectories);
+      return { from, prefix: to, to };
+    });
 
   const renameFolder = async (input: unknown) => {
     const record = asRecord(input);
@@ -645,14 +935,12 @@ export function createLocalStorageModule(
     const filter = rawPrefix ? assertSafeObjectKey(rawPrefix) : "";
     const files = await collectFiles(resolvedRoot, resolvedRoot);
     const listed = files
+      .filter((file) => !prefix || file.key.startsWith(prefix))
       .map((file) => ({
         ...file,
         key: stripPrefix(prefix, file.key),
       }))
       .filter((file) => {
-        if (prefix && !file.key && file.key !== "") {
-          return false;
-        }
         if (!filter) {
           return true;
         }

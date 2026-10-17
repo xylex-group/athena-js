@@ -421,7 +421,8 @@ test("T-BIL-LOCAL-CAPS-ADMIN: HTTP getCapabilities overlays caller rights onto S
   });
   const advertised = await runtime.getCapabilities({ provider: "mollie" });
   assert.deepEqual(advertised.operations["admin.ingestion.health"], {
-    available: true,
+    available: false,
+    reason: "provider_connection_missing",
   });
   const denied = (await runtime.execute(
     "getCapabilities",
@@ -429,14 +430,14 @@ test("T-BIL-LOCAL-CAPS-ADMIN: HTTP getCapabilities overlays caller rights onto S
     { authenticated: true, grants: [], rights: [] }
   )) as typeof advertised;
   assert.equal(denied.operations["admin.ingestion.health"]?.authorized, false);
-  assert.equal(denied.operations["admin.ingestion.health"]?.available, true);
+  assert.equal(denied.operations["admin.ingestion.health"]?.available, false);
   assert.equal(
     denied.operations["admin.ingestion.health"]?.effectiveAvailable,
     false
   );
   assert.equal(
     denied.operations["admin.ingestion.health"]?.reason,
-    undefined
+    "provider_connection_missing"
   );
   assert.equal(
     denied.operations["admin.ingestion.health"]?.unavailableReason,
@@ -452,9 +453,69 @@ test("T-BIL-LOCAL-CAPS-ADMIN: HTTP getCapabilities overlays caller rights onto S
     }
   )) as typeof advertised;
   assert.equal(allowed.operations["admin.ingestion.health"]?.authorized, true);
-  assert.equal(allowed.operations["admin.ingestion.health"]?.available, true);
-  assert.equal(allowed.operations["admin.ingestion.health"]?.reason, undefined);
+  assert.equal(allowed.operations["admin.ingestion.health"]?.available, false);
+  assert.equal(
+    allowed.operations["admin.ingestion.health"]?.effectiveAvailable,
+    false
+  );
+  assert.equal(
+    allowed.operations["admin.ingestion.health"]?.reason,
+    "provider_connection_missing"
+  );
   assert.equal(allowed.operations["payments.list"]?.authorized, false);
+
+  const tenantConnection = {
+    credential_reference: "providers.mollie",
+    environment: "test",
+    id: "00000000-0000-0000-0000-000000000010",
+    owner_id: "app-a",
+    owner_kind: "tenant",
+    provider: "mollie",
+    status: "active",
+  };
+  const tenantSql = {
+    async query(statement: string) {
+      if (statement.startsWith("SELECT 1")) return { rows: [] };
+      if (statement.includes("SELECT owner_id, owner_kind")) {
+        return { rows: [{ owner_id: "app-a", owner_kind: "tenant" }] };
+      }
+      if (statement.includes("FROM billing.billing_provider_connections")) {
+        return { rows: [tenantConnection] };
+      }
+      return { rows: [] };
+    },
+  } as never;
+  const tenantRuntime = createLocalBillingRuntime({
+    applicationId: "app-a",
+    configuredProviders: configured,
+    invocation: SESSION_BILLING_INVOCATION,
+    principal: {
+      authenticated: true,
+      grants: [],
+      organizationId: "org-1",
+      rights: [],
+      userId: "operator-1",
+    },
+    registry: createBillingProviderRegistry(configured),
+    sql: tenantSql,
+    testMode: true,
+  });
+  const tenantAvailable = await tenantRuntime.getCapabilities({ provider: "mollie" });
+  assert.equal(tenantAvailable.operations["admin.ingestion.health"]?.available, true);
+  const tenantDenied = (await tenantRuntime.execute(
+    "getCapabilities",
+    { provider: "mollie" },
+    {
+      authenticated: true,
+      grants: [],
+      organizationId: "org-1",
+      rights: [],
+      userId: "operator-1",
+    },
+  )) as typeof tenantAvailable;
+  assert.equal(tenantDenied.operations["admin.ingestion.health"]?.available, true);
+  assert.equal(tenantDenied.operations["admin.ingestion.health"]?.authorized, false);
+  assert.equal(tenantDenied.operations["admin.ingestion.health"]?.effectiveAvailable, false);
 });
 
 test("T-BIL-LOCAL-CAPS-PROVIDER: provider getCapabilities can deny a present port", async () => {

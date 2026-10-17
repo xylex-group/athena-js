@@ -127,6 +127,8 @@ function validateSegment(segment: string, key: string): void {
 /**
  * Parse and canonicalize a right key. Trims edges; rejects interior whitespace.
  * Exact parity with `crates/athena-rights/src/key.rs`.
+ * @docsCanonical
+ * @docsRole right-key-parse
  */
 export function parseAthenaRightKey(raw: string): AthenaRightKey {
   const trimmed = trimRustWhiteSpace(raw);

@@ -13,6 +13,7 @@ export const ADMIN_BILLING_OPERATIONS = [
   "admin.ingestion.health",
   "admin.conflicts.resolve",
   "admin.conflicts.list",
+  "admin.inventory.list",
 ] as const satisfies readonly AdminBillingOperation[];
 
 export const ADMIN_OP = {

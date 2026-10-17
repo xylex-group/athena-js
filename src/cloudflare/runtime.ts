@@ -217,6 +217,8 @@ function resolveModeLabel(
 /**
  * Create an Athena client for either gateway or edge execution.
  * Thin façade: always materializes via {@link createClient}.
+ * @docsCanonical
+ * @docsRole cloudflare-runtime
  */
 export function createAthenaRuntime<
   const TModels extends AthenaClientModelsInput | undefined = undefined,
@@ -290,6 +292,8 @@ export type CreateAthenaFromWorkerEnvOptions<
 
 /**
  * One-call Worker setup: map standard `env` bindings, then {@link createClient}.
+ * @docsCanonical
+ * @docsRole cloudflare-worker-env
  */
 export function createAthenaFromWorkerEnv<
   const TModels extends AthenaClientModelsInput | undefined = undefined,

@@ -1057,12 +1057,14 @@ function createClientView<TModels extends AthenaClientModelsInput | undefined>(
     getStorageRuntime(core.config.storage) ??
     (storageProvider
       ? createStorageRuntime({
+          keyScope: core.config.storage?.keyScope,
           lifecycle: core.config.lifecycle?.storage,
           provider: storageProvider,
         })
       : undefined) ??
     (embeddedHttpProvider
       ? createStorageRuntime({
+          keyScope: core.config.storage?.keyScope,
           lifecycle: core.config.lifecycle?.storage,
           provider: embeddedHttpProvider,
         })

@@ -25,11 +25,13 @@ import type {
 export interface StorageOverlayInput {
   contentType?: string;
   cursor?: string;
+  ifAbsent?: boolean;
   key?: string;
   limit?: number;
   metadata?: Record<string, string>;
   op: StorageObjectOp;
   prefix?: string;
+  signal?: AbortSignal;
   source?: Uint8Array | string;
 }
 
@@ -55,6 +57,7 @@ export async function executeStorageOverlay(
       metadata: input.metadata,
       op: input.op,
       prefix: input.prefix,
+      signal: input.signal,
     },
     OVERLAY_PRINCIPAL
   );

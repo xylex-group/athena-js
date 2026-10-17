@@ -38,6 +38,8 @@ async function runOverlay(runtime: StorageRuntime, input: StorageOverlayInput) {
       metadata: input.metadata,
       op: input.op,
       prefix: input.prefix,
+      ...(input.ifAbsent ? { ifAbsent: true } : {}),
+      signal: input.signal,
     },
     OVERLAY_PRINCIPAL
   );
@@ -79,6 +81,19 @@ function readString(
     if (typeof value === "string" && value.trim()) {
       return value.trim();
     }
+  }
+}
+
+function attachOperationProgress(
+  error: unknown,
+  progress: Record<string, unknown>
+): Error {
+  const failure = error instanceof Error ? error : new Error(String(error));
+  try {
+    Object.assign(failure, progress);
+    return failure;
+  } catch {
+    return Object.assign(new Error(failure.message), progress);
   }
 }
 
@@ -203,12 +218,21 @@ function listedCursor(data: unknown): string | undefined {
     : undefined;
 }
 
+function listedTruncated(data: unknown): boolean {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+  const record = data as Record<string, unknown>;
+  return record.truncated === true || record.IsTruncated === true;
+}
+
 async function listAllKeys(
   runtime: StorageRuntime,
   prefix: string
 ): Promise<string[]> {
   const keys: string[] = [];
   let cursor: string | undefined;
+  const cursors = new Set<string>();
   for (let page = 0; page < 50; page += 1) {
     const result = await runOverlay(runtime, {
       cursor,
@@ -218,20 +242,35 @@ async function listAllKeys(
     const data = unwrap(result, "list");
     keys.push(...listedKeys(data));
     const next = listedCursor(data);
-    if (!next || next === cursor) {
-      break;
+    if (!next) {
+      if (listedTruncated(data)) {
+        throw new Error(
+          "Storage folder listing is incomplete: provider marked it truncated without a pagination cursor"
+        );
+      }
+      return keys;
     }
+    if (cursors.has(next) || next === cursor) {
+      throw new Error(
+        "Storage folder listing returned a repeated pagination cursor"
+      );
+    }
+    cursors.add(next);
     cursor = next;
   }
-  return keys;
+  throw new Error(
+    "Storage folder listing is incomplete after 50 pages; no mutation was performed"
+  );
 }
 
 async function putBytes(
   runtime: StorageRuntime,
   input: {
     contentType?: string;
+    ifAbsent?: boolean;
     key: string;
     metadata?: Record<string, string>;
+    signal?: AbortSignal;
     source: unknown;
   }
 ) {
@@ -241,6 +280,8 @@ async function putBytes(
     key: input.key,
     metadata: input.metadata,
     op: "put",
+    ...(input.ifAbsent ? { ifAbsent: true } : {}),
+    signal: input.signal,
     source,
   });
   return unwrap(result, "put");
@@ -283,11 +324,13 @@ export async function overlayUploadFiles(
   }));
   onProgress?.(progressSnapshot("preparing", described, 0, 0, 0));
   const uploaded: unknown[] = [];
+  const uploadedKeys: string[] = [];
   let aggregateLoaded = 0;
   for (let index = 0; index < described.length; index += 1) {
     if (options?.signal?.aborted) {
       const error = new Error("Upload cancelled");
       error.name = "AbortError";
+      Object.assign(error, { uploaded: [...uploadedKeys] });
       throw error;
     }
     const item = described[index];
@@ -298,12 +341,23 @@ export async function overlayUploadFiles(
       progressSnapshot("uploading", described, index, 0, aggregateLoaded)
     );
     const key = joinObjectKey(prefixPath, item.fileName);
-    const result = await putBytes(runtime, {
-      contentType:
-        typeof record.contentType === "string" ? record.contentType : undefined,
-      key,
-      source: item.source,
-    });
+    let result: unknown;
+    try {
+      result = await putBytes(runtime, {
+        contentType:
+          typeof record.contentType === "string"
+            ? record.contentType
+            : undefined,
+        key,
+        signal: options?.signal,
+        source: item.source,
+      });
+    } catch (error) {
+      const failure =
+        error && typeof error === "object" ? error : new Error(String(error));
+      Object.assign(failure, { uploaded: [...uploadedKeys] });
+      throw failure;
+    }
     aggregateLoaded += item.sizeBytes;
     onProgress?.(
       progressSnapshot(
@@ -315,6 +369,7 @@ export async function overlayUploadFiles(
       )
     );
     uploaded.push(result);
+    uploadedKeys.push(key);
   }
   onProgress?.(
     progressSnapshot(
@@ -340,18 +395,77 @@ export async function overlayMoveFile(runtime: StorageRuntime, input: unknown) {
   if (!(from && to)) {
     throw new Error("storage.file.move requires from and to keys");
   }
+  if (from === to) {
+    return { from, storage_key: to, to };
+  }
+  await assertDestinationAvailable(runtime, to);
+  const metadata = await readObjectMetadata(runtime, from);
   const getResult = await runOverlay(runtime, {
     key: from,
     op: "get",
   });
   const body = unwrap(getResult, "get");
-  await putBytes(runtime, { key: to, source: body });
-  const deleteResult = await runOverlay(runtime, {
-    key: from,
-    op: "delete",
-  });
-  unwrap(deleteResult, "delete");
+  let destinationWritten = false;
+  try {
+    await putBytes(runtime, {
+      contentType: metadata.contentType,
+      ifAbsent: true,
+      key: to,
+      metadata: metadata.metadata,
+      source: body,
+    });
+    destinationWritten = true;
+    const deleteResult = await runOverlay(runtime, {
+      key: from,
+      op: "delete",
+    });
+    unwrap(deleteResult, "delete");
+  } catch (error) {
+    throw attachOperationProgress(error, {
+      copied: destinationWritten ? [to] : [],
+      from,
+      inProgress: { from, to },
+      to,
+    });
+  }
   return { from, storage_key: to, to };
+}
+
+async function assertDestinationAvailable(
+  runtime: StorageRuntime,
+  key: string
+) {
+  const result = await runOverlay(runtime, { key, op: "head" });
+  if (result.ok) {
+    throw new Error(`Storage destination already exists: ${key}`);
+  }
+  if (result.status === 404 || result.error?.errorNumber === 3005) {
+    return;
+  }
+  unwrap(result, "head");
+}
+
+async function readObjectMetadata(runtime: StorageRuntime, key: string) {
+  const result = await runOverlay(runtime, { key, op: "head" });
+  const data = unwrap(result, "head");
+  if (!data || typeof data !== "object") {
+    return {};
+  }
+  const record = data as Record<string, unknown>;
+  const metadata = record.metadata;
+  const typedMetadata =
+    metadata && typeof metadata === "object"
+      ? (Object.fromEntries(
+          Object.entries(metadata as Record<string, unknown>).filter(
+            ([, value]) => typeof value === "string"
+          )
+        ) as Record<string, string>)
+      : undefined;
+  return {
+    contentType:
+      typeof record.contentType === "string" ? record.contentType : undefined,
+    metadata: typedMetadata,
+  };
 }
 
 export async function overlayRenameFile(
@@ -402,12 +516,22 @@ export async function overlayDeleteFolder(
     throw new Error("storage.folder.delete requires prefix");
   }
   const keys = await listAllKeys(runtime, prefix);
-  for (const key of keys) {
-    const result = await runOverlay(runtime, {
-      key,
-      op: "delete",
-    });
-    unwrap(result, "delete");
+  const deleted: string[] = [];
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    try {
+      const result = await runOverlay(runtime, {
+        key,
+        op: "delete",
+      });
+      unwrap(result, "delete");
+      deleted.push(key);
+    } catch (error) {
+      throw attachOperationProgress(error, {
+        deleted,
+        remaining: keys.slice(index),
+      });
+    }
   }
   return { deleted: true, prefix };
 }
@@ -430,21 +554,48 @@ export async function overlayMoveFolder(
     throw new Error("Cannot move a folder into itself");
   }
   const keys = await listAllKeys(runtime, from);
+  const moves = keys.map((key) => ({
+    from: key,
+    to: `${to}${key.slice(from.length)}`,
+  }));
+  for (const move of moves) {
+    await assertDestinationAvailable(runtime, move.to);
+  }
+  const copied: string[] = [];
+  const moved: string[] = [];
   for (const key of keys) {
     const next = `${to}${key.slice(from.length)}`;
-    const getResult = await runOverlay(runtime, {
-      key,
-      op: "get",
-    });
-    const body = unwrap(getResult, "get");
-    await putBytes(runtime, { key: next, source: body });
-    const deleteResult = await runOverlay(runtime, {
-      key,
-      op: "delete",
-    });
-    unwrap(deleteResult, "delete");
+    try {
+      const metadata = await readObjectMetadata(runtime, key);
+      const getResult = await runOverlay(runtime, {
+        key,
+        op: "get",
+      });
+      const body = unwrap(getResult, "get");
+      await putBytes(runtime, {
+        contentType: metadata.contentType,
+        ifAbsent: true,
+        key: next,
+        metadata: metadata.metadata,
+        source: body,
+      });
+      copied.push(next);
+      const deleteResult = await runOverlay(runtime, {
+        key,
+        op: "delete",
+      });
+      unwrap(deleteResult, "delete");
+      moved.push(key);
+    } catch (error) {
+      throw attachOperationProgress(error, {
+        copied,
+        inProgress: { from: key, to: next },
+        moved,
+      });
+    }
   }
   if (keys.length === 0) {
+    await assertDestinationAvailable(runtime, to);
     await putBytes(runtime, { key: to, source: new Uint8Array() });
   }
   return { from, prefix: to, to };

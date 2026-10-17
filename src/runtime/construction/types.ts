@@ -28,6 +28,7 @@ export interface AthenaStorageRuntimeResources {
   readonly existingLocalStore?: AthenaStorageModule;
   readonly existingProvider?: StorageObjectProvider;
   readonly existingRuntime?: StorageRuntime;
+  readonly keyScope?: import("../../storage/runtime/types.ts").CreateStorageRuntimeOptions["keyScope"];
   readonly lifecycle?: AthenaStorageLifecycleHooks;
   readonly r2?: AthenaStorageConfig["r2"];
   readonly s3?: AthenaS3ObjectClient;

@@ -10,6 +10,7 @@ export function buildAuthorizationServerMetadata(input: {
   return {
     authorization_endpoint: input.identity.authorizationEndpoint,
     authorization_response_iss_parameter_supported: true,
+    client_id_metadata_document_supported: true,
     code_challenge_methods_supported: ["S256"],
     grant_types_supported: [
       "authorization_code" as const,

@@ -32,6 +32,10 @@ import {
   isAthenaStorageBytesEnvelope,
   resolveBrowserStorageEndpoint,
 } from "../../src/storage/runtime/index.ts";
+import {
+  overlayDeleteFolder,
+  overlayMoveFile,
+} from "../../src/storage/runtime/object-ops.ts";
 import type {
   AuthorizedStorageOperation,
   StorageObjectProvider,
@@ -183,6 +187,382 @@ test("T4: Nucleus executes object ops; unknown Policy action is denied", async (
   assert.equal(new TextDecoder().decode(asBytes(got.data)), "hello");
 });
 
+test("T4-SCOPE: storage key scoping is principal-derived and opt-in", async () => {
+  const calls: Array<{ key?: string; op: string; prefix?: string }> = [];
+  const objects = new Map<string, Uint8Array>();
+  const provider: StorageObjectProvider = {
+    async execute(op) {
+      calls.push({ key: op.key, op: op.op, prefix: op.prefix });
+      if (op.op === "put") {
+        objects.set(op.key ?? "", op.body ?? new Uint8Array());
+        return { data: { key: op.key }, ok: true, status: 200 };
+      }
+      if (op.op === "get") {
+        const body = objects.get(op.key ?? "");
+        return body
+          ? { data: body, ok: true, status: 200 }
+          : {
+              error: {
+                code: "storage_file_not_found",
+                errorNumber: 3005,
+                message: "missing",
+              },
+              ok: false,
+              status: 404,
+            };
+      }
+      if (op.op === "list") {
+        return {
+          data: {
+            objects: [...objects.keys()]
+              .filter((key) => key.startsWith(op.prefix ?? ""))
+              .map((key) => ({ key })),
+          },
+          ok: true,
+          status: 200,
+        };
+      }
+      return {
+        data: { key: op.key },
+        ok: true,
+        status: 200,
+      };
+    },
+  };
+  const principal = { ...PRINCIPAL, userId: "tenant-a-user" };
+  const unscoped = createStorageRuntime({ provider });
+  await unscoped.execute({ key: "docs/a.txt", op: "get" }, principal);
+  assert.equal(calls.at(-1)?.key, "docs/a.txt");
+
+  const scoped = createStorageRuntime({
+    keyScope: (subject) => `organizations/${subject.userId}/`,
+    provider,
+  });
+  await scoped.execute(
+    { body: "tenant-a", key: "docs/a.txt", op: "put" },
+    principal
+  );
+  await scoped.execute({ key: "/", op: "get" }, principal);
+  assert.equal(calls.at(-1)?.key, "organizations/tenant-a-user/");
+  const otherPrincipal = { ...PRINCIPAL, userId: "tenant-b-user" };
+  const otherRead = await scoped.execute(
+    { key: "docs/a.txt", op: "get" },
+    otherPrincipal
+  );
+  assert.equal(otherRead.status, 404);
+  await scoped.execute({ op: "list", prefix: "docs" }, principal);
+  assert.equal(calls.at(-1)?.prefix, "organizations/tenant-a-user/docs");
+  const otherList = await scoped.execute(
+    { op: "list", prefix: "docs" },
+    otherPrincipal
+  );
+  assert.deepEqual((otherList.data as { objects: unknown[] }).objects, []);
+  const scopedRead = await scoped.execute(
+    { key: "docs/a.txt", op: "get" },
+    principal
+  );
+  assert.ok(scopedRead.data instanceof Uint8Array);
+  assert.deepEqual(scopedRead.data, new TextEncoder().encode("tenant-a"));
+  const scopedKeys = [...objects.keys()];
+  assert.deepEqual(scopedKeys, ["organizations/tenant-a-user/docs/a.txt"]);
+  const invalid = await scoped.execute(
+    { key: "../tenant-b/docs/a.txt", op: "get" },
+    principal
+  );
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.status, 403);
+});
+
+test("T4-SCOPE-FAIL-CLOSED: empty namespaces never reach the provider", async () => {
+  let providerCalls = 0;
+  const provider: StorageObjectProvider = {
+    async execute() {
+      providerCalls += 1;
+      return { data: {}, ok: true, status: 200 };
+    },
+  };
+
+  for (const keyScopeValue of ["", "  ", "/", "///"]) {
+    const runtime = createStorageRuntime({
+      keyScope: () => keyScopeValue,
+      provider,
+    });
+    const result = await runtime.execute(
+      { key: "private.txt", op: "get" },
+      PRINCIPAL
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 403);
+  }
+
+  assert.equal(providerCalls, 0);
+});
+
+test("T4-SCOPE-METADATA: scoped listings preserve Date metadata", async () => {
+  const uploadedAt = new Date("2026-10-17T12:34:56.000Z");
+  const runtime = createStorageRuntime({
+    keyScope: (principal) => `organizations/${principal.userId}/`,
+    provider: {
+      async execute() {
+        return {
+          data: {
+            objects: [
+              {
+                key: `organizations/${PRINCIPAL.userId}/docs/report.pdf`,
+                lastModified: uploadedAt,
+              },
+            ],
+          },
+          ok: true,
+          status: 200,
+        };
+      },
+    },
+  });
+
+  const result = await runtime.execute(
+    { op: "list", prefix: "docs/" },
+    PRINCIPAL
+  );
+  const objects = (result.data as { objects: Array<{ lastModified: unknown }> })
+    .objects;
+
+  assert.ok(objects[0]?.lastModified instanceof Date);
+  assert.equal(objects[0]?.lastModified, uploadedAt);
+});
+
+test("T4-FOLDER-PAGE: folder deletion fails before mutation when listing is incomplete", async () => {
+  let page = 0;
+  let deleted = 0;
+  const runtime = createStorageRuntime({
+    provider: {
+      async execute(op) {
+        if (op.op === "list") {
+          page += 1;
+          return {
+            data: {
+              cursor: `page-${page}`,
+              objects: [{ key: `docs/${page}.txt` }],
+            },
+            ok: true,
+            status: 200,
+          };
+        }
+        if (op.op === "delete") {
+          deleted += 1;
+        }
+        return { data: {}, ok: true, status: 200 };
+      },
+    },
+  });
+  await assert.rejects(
+    () => overlayDeleteFolder(runtime, { prefix: "docs/" }),
+    /incomplete|pagination/i
+  );
+  assert.equal(page, 50);
+  assert.equal(deleted, 0);
+});
+
+test("T4-FOLDER-TRUNCATED: missing cursor fails before folder mutation", async () => {
+  let deleted = 0;
+  const runtime = createStorageRuntime({
+    provider: {
+      async execute(op) {
+        if (op.op === "list") {
+          return {
+            data: {
+              objects: [{ key: "docs/a.txt" }],
+              truncated: true,
+            },
+            ok: true,
+            status: 200,
+          };
+        }
+        if (op.op === "delete") {
+          deleted += 1;
+        }
+        return { data: {}, ok: true, status: 200 };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => overlayDeleteFolder(runtime, { prefix: "docs/" }),
+    /incomplete|pagination/i
+  );
+  assert.equal(deleted, 0);
+});
+
+test("T4-FOLDER-PARTIAL: failed deletes report already completed keys", async () => {
+  const runtime = createStorageRuntime({
+    provider: {
+      async execute(op) {
+        if (op.op === "list") {
+          return {
+            data: { objects: [{ key: "docs/a" }, { key: "docs/b" }] },
+            ok: true,
+            status: 200,
+          };
+        }
+        if (op.op === "delete" && op.key === "docs/b") {
+          return {
+            error: {
+              code: "storage_internal",
+              errorNumber: 3010,
+              message: "provider failed",
+            },
+            ok: false,
+            status: 500,
+          };
+        }
+        return { data: {}, ok: true, status: 200 };
+      },
+    },
+  });
+  await assert.rejects(
+    () => overlayDeleteFolder(runtime, { prefix: "docs/" }),
+    (error: unknown) => {
+      assert.deepEqual((error as { deleted?: string[] }).deleted, ["docs/a"]);
+      assert.deepEqual((error as { remaining?: string[] }).remaining, [
+        "docs/b",
+      ]);
+      return true;
+    }
+  );
+});
+
+test("T4-MOVE: object moves preserve metadata and reject occupied destinations", async () => {
+  let failSourceDelete = false;
+  const ifAbsentWrites: boolean[] = [];
+  const objects = new Map<
+    string,
+    { body: Uint8Array; contentType: string; metadata: Record<string, string> }
+  >([
+    [
+      "source.txt",
+      {
+        body: new TextEncoder().encode("source"),
+        contentType: "text/plain",
+        metadata: { owner: "a" },
+      },
+    ],
+    [
+      "target.txt",
+      {
+        body: new TextEncoder().encode("target"),
+        contentType: "text/target",
+        metadata: { owner: "b" },
+      },
+    ],
+  ]);
+  const runtime = createStorageRuntime({
+    provider: {
+      async execute(op) {
+        if (op.op === "get") {
+          const found = objects.get(op.key ?? "");
+          return found
+            ? { data: found.body, ok: true, status: 200 }
+            : {
+                error: {
+                  code: "storage_file_not_found",
+                  errorNumber: 3005,
+                  message: "missing",
+                },
+                ok: false,
+                status: 404,
+              };
+        }
+        if (op.op === "head") {
+          const found = objects.get(op.key ?? "");
+          return found
+            ? {
+                data: {
+                  contentType: found.contentType,
+                  metadata: found.metadata,
+                },
+                ok: true,
+                status: 200,
+              }
+            : {
+                error: {
+                  code: "storage_file_not_found",
+                  errorNumber: 3005,
+                  message: "missing",
+                },
+                ok: false,
+                status: 404,
+              };
+        }
+        if (op.op === "put") {
+          ifAbsentWrites.push(op.ifAbsent === true);
+          objects.set(op.key ?? "", {
+            body: op.body ?? new Uint8Array(),
+            contentType: op.contentType ?? "",
+            metadata: op.metadata ?? {},
+          });
+          return { data: {}, ok: true, status: 200 };
+        }
+        if (op.op === "delete") {
+          if (failSourceDelete && op.key === "source.txt") {
+            return {
+              error: {
+                code: "storage_internal",
+                errorNumber: 3010,
+                message: "delete failed",
+              },
+              ok: false,
+              status: 500,
+            };
+          }
+          objects.delete(op.key ?? "");
+          return { data: {}, ok: true, status: 200 };
+        }
+        return { data: {}, ok: true, status: 200 };
+      },
+    },
+  });
+  await assert.rejects(
+    () => overlayMoveFile(runtime, { from: "source.txt", to: "target.txt" }),
+    /destination|exist|conflict/i
+  );
+  assert.equal(
+    new TextDecoder().decode(objects.get("source.txt")?.body),
+    "source"
+  );
+  assert.equal(
+    new TextDecoder().decode(objects.get("target.txt")?.body),
+    "target"
+  );
+
+  objects.delete("target.txt");
+  await overlayMoveFile(runtime, { from: "source.txt", to: "target.txt" });
+  assert.deepEqual(objects.get("target.txt"), {
+    body: new TextEncoder().encode("source"),
+    contentType: "text/plain",
+    metadata: { owner: "a" },
+  });
+  assert.deepEqual(ifAbsentWrites, [true]);
+  assert.equal(objects.has("source.txt"), false);
+
+  objects.set("source.txt", {
+    body: new TextEncoder().encode("source"),
+    contentType: "text/plain",
+    metadata: { owner: "a" },
+  });
+  objects.delete("target.txt");
+  failSourceDelete = true;
+  await assert.rejects(
+    () => overlayMoveFile(runtime, { from: "source.txt", to: "target.txt" }),
+    (error: unknown) => {
+      assert.deepEqual((error as { copied?: string[] }).copied, ["target.txt"]);
+      return true;
+    }
+  );
+  assert.deepEqual(ifAbsentWrites, [true, true]);
+  assert.equal(objects.has("source.txt"), true);
+  assert.equal(objects.has("target.txt"), true);
+});
+
 test("T5: lifecycle.storage is invoked around execute", async () => {
   const phases: string[] = [];
   const runtime = createStorageRuntime({
@@ -219,6 +599,67 @@ test("T6: createAthenaNextHandlers().storage is a method map", () => {
   });
   assert.equal(typeof handlers.storage.GET, "function");
   assert.equal(typeof handlers.storage.POST, "function");
+});
+
+test("T6-AUTH-FIRST: storage POST authenticates before reading its JSON body", async () => {
+  const client = createClient({
+    auth: false,
+    databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_storage_sdd",
+    gatewayTransport: mockTransport(),
+    storage: { provider: "local", root: localRoot() },
+  });
+  const handlers = createAthenaNextHandlers({
+    auth: {
+      lookupSession: async () => null,
+      mode: "athena-session",
+    },
+    client,
+    security: { mode: "authenticated" },
+  });
+  let pulled = 0;
+  const body = new ReadableStream<Uint8Array>(
+    {
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new TextEncoder().encode('{"operation":"get"}'));
+        controller.close();
+      },
+    },
+    { highWaterMark: 0 }
+  );
+  const request = new Request("http://localhost/api/athena/storage", {
+    body,
+    // Node's Request requires duplex for a streaming request body.
+    duplex: "half",
+    headers: { origin: "http://localhost" },
+    method: "POST",
+  } as RequestInit & { duplex: "half" });
+  const response = await handlers.storage.POST(request);
+  assert.equal(response.status, 401);
+  assert.equal(pulled, 0);
+});
+
+test("T6-BODY-LIMIT: configured storage body limit rejects oversized JSON", async () => {
+  const client = createClient({
+    auth: false,
+    databaseUrl: "postgresql://postgres@127.0.0.1:5432/athena_storage_sdd",
+    gatewayTransport: mockTransport(),
+    storage: { provider: "local", root: localRoot() },
+  });
+  const handlers = createAthenaNextHandlers({
+    client,
+    security: { mode: "trusted" },
+    storage: { maxBodyBytes: 8 },
+    unsafeAllowUnauthenticated: true,
+  });
+  const response = await handlers.storage.POST(
+    new Request("http://localhost/api/athena/storage", {
+      body: '{"operation":"get"}',
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    })
+  );
+  assert.equal(response.status, 413);
 });
 
 test("T7: discovery endpoints.storage is a string and JSON has no secrets", async () => {
@@ -308,6 +749,23 @@ test("T9: same operation identity server-direct vs HTTP", async () => {
     })
   );
   assert.equal(httpPut.ok, true);
+  const collision = await handlers.storage.POST(
+    new Request("http://localhost/api/athena/storage", {
+      body: JSON.stringify({
+        operation: "put",
+        payload: {
+          body: Buffer.from(new TextEncoder().encode("overwrite")).toString(
+            "base64"
+          ),
+          ifAbsent: true,
+          key,
+        },
+      }),
+      headers: sessionHeaders,
+      method: "POST",
+    })
+  );
+  assert.equal(collision.status, 409);
   const httpGet = await handlers.storage.POST(
     new Request("http://localhost/api/athena/storage", {
       body: JSON.stringify({ operation: "get", payload: { key } }),
@@ -325,11 +783,7 @@ test("T9: same operation identity server-direct vs HTTP", async () => {
 
 test("T13: Embedded Storage HTTP preserves binary bytes without UTF-8 decoding", async () => {
   const handlersSrc = readSrc("next/storage-handlers.ts");
-  assert.equal(handlersSrc.includes("TextDecoder"), false);
-  assert.match(
-    handlersSrc,
-    /serializeAthenaStorageData|athena\.storage\.bytes/
-  );
+  assert.match(handlersSrc, /decodeAthenaStorageRequestBody\(payload\.body\)/);
 
   const objects = new Map<string, Uint8Array>();
   const provider: StorageObjectProvider = {

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixes
+
+- Repair missing organization authorization revisions during catalog materialization only when no canonical assignments exist; retain fail-closed behavior when revision history is required.
+
+### Features
+
+- Added fail-closed embedded Auth lifecycle authorization for reconciling application roles and member assignments through revisioned authorization stores.
+
 ### Notes
 
 - Keep Embedded Auth schema generation browser-safe (`schema/generation.ts`); the SQL catalog stays Node/CLI-only.

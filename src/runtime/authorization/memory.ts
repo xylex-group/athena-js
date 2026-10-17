@@ -4,7 +4,11 @@ import {
 	FOUNDING_OWNER_REMOVE_FORBIDDEN,
 	FOUNDING_OWNER_ROLE_LOCKED,
 } from "../../auth/local/organization-invariants.ts";
-import { createAthenaRightsAuthority } from "../../rights/authority.ts";
+import {
+  createAthenaRightsAuthority,
+  type AthenaRightsAuthority,
+} from "../../rights/authority.ts";
+import type { AthenaRightsIr } from "../../rights/types.ts";
 import {
   type AthenaRightKey,
   parseAthenaRightKey,
@@ -60,6 +64,7 @@ import {
   throwRoleHasAssignments,
   throwRoleNotFound,
 } from "./role-invariants.ts";
+import { isApplicationLifecycleCapabilityFor } from "./application-lifecycle-capability.ts";
 import { projectAssignableRoles } from "./snapshot-catalog.ts";
 import { canonicalizeAthenaAuthorizationSnapshotIr } from "./snapshot-ir/canonicalize.ts";
 import type {
@@ -128,6 +133,8 @@ function createMemoryRoleAssignment(
 }
 
 export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
+  private readonly rightsIr: AthenaRightsIr;
+  private readonly rightsAuthority: AthenaRightsAuthority;
   private readonly audit: Record<string, unknown>[] = [];
   private readonly memberOrganizationIds = new Map<string, string>();
   private readonly memberRoles = new Map<string, MemoryRoleAssignments>();
@@ -138,6 +145,11 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
   private readonly roles = new Map<string, AthenaAuthorizationRoleRecord>();
   private readonly userRoles = new Map<string, MemoryRoleAssignments>();
   private materialized = false;
+
+  constructor(options: { rightsIr?: AthenaRightsIr } = {}) {
+    this.rightsIr = options.rightsIr ?? getAthenaAuthorizationRightsIr();
+    this.rightsAuthority = createAthenaRightsAuthority(this.rightsIr);
+  }
 
   async ensureCatalog(): Promise<void> {
     if (this.materialized) {
@@ -153,7 +165,7 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
     }
     this.materialized = true;
     void AUTHORIZATION_CATALOG_VERSION;
-    void getAthenaAuthorizationRightsIr();
+    void this.rightsIr;
   }
 
   snapshot(): MemoryAuthorizationStoreSnapshot {
@@ -439,8 +451,8 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
 		scope: AthenaAuthorizationSnapshotScope;
 	}): Promise<AthenaAuthorizationSnapshotIr> {
 		await this.ensure();
-		const rights = getAthenaAuthorizationRightsIr();
-		const rightsAuthority = createAthenaRightsAuthority(rights);
+		const rights = this.rightsIr;
+		const rightsAuthority = this.rightsAuthority;
 		const organizationId =
 			input.scope.kind === "organization" ? input.scope.organizationId : null;
 		const roles = [...this.roles.values()]
@@ -731,6 +743,7 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
       beforeRights: [...current.keys()].flatMap((id) => [
         ...(this.roleRights.get(id) ?? []),
       ]),
+      rightsAuthority: this.rightsAuthority,
       roleScope: "platform",
     });
     const unchanged =
@@ -775,13 +788,15 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
 
   async replaceMemberRoleAssignments(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     foundingOwnerUserId?: string | null;
     memberId: string;
     memberUserId: string;
+    lifecycleCapability?: object;
     organizationId: string;
     roleIds: readonly string[];
+    unrestrictedGrant?: boolean;
   }): Promise<{ revision: number }> {
     await this.ensure();
     const revision = this.organizationRevisions.get(input.organizationId) ?? 1;
@@ -791,6 +806,29 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
     const current = this.memberRoles.get(input.memberId) ?? new Map();
     const uniqueIds = [...new Set(input.roleIds)];
     const roles = uniqueIds.map((id) => this.requireRoleById(id));
+    const protectedChanges = [
+      ...roles.filter((role) => !role.assignable && !current.has(role.id)),
+      ...[...current.keys()]
+        .filter((id) => !uniqueIds.includes(id))
+        .map((id) => this.requireRoleById(id))
+        .filter((role) => !role.assignable),
+    ];
+    const lifecycleMayChangeProtected =
+      protectedChanges.length > 0 &&
+      protectedChanges.every((role) =>
+        role.protected &&
+        !role.assignable &&
+        role.systemKind === null &&
+        isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+          actorUserId: input.actorUserId,
+          applicationKey: role.key,
+          memberUserId: input.memberUserId,
+          organizationId: input.organizationId,
+        }),
+      );
+    if (protectedChanges.length > 0 && !lifecycleMayChangeProtected) {
+      throw AthenaAuthRuntimeError.badRequest("Role is not assignable");
+    }
     assertOrganizationAssignmentRoles({
       foundingOwnerUserId: input.foundingOwnerUserId,
       memberUserId: input.memberUserId,
@@ -807,7 +845,9 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
         ...(this.roleRights.get(id) ?? []),
       ]),
       organizationId: input.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: "organization",
+      unrestrictedGrant: input.unrestrictedGrant || lifecycleMayChangeProtected,
     });
     const unchanged =
       current.size === uniqueIds.length &&
@@ -864,6 +904,7 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
       afterRights: sourceRights,
       beforeRights: [],
       organizationId: targetOrganizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: source.scopeKind,
       unrestrictedGrant: input.unrestrictedGrant,
     });
@@ -903,7 +944,10 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
 
   async createRole(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
+    applicationManaged?: boolean;
+    applicationKey?: string;
+    lifecycleCapability?: object;
     name: string;
     organizationId?: string | null;
     rights?: readonly string[];
@@ -918,26 +962,41 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
     if (input.scopeKind === "organization" && !input.organizationId) {
       throw AthenaAuthRuntimeError.badRequest("organizationId is required");
     }
+    if (input.applicationKey && !/^application_[a-z0-9_-]+$/.test(input.applicationKey)) {
+      throw AthenaAuthRuntimeError.badRequest("applicationKey is invalid");
+    }
+    const lifecycleAuthorized =
+      Boolean(input.applicationManaged) === Boolean(input.applicationKey) &&
+      Boolean(input.applicationManaged) &&
+      isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+          applicationKey: input.applicationKey,
+          actorUserId: input.actorUserId,
+          organizationId: input.organizationId,
+        });
+    if (Boolean(input.applicationManaged) !== Boolean(input.applicationKey) || (input.applicationManaged && !lifecycleAuthorized)) {
+      throw AthenaAuthRuntimeError.forbidden("Application managed roles require lifecycle authorization");
+    }
     const rights = input.rights ?? [];
     assertAuthorizationDelegationAllowed({
       actorRights: input.actorRights,
       afterRights: rights,
       beforeRights: [],
       organizationId: input.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: input.scopeKind,
-      unrestrictedGrant: input.unrestrictedGrant,
+      unrestrictedGrant: input.unrestrictedGrant || lifecycleAuthorized,
     });
     const id = crypto.randomUUID();
     const record: AthenaAuthorizationRoleRecord = {
-      assignable: true,
+      assignable: !input.applicationManaged,
       id,
-      key: `custom_${id.slice(0, 8)}`,
+      key: input.applicationKey ?? `custom_${id.slice(0, 8)}`,
       name,
       organizationId:
         input.scopeKind === "organization"
           ? (input.organizationId ?? null)
           : null,
-      protected: false,
+      protected: Boolean(input.applicationManaged),
       scopeKind: input.scopeKind,
       systemKind: null,
       version: 1,
@@ -998,10 +1057,12 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
   }
 
   async updateRole(input: {
+    applicationManaged?: boolean;
     actorRights?: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     id: string;
+    lifecycleCapability?: object;
     name: string;
     organizationId?: string | null;
     rights?: readonly string[];
@@ -1009,7 +1070,20 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
   }): Promise<AthenaAuthorizationRoleRecord> {
     await this.ensure();
     const role = this.requireScopedRole(input.id, input.organizationId);
-    assertProtectedRoleImmutable(role);
+    const lifecycleMayManageRole =
+      role.protected &&
+      !role.assignable &&
+      role.systemKind === null &&
+      input.applicationManaged === true &&
+      isApplicationLifecycleCapabilityFor(input.lifecycleCapability, {
+        applicationKey: role.key,
+        actorUserId: input.actorUserId,
+        organizationId: role.organizationId,
+      });
+    if (role.protected && !lifecycleMayManageRole) assertProtectedRoleImmutable(role);
+    if (input.applicationManaged && !lifecycleMayManageRole) {
+      throw AthenaAuthRuntimeError.forbidden("Application managed roles require lifecycle authorization");
+    }
     assertExpectedVersion(role, input.expectedVersion);
     const name = input.name.trim();
     if (!name) {
@@ -1022,15 +1096,23 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
         afterRights: input.rights,
         beforeRights,
         organizationId: role.organizationId,
+        rightsAuthority: this.rightsAuthority,
         roleScope: role.scopeKind,
-        unrestrictedGrant: input.unrestrictedGrant,
+        unrestrictedGrant: input.unrestrictedGrant || lifecycleMayManageRole,
       });
       const after = [...new Set(input.rights)].sort();
       this.roleRights.set(
         role.id,
         new Set(after.map((key) => parseAthenaRightKey(key)))
       );
-      const next = { ...role, name, version: role.version + 1 };
+      const next = {
+        ...role,
+        ...(input.applicationManaged
+          ? { assignable: false, protected: true }
+          : {}),
+        name,
+        version: role.version + 1,
+      };
       this.roles.set(role.id, next);
       this.bumpScopeRevision(next.organizationId);
       this.audit.push({
@@ -1044,7 +1126,14 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
       });
       return next;
     }
-    const next = { ...role, name, version: role.version + 1 };
+    const next = {
+      ...role,
+      ...(input.applicationManaged
+        ? { assignable: false, protected: true }
+        : {}),
+      name,
+      version: role.version + 1,
+    };
     this.roles.set(role.id, next);
     this.bumpScopeRevision(next.organizationId);
     this.audit.push({
@@ -1061,7 +1150,7 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
 
   async replaceRoleRights(input: {
     actorRights: readonly string[];
-    actorUserId: string;
+    actorUserId?: string;
     expectedVersion: number;
     id: string;
     organizationId?: string | null;
@@ -1078,6 +1167,7 @@ export class MemoryAuthorizationStore implements AthenaAuthorizationStore {
       afterRights: input.rights,
       beforeRights: before,
       organizationId: role.organizationId,
+      rightsAuthority: this.rightsAuthority,
       roleScope: role.scopeKind,
       unrestrictedGrant: input.unrestrictedGrant,
     });

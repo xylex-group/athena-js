@@ -77,6 +77,7 @@ export const BILLING_OPERATION_SAFETY = {
   ),
   "admin.bootstrap.retry": nonFinancialWrite("admin.bootstrap.retry"),
   "admin.ingestion.health": readTrust("admin.ingestion.health"),
+  "admin.inventory.list": readTrust("admin.inventory.list"),
   "admin.reconciliation.retry": nonFinancialWrite("admin.reconciliation.retry"),
   "admin.reconciliation.run": nonFinancialWrite("admin.reconciliation.run"),
   "admin.webhooks.reconcile": nonFinancialWrite("admin.webhooks.reconcile"),

@@ -24,8 +24,9 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(__dirname, "..");
@@ -124,6 +125,18 @@ const BROWSER_ARTIFACTS = [
 ];
 
 const SERVER_ARTIFACTS = ["server.js", "server.cjs"];
+const COLUMN_BUILDERS = [
+  "bigint",
+  "boolean",
+  "decimal",
+  "enumeration",
+  "integer",
+  "json",
+  "number",
+  "numeric",
+  "smallint",
+  "string",
+];
 const SERVER_REQUIRED = [{ id: "server-only", re: /server-only/ }];
 
 function maybeBuild(args) {
@@ -210,11 +223,64 @@ function scanServerArtifact(name) {
   console.log(`OK: dist/${name} — Node server entry (server-only present)`);
 }
 
-function main() {
+async function verifyColumnBuilderArtifacts() {
+  const require = createRequire(import.meta.url);
+  const browserEsm = await import(
+    pathToFileURL(join(distDir, "browser.js")).href
+  );
+  const browserCjs = require(join(distDir, "browser.cjs"));
+  for (const name of COLUMN_BUILDERS) {
+    if (
+      typeof browserEsm[name] !== "function" ||
+      typeof browserCjs[name] !== "function"
+    ) {
+      throw new Error(`browser JavaScript artifact missing ${name}`);
+    }
+  }
+  for (const name of ["browser.d.ts", "browser.d.cts"]) {
+    const declaration = readFileSync(join(distDir, name), "utf8");
+    for (const builder of COLUMN_BUILDERS) {
+      if (
+        !new RegExp(`\\bas ${builder}\\b|\\b${builder}\\s*\\(`).test(
+          declaration
+        )
+      ) {
+        throw new Error(`${name} declaration missing ${builder}`);
+      }
+    }
+  }
+
+  const rootEsm = await import(pathToFileURL(join(distDir, "index.js")).href);
+  const rootCjs = require(join(distDir, "index.cjs"));
+  for (const name of COLUMN_BUILDERS) {
+    if (
+      typeof rootEsm[name] !== "function" ||
+      typeof rootCjs[name] !== "function"
+    ) {
+      throw new Error(`root JavaScript artifact lost ${name}`);
+    }
+  }
+  for (const name of ["index.d.ts", "index.d.cts"]) {
+    const declaration = readFileSync(join(distDir, name), "utf8");
+    for (const builder of COLUMN_BUILDERS) {
+      if (
+        !new RegExp(`\\bas ${builder}\\b|\\b${builder}\\s*\\(`).test(
+          declaration
+        )
+      ) {
+        throw new Error(`${name} declaration lost ${builder}`);
+      }
+    }
+  }
+  console.log("OK: browser and root ESM/CJS/declaration builder exports");
+}
+
+async function main() {
   const args = process.argv.slice(2);
   maybeBuild(args);
   console.log("=== Browser bundle dependency audit ===");
   console.log(`package root: ${packageRoot}`);
+  await verifyColumnBuilderArtifacts();
   for (const artifact of BROWSER_ARTIFACTS) {
     scanArtifact(artifact);
   }
@@ -226,4 +292,4 @@ function main() {
   );
 }
 
-main();
+await main();

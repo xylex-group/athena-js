@@ -47,6 +47,8 @@ export type InspectBillingConnectionAffinityInput = {
   explicitConnectionId?: string;
   ownerId?: string;
   ownerKind?: string;
+  ownerScopes?: readonly { ownerId: string; ownerKind: string }[];
+  allOwners?: boolean;
   ownedConnectionId?: string | null;
   provider?: BillingProviderName;
   sql: BillingSqlExecutor;
@@ -255,12 +257,15 @@ export async function inspectBillingConnectionAffinity(
   if (input.subjectId && input.subjectKind) {
     const existingBindings = await input.sql.query(
       `SELECT 1
-       FROM billing.billing_subject_bindings
-       WHERE subject_kind = $1
-         AND subject_id = $2
-         AND status = 'active'
+       FROM billing.billing_subject_bindings b
+       INNER JOIN billing.billing_provider_connections c
+         ON c.id = b.connection_id
+       WHERE b.subject_kind = $1
+         AND b.subject_id = $2
+         AND b.status = 'active'
+         AND c.provider = $3
        LIMIT 1`,
-      [input.subjectKind, input.subjectId],
+      [input.subjectKind, input.subjectId, provider],
     );
     if (existingBindings.rows.length > 0) {
       const filters: unknown[] = [
@@ -314,17 +319,48 @@ export async function inspectBillingConnectionAffinity(
       : { state: "missing" };
   }
 
-  if (input.ownerId == null || input.ownerKind == null) {
-    return { state: "missing" };
+  const ownerScopes = input.ownerScopes ?? (
+    input.ownerId != null && input.ownerKind != null
+      ? [{ ownerId: input.ownerId, ownerKind: input.ownerKind }]
+      : []
+  );
+  if (input.allOwners) {
+    const filters: unknown[] = [provider, environment];
+    const query = `
+    SELECT DISTINCT id::text AS id, owner_id, owner_kind, provider, environment,
+           status, credential_reference
+    FROM billing.billing_provider_connections
+    WHERE deleted_at IS NULL
+      AND status = 'active'
+      AND provider = $1
+      AND environment = $2`;
+    const withCredentials = appendUsableCredentialClause(query, filters, {
+      column: "credential_reference",
+      configuredProviders: input.configuredProviders,
+      credentialReference: input.credentialReference,
+      environment,
+      provider,
+    });
+    if (withCredentials == null) {
+      return { state: "missing" };
+    }
+    const eligible = await input.sql.query(
+      `${withCredentials} LIMIT ${USABLE_CONNECTION_UNIQUENESS_LIMIT}`,
+      filters,
+    );
+    const usableEligible = eligible.rows
+      .map((row) => usableAffinityFromRow(row, "eligible_connection", usability))
+      .filter((row): row is BillingConnectionAffinity => row != null);
+    return inspectionFromUsable(usableEligible);
   }
-
-  const filters: unknown[] = [
-    provider,
-    environment,
-    input.ownerId,
-    input.ownerKind,
-  ];
-  let query = `
+  for (const owner of ownerScopes) {
+    const filters: unknown[] = [
+      provider,
+      environment,
+      owner.ownerId,
+      owner.ownerKind,
+    ];
+    let query = `
     SELECT DISTINCT id::text AS id, owner_id, owner_kind, provider, environment,
            status, credential_reference
     FROM billing.billing_provider_connections
@@ -334,26 +370,31 @@ export async function inspectBillingConnectionAffinity(
       AND environment = $2
       AND owner_id = $3
       AND owner_kind = $4`;
-  const withCredentials = appendUsableCredentialClause(query, filters, {
-    column: "credential_reference",
-    configuredProviders: input.configuredProviders,
-    credentialReference: input.credentialReference,
-    environment,
-    provider,
-  });
-  if (withCredentials == null) {
-    return { state: "missing" };
+    const withCredentials = appendUsableCredentialClause(query, filters, {
+      column: "credential_reference",
+      configuredProviders: input.configuredProviders,
+      credentialReference: input.credentialReference,
+      environment,
+      provider,
+    });
+    if (withCredentials == null) {
+      return { state: "missing" };
+    }
+    query = `${withCredentials} LIMIT ${USABLE_CONNECTION_UNIQUENESS_LIMIT}`;
+    const eligible = await input.sql.query(query, filters);
+    const usableEligible = eligible.rows
+      .filter(
+        (row) =>
+          row.owner_id === owner.ownerId && row.owner_kind === owner.ownerKind,
+      )
+      .map((row) => usableAffinityFromRow(row, "eligible_connection", usability))
+      .filter((row): row is BillingConnectionAffinity => row != null);
+    const inspection = inspectionFromUsable(usableEligible);
+    if (inspection.state !== "missing") {
+      return inspection;
+    }
   }
-  query = `${withCredentials} LIMIT ${USABLE_CONNECTION_UNIQUENESS_LIMIT}`;
-  const eligible = await input.sql.query(query, filters);
-  const usableEligible = eligible.rows
-    .filter(
-      (row) =>
-        row.owner_id === input.ownerId && row.owner_kind === input.ownerKind,
-    )
-    .map((row) => usableAffinityFromRow(row, "eligible_connection", usability))
-    .filter((row): row is BillingConnectionAffinity => row != null);
-  return inspectionFromUsable(usableEligible);
+  return { state: "missing" };
 }
 
 export async function resolveBillingConnectionAffinity(input: {
@@ -364,6 +405,8 @@ export async function resolveBillingConnectionAffinity(input: {
   operation: BillingOperation;
   ownerId?: string;
   ownerKind?: string;
+  ownerScopes?: readonly { ownerId: string; ownerKind: string }[];
+  allOwners?: boolean;
   ownedConnectionId?: string | null;
   provider?: BillingProviderName;
   sql: BillingSqlExecutor;

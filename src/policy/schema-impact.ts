@@ -140,6 +140,8 @@ function impactKinds(op: SchemaDiffOperation, columns: Set<string>): boolean {
 /**
  * Report authored policies impacted by dropped/renamed tables/columns
  * referenced in policy expressions. Analysis only — not a schema engine.
+ * @docsCanonical
+ * @docsRole policy-schema-impact
  */
 export function reportAthenaPolicySchemaImpact(options: {
   operations: readonly SchemaDiffOperation[];

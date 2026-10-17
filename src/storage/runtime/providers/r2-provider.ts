@@ -26,6 +26,7 @@ export function createR2StorageProvider(
       try {
         switch (op.op) {
           case "put": {
+            op.signal?.throwIfAborted();
             if (!op.key?.trim()) {
               return storageErrorResult({
                 message: "put requires key",
@@ -33,10 +34,13 @@ export function createR2StorageProvider(
                 status: 400,
               });
             }
+            // shortcut: R2 PUT cannot be aborted in flight; upgrade when its API adds signal support.
             const data = await objects.putObject({
               body: op.body ?? new Uint8Array(),
               contentType: op.contentType,
               key: op.key,
+              metadata: op.metadata,
+              ...(op.ifAbsent ? { ifAbsent: true } : {}),
             });
             return storageOkResult(data);
           }
@@ -76,7 +80,10 @@ export function createR2StorageProvider(
               });
             }
             return storageOkResult({
+              contentType: object.contentType,
+              etag: object.etag,
               key: object.key,
+              metadata: object.metadata,
               size: object.size,
             });
           }
@@ -92,7 +99,11 @@ export function createR2StorageProvider(
             return storageOkResult(data);
           }
           case "list": {
-            const data = await objects.listObjects({ prefix: op.prefix });
+            const data = await objects.listObjects({
+              cursor: op.cursor,
+              limit: op.limit,
+              prefix: op.prefix,
+            });
             return storageOkResult(data);
           }
           default:
@@ -103,6 +114,19 @@ export function createR2StorageProvider(
             });
         }
       } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          (error as { code?: unknown }).code === "PreconditionFailed"
+        ) {
+          return storageErrorResult(
+            3006,
+            "storage_conflict",
+            "Storage destination already exists",
+            409
+          );
+        }
         return mapProviderFailure(error);
       }
     },
@@ -119,5 +143,5 @@ async function readR2Body(body: {
   if (typeof body.text === "function") {
     return new TextEncoder().encode(await body.text());
   }
-  return new Uint8Array();
+  throw new Error("R2 object response did not expose a readable body");
 }

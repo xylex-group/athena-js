@@ -1071,7 +1071,7 @@ test("T-BIL-MUTATING-CONTRACT: P?: Direct vs browser Billing contract holds for 
   const operator = embeddedBillingOperator(handlers);
   assert.equal("payments" in browser, false);
   assert.equal("webhooks" in browser, false);
-  assert.equal("admin" in browser, false);
+  assert.equal(typeof browser.admin.inventory.list, "function");
   assert.equal(typeof browser.catalog.products.list, "function");
   assert.equal(typeof browser.self.invoices.list, "function");
   assert.equal(typeof browser.getCapabilities, "function");

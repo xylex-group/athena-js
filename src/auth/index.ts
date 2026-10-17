@@ -47,6 +47,7 @@ export {
   renderAuthEmailFragment,
 } from "./email/index.ts";
 export type {
+  AthenaAuthApplicationRoleDefinition,
   AthenaAuthAfterHookPayload,
   AthenaAuthBeforeHookPayload,
   AthenaAuthDomainEvent,
@@ -54,6 +55,7 @@ export type {
   AthenaAuthHookContext,
   AthenaAuthHookErrorInput,
   AthenaAuthHooks,
+  AthenaAuthLifecycleAuthorization,
   AthenaAuthImplementedDomainEvent,
   AthenaAuthReservedDomainEvent,
 } from "./hooks/index.ts";

@@ -12,15 +12,24 @@ import {
 } from "../src/auth/hooks/events.ts";
 import { executeAuthMutation } from "../src/auth/hooks/execute.ts";
 import type { AthenaAuthHooks } from "../src/auth/hooks/types.ts";
+import { sanitizeHookMember, sanitizeHookOrganization } from "../src/auth/hooks/sanitize.ts";
 import type { AthenaAuthDatabase } from "../src/auth/local/database.ts";
 import { MemoryAuthStores } from "../src/auth/local/memory-stores.ts";
 import {
   createMemoryAuthMutationTransaction,
   createPostgresAuthMutationTransaction,
 } from "../src/auth/local/mutation-transaction.ts";
+import { createApplicationAuthorizationLifecycle } from "../src/auth/local/application-authorization-lifecycle.ts";
+import {
+  createMemoryAuthAuditWriter,
+  type MemoryAuthAuditSink,
+} from "../src/auth/observability/audit.ts";
 import { passwordHashNeedsRehash } from "../src/auth/local/password.ts";
 import { createAthenaAuthRuntime } from "../src/auth/local/runtime.ts";
 import { AthenaConfigurationError, createClient } from "../src/v3-client.ts";
+import { getAthenaAuthorizationRightsIr } from "../src/runtime/authorization/catalog.ts";
+import { parseAthenaRightKey } from "../src/rights/key.ts";
+import { resolveAthenaRightsIr } from "../src/rights/resolver.ts";
 
 function createTestHasher() {
   return {
@@ -42,6 +51,27 @@ async function json(response: Response): Promise<Record<string, unknown>> {
 
 function cookieHeader(response: Response): string {
   return response.headers.get("set-cookie") ?? "";
+}
+
+function waLifecycleTestRights() {
+  const applicationRight = {
+    assignable: true,
+    description: "Test application Right",
+    displayName: "WA test access",
+    domain: "wa",
+    key: parseAthenaRightKey("wa.test.read"),
+    riskLevel: "low" as const,
+    scopeKind: "organization" as const,
+  };
+  const builtInRights = getAthenaAuthorizationRightsIr().rights.map(
+    (definition) => ({ definition, source: "athena:builtin" }),
+  );
+  return {
+    applicationRightKeys: ["authorization.roles.read", "wa.test.read"],
+    authorizationRightsIr: resolveAthenaRightsIr(
+      [...builtInRights, { definition: applicationRight, source: "test:wa" }],
+    ),
+  };
 }
 
 test("reserved domain events are not hookable keys", () => {
@@ -191,11 +221,19 @@ test("shared Postgres runtime reuses the same hooks reference and rejects a diff
   const pgUri = "postgres://hooks:hooks@127.0.0.1:1/athena-hooks-cache";
   const hooks: AthenaAuthHooks = {};
   const first = createClient({
-    auth: { hooks, mode: "local" },
+    auth: {
+      applicationAuthorization: { application: "wa" },
+      hooks,
+      mode: "local",
+    },
     db: { pgUri },
   });
   const reused = createClient({
-    auth: { hooks, mode: "local" },
+    auth: {
+      applicationAuthorization: { application: "wa" },
+      hooks,
+      mode: "local",
+    },
     db: { pgUri },
   });
   assert.ok(first);
@@ -209,6 +247,20 @@ test("shared Postgres runtime reuses the same hooks reference and rejects a diff
     (error: unknown) =>
       error instanceof AthenaConfigurationError &&
       error.code === "ATHENA_AUTH_RUNTIME_CONFIG_CONFLICT"
+  );
+  assert.throws(
+    () =>
+      createClient({
+        auth: {
+          applicationAuthorization: { application: "other" },
+          hooks,
+          mode: "local",
+        },
+        db: { pgUri },
+      }),
+    (error: unknown) =>
+      error instanceof AthenaConfigurationError &&
+      error.code === "ATHENA_AUTH_RUNTIME_CONFIG_CONFLICT",
   );
 });
 
@@ -530,10 +582,35 @@ test("GET /delete-user/verify after hooks receive the deleted user ID", async ()
 test("org create emits one event; signup emits user.create then session.issue without secrets", async () => {
   const events: string[] = [];
   const payloads: unknown[] = [];
+  const lifecycleMembers: string[] = [];
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  let lifecycleAuthorization: import("../src/auth/hooks/types.ts").AthenaAuthLifecycleAuthorization | undefined;
   const runtime = createAthenaAuthRuntime({
     autoMigrate: false,
+    applicationRightKeys,
+    applicationAuthorization: { application: "wa" },
+    authorizationRightsIr,
     hasher: createTestHasher(),
     hooks: {
+      lifecycle: {
+        "organization.create": async ({ result, authorization }) => {
+          lifecycleAuthorization = authorization;
+          lifecycleMembers.push(result.member.userId);
+          await authorization.reconcileOrganizationRoles({
+            application: "wa",
+            organizationId: result.organization.id,
+            roles: [
+              { key: "owner", name: "WA Owner", rights: ["wa.test.read"] },
+            ],
+          });
+          await authorization.replaceMemberApplicationRole({
+            application: "wa",
+            organizationId: result.organization.id,
+            roleKey: "owner",
+            userId: result.member.userId,
+          });
+        },
+      },
       after: {
         "organization.create": async (payload) => {
           events.push(payload.event);
@@ -562,6 +639,7 @@ test("org create emits one event; signup emits user.create then session.issue wi
     })
   );
   assert.equal(signup.status, 200);
+  const ownerUserId = ((await json(signup)).user as { id: string }).id;
   assert.deepEqual(events, ["user.create", "session.issue"]);
   const serialized = JSON.stringify(payloads);
   assert.equal(serialized.includes("Password123!"), false);
@@ -582,14 +660,760 @@ test("org create emits one event; signup emits user.create then session.issue wi
   );
   assert.equal(org.status, 200);
   assert.deepEqual(events, ["organization.create"]);
+  assert.deepEqual(lifecycleMembers, [ownerUserId]);
+  assert.ok(lifecycleAuthorization);
+  const createdOrganization = (await json(org)).organization as { id: string };
+  const stores = await runtime.getStores();
+  await assert.rejects(
+    lifecycleAuthorization.reconcileOrganizationRoles({
+      application: "wa",
+      organizationId: createdOrganization.id,
+      roles: [{ key: "late", name: "Late Role", rights: ["wa.test.read"] }],
+    }),
+    /lifecycle authorization is no longer active/i,
+  );
+  const authorization = createApplicationAuthorizationLifecycle(
+    stores,
+    applicationRightKeys,
+    { kind: "user", userId: ownerUserId },
+    {
+      actorUserId: ownerUserId,
+      application: "wa",
+      isActive: () => true,
+      organizationId: createdOrganization.id,
+      userId: ownerUserId,
+    },
+  );
+  const roles = await stores.authorization.listRoles({
+    organizationId: createdOrganization.id,
+    scopeKind: "organization",
+  });
+  const waOwner = roles.find(({ key }) => key === "application_wa_owner");
+  assert.ok(waOwner);
+  assert.equal(waOwner.protected, true);
+  assert.equal(waOwner.assignable, false);
+  assert.deepEqual(
+    await stores.authorization.listRoleRights(waOwner.id),
+    ["wa.test.read"],
+  );
+  await assert.rejects(
+    stores.authorization.createRole({
+      actorRights: [],
+      actorUserId: ownerUserId,
+      applicationManaged: true,
+      applicationKey: "application_wa_forged",
+      name: "Forged Role",
+      organizationId: createdOrganization.id,
+      rights: ["wa.test.read"],
+      scopeKind: "organization",
+      unrestrictedGrant: true,
+    }),
+    /lifecycle authorization/i,
+  );
+  await assert.rejects(
+    authorization.reconcileOrganizationRoles({
+      application: "foo",
+      organizationId: createdOrganization.id,
+      roles: [{ key: "bar", name: "Other Application Role", rights: ["wa.test.read"] }],
+    }),
+    /lifecycle authorization is scoped/i,
+  );
+  assert.equal(
+    (await stores.authorization.listRoles({
+      organizationId: createdOrganization.id,
+      scopeKind: "organization",
+    })).some(({ key }) => key === "application_foo_bar"),
+    false,
+  );
+  await assert.rejects(
+    authorization.reconcileOrganizationRoles({
+      application: "wa",
+      organizationId: createdOrganization.id,
+      roles: [
+        { key: "admin", name: "WA Admin", rights: ["authorization.roles.write"] },
+      ],
+    }),
+    /not contributed by the application/,
+  );
+  await authorization.reconcileOrganizationRoles({
+    application: "wa",
+    organizationId: createdOrganization.id,
+    roles: [
+      { key: "candidate", name: "WA Candidate", rights: ["wa.test.read"] },
+    ],
+  });
+  await assert.rejects(
+    stores.authorization.replaceRoleRights({
+      actorRights: [],
+      expectedVersion: waOwner.version,
+      id: waOwner.id,
+      organizationId: createdOrganization.id,
+      rights: [],
+      unrestrictedGrant: true,
+    }),
+    /protected/i,
+  );
+  await assert.rejects(
+    stores.authorization.updateRole({
+      expectedVersion: waOwner.version,
+      id: waOwner.id,
+      name: "Renamed WA Owner",
+      organizationId: createdOrganization.id,
+    }),
+    /protected/i,
+  );
+  await assert.rejects(
+    stores.authorization.deleteRole({
+      actorUserId: ownerUserId,
+      expectedVersion: waOwner.version,
+      id: waOwner.id,
+      organizationId: createdOrganization.id,
+    }),
+    /protected/i,
+  );
+  const currentAssignments = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: createdOrganization.id,
+  });
+  const currentAssignment = currentAssignments.assignments[0];
+  assert.ok(currentAssignment);
+  const waCandidate = (await stores.authorization.listRoles({
+    organizationId: createdOrganization.id,
+    scopeKind: "organization",
+  })).find(({ key }) => key === "application_wa_candidate");
+  assert.ok(waCandidate);
+  await assert.rejects(
+    stores.authorization.replaceMemberRoleAssignments({
+      actorRights: [],
+      expectedVersion: currentAssignments.revision,
+      memberId: currentAssignment.memberId,
+      memberUserId: ownerUserId,
+      organizationId: createdOrganization.id,
+      roleIds: [...currentAssignment.roleIds, waCandidate.id],
+      unrestrictedGrant: true,
+    }),
+    /not assignable/i,
+  );
+  await assert.rejects(
+    stores.authorization.replaceMemberRoleAssignments({
+      actorRights: [],
+      expectedVersion: currentAssignments.revision,
+      memberId: currentAssignment.memberId,
+      memberUserId: ownerUserId,
+      organizationId: createdOrganization.id,
+      roleIds: currentAssignment.roleIds.filter((id) => id !== waOwner.id),
+      unrestrictedGrant: true,
+    }),
+    /not assignable/i,
+  );
+  const originalGetRole = stores.authorization.getRole.bind(stores.authorization);
+  stores.authorization.getRole = async (id, organizationId) => {
+    const detail = await originalGetRole(id, organizationId);
+    return detail?.id === waOwner.id
+      ? { ...detail, rights: [parseAthenaRightKey("authorization.roles.write")] }
+      : detail;
+  };
+  await assert.rejects(
+    authorization.replaceMemberApplicationRole({
+      application: "wa",
+      organizationId: createdOrganization.id,
+      roleKey: "owner",
+      userId: ownerUserId,
+    }),
+    /not contributed by the application/,
+  );
+  stores.authorization.getRole = originalGetRole;
+  assert.ok(
+    (await stores.authorization.listAudit({ organizationId: createdOrganization.id }))
+      .some((entry) => entry.actor_user_id === ownerUserId),
+  );
+  const assignments = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: createdOrganization.id,
+  });
+  assert.ok(assignments.assignments[0]?.roleIds.includes(waOwner.id));
+
+  await authorization.reconcileOrganizationRoles({
+    application: "wa",
+    organizationId: createdOrganization.id,
+    roles: ["owner", "admin", "member", "auditor"].map((key) => ({
+      key,
+      name: `WA ${key[0]?.toUpperCase()}${key.slice(1)}`,
+      rights: ["authorization.roles.read"],
+    })),
+  });
+  const allRoles = await stores.authorization.listRoles({
+    organizationId: createdOrganization.id,
+    scopeKind: "organization",
+  });
+  const admin = await authorization.replaceMemberApplicationRole({
+    application: "wa",
+    organizationId: createdOrganization.id,
+    roleKey: "admin",
+    userId: ownerUserId,
+  });
+  assert.equal(admin.changed, true);
+  const afterDowngrade = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: createdOrganization.id,
+  });
+  const waAdmin = allRoles.find(({ key }) => key === "application_wa_admin");
+  assert.ok(waAdmin);
+  const ownerDetail = await stores.authorization.getRole(waOwner.id, createdOrganization.id);
+  assert.deepEqual(ownerDetail?.rights, ["authorization.roles.read"]);
+  assert.ok(afterDowngrade.assignments[0]?.roleIds.includes(waAdmin.id));
+  assert.equal(afterDowngrade.assignments[0]?.roleIds.includes(waOwner.id), false);
+
+  await authorization.replaceMemberApplicationRole({
+    application: "wa",
+    organizationId: createdOrganization.id,
+    roleKey: "member",
+    userId: ownerUserId,
+  });
+  const afterMemberDowngrade = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: createdOrganization.id,
+  });
+  const waMember = allRoles.find(({ key }) => key === "application_wa_member");
+  assert.ok(waMember);
+  assert.ok(afterMemberDowngrade.assignments[0]?.roleIds.includes(waMember.id));
+  assert.equal(afterMemberDowngrade.assignments[0]?.roleIds.includes(waAdmin.id), false);
+
+  await authorization.replaceMemberApplicationRole({
+    application: "wa",
+    organizationId: createdOrganization.id,
+    roleKey: "auditor",
+    userId: ownerUserId,
+  });
+  const waAuditor = allRoles.find(({ key }) => key === "application_wa_auditor");
+  assert.ok(waAuditor);
+  const auditorAssignment = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: createdOrganization.id,
+  });
+  const memberAssignment = auditorAssignment.assignments[0];
+  assert.ok(memberAssignment);
+  await assert.rejects(
+    stores.authorization.replaceMemberRoleAssignments({
+      actorRights: [],
+      expectedVersion: auditorAssignment.revision,
+      memberId: memberAssignment.memberId,
+      memberUserId: ownerUserId,
+      organizationId: createdOrganization.id,
+      roleIds: [...memberAssignment.roleIds, waOwner.id],
+      unrestrictedGrant: true,
+    }),
+    /not assignable/i,
+  );
+  const retainedAuditor = await authorization.replaceMemberApplicationRole({
+    application: "wa",
+    organizationId: createdOrganization.id,
+    preserveRoleKeys: ["auditor"],
+    roleKey: "member",
+    userId: ownerUserId,
+  });
+  assert.equal(retainedAuditor.changed, false);
+  const afterAuditor = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: createdOrganization.id,
+  });
+  assert.ok(afterAuditor.assignments[0]?.roleIds.includes(waAuditor.id));
+  assert.equal(afterAuditor.assignments[0]?.roleIds.includes(waOwner.id), false);
+  assert.equal(afterAuditor.assignments[0]?.roleIds.includes(waMember.id), false);
+});
+
+test("organization.member.add lifecycle provisions an application role with the triggering actor", async () => {
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  let ownerUserId = "";
+  const runtime = createAthenaAuthRuntime({
+    autoMigrate: false,
+    applicationRightKeys,
+    applicationAuthorization: { application: "wa" },
+    authorizationRightsIr,
+    hasher: createTestHasher(),
+    hooks: {
+      lifecycle: {
+        "organization.member.add": async ({ actor, authorization, result }) => {
+          assert.equal(actor.userId, ownerUserId);
+          await authorization.reconcileOrganizationRoles({
+            application: "wa",
+            organizationId: result.member.organizationId,
+            roles: [
+              { key: "member", name: "WA Member", rights: ["wa.test.read"] },
+            ],
+          });
+          await authorization.replaceMemberApplicationRole({
+            application: "wa",
+            organizationId: result.member.organizationId,
+            roleKey: "member",
+            userId: result.member.userId,
+          });
+        },
+      },
+    },
+  });
+  const register = async (email: string) => {
+    const response = await runtime.handle(
+      new Request("http://app.local/api/auth/sign-up/email", {
+        body: JSON.stringify({ email, password: "Password123!" }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      })
+    );
+    assert.equal(response.status, 200);
+    return response;
+  };
+  try {
+    const ownerSignup = await register("member-add-owner@example.com");
+    ownerUserId = ((await json(ownerSignup)).user as { id: string }).id;
+    const targetSignup = await register("member-add-target@example.com");
+    const targetUserId = ((await json(targetSignup)).user as { id: string }).id;
+    const ownerCookie = cookieHeader(ownerSignup);
+    const created = await runtime.handle(
+      new Request("http://app.local/api/auth/organization/create", {
+        body: JSON.stringify({ name: "Member Add", slug: "member-add" }),
+        headers: {
+          "content-type": "application/json",
+          cookie: ownerCookie,
+        },
+        method: "POST",
+      })
+    );
+    assert.equal(created.status, 200);
+    const organizationId = ((await json(created)).organization as { id: string }).id;
+    const added = await runtime.handle(
+      new Request("http://app.local/api/auth/organization/add-member", {
+        body: JSON.stringify({
+          organizationId,
+          role: "member",
+          userId: targetUserId,
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: ownerCookie,
+        },
+        method: "POST",
+      })
+    );
+    assert.equal(added.status, 200);
+    const stores = await runtime.getStores();
+    const member = (await stores.listMembers(organizationId)).find(
+      ({ user_id }) => user_id === targetUserId
+    );
+    assert.ok(member);
+    const role = (await stores.authorization.listRoles({
+      organizationId,
+      scopeKind: "organization",
+    })).find(({ key }) => key === "application_wa_member");
+    assert.ok(role);
+    const assignment = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+      organizationId,
+    });
+    assert.ok(assignment.assignments.find(({ memberId }) => memberId === member.id)?.roleIds.includes(role.id));
+    assert.ok(
+      (await stores.authorization.listAudit({ organizationId }))
+        .some((entry) => entry.actor_user_id === ownerUserId),
+    );
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("organization lifecycle authorization failures roll back Auth and authorization writes", async () => {
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  let failedOrganizationId: string | undefined;
+  const runtime = createAthenaAuthRuntime({
+    autoMigrate: false,
+    applicationRightKeys,
+    applicationAuthorization: { application: "wa" },
+    authorizationRightsIr,
+    hasher: createTestHasher(),
+    hooks: {
+      lifecycle: {
+        "organization.create": async ({ authorization, result }) => {
+          failedOrganizationId = result.organization.id;
+          await authorization.reconcileOrganizationRoles({
+            application: "wa",
+            organizationId: result.organization.id,
+            roles: [
+              { key: "owner", name: "WA Owner", rights: ["wa.test.read"] },
+            ],
+          });
+          await authorization.replaceMemberApplicationRole({
+            application: "wa",
+            organizationId: result.organization.id,
+            roleKey: "owner",
+            userId: result.member.userId,
+          });
+          throw new Error("WA role provisioning unavailable");
+        },
+      },
+    },
+  });
+  const signup = await runtime.handle(
+    new Request("http://app.local/api/auth/sign-up/email", {
+      body: JSON.stringify({ email: "lifecycle@example.com", password: "Password123!" }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    }),
+  );
+  assert.equal(signup.status, 200);
+  const created = await runtime.handle(
+    new Request("http://app.local/api/auth/organization/create", {
+      body: JSON.stringify({ name: "Lifecycle", slug: "lifecycle" }),
+      headers: {
+        "content-type": "application/json",
+        cookie: cookieHeader(signup),
+      },
+      method: "POST",
+    }),
+  );
+  assert.equal(created.status, 500);
+  assert.equal((await json(created)).code, "ATHENA_AUTH_INTERNAL");
+  assert.ok(failedOrganizationId);
+
+  const stores = await runtime.getStores();
+  assert.equal(await stores.getOrganization(failedOrganizationId), undefined);
+  assert.deepEqual(await stores.listMembers(failedOrganizationId), []);
+  assert.equal(
+    (await stores.authorization.listRoles({
+      organizationId: failedOrganizationId,
+      scopeKind: "organization",
+    })).some(({ key }) => key.startsWith("application_wa_")),
+    false,
+  );
+  const assignments = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: failedOrganizationId,
+  });
+  assert.deepEqual(assignments.assignments, []);
+  assert.equal(assignments.revision, 1);
+});
+
+test("lifecycle authorization cannot be used after its handler returns", async () => {
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  const stores = new MemoryAuthStores({ rightsIr: authorizationRightsIr });
+  let retained: import("../src/auth/hooks/types.ts").AthenaAuthLifecycleAuthorization | undefined;
+
+  await executeAuthMutation({
+    context: {
+      actor: { kind: "user", userId: "user-lifecycle-lease" },
+      request: { method: "POST", path: "/organization/create" },
+      traceId: "trace-lifecycle-lease",
+    },
+    event: "organization.create",
+    execute: async ({ stores: mutationStores }) => {
+      await mutationStores.createUser({
+        email: "lease@example.com",
+        id: "user-lifecycle-lease",
+      });
+      const organization = await mutationStores.createOrganization({
+        createdByUserId: "user-lifecycle-lease",
+        id: "org-lifecycle-lease",
+        name: "Lease",
+        slug: "lease",
+      });
+      const member = await mutationStores.addMember({
+        id: "member-lifecycle-lease",
+        organizationId: organization.id,
+        role: "owner",
+        userId: "user-lifecycle-lease",
+      });
+      return { member, organization };
+    },
+    hooks: {
+      lifecycle: {
+        "organization.create": async ({ authorization }) => {
+          retained = authorization;
+        },
+      },
+    },
+    input: { name: "Lease", slug: "lease" },
+    lifecycleAuthorization: (scope, actor, _event, result, isActive) =>
+      createApplicationAuthorizationLifecycle(
+        scope.stores,
+        applicationRightKeys,
+        actor,
+        {
+          actorUserId: actor.userId,
+          application: "wa",
+          isActive,
+          organizationId: result.organization.id,
+          userId: result.member.userId,
+        },
+      ),
+    resultOf: ({ member, organization }) => ({
+      member: sanitizeHookMember(member),
+      organization: sanitizeHookOrganization(organization),
+    }),
+    transaction: createMemoryAuthMutationTransaction(stores),
+  });
+
+  assert.ok(retained);
+  await assert.rejects(
+    retained.reconcileOrganizationRoles({
+      application: "wa",
+      organizationId: "org-lifecycle-lease",
+      roles: [{ key: "owner", name: "WA Owner", rights: ["wa.test.read"] }],
+    }),
+    /lifecycle authorization is no longer active/i,
+  );
+  assert.deepEqual(
+    (await stores.authorization.listRoles({
+      organizationId: "org-lifecycle-lease",
+      scopeKind: "organization",
+    })).map(({ key }) => key),
+    ["organization_owner", "organization_admin", "organization_member"],
+  );
+});
+
+test("application role reconciliation is idempotent after trimming the role name", async () => {
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  const stores = new MemoryAuthStores({ rightsIr: authorizationRightsIr });
+  await stores.createUser({ email: "trimmed-role@example.com", id: "user-trimmed-role" });
+  await stores.createOrganization({
+    createdByUserId: "user-trimmed-role",
+    id: "org-trimmed-role",
+    name: "Trimmed Role",
+    slug: "trimmed-role",
+  });
+
+  const authorization = createApplicationAuthorizationLifecycle(
+    stores,
+    applicationRightKeys,
+    { kind: "user", userId: "user-trimmed-role" },
+    {
+      actorUserId: "user-trimmed-role",
+      application: "wa",
+      isActive: () => true,
+      organizationId: "org-trimmed-role",
+      userId: "user-trimmed-role",
+    },
+  );
+  const reconcile = () => authorization.reconcileOrganizationRoles({
+    application: "wa",
+    organizationId: "org-trimmed-role",
+    roles: [{ key: "owner", name: " WA Owner ", rights: ["wa.test.read"] }],
+  });
+  await reconcile();
+  const beforeRole = (await stores.authorization.listRoles({
+    organizationId: "org-trimmed-role",
+    scopeKind: "organization",
+  })).find(({ key }) => key === "application_wa_owner");
+  assert.ok(beforeRole);
+  const beforeAssignments = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: "org-trimmed-role",
+  });
+  const beforeAudit = await stores.authorization.listAudit({ organizationId: "org-trimmed-role" });
+
+  await reconcile();
+
+  const afterRole = (await stores.authorization.listRoles({
+    organizationId: "org-trimmed-role",
+    scopeKind: "organization",
+  })).find(({ key }) => key === "application_wa_owner");
+  const afterAssignments = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: "org-trimmed-role",
+  });
+  const afterAudit = await stores.authorization.listAudit({ organizationId: "org-trimmed-role" });
+  assert.equal(afterRole?.version, beforeRole.version);
+  assert.equal(afterAssignments.revision, beforeAssignments.revision);
+  assert.equal(afterAudit.length, beforeAudit.length);
+});
+
+test("lifecycle authorization cannot target another application or organization", async () => {
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  const stores = new MemoryAuthStores({ rightsIr: authorizationRightsIr });
+  for (const userId of ["user-scope-a", "user-scope-b"]) {
+    await stores.createUser({ email: `${userId}@example.com`, id: userId });
+    await stores.createOrganization({
+      createdByUserId: userId,
+      id: `org-${userId}`,
+      name: userId,
+      slug: userId,
+    });
+    await stores.addMember({
+      id: `member-${userId}`,
+      organizationId: `org-${userId}`,
+      role: "owner",
+      userId,
+    });
+  }
+  const authorization = createApplicationAuthorizationLifecycle(
+    stores,
+    applicationRightKeys,
+    { kind: "user", userId: "user-scope-a" },
+    {
+      actorUserId: "user-scope-a",
+      application: "wa",
+      isActive: () => true,
+      organizationId: "org-user-scope-a",
+      userId: "user-scope-a",
+    },
+  );
+
+  await assert.rejects(
+    authorization.reconcileOrganizationRoles({
+      application: "foo",
+      organizationId: "org-user-scope-b",
+      roles: [{ key: "owner", name: "Other Owner", rights: ["wa.test.read"] }],
+    }),
+    /lifecycle authorization is scoped/i,
+  );
+  assert.equal(
+    (await stores.authorization.listRoles({
+      organizationId: "org-user-scope-b",
+      scopeKind: "organization",
+    })).some(({ key }) => key === "application_foo_owner"),
+    false,
+  );
+});
+
+test("organization lifecycle failure rolls back its Auth audit row", async () => {
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  const stores = new MemoryAuthStores({ rightsIr: authorizationRightsIr });
+  const auditSink: MemoryAuthAuditSink = { entries: [] };
+  let lifecycleWritesCompleted = false;
+
+  await assert.rejects(
+    executeAuthMutation({
+      auditWriter: createMemoryAuthAuditWriter(auditSink),
+      context: {
+        actor: { kind: "user", userId: "user-lifecycle-rollback" },
+        request: { method: "POST", path: "/organization/create" },
+        traceId: "trace-lifecycle-rollback",
+      },
+      event: "organization.create",
+      execute: async ({ stores: mutationStores }) => {
+        await mutationStores.createUser({
+          email: "rollback@example.com",
+          id: "user-lifecycle-rollback",
+        });
+        const organization = await mutationStores.createOrganization({
+          createdByUserId: "user-lifecycle-rollback",
+          id: "org-lifecycle-rollback",
+          name: "Rollback",
+          slug: "rollback",
+        });
+        const member = await mutationStores.addMember({
+          id: "member-lifecycle-rollback",
+          organizationId: organization.id,
+          role: "owner",
+          userId: "user-lifecycle-rollback",
+        });
+        return { member, organization };
+      },
+      hooks: {
+        lifecycle: {
+          "organization.create": async ({ authorization, result }) => {
+            await authorization.reconcileOrganizationRoles({
+              application: "wa",
+              organizationId: result.organization.id,
+              roles: [
+                { key: "owner", name: "WA Owner", rights: ["wa.test.read"] },
+              ],
+            });
+            await authorization.replaceMemberApplicationRole({
+              application: "wa",
+              organizationId: result.organization.id,
+              roleKey: "owner",
+              userId: result.member.userId,
+            });
+            lifecycleWritesCompleted = true;
+            throw new Error("fail after WA role assignment");
+          },
+        },
+      },
+      input: { name: "Rollback", slug: "rollback" },
+      lifecycleAuthorization: (scope, actor, _event, result, isActive) =>
+        createApplicationAuthorizationLifecycle(
+          scope.stores,
+          applicationRightKeys,
+        actor,
+        {
+            actorUserId: actor.userId,
+          application: "wa",
+            isActive,
+            organizationId: result.organization.id,
+            userId: result.member.userId,
+          },
+        ),
+      resultOf: ({ member, organization }) => ({
+        member: sanitizeHookMember(member),
+        organization: sanitizeHookOrganization(organization),
+      }),
+      transaction: createMemoryAuthMutationTransaction(
+        stores,
+        undefined,
+        auditSink,
+      ),
+    }),
+    /fail after WA role assignment/,
+  );
+
+  assert.equal(lifecycleWritesCompleted, true);
+  assert.equal(await stores.getOrganization("org-lifecycle-rollback"), undefined);
+  assert.deepEqual(await stores.listMembers("org-lifecycle-rollback"), []);
+  assert.equal(
+    (await stores.authorization.listRoles({
+      organizationId: "org-lifecycle-rollback",
+      scopeKind: "organization",
+    })).some(({ key }) => key === "application_wa_owner"),
+    false,
+  );
+  const assignments = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: "org-lifecycle-rollback",
+  });
+  assert.deepEqual(assignments.assignments, []);
+  assert.equal(assignments.revision, 1);
+  assert.deepEqual(auditSink.entries, []);
 });
 
 test("member role update exposes previous.role to before and result.member.role after", async () => {
   const seen: { previous?: string; result?: string } = {};
+  const { applicationRightKeys, authorizationRightsIr } = waLifecycleTestRights();
+  const applicationRoles = ["owner", "admin", "member", "auditor"].map((key) => ({
+    key,
+    name: `WA ${key[0]?.toUpperCase()}${key.slice(1)}`,
+    rights: [],
+  }));
+  const provisionApplicationRole = async (
+    authorization: import("../src/auth/hooks/types.ts").AthenaAuthLifecycleAuthorization,
+    organizationId: string,
+    userId: string,
+    roleKey: string,
+  ) => {
+    await authorization.reconcileOrganizationRoles({
+      application: "wa",
+      organizationId,
+      roles: applicationRoles,
+    });
+    await authorization.replaceMemberApplicationRole({
+      application: "wa",
+      organizationId,
+      roleKey,
+      userId,
+    });
+  };
   const runtime = createAthenaAuthRuntime({
     autoMigrate: false,
+    applicationRightKeys,
+    applicationAuthorization: { application: "wa" },
+    authorizationRightsIr,
     hasher: createTestHasher(),
     hooks: {
+      lifecycle: {
+        "organization.invitation.accept": async ({ authorization, actor, result }) => {
+          assert.ok(actor.userId);
+          await provisionApplicationRole(
+            authorization,
+            result.invitation.organizationId,
+            actor.userId,
+            "member",
+          );
+        },
+        "organization.member.role.update": async ({ authorization, result }) => {
+          await provisionApplicationRole(
+            authorization,
+            result.member.organizationId,
+            result.member.userId,
+            result.member.role,
+          );
+        },
+      },
       after: {
         "organization.member.role.update": async (payload) => {
           seen.result = payload.result.member.role;
@@ -679,6 +1503,28 @@ test("member role update exposes previous.role to before and result.member.role 
     }[]
   ).find((item) => item.role === "member");
   assert.ok(memberRow);
+  const stores = await runtime.getStores();
+  const applicationRoleCatalog = await stores.authorization.listRoles({
+    organizationId: orgId,
+    scopeKind: "organization",
+  });
+  const waMember = applicationRoleCatalog.find(({ key }) => key === "application_wa_member");
+  assert.ok(waMember);
+  const assignmentsBeforeAdmin = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: orgId,
+  });
+  const invitedAssignment = assignmentsBeforeAdmin.assignments.find(
+    ({ userId }) => userId === memberRow.userId,
+  );
+  assert.ok(invitedAssignment?.roleIds.includes(waMember.id));
+  const invitedAuthorization = await stores.authorization.readSnapshot({
+    activeOrganizationId: orgId,
+    getMember: (organizationId, userId) => stores.getMember(organizationId, userId),
+    listMembers: (organizationId) => stores.listMembers(organizationId),
+    userId: memberRow.userId,
+  });
+  assert.equal(invitedAuthorization.effectiveRights.includes(parseAthenaRightKey("authorization.roles.read")), false);
+  assert.equal(invitedAuthorization.effectiveRights.includes(parseAthenaRightKey("organization.members.write")), false);
   const update = await runtime.handle(
     new Request("http://app.local/api/auth/organization/update-member-role", {
       body: JSON.stringify({
@@ -696,6 +1542,16 @@ test("member role update exposes previous.role to before and result.member.role 
   assert.equal(update.status, 200);
   assert.equal(seen.previous, "member");
   assert.equal(seen.result, "admin");
+  const assignmentsAfterAdmin = await stores.authorization.readMemberRoleAssignmentsSnapshot({
+    organizationId: orgId,
+  });
+  const waAdmin = applicationRoleCatalog.find(({ key }) => key === "application_wa_admin");
+  assert.ok(waAdmin);
+  const updatedAssignment = assignmentsAfterAdmin.assignments.find(
+    ({ userId }) => userId === memberRow.userId,
+  );
+  assert.ok(updatedAssignment?.roleIds.includes(waAdmin.id));
+  assert.equal(updatedAssignment?.roleIds.includes(waMember.id), false);
 });
 
 test("admin create-user emits user.create with actor.kind admin", async () => {

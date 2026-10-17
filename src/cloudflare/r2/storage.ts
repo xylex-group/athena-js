@@ -24,6 +24,7 @@ export type CloudflareR2PutBody =
 export interface CloudflareR2PutObjectInput {
   body: CloudflareR2PutBody;
   contentType?: string;
+  ifAbsent?: boolean;
   key: string;
   metadata?: Record<string, string>;
 }
@@ -31,7 +32,9 @@ export interface CloudflareR2PutObjectInput {
 export interface CloudflareR2GetObjectResult {
   body: R2ObjectBodyLike;
   contentType?: string;
+  etag?: string;
   key: string;
+  metadata?: Record<string, string>;
   size: number;
 }
 
@@ -165,6 +168,8 @@ function createUnsupportedCallable(path: string): unknown {
 
 /**
  * L3a object helpers only (no HTTP surface, no unsupported proxy).
+ * @docsCanonical
+ * @docsRole cloudflare-r2-object-storage
  */
 export function createCloudflareR2ObjectStorage(
   options: CloudflareR2StorageOptions
@@ -175,12 +180,18 @@ export function createCloudflareR2ObjectStorage(
   const putObject = async (input: CloudflareR2PutObjectInput) => {
     const logical = assertSafeObjectKey(input.key);
     const physical = toPhysicalKey(prefix, logical);
-    await r2.put(physical, input.body, {
+    const result = await r2.put(physical, input.body, {
       customMetadata: input.metadata,
       httpMetadata: input.contentType
         ? { contentType: input.contentType }
         : undefined,
+      ...(input.ifAbsent ? { onlyIf: { etagDoesNotMatch: "*" } } : {}),
     });
+    if (input.ifAbsent && result === null) {
+      throw Object.assign(new Error("Storage destination already exists"), {
+        code: "PreconditionFailed",
+      });
+    }
     // Return the logical key so put → get/delete round-trips without double-prefix.
     return { key: logical };
   };
@@ -195,7 +206,9 @@ export function createCloudflareR2ObjectStorage(
     return {
       body: object,
       contentType: object.httpMetadata?.contentType,
+      etag: object.etag,
       key: toLogicalKey(prefix, object.key),
+      metadata: object.customMetadata,
       size: object.size,
     };
   };
@@ -245,6 +258,8 @@ export function createCloudflareR2ObjectStorage(
 /**
  * Minimal storage surface backed by an R2 binding only.
  * Full AthenaStorageModule methods that need catalogs throw clearly.
+ * @docsCanonical
+ * @docsRole cloudflare-r2-storage-module
  */
 export function createCloudflareR2StorageModule(
   options: CloudflareR2StorageOptions
@@ -267,6 +282,8 @@ export function createCloudflareR2StorageModule(
  * Same-namespace hybrid: HTTP storage.* ports (file/catalog/multipart/backup/…)
  * plus L3a R2 putObject/getObject/deleteObject/listObjects on the same module.
  * R2 L3a wins on the four object helper names if ever present on HTTP.
+ * @docsCanonical
+ * @docsRole cloudflare-compose-storage
  */
 export function composeHttpAndR2Storage(
   http: AthenaStorageModule,

@@ -690,14 +690,14 @@ test("ACT-CAP-007: D1 contribution facts come from D1's explicit query matrix", 
   assert.equal(GATEWAY_QUERY_CAPABILITIES.ilike, true);
 });
 
-test("ACT-CAP-018: materialized runtime stores one IR used by DevTools", async () => {
+test("ACT-CAP-018: materialized runtime stores one IR used by DevTools", async (t) => {
   const client = createClient({
     url: "https://example.test",
     key: "test-key",
     auth: false,
   });
 
-  test("ACT-CAP-018: runtime ingress canonicalizes supplied capability documents", () => {
+  await t.test("ACT-CAP-018: runtime ingress canonicalizes supplied capability documents", () => {
     assert.throws(() =>
       createAthenaServerRuntime({
         databaseUrl: "postgres://example.invalid/athena",
@@ -709,7 +709,7 @@ test("ACT-CAP-018: materialized runtime stores one IR used by DevTools", async (
     );
   });
 
-  test("ACT-CAP-012: Auth capability updates refresh the runtime IR", async () => {
+  await t.test("ACT-CAP-012: Auth capability updates refresh the runtime IR", async () => {
     const client = createClient({
       url: "https://data.example",
       key: "test-key",

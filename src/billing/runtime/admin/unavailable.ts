@@ -16,6 +16,7 @@ export function createUnavailableBillingAdminPort(): BillingAdminPort {
     },
     connections: { materialize: fail("admin.connections.materialize") },
     ingestion: { health: fail("admin.ingestion.health") },
+    inventory: { list: fail("admin.inventory.list") },
     reconciliation: {
       retry: fail("admin.reconciliation.retry"),
       run: fail("admin.reconciliation.run"),

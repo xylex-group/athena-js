@@ -1,0 +1,54 @@
+{
+  "backend": "postgresql",
+  "database": "browser_integer_fixture",
+  "generatedAt": "2026-10-15T00:00:00.000Z",
+  "schemas": {
+    "public": {
+      "name": "public",
+      "tables": {
+        "example": {
+          "name": "example",
+          "schema": "public",
+          "columns": {
+            "id": {
+              "arrayDimensions": 0,
+              "dataType": "bigint",
+              "hasDefault": false,
+              "identity": "always",
+              "isGenerated": false,
+              "isNullable": false,
+              "isPrimaryKey": true,
+              "name": "id",
+              "typeKind": "scalar",
+              "udtName": "int8"
+            },
+            "count": {
+              "arrayDimensions": 0,
+              "dataType": "integer",
+              "hasDefault": false,
+              "isGenerated": false,
+              "isNullable": false,
+              "isPrimaryKey": false,
+              "name": "count",
+              "typeKind": "scalar",
+              "udtName": "int4"
+            },
+            "priority": {
+              "arrayDimensions": 0,
+              "dataType": "smallint",
+              "hasDefault": false,
+              "isGenerated": false,
+              "isNullable": false,
+              "isPrimaryKey": false,
+              "name": "priority",
+              "typeKind": "scalar",
+              "udtName": "int2"
+            }
+          },
+          "primaryKey": ["id"],
+          "relations": {}
+        }
+      }
+    }
+  }
+}

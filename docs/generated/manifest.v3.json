@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "bindings": "bindings.v3.json",
+    "examples": "examples.v3.json",
+    "semantic": "semantic.v3.json",
+    "symbols": "symbols.v3.json"
+  },
+  "package": {
+    "name": "@xylex-group/athena",
+    "version": "5.7.9"
+  },
+  "schema": "athena/docs-api/v3",
+  "source": {
+    "inputsDigest": "0e458d95a9d905111bda03bf75d48b6753404914c18edf834fe52d58945cf23c",
+    "packageJsonDigest": "c593508f49e2e77b2541a2caa63d495f578e0401fed6b11e8397894292d4b6d7"
+  }
+}

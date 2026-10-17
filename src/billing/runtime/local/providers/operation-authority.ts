@@ -10,6 +10,7 @@ export const MOLLIE_OPERATION_AUTHORITY = {
   "admin.connections.materialize": { permissions: [] },
   "admin.bootstrap.retry": { permissions: [] },
   "admin.ingestion.health": { permissions: [] },
+  "admin.inventory.list": { permissions: [] },
   "admin.reconciliation.retry": { permissions: [] },
   "admin.reconciliation.run": { permissions: [] },
   "admin.webhooks.reconcile": { permissions: [] },

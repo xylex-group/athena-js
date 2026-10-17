@@ -1,7 +1,7 @@
 -- Replace durable rejected-webhook bodies with bounded evidence.
 -- Historical rows receive an explicitly legacy, unkeyed SHA-256 digest because
 -- the original request signing secret is unavailable during migration.
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 ALTER TABLE billing.billing_webhook_ingress_rejections
     ADD COLUMN IF NOT EXISTS digest text,

@@ -67,6 +67,8 @@ function cellKind(
 
 /**
  * Coverage **cells** per resource × action — not a binary covered flag.
+ * @docsCanonical
+ * @docsRole policy-coverage
  */
 export function coverageAthenaPolicy(
   document: unknown,

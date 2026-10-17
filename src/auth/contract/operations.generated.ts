@@ -1039,6 +1039,25 @@ export const ATHENA_AUTH_OPERATIONS: AthenaAuthGeneratedOperationDefinition[] = 
     "sdkBindingRequired": true
   },
   {
+    "auth": "protocol",
+    "capability": "oauthAuthorizationServer",
+    "availability": "embedded-only",
+    "embedded": "supported",
+    "id": "oauth.interaction",
+    "lifecycle": "canonical",
+    "method": "GET",
+    "mutation": false,
+    "operation": "oauth.interaction",
+    "path": "/oauth/interaction",
+    "rust": "unsupported",
+    "runtimes": {
+      "dedicated": "unsupported",
+      "embedded": "supported"
+    },
+    "sdkEndpoint": "missing",
+    "sdkBindingRequired": true
+  },
+  {
     "auth": "public",
     "capability": "health",
     "availability": "portable",

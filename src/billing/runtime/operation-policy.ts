@@ -47,14 +47,19 @@ const ADMIN_INGESTION_READ = parseAthenaRightKey(
 const ADMIN_CONFLICTS_WRITE = parseAthenaRightKey(
   "billing.admin.conflicts.write"
 );
+const ADMIN_INVENTORY_READ = parseAthenaRightKey(
+  "billing.admin.inventory.read"
+);
 
 function policy(
   operation: BillingOperation,
   subjectScope: BillingSubjectScope,
-  requiredRights: readonly AthenaRightKey[]
+  requiredRights: readonly AthenaRightKey[],
+  executionAuthority?: BillingExecutionAuthority
 ): BillingOperationPolicy {
   return {
-    executionAuthority: subjectScope === "self" ? "session" : "process",
+    executionAuthority:
+      executionAuthority ?? (subjectScope === "self" ? "session" : "process"),
     operation,
     requiredRights,
     subjectScope,
@@ -115,12 +120,13 @@ const POLICIES: readonly BillingOperationPolicy[] = Object.freeze([
   policy("admin.bootstrap.retry", "admin", [ADMIN_RECONCILIATION_WRITE]),
   policy("admin.conflicts.list", "admin", [ADMIN_CONFLICTS_WRITE]),
   policy("admin.conflicts.resolve", "admin", [ADMIN_CONFLICTS_WRITE]),
-  policy("admin.ingestion.health", "admin", [ADMIN_INGESTION_READ]),
+  policy("admin.inventory.list", "admin", [ADMIN_INVENTORY_READ], "session"),
+  policy("admin.ingestion.health", "admin", [ADMIN_INGESTION_READ], "session"),
   policy("admin.reconciliation.retry", "admin", [ADMIN_RECONCILIATION_WRITE]),
   policy("admin.reconciliation.run", "admin", [ADMIN_RECONCILIATION_WRITE]),
   policy("admin.webhooks.reconcile", "admin", [ADMIN_WEBHOOKS_WRITE]),
-  policy("admin.webhooks.status", "admin", [ADMIN_WEBHOOKS_READ]),
-  policy("admin.webhooks.verify", "admin", [ADMIN_WEBHOOKS_WRITE]),
+  policy("admin.webhooks.status", "admin", [ADMIN_WEBHOOKS_READ], "session"),
+  policy("admin.webhooks.verify", "admin", [ADMIN_WEBHOOKS_WRITE], "session"),
 ]);
 
 const POLICY_BY_OPERATION = Object.freeze(
